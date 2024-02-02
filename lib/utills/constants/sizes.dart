@@ -35,35 +35,8 @@ class WSizes {
   static const double spaceBtwSections = 30.0;
 
   // boeder radius
-  static const double borderRadiusSm = 4.0;
-  static const double borderRadiusMd = 8.0;
   static const double borderRadiusLg = 12.0;
 
   // Divider height
   static const double dividerHeight = 1.0;
-
-  // ProductItem dimensions
-  static const double productImageSize = 120.0;
-  static const double productImageRadius = 16.0;
-  static const double productImageHeight = 160.0;
-
-  // Input fields
-  static const double inputFieldRadius = 12.0;
-  static const double spaceBtwFields = 16.0;
-
-  // Card SIzes
-  static const double cardRadiusLg = 16.0;
-  static const double cardRadiusMd = 12.0;
-  static const double cardRadiusSM = 10.0;
-  static const double cardRadiusXs = 6.0;
-  static const double cardElevation = 2.0;
-
-  // Image carousel height
-  static const double imageCarouseHeight = 200.0;
-
-  // loading indicator sIze
-  static const double loadingIndicatorSIze = 36.0;
-
-  // Grid view spacing
-  static const double gridViewSpacing = 36.0;
 }

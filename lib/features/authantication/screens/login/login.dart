@@ -4,8 +4,8 @@ import 'package:get/get.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/features/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/features/authantication/screens/login/widgets/text_form_field.dart';
-import 'package:wahda_bank/features/authantication/screens/otp/enter_otp.dart';
-import 'package:wahda_bank/features/authantication/screens/otp/reset_password_screen.dart';
+import 'package:wahda_bank/features/authantication/screens/otp/send%20otp%20view/send_otp_view.dart';
+import 'package:wahda_bank/features/authantication/screens/reset_password_screen/reset_password_screen.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
@@ -95,7 +95,7 @@ class LoginScreen extends StatelessWidget {
                             children: [
                               TextButton(
                                 onPressed: () {
-                                  Get.to(() => const ResetPasswordScreen());
+                                  Get.to(() => ResetPasswordScreen());
                                 },
                                 child: const Text('Reset Password'),
                               ),
@@ -112,7 +112,7 @@ class LoginScreen extends StatelessWidget {
                                 controller!.start();
 
                                 controller!.success();
-                                Get.to(() => EnterOtpScreen());
+                                Get.to(() => SendOtpView());
                               } catch (e) {
                                 String message = e.toString();
                                 if (e.toString().startsWith('null')) {

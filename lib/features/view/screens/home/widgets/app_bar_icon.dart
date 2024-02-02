@@ -11,7 +11,7 @@ class HomeAppBarIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        Get.to(ComposeScreen());
+        Get.to(() => ComposeScreen());
       },
       child: Container(
         margin: const EdgeInsets.only(top: 10, bottom: 10, right: 20),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:wahda_bank/utills/constants/colors.dart';
+import 'package:wahda_bank/widgets/w_listtile.dart';
 
 class SearchView extends StatelessWidget {
   SearchView({super.key});
@@ -11,18 +13,11 @@ class SearchView extends StatelessWidget {
         elevation: 0,
         backgroundColor: Colors.transparent,
         automaticallyImplyLeading: false,
-        // leading: IconButton(
-        //     onPressed: () {
-        //       Get.back();
-        //     },
-        //     icon: const Icon(Icons.arrow_back_ios)),
         title: TextFormField(
           controller: textController,
-          onChanged: (String txt) {
-            // onSearch(txt);
-          },
+          onChanged: (String txt) {},
           decoration: InputDecoration(
-            fillColor: const Color(0xFF37373F1A),
+            fillColor: WColors.fieldbackground,
             filled: true,
             contentPadding:
                 const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
@@ -57,6 +52,27 @@ class SearchView extends StatelessWidget {
             ),
           ),
         ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.separated(
+                padding: const EdgeInsets.only(top: 20),
+                physics: const BouncingScrollPhysics(),
+                shrinkWrap: true,
+                itemBuilder: (context, index) {
+                  return WListTile(
+                    selected: false,
+                    onTap: () {},
+                  );
+                },
+                separatorBuilder: (_, __) => Divider(
+                      height: 2,
+                      color: Colors.grey.shade300,
+                    ),
+                itemCount: 3),
+          ),
+        ],
       ),
     );
   }

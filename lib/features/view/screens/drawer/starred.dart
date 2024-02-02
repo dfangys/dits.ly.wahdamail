@@ -7,7 +7,10 @@ class StarredScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Starred'),
+        title: Text(
+          'Starred',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         centerTitle: true,
         actions: const [Icon(Icons.search)],
       ),

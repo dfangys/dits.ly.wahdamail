@@ -19,4 +19,10 @@ class WImages {
   static const String delete = "assets/png/delete.png";
   static const String contactus = "assets/png/contactus.png";
   static const String files = "assets/png/files.png";
+  static const String lock = "assets/png/lock.png";
+  static const String mail = "assets/png/mail.png";
+  static const String background = 'assets/png/background.png';
+  static const String reply = "assets/png/reply.png";
+  static const String forward = "assets/png/forward.png";
+  static const String attach = "assets/png/attatch.png";
 }

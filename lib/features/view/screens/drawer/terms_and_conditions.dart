@@ -15,9 +15,9 @@ class TermsAndCondition extends StatelessWidget {
             Icons.arrow_back_ios,
           ),
         ),
-        title: const Text(
+        title: Text(
           "Terms And Condition",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
         centerTitle: true,
         elevation: 0,
@@ -27,25 +27,25 @@ class TermsAndCondition extends StatelessWidget {
       body: SingleChildScrollView(
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
+          child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 "Aliquma fringla nisi non lectus feugiat molestie",
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               Text(
-                WText.terms.toString(),
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                WText.policyText,
+                style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
-              const SizedBox(height: 20),
-              const Text(
+              SizedBox(height: 20),
+              Text(
                 "Aliquma fringla nisi non lectus feugiat molestie",
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               Text(
-                WText.terms2.toString(),
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                WText.policyText2,
+                style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ],
           ),

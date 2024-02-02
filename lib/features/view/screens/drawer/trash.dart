@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:wahda_bank/widgets/w_listtile.dart';
 
 class TrashScreen extends StatelessWidget {
@@ -8,9 +9,16 @@ class TrashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Trash'),
+        title: Text('Trash', style: Theme.of(context).textTheme.titleLarge),
         centerTitle: true,
-        actions: const [Icon(CupertinoIcons.add)],
+        actions: [
+          IconButton(
+            onPressed: () {
+              Get.back();
+            },
+            icon: const Icon(Icons.search),
+          )
+        ],
       ),
       body: Column(
         children: [

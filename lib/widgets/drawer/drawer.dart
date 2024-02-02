@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:wahda_bank/features/view/screens/drawer/send_mail/send_mail.dart';
 import 'package:wahda_bank/features/view/screens/drawer/terms_and_conditions.dart';
 import 'package:wahda_bank/features/view/contact_us/Contact_us.dart';
 import 'package:wahda_bank/features/view/screens/drawer/starred.dart';
 import 'package:wahda_bank/features/view/screens/drawer/compose/compose.dart';
-import 'package:wahda_bank/features/view/screens/drawer/send_mail.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/widgets/drawer/drawer_tile.dart';
-import 'package:wahda_bank/widgets/drawer/trash.dart';
+import 'package:wahda_bank/features/view/screens/drawer/trash.dart';
 
 class Drawer1 extends StatelessWidget {
   const Drawer1({Key? key}) : super(key: key);

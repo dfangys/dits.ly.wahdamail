@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:wahda_bank/utills/constants/image_strings.dart';
 
 class ComposeActionButton extends StatelessWidget {
   const ComposeActionButton({
@@ -93,7 +94,7 @@ class ComposeActionButton extends StatelessWidget {
           ),
         );
       },
-      icon: Image.asset("assets/png/attatch.png"),
+      icon: Image.asset(WImages.attach),
     );
   }
 }

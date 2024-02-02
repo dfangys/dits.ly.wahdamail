@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/widgets/w_listtile.dart';
 
 class SendMailScreen extends StatelessWidget {
@@ -9,11 +8,7 @@ class SendMailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          title,
-          style: const TextStyle(
-              fontSize: WSizes.defaultSpace, fontWeight: FontWeight.w500),
-        ),
+        title: Text(title, style: Theme.of(context).textTheme.titleLarge),
         centerTitle: true,
         actions: [
           IconButton(

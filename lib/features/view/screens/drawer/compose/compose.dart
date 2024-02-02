@@ -13,7 +13,6 @@ class ComposeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.transparent,
         centerTitle: true,
         leading: IconButton(
           onPressed: () {

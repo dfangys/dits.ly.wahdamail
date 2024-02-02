@@ -3,6 +3,7 @@ import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/features/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/features/view/screens/drawer/compose/compose.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
+import 'package:wahda_bank/utills/constants/sizes.dart';
 
 // ignore: must_be_immutable
 class ContactUsScreen extends StatelessWidget {
@@ -58,7 +59,7 @@ class ContactUsScreen extends StatelessWidget {
                     },
                     text: ' "Email"',
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: WSizes.spaceBtwSections),
                 ],
               ),
             ),
@@ -89,7 +90,7 @@ class ContactUsScreen extends StatelessWidget {
                     },
                     text: 'Call',
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: WSizes.spaceBtwSections),
                 ],
               ),
             ),

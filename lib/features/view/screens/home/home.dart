@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:wahda_bank/features/view/inbox/inbox.dart';
 import 'package:wahda_bank/features/view/screens/home/widgets/appbar.dart';
 import 'package:wahda_bank/widgets/drawer/drawer.dart';
 import 'package:wahda_bank/widgets/w_listtile.dart';
@@ -21,7 +23,9 @@ class HomeScreen extends StatelessWidget {
                 itemBuilder: (context, index) {
                   return WListTile(
                     selected: false,
-                    onTap: () {},
+                    onTap: () {
+                      Get.to(() => InboxScreen());
+                    },
                   );
                 },
                 separatorBuilder: (_, __) => Divider(
