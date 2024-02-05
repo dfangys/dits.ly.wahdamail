@@ -53,25 +53,9 @@ class SearchView extends StatelessWidget {
           ),
         ),
       ),
-      body: Column(
+      body: const Column(
         children: [
-          Expanded(
-            child: ListView.separated(
-                padding: const EdgeInsets.only(top: 20),
-                physics: const BouncingScrollPhysics(),
-                shrinkWrap: true,
-                itemBuilder: (context, index) {
-                  return WListTile(
-                    selected: false,
-                    onTap: () {},
-                  );
-                },
-                separatorBuilder: (_, __) => Divider(
-                      height: 2,
-                      color: Colors.grey.shade300,
-                    ),
-                itemCount: 3),
-          ),
+          Expanded(child: WListTile(selected: false)),
         ],
       ),
     );

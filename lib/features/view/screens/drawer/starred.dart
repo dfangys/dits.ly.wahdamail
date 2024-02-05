@@ -14,27 +14,14 @@ class StarredScreen extends StatelessWidget {
         centerTitle: true,
         actions: const [Icon(Icons.search)],
       ),
-      body: Column(
+      body: const Column(
         children: [
           Expanded(
-            child: ListView.separated(
-                padding: const EdgeInsets.only(top: 20),
-                physics: const BouncingScrollPhysics(),
-                shrinkWrap: true,
-                itemBuilder: (context, index) {
-                  return WListTile(
-                    selected: false,
-                    icon: Icons.star,
-                    iconColor: Colors.green,
-                    onTap: () {},
-                  );
-                },
-                separatorBuilder: (_, __) => Divider(
-                      height: 2,
-                      color: Colors.grey.shade300,
-                    ),
-                itemCount: 10),
-          ),
+              child: WListTile(
+            selected: false,
+            icon: Icons.star_rate,
+            iconColor: Colors.yellow,
+          )),
         ],
       ),
     );

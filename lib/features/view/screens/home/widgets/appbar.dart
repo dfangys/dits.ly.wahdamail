@@ -5,7 +5,7 @@ import 'package:wahda_bank/widgets/search/search.dart';
 
 Widget appBar() {
   return AppBar(
-    backgroundColor: Colors.transparent,
+    backgroundColor: const Color(0xfff9f9f9),
     title: GestureDetector(
       onTap: () {
         SearchController().clear();

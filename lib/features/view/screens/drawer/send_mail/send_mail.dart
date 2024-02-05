@@ -17,26 +17,9 @@ class SendMailScreen extends StatelessWidget {
           )
         ],
       ),
-      body: Column(
+      body: const Column(
         children: [
-          Expanded(
-            child: ListView.separated(
-                padding: const EdgeInsets.only(top: 20),
-                physics: const BouncingScrollPhysics(),
-                shrinkWrap: true,
-                itemBuilder: (context, index) {
-                  return WListTile(
-                    selected: false,
-                    icon: Icons.star_border_purple500_outlined,
-                    onTap: () {},
-                  );
-                },
-                separatorBuilder: (_, __) => Divider(
-                      height: 2,
-                      color: Colors.grey.shade300,
-                    ),
-                itemCount: 10),
-          ),
+          Expanded(child: WListTile(selected: false)),
         ],
       ),
     );

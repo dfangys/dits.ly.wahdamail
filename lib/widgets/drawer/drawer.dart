@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:wahda_bank/features/authantication/screens/login/login.dart';
 import 'package:wahda_bank/features/view/screens/drawer/send_mail/send_mail.dart';
 import 'package:wahda_bank/features/view/screens/drawer/terms_and_conditions.dart';
-import 'package:wahda_bank/features/view/contact_us/Contact_us.dart';
+import 'package:wahda_bank/features/view/screens/drawer/contact_us/Contact_us.dart';
 import 'package:wahda_bank/features/view/screens/drawer/starred.dart';
 import 'package:wahda_bank/features/view/screens/drawer/compose/compose.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
@@ -38,9 +39,7 @@ class Drawer1 extends StatelessWidget {
           WDraweTile(
             image: WImages.inbox,
             text: 'Inbox',
-            onTap: () {
-              Get.back();
-            },
+            onTap: () => Get.back(),
             trailing: '99',
           ),
           divider(),
@@ -134,7 +133,8 @@ class Drawer1 extends StatelessWidget {
               'Log Out',
               style: TextStyle(color: Colors.white),
             ),
-            onTap: () async {},
+            onTap: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => LoginScreen())),
           ),
         ],
       ),

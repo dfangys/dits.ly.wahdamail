@@ -78,29 +78,3 @@ class InboxScreen extends StatelessWidget {
     );
   }
 }
-
-Widget bottomButton(VoidCallback onTap, String text, String icon) {
-  return Expanded(
-    child: InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          // border: Border.all(),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(icon),
-            const SizedBox(width: 6),
-            Text(
-              text,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
