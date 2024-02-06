@@ -1,0 +1,34 @@
+import 'package:flutter/material.dart';
+import 'package:rounded_loading_button/rounded_loading_button.dart';
+import 'package:wahda_bank/utills/constants/colors.dart';
+
+class WRoundedButton extends StatelessWidget {
+  const WRoundedButton(
+      {super.key,
+      required this.controller,
+      required this.onPress,
+      required this.text});
+  final RoundedLoadingButtonController controller;
+  final String text;
+  final Function()? onPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return RoundedLoadingButton(
+      color: WColors.primaryColor,
+      borderRadius: 10,
+      elevation: 3,
+      width: MediaQuery.of(context).size.width - 40,
+      controller: controller,
+      onPressed: onPress,
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16.0,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+}

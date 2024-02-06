@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/features/authantication/screens/login/login.dart';
-import 'package:wahda_bank/features/view/screens/drawer/send_mail/send_mail.dart';
-import 'package:wahda_bank/features/view/screens/drawer/terms_and_conditions.dart';
-import 'package:wahda_bank/features/view/screens/drawer/contact_us/Contact_us.dart';
-import 'package:wahda_bank/features/view/screens/drawer/starred.dart';
-import 'package:wahda_bank/features/view/screens/drawer/compose/compose.dart';
+import 'package:wahda_bank/views/authantication/screens/login/login.dart';
+import 'package:wahda_bank/views/view/screens/drawer/send_mail/send_mail.dart';
+import 'package:wahda_bank/views/view/screens/drawer/terms_and_conditions.dart';
+import 'package:wahda_bank/views/view/screens/drawer/contact_us/Contact_us.dart';
+import 'package:wahda_bank/views/view/screens/drawer/starred.dart';
+import 'package:wahda_bank/views/view/screens/drawer/compose/compose.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/widgets/drawer/drawer_tile.dart';
-import 'package:wahda_bank/features/view/screens/drawer/trash.dart';
+import 'package:wahda_bank/views/view/screens/drawer/trash.dart';
+
+import '../../views/settings/settings_view.dart';
 
 class Drawer1 extends StatelessWidget {
   const Drawer1({Key? key}) : super(key: key);
@@ -117,6 +119,15 @@ class Drawer1 extends StatelessWidget {
             text: 'Terms and Condition',
             onTap: () {
               Get.to(() => const TermsAndCondition());
+            },
+            trailing: '',
+          ),
+          divider(),
+          WDraweTile(
+            image: WImages.draft,
+            text: 'Settings',
+            onTap: () {
+              Get.to(() => const SettingsView());
             },
             trailing: '',
           ),

@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/features/view/controllers/inbox_controller.dart';
+import 'package:wahda_bank/views/view/controllers/inbox_controller.dart';
 import 'package:wahda_bank/utills/popups/full_screen_loader.dart';
 import 'package:wahda_bank/widgets/listile/showDialogueBox.dart';
 
@@ -72,78 +72,80 @@ class WListTile extends StatelessWidget {
               ],
             ),
             child: ListTile(
-                onTap: onTap,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 15.0,
-                  vertical: 5.0,
-                ),
-                onLongPress: onLongPress,
-                leading: CircleAvatar(
-                  backgroundColor: Colors.blue,
-                  child: !selected
-                      ? Center(
-                          child: Text(
-                            user.firstLetter,
-                            style: const TextStyle(color: Colors.white),
-                            textAlign: TextAlign.center,
-                          ),
-                        )
-                      : const Icon(Icons.check, color: Colors.white),
-                ),
-                title: Text(
-                  user.name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      user.email,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4.0),
-                    Text(
-                      user.subject,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                  ],
-                ),
-                trailing: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Wed 7:32 AM',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 5,
-                      ),
-                      GestureDetector(
-                        onTap: onDelete,
-                        child: InkWell(
-                          child: Icon(
-                            icon,
-                            color: iconColor,
-                          ),
+              onTap: onTap,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 15.0,
+                vertical: 5.0,
+              ),
+              onLongPress: onLongPress,
+              leading: CircleAvatar(
+                backgroundColor: Colors.blue,
+                child: !selected
+                    ? Center(
+                        child: Text(
+                          user.firstLetter,
+                          style: const TextStyle(color: Colors.white),
+                          textAlign: TextAlign.center,
                         ),
                       )
-                    ])),
+                    : const Icon(Icons.check, color: Colors.white),
+              ),
+              title: Text(
+                user.name,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    user.email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4.0),
+                  Text(
+                    user.subject,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Wed 7:32 AM',
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 5,
+                  ),
+                  GestureDetector(
+                    onTap: onDelete,
+                    child: InkWell(
+                      child: Icon(
+                        icon,
+                        color: iconColor,
+                      ),
+                    ),
+                  )
+                ],
+              ),
+            ),
           );
         },
         separatorBuilder: (_, __) => Divider(
@@ -165,35 +167,36 @@ class WDeleteListTile extends StatelessWidget {
     return SlidableAction(
       onPressed: (context) => Get.bottomSheet(
         Container(
-            height: 50,
-            color: Colors.white,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                const SizedBox(
-                  width: 1,
-                ),
-                const Text('Deleted'),
-                InkWell(
-                  onTap: () {
-                    WFullScreenLoader.customToast(message: 'Deleted');
-                    Get.back();
-                  },
-                  child: Container(
-                    height: 30,
-                    width: 50,
-                    decoration: BoxDecoration(
-                        color: Colors.green,
-                        borderRadius: BorderRadius.circular(7)),
-                    child: const Center(
-                      child: Text('Undo'),
-                    ),
+          height: 50,
+          color: Colors.white,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              const SizedBox(
+                width: 1,
+              ),
+              const Text('Deleted'),
+              InkWell(
+                onTap: () {
+                  WFullScreenLoader.customToast(message: 'Deleted');
+                  Get.back();
+                },
+                child: Container(
+                  height: 30,
+                  width: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(7),
                   ),
-                )
-              ],
-            )),
+                  child: const Center(
+                    child: Text('Undo'),
+                  ),
+                ),
+              )
+            ],
+          ),
+        ),
       ),
-      // WFullScreenLoader.customToast(message: 'Deleted'),
       backgroundColor: Colors.red,
       icon: Icons.delete,
       label: 'Delete',

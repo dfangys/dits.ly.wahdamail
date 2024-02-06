@@ -18,16 +18,31 @@ class WDraweTile extends StatelessWidget {
     return ListTile(
       dense: true,
       leading: Container(
-          margin: const EdgeInsets.only(left: 5),
-          height: 20,
-          width: 20,
-          child: Image.asset(image)),
+        margin: const EdgeInsets.only(left: 5),
+        height: 20,
+        width: 20,
+        child: Image.asset(image),
+      ),
       title: Text(
         text,
         style: const TextStyle(color: Colors.white),
       ),
       onTap: onTap,
-      trailing: Text(trailing.toString()),
+      trailing: trailing == null || trailing!.isEmpty
+          ? const SizedBox.shrink()
+          : Container(
+              padding: const EdgeInsets.all(5),
+              width: 45,
+              height: 30,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Center(
+                child: Text("$trailing"),
+              ),
+            ),
     );
   }
 }

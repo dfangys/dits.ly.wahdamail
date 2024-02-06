@@ -14,4 +14,5 @@ class AppTheme {
     800: Color.fromRGBO(10, 153, 60, .9),
     900: Color.fromRGBO(10, 153, 60, 1),
   });
+  static const Color cardDesignColor = Color(0xFFF2F7FA);
 }
