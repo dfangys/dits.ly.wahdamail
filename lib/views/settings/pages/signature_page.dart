@@ -4,6 +4,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:wahda_bank/views/settings/components/signature_sheet.dart';
 
+import '../components/account_name.dart';
+
 class SignaturePage extends StatelessWidget {
   const SignaturePage({super.key});
 
@@ -33,6 +35,25 @@ class SignaturePage extends StatelessWidget {
               title: const Text('New Message'),
               onTap: () {},
             ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.abc),
+              title: const Text('Account Name'),
+              onTap: () {
+                if (Platform.isAndroid) {
+                  showModalBottomSheet(
+                    context: context,
+                    builder: (context) => AccountNameSheet(),
+                  );
+                } else {
+                  showCupertinoModalPopup(
+                    context: context,
+                    builder: (context) => AccountNameSheet(),
+                  );
+                }
+              },
+            ),
+            const Divider(),
             Expanded(
               child: Stack(
                 fit: StackFit.expand,

@@ -41,8 +41,8 @@ class WListTile extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
-                DateFormat().format(item.key),
-                style: const TextStyle(fontSize: 16),
+                timeago.format(item.key),
+                style: const TextStyle(fontSize: 12),
               ),
             ),
             ListView.separated(

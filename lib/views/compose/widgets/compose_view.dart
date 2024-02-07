@@ -34,7 +34,7 @@ class WComposeView extends StatelessWidget {
               readOnly: true,
               decoration: const InputDecoration(
                 labelText: "From",
-                hintText: "info@distly.com",
+                hintText: "Mr. Abc <info@distly.com>",
               ),
             ),
             Obx(
@@ -53,8 +53,8 @@ class WComposeView extends StatelessWidget {
                   },
                   icon: Icon(
                     controller.isCcAndBccVisible()
-                        ? Icons.arrow_upward
-                        : Icons.copyright,
+                        ? Icons.closed_caption_off_sharp
+                        : Icons.closed_caption_disabled,
                     color: Colors.grey,
                   ),
                 ),

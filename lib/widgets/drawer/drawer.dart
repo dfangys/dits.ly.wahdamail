@@ -39,13 +39,6 @@ class Drawer1 extends StatelessWidget {
             ),
           ),
           WDraweTile(
-            image: WImages.inbox,
-            text: 'Inbox',
-            onTap: () => Get.back(),
-            trailing: '99',
-          ),
-          divider(),
-          WDraweTile(
             image: WImages.compose,
             text: 'Compose',
             onTap: () {
@@ -55,21 +48,19 @@ class Drawer1 extends StatelessWidget {
           ),
           divider(),
           WDraweTile(
+            image: WImages.inbox,
+            text: 'Inbox',
+            onTap: () => Get.back(),
+            trailing: '99',
+          ),
+          divider(),
+          WDraweTile(
             image: WImages.sent,
             text: 'Sent Mail',
             onTap: () {
               Get.to(() => const SendMailScreen(
                     title: 'Send',
                   ));
-            },
-            trailing: '',
-          ),
-          divider(),
-          WDraweTile(
-            image: WImages.star,
-            text: 'Starred',
-            onTap: () {
-              Get.to(() => const StarredScreen());
             },
             trailing: '',
           ),
@@ -86,6 +77,24 @@ class Drawer1 extends StatelessWidget {
           ),
           divider(),
           WDraweTile(
+            image: WImages.delete,
+            text: 'Trash',
+            onTap: () {
+              Get.to(() => const TrashScreen());
+            },
+            trailing: '',
+          ),
+          divider(),
+          WDraweTile(
+            image: WImages.star,
+            text: 'Starred',
+            onTap: () {
+              Get.to(() => const StarredScreen());
+            },
+            trailing: '',
+          ),
+          divider(),
+          WDraweTile(
             image: WImages.spam,
             text: 'Spam',
             onTap: () {
@@ -97,10 +106,10 @@ class Drawer1 extends StatelessWidget {
           ),
           divider(),
           WDraweTile(
-            image: WImages.delete,
-            text: 'Trash',
+            image: WImages.draft,
+            text: 'Settings',
             onTap: () {
-              Get.to(() => const TrashScreen());
+              Get.to(() => const SettingsView());
             },
             trailing: '',
           ),
@@ -119,15 +128,6 @@ class Drawer1 extends StatelessWidget {
             text: 'Terms and Condition',
             onTap: () {
               Get.to(() => const TermsAndCondition());
-            },
-            trailing: '',
-          ),
-          divider(),
-          WDraweTile(
-            image: WImages.draft,
-            text: 'Settings',
-            onTap: () {
-              Get.to(() => const SettingsView());
             },
             trailing: '',
           ),

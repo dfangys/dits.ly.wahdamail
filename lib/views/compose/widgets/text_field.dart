@@ -64,24 +64,24 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (widget.ccBccWidget != null) widget.ccBccWidget!,
-                  // IconButton(
-                  //   onPressed: () async {
-                  //     if (await FlutterContacts.requestPermission(
-                  //         readonly: true)) {
-                  //       final Contact? contact =
-                  //           await FlutterContacts.openExternalPick();
-                  //       if (contact != null) {
-                  //         widget.onInsert(
-                  //           MailAddress(
-                  //             contact.displayName,
-                  //             contact.emails.first.address,
-                  //           ),
-                  //         );
-                  //       }
-                  //     }
-                  //   },
-                  //   icon: const Icon(Icons.contact_mail_outlined),
-                  // ),
+                  IconButton(
+                    onPressed: () async {
+                      // if (await FlutterContacts.requestPermission(
+                      //     readonly: true)) {
+                      //   final Contact? contact =
+                      //       await FlutterContacts.openExternalPick();
+                      //   if (contact != null) {
+                      //     widget.onInsert(
+                      //       MailAddress(
+                      //         contact.displayName,
+                      //         contact.emails.first.address,
+                      //       ),
+                      //     );
+                      //   }
+                      // }
+                    },
+                    icon: const Icon(Icons.contacts_outlined),
+                  ),
                 ],
               ),
             ),
