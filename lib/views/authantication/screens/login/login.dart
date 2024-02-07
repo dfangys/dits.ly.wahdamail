@@ -13,7 +13,9 @@ import 'package:wahda_bank/utills/constants/sizes.dart';
 // ignore: must_be_immutable
 class LoginScreen extends StatelessWidget {
   LoginScreen({super.key});
-  TextEditingController emailCtrl = TextEditingController();
+  TextEditingController emailCtrl = TextEditingController(
+    text: "@wahdabank.com.ly",
+  );
   TextEditingController passwordCtrl = TextEditingController();
   RoundedLoadingButtonController? controller = RoundedLoadingButtonController();
   final loginFormKey = GlobalKey<FormState>();

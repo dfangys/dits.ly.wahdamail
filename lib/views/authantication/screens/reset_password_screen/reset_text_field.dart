@@ -10,7 +10,9 @@ class ResetPasswordTextField extends StatelessWidget {
     super.key,
   });
   bool isBusy = false;
-  final TextEditingController emailController = TextEditingController();
+  final TextEditingController emailController = TextEditingController(
+    text: "@wahdabank.com.ly",
+  );
 
   @override
   Widget build(BuildContext context) {
