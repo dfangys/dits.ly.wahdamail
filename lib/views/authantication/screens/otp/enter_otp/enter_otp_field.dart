@@ -67,7 +67,7 @@ class EnterOtpfield extends StatelessWidget {
         WRoundedButton(
           controller: controller!,
           onPress: () {
-            Get.to(const HomeScreen());
+            Get.offAll(() => HomeScreen());
           },
           text: 'Submit',
         )

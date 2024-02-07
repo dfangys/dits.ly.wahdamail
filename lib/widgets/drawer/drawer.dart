@@ -6,7 +6,7 @@ import 'package:wahda_bank/views/view/screens/drawer/send_mail/send_mail.dart';
 import 'package:wahda_bank/views/view/screens/drawer/terms_and_conditions.dart';
 import 'package:wahda_bank/views/view/screens/drawer/contact_us/Contact_us.dart';
 import 'package:wahda_bank/views/view/screens/drawer/starred.dart';
-import 'package:wahda_bank/views/view/screens/drawer/compose/compose.dart';
+import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/widgets/drawer/drawer_tile.dart';

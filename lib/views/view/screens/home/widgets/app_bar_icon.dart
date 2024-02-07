@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/views/view/screens/drawer/compose/compose.dart';
+import 'package:wahda_bank/views/compose/compose.dart';
 
 class HomeAppBarIcon extends StatelessWidget {
   const HomeAppBarIcon({

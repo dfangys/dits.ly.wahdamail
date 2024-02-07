@@ -50,8 +50,9 @@ final allUsers = [
       subject: 'Aliquma fringla nisi non lectus feugiat molestie',
       firstLetter: 'W'),
   Users(
-      email: 'Adnan@gmail.com',
-      name: 'Adnan Tec',
-      subject: 'Aliquma fringla nisi non lectus feugiat molestie',
-      firstLetter: 'A'),
+    email: 'Adnan@gmail.com',
+    name: 'Adnan Tec',
+    subject: 'Aliquma fringla nisi non lectus feugiat molestie',
+    firstLetter: 'A',
+  ),
 ];

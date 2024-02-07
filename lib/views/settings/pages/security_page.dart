@@ -21,21 +21,7 @@ class SecurityPage extends StatelessWidget {
           // Change the lock method (Facelock, Fingerprint, or PIN)
           ListTile(
             title: const Text('Change Lock Method'),
-            trailing: const Icon(Icons.lock),
-            onTap: () {},
-          ),
-
-          // Reset all security settings to their default values
-          ListTile(
-            title: const Text('Reset Security Settings'),
-            trailing: const Icon(Icons.lock),
-            onTap: () {},
-          ),
-
-          // Show a dialog explaining what happens when you reset the security settings
-          ListTile(
-            title: const Text('What happens when I reset security settings?'),
-            trailing: const Icon(Icons.lock),
+            trailing: const Text('PIN'),
             onTap: () {},
           ),
         ],

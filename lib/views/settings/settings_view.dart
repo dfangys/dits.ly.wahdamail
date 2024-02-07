@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import 'pages/language_page.dart';
 import 'pages/security_page.dart';
 import 'pages/signature_page.dart';
 import 'pages/swipe_gesture.dart';
@@ -18,9 +19,11 @@ class SettingsView extends StatelessWidget {
         child: Column(
           children: <Widget>[
             ListTile(
-              title: Text('Language'),
-              trailing: Text('English'),
-              onTap: () {},
+              title: const Text('Language'),
+              trailing: const Text('English'),
+              onTap: () {
+                Get.to(() => const LanguagePage());
+              },
             ),
             Divider(),
             ListTile(
@@ -30,10 +33,10 @@ class SettingsView extends StatelessWidget {
             ),
             Divider(),
             ListTile(
-              title: Text('Security'),
-              trailing: Text('Off'),
+              title: const Text('Security'),
+              trailing: const Text('Off'),
               onTap: () {
-                Get.to(() => SecurityPage());
+                Get.to(() => const SecurityPage());
               },
             ),
             ListTile(

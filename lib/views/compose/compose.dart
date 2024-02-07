@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/views/view/screens/drawer/compose/widgets/compose_action_button.dart';
-import 'package:wahda_bank/views/view/screens/drawer/compose/widgets/compose_view.dart';
+import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
+import 'package:wahda_bank/views/compose/widgets/compose_action_button.dart';
+import 'package:wahda_bank/views/compose/widgets/compose_view.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 
 class ComposeScreen extends StatelessWidget {
   ComposeScreen({super.key});
   final composeFormKey = GlobalKey<FormState>();
+  final controller = Get.put(ComposeController());
   @override
   Widget build(BuildContext context) {
     return Scaffold(
