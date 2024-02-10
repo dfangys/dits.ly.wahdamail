@@ -48,10 +48,15 @@ dependencies:
   collection: ^1.18.0
   timeago: ^3.6.1
   intl: ^0.19.0
+  get_storage: ^2.1.1
+  hive_flutter: ^1.1.0
+  logger: ^2.0.2+1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  build_runner:
+  hive_generator:
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:wahda_bank/views/view/screens/home/home.dart';
 import 'package:wahda_bank/views/view/screens/splash.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
+import 'app/bindings/home_binding.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -29,6 +31,13 @@ class MyApp extends StatelessWidget {
         ),
       ),
       home: const SplashScreen(),
+      getPages: [
+        GetPage(
+          name: '/home',
+          page: () => const HomeScreen(),
+          binding: HomeBinding(),
+        ),
+      ],
     );
   }
 }

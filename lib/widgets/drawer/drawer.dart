@@ -1,6 +1,10 @@
+import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/views/authantication/screens/login/login.dart';
 import 'package:wahda_bank/views/view/screens/drawer/send_mail/send_mail.dart';
 import 'package:wahda_bank/views/view/screens/drawer/terms_and_conditions.dart';
@@ -19,6 +23,7 @@ class Drawer1 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<MailBoxController>();
     return Drawer(
       backgroundColor: WColors.welcomeScafhold,
       child: ListView(
@@ -47,6 +52,15 @@ class Drawer1 extends StatelessWidget {
             trailing: '',
           ),
           divider(),
+          for (Mailbox box in MailService.instance.client.mailboxes ?? [])
+            WDraweTile(
+              image: WImages.inbox,
+              text: box.name,
+              onTap: () {
+                Get.back();
+              },
+              trailing: box.messagesUnseen.toString(),
+            ),
           WDraweTile(
             image: WImages.inbox,
             text: 'Inbox',
@@ -144,8 +158,13 @@ class Drawer1 extends StatelessWidget {
               'Log Out',
               style: TextStyle(color: Colors.white),
             ),
-            onTap: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => LoginScreen())),
+            onTap: () async {
+              await GetStorage().erase();
+              MailService.instance.client.disconnect();
+              MailService.instance.dispose();
+              await controller.deleteAccount();
+              Get.offAll(() => LoginScreen());
+            },
           ),
         ],
       ),

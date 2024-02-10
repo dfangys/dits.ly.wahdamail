@@ -1,20 +1,23 @@
+import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
+import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_field.dart';
-import 'package:wahda_bank/views/authantication/screens/otp/send%20otp%20view/send_otp_view.dart';
 import 'package:wahda_bank/views/authantication/screens/reset_password_screen/reset_password_screen.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 
+import '../../../view/screens/first_loading_view.dart';
+
 // ignore: must_be_immutable
 class LoginScreen extends StatelessWidget {
   LoginScreen({super.key});
   TextEditingController emailCtrl = TextEditingController(
-    text: "@wahdabank.com.ly",
+    text: "@schooloftechnologies.com",
   );
   TextEditingController passwordCtrl = TextEditingController();
   RoundedLoadingButtonController? controller = RoundedLoadingButtonController();
@@ -121,12 +124,25 @@ class LoginScreen extends StatelessWidget {
                       ),
                       WRoundedButton(
                         controller: controller!,
-                        onPress: () {
+                        onPress: () async {
                           if (loginFormKey.currentState!.validate()) {
                             try {
                               controller!.start();
-                              controller!.success();
-                              Get.to(() => SendOtpView());
+                              await MailService.instance.connect(
+                                mail: emailCtrl.text,
+                                pass: passwordCtrl.text,
+                              );
+                              Get.to(() => const LoadingFirstView());
+                            } on MailException catch (e) {
+                              String message =
+                                  e.message ?? 'Somthing went wrong';
+                              if (message.startsWith('null')) {
+                                message = "Authentication failed";
+                              }
+                              Get.showSnackbar(GetSnackBar(
+                                message: message,
+                                duration: const Duration(seconds: 3),
+                              ));
                             } catch (e) {
                               String message = e.toString();
                               if (e.toString().startsWith('null')) {
