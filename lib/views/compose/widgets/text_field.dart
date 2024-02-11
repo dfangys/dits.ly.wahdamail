@@ -1,5 +1,6 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 
 class ToEmailsChipsField extends StatefulWidget {
   final Function(MailAddress) onInsert;
@@ -66,19 +67,19 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
                   if (widget.ccBccWidget != null) widget.ccBccWidget!,
                   IconButton(
                     onPressed: () async {
-                      // if (await FlutterContacts.requestPermission(
-                      //     readonly: true)) {
-                      //   final Contact? contact =
-                      //       await FlutterContacts.openExternalPick();
-                      //   if (contact != null) {
-                      //     widget.onInsert(
-                      //       MailAddress(
-                      //         contact.displayName,
-                      //         contact.emails.first.address,
-                      //       ),
-                      //     );
-                      //   }
-                      // }
+                      if (await FlutterContacts.requestPermission(
+                          readonly: true)) {
+                        final Contact? contact =
+                            await FlutterContacts.openExternalPick();
+                        if (contact != null) {
+                          widget.onInsert(
+                            MailAddress(
+                              contact.displayName,
+                              contact.emails.first.address,
+                            ),
+                          );
+                        }
+                      }
                     },
                     icon: const Icon(Icons.contacts_outlined),
                   ),

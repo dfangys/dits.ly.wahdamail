@@ -1,4 +1,3 @@
-import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
@@ -23,25 +22,25 @@ class _LoadingFirstViewState extends State<LoadingFirstView> {
     });
   }
 
+  String error = '';
+
   Future init() async {
+    bool isReadyToRun = true;
     try {
-      await MailService.instance.init();
-      if (MailService.instance.isConnected && !storage.hasData('first_run')) {
-        if (MailService.instance.isConnected) {
-          await MailService.instance.client.listMailboxes(order: [
-            MailboxFlag.inbox,
-            MailboxFlag.sent,
-            MailboxFlag.drafts,
-            MailboxFlag.trash,
-            MailboxFlag.junk,
-            MailboxFlag.flagged,
-          ]);
-        }
+      if (!storage.hasData('first_run')) {
+        await MailService.instance.init();
+        await MailService.instance.connect();
+        await MailService.instance.client.listMailboxes();
         await storage.write('first_run', true);
       }
-      Get.offAllNamed('/home');
     } catch (e) {
+      isReadyToRun = false;
       printError(info: e.toString());
+      error = e.toString();
+    } finally {
+      if (isReadyToRun) {
+        Get.offAllNamed('/home');
+      }
     }
   }
 

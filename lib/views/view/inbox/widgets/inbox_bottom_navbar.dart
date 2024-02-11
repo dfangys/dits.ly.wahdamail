@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/views/view/new_message/new_message.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 
@@ -17,8 +18,29 @@ class InboxBottomNavBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          const IconButtons(
+          IconButtons(
             image: WImages.delete,
+            onTap: () {
+              showCupertinoModalPopup(
+                context: context,
+                builder: (context) => CupertinoActionSheet(
+                  title: const Text('Are you sure to delete?'),
+                  actions: [
+                    CupertinoActionSheetAction(
+                      onPressed: () {},
+                      isDestructiveAction: true,
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                  cancelButton: CupertinoActionSheetAction(
+                    onPressed: () {
+                      Get.back();
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                ),
+              );
+            },
           ),
           const IconButtons(
             icon: CupertinoIcons.folder_fill_badge_person_crop,
@@ -31,7 +53,7 @@ class InboxBottomNavBar extends StatelessWidget {
           IconButtons(
             icon: CupertinoIcons.pencil_outline,
             isImage: false,
-            onTap: () => Get.to(() => NewMessageScreen()),
+            onTap: () => Get.to(() => ComposeScreen()),
           )
         ],
       ),

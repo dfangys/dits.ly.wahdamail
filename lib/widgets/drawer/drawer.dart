@@ -23,7 +23,7 @@ class Drawer1 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<MailBoxController>();
+    // final controller = Get.find<MailBoxController>();
     return Drawer(
       backgroundColor: WColors.welcomeScafhold,
       child: ListView(
@@ -52,15 +52,16 @@ class Drawer1 extends StatelessWidget {
             trailing: '',
           ),
           divider(),
-          for (Mailbox box in MailService.instance.client.mailboxes ?? [])
-            WDraweTile(
-              image: WImages.inbox,
-              text: box.name,
-              onTap: () {
-                Get.back();
-              },
-              trailing: box.messagesUnseen.toString(),
-            ),
+          // for (Mailbox box in MailService.instance.client.mailboxes ?? [])
+          //   WDraweTile(
+          //     image: WImages.inbox,
+          //     text: box.encodedName,
+          //     onTap: () {
+          //       Get.back();
+          //       controller.navigatToMailBox(box);
+          //     },
+          //     trailing: box.messagesUnseen.toString(),
+          //   ),
           WDraweTile(
             image: WImages.inbox,
             text: 'Inbox',
@@ -160,9 +161,9 @@ class Drawer1 extends StatelessWidget {
             ),
             onTap: () async {
               await GetStorage().erase();
-              MailService.instance.client.disconnect();
-              MailService.instance.dispose();
-              await controller.deleteAccount();
+              // MailService.instance.client.disconnect();
+              // MailService.instance.dispose();
+              // await controller.deleteAccount();
               Get.offAll(() => LoginScreen());
             },
           ),

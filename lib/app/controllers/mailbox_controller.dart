@@ -1,6 +1,8 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:logger/logger.dart';
+import 'package:wahda_bank/views/box/mailbox_view.dart';
 import '../../models/hive_mime_storage.dart';
 import '../../services/mail_service.dart';
 
@@ -16,31 +18,38 @@ class MailBoxController extends GetxController {
   List<MimeMessage> get boxMails =>
       emails[mailService.client.selectedMailbox] ?? [];
 
+  late Mailbox mailBoxInbox;
+
   final Logger logger = Logger();
 
   @override
   void onInit() async {
-    mailService = MailService.instance;
-    await mailService.init();
-    initInbox();
-    super.onInit();
+    try {
+      mailService = MailService.instance;
+      await mailService.init();
+      initInbox();
+      await loadMailBoxes();
+      super.onInit();
+    } catch (e) {
+      logger.e(e);
+    }
   }
 
   Future<void> initInbox() async {
-    printError(info: 'Loading inbox');
     isBusy(true);
-    var box = await mailService.client.selectInbox();
+    Mailbox box = await mailService.client.selectInbox();
+    mailBoxInbox = box;
     loadEmailsForBox(box);
     isBusy(false);
-    printError(info: 'Loaded inbox');
   }
 
   Future loadMailBoxes() async {
-    if (!mailService.isConnected) {
-      await mailService.connect();
+    if (!mailService.client.isConnected) {
+      return;
     }
-    List<Mailbox> mailboxes = mailService.client.mailboxes ?? [];
+    List<Mailbox> mailboxes = await mailService.client.listMailboxes();
     for (var mailbox in mailboxes) {
+      if (mailboxStorage[mailbox] != null) continue;
       mailboxStorage[mailbox] = HiveMailboxMimeStorage(
         mailAccount: mailService.account,
         mailbox: mailbox,
@@ -51,7 +60,7 @@ class MailBoxController extends GetxController {
   }
 
   Future loadEmailsForBox(Mailbox mailbox) async {
-    if (!mailService.isConnected) {
+    if (!mailService.client.isConnected) {
       await mailService.connect();
     }
     await mailService.client.selectMailbox(mailbox);
@@ -68,17 +77,20 @@ class MailBoxController extends GetxController {
     if (emails[mailbox] == null) {
       emails[mailbox] = <MimeMessage>[];
     }
+    page = 1;
+    //
+
+    if (mailboxStorage[mailbox] == null) {
+      mailboxStorage[mailbox] = HiveMailboxMimeStorage(
+        mailAccount: mailService.account,
+        mailbox: mailbox,
+      );
+      await mailboxStorage[mailbox]!.init();
+    }
+
     while (emails[mailbox]!.length < max) {
       logger.d('Fetching page $page for $mailbox $pageSize $max');
       MessageSequence sequence = MessageSequence.fromPage(page, pageSize, max);
-      final storage = mailboxStorage[mailbox];
-      if (storage == null) {
-        mailboxStorage[mailbox] = HiveMailboxMimeStorage(
-          mailAccount: mailService.account,
-          mailbox: mailbox,
-        );
-        await mailboxStorage[mailbox]!.init();
-      }
       final messages =
           await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
       if (messages != null && messages.isNotEmpty) {
@@ -123,5 +135,15 @@ class MailBoxController extends GetxController {
         await mailboxStorage[mailbox]!.onAccountRemoved();
       }
     }
+  }
+
+  Future navigatToMailBox(Mailbox mailbox) async {
+    await loadEmailsForBox(mailbox);
+    String hiveKey = HiveMailboxMimeStorage.getBoxName(
+      mailService.account,
+      mailbox,
+      'envelopes',
+    );
+    Get.to(() => MailBoxView(hiveKey: hiveKey, box: mailbox));
   }
 }

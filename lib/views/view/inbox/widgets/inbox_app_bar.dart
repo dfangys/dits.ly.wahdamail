@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/views/view/inbox/widgets/app_bar_menu_buton.dart';
@@ -23,11 +24,6 @@ class InbocAppBar extends StatelessWidget {
       ),
       actions: [
         IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.delete),
-          padding: EdgeInsets.zero,
-        ),
-        IconButton(
           padding: EdgeInsets.zero,
           icon: indicator
               ? const Icon(
@@ -37,10 +33,38 @@ class InbocAppBar extends StatelessWidget {
               : const Icon(Icons.star_border_outlined),
           onPressed: () {},
         ),
-        const SizedBox(
-          width: 10,
-        ),
-        const InboxAppBarMenuButton()
+        // const InboxAppBarMenuButton()
+        IconButton(
+          onPressed: () {
+            showCupertinoModalPopup(
+              context: context,
+              builder: (context) => CupertinoActionSheet(
+                title: const Text('Move Message'),
+                actions: [
+                  CupertinoActionSheetAction(
+                    onPressed: () {},
+                    child: const Text('Move to archive'),
+                  ),
+                  CupertinoActionSheetAction(
+                    onPressed: () {},
+                    child: const Text('Move to sent'),
+                  ),
+                  CupertinoActionSheetAction(
+                    onPressed: () {},
+                    child: const Text('Move to draft'),
+                  ),
+                ],
+                cancelButton: CupertinoActionSheetAction(
+                  onPressed: () {
+                    Get.back();
+                  },
+                  child: const Text('Cancel'),
+                ),
+              ),
+            );
+          },
+          icon: Icon(Icons.more_vert),
+        )
       ],
     );
   }

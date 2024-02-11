@@ -30,8 +30,11 @@ class SwipGestureSetting extends StatelessWidget {
                 },
                 child: data.swapActions.values.elementAt(0),
               ),
-              const Divider(),
+              Divider(
+                color: Colors.grey.shade300,
+              ),
               const Text("Right to left swipe"),
+              const SizedBox(height: 10),
               InkWell(
                 onTap: () {
                   showCupertinoModalPopup(

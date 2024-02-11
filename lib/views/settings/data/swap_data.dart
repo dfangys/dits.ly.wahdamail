@@ -20,7 +20,6 @@ class SwapSettingData {
     ),
     'delete': const SwapActionTile(
       icon: CupertinoIcons.delete,
-      textColor: Colors.white,
       text: 'Delete',
       backgroundColor: Colors.red,
       iconColor: Colors.red,

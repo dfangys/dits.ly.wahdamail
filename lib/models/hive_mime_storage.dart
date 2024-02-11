@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:enough_mail/enough_mail.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:logger/logger.dart';
 import 'offline_mime_storage.dart';
@@ -44,9 +47,11 @@ class HiveMailboxMimeStorage extends OfflineMimeStorage {
   final String _boxNameEnvelopes;
   final String _boxNameFullMessages;
   late Box<List> _boxIds;
-  late LazyBox<StorageMessageEnvelope> _boxEnvelopes;
+  late Box<StorageMessageEnvelope> _boxEnvelopes;
   late LazyBox<String> _boxFullMessages;
   late List<StorageMessageId> _allMessageIds;
+
+  late ValueListenable<Box<StorageMessageEnvelope>> dataStream;
 
   //
   Logger get logger => Logger();
@@ -72,7 +77,8 @@ class HiveMailboxMimeStorage extends OfflineMimeStorage {
 
     Future<void> initEnvelopes() async {
       _boxEnvelopes =
-          await Hive.openLazyBox<StorageMessageEnvelope>(_boxNameEnvelopes);
+          await Hive.openBox<StorageMessageEnvelope>(_boxNameEnvelopes);
+      dataStream = _boxEnvelopes.listenable();
     }
 
     Future<void> initFullMessages() async {
@@ -107,7 +113,7 @@ class HiveMailboxMimeStorage extends OfflineMimeStorage {
 
         return null;
       }
-      final messageEnvelope = await _boxEnvelopes.get(messageId.guid);
+      final messageEnvelope = _boxEnvelopes.get(messageId.guid);
       if (messageEnvelope == null) {
         logger.d(
           '${_mailAccount.name}: message data not found for '

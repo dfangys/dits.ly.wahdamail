@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:enough_mail/enough_mail.dart';
+import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 import '../models/indexed_cache.dart';
@@ -16,24 +17,11 @@ class MailService {
   // Gettters
   late MailAccount account;
   final storage = GetStorage();
-  bool isConnected = false;
   late MailClient client;
   late Mailbox selectedBox;
+  bool isClientSet = false;
 
-  Future<bool> init() async {
-    if (!isConnected) {
-      await connect();
-    }
-    return isConnected;
-  }
-
-  Future<bool> setAccount(String email, String pass) async {
-    await storage.write('email', email);
-    await storage.write('password', pass);
-    return true;
-  }
-
-  Future connect({String? mail, String? pass}) async {
+  Future<bool> init({String? mail, String? pass}) async {
     String? email = mail ?? storage.read('email');
     String? password = pass ?? storage.read('password');
     if (email == null || password == null) {
@@ -42,6 +30,16 @@ class MailService {
     if (mail != null && pass != null) {
       await setAccount(mail, pass);
     }
+    return setClientAndAccount(email, password);
+  }
+
+  Future<bool> setAccount(String email, String pass) async {
+    await storage.write('email', email);
+    await storage.write('password', pass);
+    return true;
+  }
+
+  bool setClientAndAccount(String email, String password) {
     account = MailAccount.fromManualSettings(
       name: email,
       email: email,
@@ -64,17 +62,20 @@ class MailService {
         return true;
       },
     );
+    isClientSet = true;
+    return isClientSet;
+  }
+
+  Future<bool> connect() async {
     try {
-      isConnected = client.isConnected;
-      if (!isConnected) {
+      if (!client.isConnected) {
         await client.connect();
-        isConnected = true;
         _subscribeEvents();
       }
     } catch (e) {
-      isConnected = false;
       rethrow;
     }
+    return client.isConnected;
   }
 
   late StreamSubscription<MailLoadEvent> _mailLoadEventSubscription;
@@ -87,6 +88,7 @@ class MailService {
     _mailLoadEventSubscription =
         client.eventBus.on<MailLoadEvent>().listen((event) {
       if (event.mailClient == client) {
+        printError(info: 'MailLoadEvent');
         // onMessageArrived(event.message);
       }
     });
@@ -101,12 +103,13 @@ class MailService {
         client.eventBus.on<MailUpdateEvent>().listen((event) {
       if (event.mailClient == client) {
         // onMessageFlagsUpdated(event.message);
+        printError(info: 'MailUpdateEvent');
       }
     });
     _mailReconnectedEventSubscription =
         client.eventBus.on<MailConnectionReEstablishedEvent>().listen((data) {
       if (data.mailClient == client) {
-        isConnected = data.mailClient.isConnected;
+        data.mailClient.isConnected;
       }
     });
   }

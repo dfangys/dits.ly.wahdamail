@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:wahda_bank/views/view/screens/home/home.dart';
 import 'package:wahda_bank/views/view/screens/splash.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
@@ -14,7 +15,8 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Wahda Bank',
       theme: ThemeData(
-        fontFamily: 'sfp',
+        // fontFamily: 'sfp',
+        textTheme: GoogleFonts.poppinsTextTheme(),
         primaryColor: AppTheme.primaryColor,
         colorScheme: ColorScheme.fromSwatch(
           primarySwatch: AppTheme.primaryColor,

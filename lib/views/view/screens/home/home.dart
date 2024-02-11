@@ -1,3 +1,4 @@
+import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -5,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
+import 'package:wahda_bank/views/view/controllers/inbox_controller.dart';
 import 'package:wahda_bank/views/view/inbox/inbox.dart';
 import 'package:wahda_bank/views/view/screens/home/widgets/appbar.dart';
 import 'package:wahda_bank/widgets/drawer/drawer.dart';
@@ -14,10 +16,12 @@ import 'package:timeago/timeago.dart' as timeago;
 
 import '../../../../models/hive_mime_storage.dart';
 
-class HomeScreen extends GetView<MailBoxController> {
+// class HomeScreen extends GetView<MailBoxController> {
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
   @override
   Widget build(BuildContext context) {
+    final inboxController = Get.put(InboxController());
     // final name = HiveMailboxMimeStorage.getBoxName(MailService.instance.account,
     //     MailService.instance.selectedBox, 'envelopes');
     return Scaffold(
@@ -28,34 +32,52 @@ class HomeScreen extends GetView<MailBoxController> {
       ),
       drawer: const Drawer1(),
 
-      body: Obx(
-        () {
-          if (controller.isBusy()) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
-          }
-          return ListView.separated(
-            itemBuilder: (context, index) => ListTile(
-              title: Text(controller.boxMails[index].from![0].email),
-              subtitle: Text(controller.boxMails[index].decodeSubject() ?? ''),
-              onTap: () => Get.to(
-                () => InboxScreen(),
-              ),
-            ),
-            itemCount: controller.boxMails.length,
-            separatorBuilder: (context, index) => const Divider(),
-          );
-        },
-      ),
-      // body: WListTile(
-      //   selected: false,
-      //   onTap: () => Get.to(() => InboxScreen()),
+      // body: Obx(
+      //   () {
+      //     if (controller.isBusy()) {
+      //       return const Center(
+      //         child: CircularProgressIndicator(),
+      //       );
+      //     }
+      //     return ValueListenableBuilder<Box<StorageMessageEnvelope>>(
+      //       valueListenable:
+      //           controller.mailboxStorage[controller.mailBoxInbox]!.dataStream,
+      //       builder: (context, value, child) {
+      //         return ListView.separated(
+      //           itemBuilder: (context, index) {
+      //             MimeMessage item = value.getAt(index)!.toMimeMessage();
+      //             return ListTile(
+      //               leading: CircleAvatar(
+      //                 child: Text(
+      //                   index.toString(),
+      //                   style: const TextStyle(
+      //                     color: Colors.white,
+      //                   ),
+      //                 ),
+      //               ),
+      //               title: Text(item.from![0].email),
+      //               subtitle: Text(item.decodeSubject() ?? ''),
+      //               onTap: () => Get.to(
+      //                 () => InboxScreen(),
+      //               ),
+      //             );
+      //           },
+      //           itemCount: value.length,
+      //           separatorBuilder: (context, index) => const Divider(),
+      //         );
+      //       },
+      //     );
+      //   },
       // ),
+      body: WListTile(
+        selected: false,
+        onTap: () => Get.to(() => InboxScreen()),
+      ),
+
       // body: ListView.builder(
-      //   itemCount: controller.mailGroups.length,
+      //   itemCount: inboxController.mailGroups.length,
       //   itemBuilder: (BuildContext context, int index) {
-      //     var item = controller.mailGroups.entries.elementAt(index);
+      //     var item = inboxController.mailGroups.entries.elementAt(index);
       //     return Column(
       //       crossAxisAlignment: CrossAxisAlignment.start,
       //       children: [

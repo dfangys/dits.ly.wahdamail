@@ -6,6 +6,7 @@ import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_field.dart';
+import 'package:wahda_bank/views/authantication/screens/otp/enter_otp/enter_otp.dart';
 import 'package:wahda_bank/views/authantication/screens/reset_password_screen/reset_password_screen.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
@@ -17,7 +18,7 @@ import '../../../view/screens/first_loading_view.dart';
 class LoginScreen extends StatelessWidget {
   LoginScreen({super.key});
   TextEditingController emailCtrl = TextEditingController(
-    text: "@schooloftechnologies.com",
+    text: "@wahdabank.com.ly",
   );
   TextEditingController passwordCtrl = TextEditingController();
   RoundedLoadingButtonController? controller = RoundedLoadingButtonController();
@@ -128,11 +129,13 @@ class LoginScreen extends StatelessWidget {
                           if (loginFormKey.currentState!.validate()) {
                             try {
                               controller!.start();
-                              await MailService.instance.connect(
-                                mail: emailCtrl.text,
-                                pass: passwordCtrl.text,
-                              );
-                              Get.to(() => const LoadingFirstView());
+                              // await MailService.instance.init(
+                              //   mail: emailCtrl.text,
+                              //   pass: passwordCtrl.text,
+                              // );
+                              // MailService.instance.connect();
+                              // Get.to(() => const LoadingFirstView());
+                              Get.to(() => const EnterOtpScreen());
                             } on MailException catch (e) {
                               String message =
                                   e.message ?? 'Somthing went wrong';
