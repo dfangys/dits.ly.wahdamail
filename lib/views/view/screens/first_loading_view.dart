@@ -72,7 +72,9 @@ class _LoadingFirstViewState extends State<LoadingFirstView> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      const CircularProgressIndicator(),
+                      const CircularProgressIndicator(
+                        color: Colors.white,
+                      ),
                     ],
                   ),
                 ),

@@ -4,7 +4,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/views/authantication/screens/login/login.dart';
 import 'package:wahda_bank/views/view/screens/drawer/send_mail/send_mail.dart';
 import 'package:wahda_bank/views/view/screens/drawer/terms_and_conditions.dart';
@@ -23,105 +22,58 @@ class Drawer1 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // final controller = Get.find<MailBoxController>();
+    final controller = Get.find<MailBoxController>();
     return Drawer(
       backgroundColor: WColors.welcomeScafhold,
-      child: ListView(
-        padding: EdgeInsets.zero,
+      child: Column(
         children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(
-              color: Color(0xFF0A993C),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                DrawerHeader(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0A993C),
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.only(
+                        left: 10, right: 30, top: 0, bottom: 0),
+                    child: SvgPicture.asset(
+                      WImages.logo,
+                      // ignore: deprecated_member_use
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                WDraweTile(
+                  image: WImages.compose,
+                  text: 'Compose',
+                  onTap: () {
+                    Get.to(() => ComposeScreen());
+                  },
+                  trailing: '',
+                ),
+                divider(),
+                for (Mailbox box in controller.mailboxes)
+                  Column(
+                    children: [
+                      WDraweTile(
+                        image: boxIcon(box.name),
+                        text: box.encodedName,
+                        onTap: () {
+                          Get.back();
+                          controller.navigatToMailBox(box);
+                        },
+                        trailing: box.messagesUnseen.toString(),
+                      ),
+                      divider(),
+                    ],
+                  ),
+              ],
             ),
-            child: Container(
-              margin:
-                  const EdgeInsets.only(left: 10, right: 30, top: 0, bottom: 0),
-              child: SvgPicture.asset(
-                WImages.logo,
-                // ignore: deprecated_member_use
-                color: Colors.white,
-              ),
-            ),
           ),
           WDraweTile(
-            image: WImages.compose,
-            text: 'Compose',
-            onTap: () {
-              Get.to(() => ComposeScreen());
-            },
-            trailing: '',
-          ),
-          divider(),
-          // for (Mailbox box in MailService.instance.client.mailboxes ?? [])
-          //   WDraweTile(
-          //     image: WImages.inbox,
-          //     text: box.encodedName,
-          //     onTap: () {
-          //       Get.back();
-          //       controller.navigatToMailBox(box);
-          //     },
-          //     trailing: box.messagesUnseen.toString(),
-          //   ),
-          WDraweTile(
-            image: WImages.inbox,
-            text: 'Inbox',
-            onTap: () => Get.back(),
-            trailing: '99',
-          ),
-          divider(),
-          WDraweTile(
-            image: WImages.sent,
-            text: 'Sent Mail',
-            onTap: () {
-              Get.to(() => const SendMailScreen(
-                    title: 'Send',
-                  ));
-            },
-            trailing: '',
-          ),
-          divider(),
-          WDraweTile(
-            image: WImages.draft,
-            text: 'Drafts',
-            onTap: () {
-              Get.to(() => const SendMailScreen(
-                    title: 'Drafts',
-                  ));
-            },
-            trailing: '',
-          ),
-          divider(),
-          WDraweTile(
-            image: WImages.delete,
-            text: 'Trash',
-            onTap: () {
-              Get.to(() => const TrashScreen());
-            },
-            trailing: '',
-          ),
-          divider(),
-          WDraweTile(
-            image: WImages.star,
-            text: 'Starred',
-            onTap: () {
-              Get.to(() => const StarredScreen());
-            },
-            trailing: '',
-          ),
-          divider(),
-          WDraweTile(
-            image: WImages.spam,
-            text: 'Spam',
-            onTap: () {
-              Get.to(() => const SendMailScreen(
-                    title: 'Spam',
-                  ));
-            },
-            trailing: '',
-          ),
-          divider(),
-          WDraweTile(
-            image: WImages.draft,
+            image: Icons.settings,
             text: 'Settings',
             onTap: () {
               Get.to(() => const SettingsView());
@@ -179,5 +131,63 @@ Widget divider() {
     indent: 20,
     endIndent: 20,
     color: Colors.white,
+    thickness: 0.3,
   );
+}
+
+IconData boxIcon(String name) {
+  name = name.toLowerCase();
+  late IconData icon;
+  switch (name) {
+    case 'inbox':
+      icon = Icons.inbox;
+      break;
+    case 'sent':
+      icon = Icons.send;
+      break;
+    case 'spam':
+    case 'junk':
+      icon = Icons.error;
+      break;
+    case 'trash':
+      icon = Icons.delete;
+      break;
+    case 'drafts':
+      icon = Icons.drafts;
+      break;
+    case 'flagged':
+      icon = Icons.flag;
+      break;
+    default:
+      icon = Icons.folder;
+  }
+  return icon;
+}
+
+String boxImage(String name) {
+  name = name.toLowerCase();
+  late String path;
+  switch (name) {
+    case 'inbox':
+      path = 'inbox';
+      break;
+    case 'sent':
+      path = 'sent';
+      break;
+    case 'spam':
+      path = 'spam';
+      break;
+    case 'trash':
+      path = 'delete';
+      break;
+    case 'drafts':
+      path = 'draft';
+      break;
+    case 'flagged':
+      path = 'flagged';
+      break;
+    default:
+      path = 'inbox';
+  }
+  return "assets/$path.png";
 }

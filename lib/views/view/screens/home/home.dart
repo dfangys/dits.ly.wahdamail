@@ -1,29 +1,22 @@
+import 'package:collection/collection.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:intl/intl.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
-import 'package:wahda_bank/views/view/controllers/inbox_controller.dart';
 import 'package:wahda_bank/views/view/inbox/inbox.dart';
 import 'package:wahda_bank/views/view/screens/home/widgets/appbar.dart';
 import 'package:wahda_bank/widgets/drawer/drawer.dart';
+import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/widgets/search/search.dart';
-import 'package:wahda_bank/widgets/w_listtile.dart';
+import '../../../../models/hive_mime_storage.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
-import '../../../../models/hive_mime_storage.dart';
-
-// class HomeScreen extends GetView<MailBoxController> {
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends GetView<MailBoxController> {
   const HomeScreen({super.key});
   @override
   Widget build(BuildContext context) {
-    final inboxController = Get.put(InboxController());
-    // final name = HiveMailboxMimeStorage.getBoxName(MailService.instance.account,
-    //     MailService.instance.selectedBox, 'envelopes');
     return Scaffold(
       backgroundColor: AppTheme.cardDesignColor,
       appBar: PreferredSize(
@@ -31,130 +24,71 @@ class HomeScreen extends StatelessWidget {
         child: appBar(),
       ),
       drawer: const Drawer1(),
-
-      // body: Obx(
-      //   () {
-      //     if (controller.isBusy()) {
-      //       return const Center(
-      //         child: CircularProgressIndicator(),
-      //       );
-      //     }
-      //     return ValueListenableBuilder<Box<StorageMessageEnvelope>>(
-      //       valueListenable:
-      //           controller.mailboxStorage[controller.mailBoxInbox]!.dataStream,
-      //       builder: (context, value, child) {
-      //         return ListView.separated(
-      //           itemBuilder: (context, index) {
-      //             MimeMessage item = value.getAt(index)!.toMimeMessage();
-      //             return ListTile(
-      //               leading: CircleAvatar(
-      //                 child: Text(
-      //                   index.toString(),
-      //                   style: const TextStyle(
-      //                     color: Colors.white,
-      //                   ),
-      //                 ),
-      //               ),
-      //               title: Text(item.from![0].email),
-      //               subtitle: Text(item.decodeSubject() ?? ''),
-      //               onTap: () => Get.to(
-      //                 () => InboxScreen(),
-      //               ),
-      //             );
-      //           },
-      //           itemCount: value.length,
-      //           separatorBuilder: (context, index) => const Divider(),
-      //         );
-      //       },
-      //     );
-      //   },
-      // ),
-      body: WListTile(
-        selected: false,
-        onTap: () => Get.to(() => InboxScreen()),
+      body: Obx(
+        () {
+          if (controller.isBusy()) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+          return ValueListenableBuilder<Box<StorageMessageEnvelope>>(
+            valueListenable:
+                controller.mailboxStorage[controller.mailBoxInbox]!.dataStream,
+            builder: (context, box, child) {
+              List<StorageMessageEnvelope> rows =
+                  box.values.sorted((a, b) => b.date!.compareTo(a.date!));
+              Map<DateTime, List<StorageMessageEnvelope>> group = groupBy(
+                rows,
+                (p) {
+                  var dt = p.date ?? DateTime.now();
+                  return DateTime(dt.year, dt.month);
+                },
+              );
+              return ListView.builder(
+                itemCount: group.length,
+                itemBuilder: (context, index) {
+                  var item = group.entries.elementAt(index);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Text(
+                          timeago.format(item.key),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemBuilder: (context, i) {
+                          var mail = item.value.elementAt(i).toMimeMessage();
+                          return MailTile(
+                            selected: false,
+                            onTap: () => Get.to(() => InboxScreen()),
+                            message: mail,
+                            iconColor: Colors.green,
+                            onDelete: () {},
+                            onLongPress: () {},
+                            flag: MailboxFlag.inbox,
+                          );
+                        },
+                        separatorBuilder: (context, i) => Divider(
+                          color: Colors.grey.shade300,
+                        ),
+                        itemCount: item.value.length,
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          );
+        },
       ),
-
-      // body: ListView.builder(
-      //   itemCount: inboxController.mailGroups.length,
-      //   itemBuilder: (BuildContext context, int index) {
-      //     var item = inboxController.mailGroups.entries.elementAt(index);
-      //     return Column(
-      //       crossAxisAlignment: CrossAxisAlignment.start,
-      //       children: [
-      //         Padding(
-      //           padding: const EdgeInsets.symmetric(horizontal: 20),
-      //           child: Text(
-      //             timeago.format(item.key),
-      //             style: const TextStyle(fontSize: 16),
-      //           ),
-      //         ),
-      //         ListView.separated(
-      //           shrinkWrap: true,
-      //           physics: const NeverScrollableScrollPhysics(),
-      //           itemBuilder: (context, i) {
-      //             var mail = item.value.elementAt(i);
-      //             return Padding(
-      //               padding: const EdgeInsets.symmetric(horizontal: 20),
-      //               child: Row(
-      //                 crossAxisAlignment: CrossAxisAlignment.start,
-      //                 children: [
-      //                   CircleAvatar(
-      //                     child: Text(
-      //                       mail.from[0],
-      //                       style: const TextStyle(
-      //                         color: Colors.white,
-      //                       ),
-      //                     ),
-      //                   ),
-      //                   const SizedBox(width: 10),
-      //                   Expanded(
-      //                     child: Column(
-      //                       children: [
-      //                         Row(
-      //                           children: [
-      //                             Expanded(
-      //                               child: Text(
-      //                                 mail.email,
-      //                                 style: const TextStyle(
-      //                                   fontWeight: FontWeight.bold,
-      //                                   fontSize: 14,
-      //                                 ),
-      //                               ),
-      //                             ),
-      //                             Text(
-      //                               DateFormat("E HH:mm a")
-      //                                   .format(mail.createdAt),
-      //                               style: const TextStyle(
-      //                                 color: Colors.grey,
-      //                                 fontSize: 12,
-      //                               ),
-      //                             ),
-      //                           ],
-      //                         ),
-      //                         Text(
-      //                           mail.sumjet,
-      //                           style: const TextStyle(
-      //                             fontWeight: FontWeight.bold,
-      //                           ),
-      //                           maxLines: 1,
-      //                           overflow: TextOverflow.ellipsis,
-      //                         ),
-      //                       ],
-      //                     ),
-      //                   ),
-      //                 ],
-      //               ),
-      //             );
-      //           },
-      //           separatorBuilder: (context, i) => const Divider(
-      //             color: Colors.grey,
-      //           ),
-      //           itemCount: item.value.length,
-      //         ),
-      //       ],
-      //     );
-      //   },
-      // ),
     );
   }
 }

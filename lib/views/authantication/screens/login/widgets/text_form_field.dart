@@ -9,6 +9,7 @@ class WTextFormField extends StatelessWidget {
     required this.hintText,
     required this.obscureText,
     required this.validator,
+    this.domainFix = false,
   });
 
   final TextEditingController controller;
@@ -16,6 +17,7 @@ class WTextFormField extends StatelessWidget {
   final String hintText;
   final bool obscureText;
   final String? Function(String?)? validator;
+  final bool domainFix;
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +38,8 @@ class WTextFormField extends StatelessWidget {
             width: 2,
             child: Image.asset(icon),
           ),
-          contentPadding: const EdgeInsets.fromLTRB(16, 0, 0, 0),
+          suffixText: domainFix ? '@schooloftechnologies.com' : '',
+          contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
           hintText: hintText,
           focusColor: WColors.welcomeScafhold,
           errorStyle: const TextStyle(height: 0, color: WColors.errorColor),

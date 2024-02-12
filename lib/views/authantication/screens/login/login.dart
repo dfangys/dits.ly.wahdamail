@@ -17,9 +17,7 @@ import '../../../view/screens/first_loading_view.dart';
 // ignore: must_be_immutable
 class LoginScreen extends StatelessWidget {
   LoginScreen({super.key});
-  TextEditingController emailCtrl = TextEditingController(
-    text: "@wahdabank.com.ly",
-  );
+  TextEditingController emailCtrl = TextEditingController();
   TextEditingController passwordCtrl = TextEditingController();
   RoundedLoadingButtonController? controller = RoundedLoadingButtonController();
   final loginFormKey = GlobalKey<FormState>();
@@ -84,10 +82,13 @@ class LoginScreen extends StatelessWidget {
                         icon: "assets/png/mail.png",
                         hintText: 'Email',
                         obscureText: false,
+                        domainFix: true,
                         validator: (v) {
                           if (v == null || v.isEmpty) {
                             return 'Please enter email to continue';
-                          } else if (!GetUtils.isEmail(v)) {
+                          }
+                          v = "$v@schooloftechnologies.com";
+                          if (!GetUtils.isEmail(v)) {
                             return 'Please enter valid email';
                           }
                           return null;
@@ -129,13 +130,13 @@ class LoginScreen extends StatelessWidget {
                           if (loginFormKey.currentState!.validate()) {
                             try {
                               controller!.start();
-                              // await MailService.instance.init(
-                              //   mail: emailCtrl.text,
-                              //   pass: passwordCtrl.text,
-                              // );
-                              // MailService.instance.connect();
-                              // Get.to(() => const LoadingFirstView());
-                              Get.to(() => const EnterOtpScreen());
+                              await MailService.instance.init(
+                                mail:
+                                    '${emailCtrl.text}@schooloftechnologies.com',
+                                pass: passwordCtrl.text,
+                              );
+                              await MailService.instance.connect();
+                              Get.to(() => const LoadingFirstView());
                             } on MailException catch (e) {
                               String message =
                                   e.message ?? 'Somthing went wrong';

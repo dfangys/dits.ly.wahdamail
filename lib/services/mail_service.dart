@@ -30,7 +30,7 @@ class MailService {
     if (mail != null && pass != null) {
       await setAccount(mail, pass);
     }
-    return setClientAndAccount(email, password);
+    return isClientSet = setClientAndAccount(email, password);
   }
 
   Future<bool> setAccount(String email, String pass) async {
@@ -73,6 +73,7 @@ class MailService {
         _subscribeEvents();
       }
     } catch (e) {
+      storage.erase();
       rethrow;
     }
     return client.isConnected;

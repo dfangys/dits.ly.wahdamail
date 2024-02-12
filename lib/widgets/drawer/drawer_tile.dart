@@ -8,7 +8,7 @@ class WDraweTile extends StatelessWidget {
     required this.onTap,
     this.trailing,
   });
-  final String image;
+  final dynamic image;
   final String text;
   final String? trailing;
   final VoidCallback onTap;
@@ -21,7 +21,12 @@ class WDraweTile extends StatelessWidget {
         margin: const EdgeInsets.only(left: 5),
         height: 20,
         width: 20,
-        child: Image.asset(image),
+        child: image is IconData
+            ? Icon(
+                image,
+                color: Colors.white,
+              )
+            : Image.asset(image),
       ),
       title: Text(
         text,

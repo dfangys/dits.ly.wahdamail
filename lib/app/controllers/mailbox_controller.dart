@@ -1,6 +1,5 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:get/get.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:logger/logger.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import '../../models/hive_mime_storage.dart';
@@ -22,32 +21,40 @@ class MailBoxController extends GetxController {
 
   final Logger logger = Logger();
 
+  Rx<Mailbox>? selected;
+  RxList<Mailbox> mailboxes = <Mailbox>[].obs;
+
   @override
   void onInit() async {
-    try {
-      mailService = MailService.instance;
-      await mailService.init();
-      initInbox();
+    // try {
+    mailService = MailService.instance;
+    await mailService.init();
+    if (mailService.client.mailboxes == null) {
+      await mailService.connect();
       await loadMailBoxes();
-      super.onInit();
-    } catch (e) {
-      logger.e(e);
+    } else {
+      mailboxes(mailService.client.mailboxes!);
+      await loadMailBoxes();
     }
+    super.onInit();
+    // } catch (e) {
+    //   logger.e(e);
+    // }
   }
 
   Future<void> initInbox() async {
     isBusy(true);
-    Mailbox box = await mailService.client.selectInbox();
-    mailBoxInbox = box;
-    loadEmailsForBox(box);
+    mailBoxInbox = mailboxes[0];
+    loadEmailsForBox(mailBoxInbox);
     isBusy(false);
   }
 
   Future loadMailBoxes() async {
-    if (!mailService.client.isConnected) {
-      return;
+    if (mailService.client.mailboxes == null) {
+      mailboxes(await mailService.client.listMailboxes());
+    } else {
+      mailboxes(mailService.client.mailboxes!);
     }
-    List<Mailbox> mailboxes = await mailService.client.listMailboxes();
     for (var mailbox in mailboxes) {
       if (mailboxStorage[mailbox] != null) continue;
       mailboxStorage[mailbox] = HiveMailboxMimeStorage(
@@ -57,6 +64,7 @@ class MailBoxController extends GetxController {
       emails[mailbox] = <MimeMessage>[];
       await mailboxStorage[mailbox]!.init();
     }
+    initInbox();
   }
 
   Future loadEmailsForBox(Mailbox mailbox) async {
