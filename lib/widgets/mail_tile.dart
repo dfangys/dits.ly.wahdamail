@@ -106,7 +106,7 @@ class MailTile extends StatelessWidget {
             ),
             const SizedBox(height: 4.0),
             Text(
-              message.decodeSubject() ?? 'No Subject',
+              message.decodeSubject() ?? 'no_subject'.tr,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(

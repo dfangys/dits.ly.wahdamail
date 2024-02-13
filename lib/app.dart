@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:wahda_bank/views/view/screens/home/home.dart';
 import 'package:wahda_bank/views/view/screens/splash.dart';
@@ -11,9 +12,17 @@ class Lang extends Translations {
   Map<String, Map<String, String>> get keys => {
         'en': {
           'hello': 'Hello World',
+          'no_subject': "No Subject",
+          'language': 'Language',
+          'english': 'English',
+          'arabic': 'Arabic'
         },
         'ar': {
           'hello': 'مرحبا بالعالم',
+          'no_subject': "بدون موضوع",
+          'language': 'لغة',
+          'english': 'الإنجليزية',
+          'arabic': 'عربى'
         },
       };
 }
@@ -21,12 +30,15 @@ class Lang extends Translations {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  String get locale => GetStorage().read('language') ?? 'en';
+
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Wahda Bank',
       translations: Lang(),
+      locale: Locale(locale),
       theme: ThemeData(
         // fontFamily: 'sfp',
         textTheme: GoogleFonts.poppinsTextTheme(),

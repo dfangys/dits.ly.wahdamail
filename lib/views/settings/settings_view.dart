@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../app/controllers/settings_controller.dart';
 import 'pages/language_page.dart';
 import 'pages/security_page.dart';
 import 'pages/signature_page.dart';
 import 'pages/swipe_gesture.dart';
 
-class SettingsView extends StatelessWidget {
+class SettingsView extends GetView<SettingController> {
   const SettingsView({super.key});
 
   @override
@@ -19,8 +20,12 @@ class SettingsView extends StatelessWidget {
         child: Column(
           children: <Widget>[
             ListTile(
-              title: const Text('Language'),
-              trailing: const Text('English'),
+              title: Text('language'.tr),
+              trailing: Obx(
+                () => Text(
+                  controller.language() == 'ar' ? 'arabic'.tr : 'english'.tr,
+                ),
+              ),
               onTap: () {
                 Get.to(() => const LanguagePage());
               },

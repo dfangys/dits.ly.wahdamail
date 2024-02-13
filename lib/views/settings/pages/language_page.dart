@@ -18,14 +18,13 @@ class LanguagePage extends GetView<SettingController> {
             leading: Obx(
               () => Icon(
                 Icons.check_circle_sharp,
-                color: controller.language() == 'English'
-                    ? Colors.green
-                    : Colors.grey,
+                color:
+                    controller.language() == 'en' ? Colors.green : Colors.grey,
               ),
             ),
             title: const Text('English'),
             onTap: () {
-              controller.language('English');
+              controller.language('en');
               Get.updateLocale(const Locale('en'));
             },
           ),
@@ -33,14 +32,13 @@ class LanguagePage extends GetView<SettingController> {
             leading: Obx(
               () => Icon(
                 Icons.check_circle_sharp,
-                color: controller.language() == 'Arabic'
-                    ? Colors.green
-                    : Colors.grey,
+                color:
+                    controller.language() == 'ar' ? Colors.green : Colors.grey,
               ),
             ),
             title: const Text('Arabic'),
             onTap: () {
-              controller.language('Arabic');
+              controller.language('ar');
               Get.updateLocale(const Locale('ar'));
             },
           ),
