@@ -6,7 +6,6 @@ import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_field.dart';
-import 'package:wahda_bank/views/authantication/screens/otp/enter_otp/enter_otp.dart';
 import 'package:wahda_bank/views/authantication/screens/reset_password_screen/reset_password_screen.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';

@@ -5,15 +5,12 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/views/authantication/screens/login/login.dart';
-import 'package:wahda_bank/views/view/screens/drawer/send_mail/send_mail.dart';
 import 'package:wahda_bank/views/view/screens/drawer/terms_and_conditions.dart';
 import 'package:wahda_bank/views/view/screens/drawer/contact_us/Contact_us.dart';
-import 'package:wahda_bank/views/view/screens/drawer/starred.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/widgets/drawer/drawer_tile.dart';
-import 'package:wahda_bank/views/view/screens/drawer/trash.dart';
 
 import '../../views/settings/settings_view.dart';
 
@@ -99,18 +96,9 @@ class Drawer1 extends StatelessWidget {
             trailing: '',
           ),
           divider(),
-          ListTile(
-            dense: true,
-            contentPadding: const EdgeInsets.only(left: 25),
-            leading: const Icon(
-              Icons.logout,
-              color: Colors.white,
-              size: 20,
-            ),
-            title: const Text(
-              'Log Out',
-              style: TextStyle(color: Colors.white),
-            ),
+          WDraweTile(
+            image: Icons.logout,
+            text: 'Logout',
             onTap: () async {
               await GetStorage().erase();
               // MailService.instance.client.disconnect();
@@ -118,6 +106,7 @@ class Drawer1 extends StatelessWidget {
               // await controller.deleteAccount();
               Get.offAll(() => LoginScreen());
             },
+            trailing: '',
           ),
         ],
       ),

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
+import '../../../app/controllers/settings_controller.dart';
 
-class SignatureSheet extends StatelessWidget {
+class SignatureSheet extends GetView<SettingController> {
   SignatureSheet({super.key});
   final htmlController = HtmlEditorController();
-
   @override
   Widget build(BuildContext context) {
+    htmlController.setText(controller.signature());
     return Material(
       child: Container(
         padding: const EdgeInsets.all(10),
@@ -38,8 +40,8 @@ class SignatureSheet extends StatelessWidget {
                     ),
                     IconButton(
                       icon: const Icon(Icons.check),
-                      onPressed: () {
-                        Navigator.pop(context);
+                      onPressed: () async {
+                        controller.signature(await htmlController.getText());
                       },
                     ),
                   ],

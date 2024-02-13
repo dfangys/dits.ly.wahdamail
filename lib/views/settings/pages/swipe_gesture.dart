@@ -1,9 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
+import '../../../app/controllers/settings_controller.dart';
 import '../../../widgets/listile/showDialogueBox.dart';
 
-class SwipGestureSetting extends StatelessWidget {
+class SwipGestureSetting extends GetView<SettingController> {
   SwipGestureSetting({super.key});
   final SwapSettingData data = SwapSettingData();
   @override
@@ -24,11 +26,16 @@ class SwipGestureSetting extends StatelessWidget {
                   showCupertinoModalPopup(
                     context: context,
                     builder: (context) => const Material(
-                      child: ListTileCupertinoDilaogue(),
+                      child: ListTileCupertinoDilaogue(
+                        direction: "LTR",
+                      ),
                     ),
                   );
                 },
-                child: data.swapActions.values.elementAt(0),
+                child: Obx(
+                  () => data.swapActions[
+                      getSwapActionFromString(controller.swipeGesturesLTR())]!,
+                ),
               ),
               Divider(
                 color: Colors.grey.shade300,
@@ -40,11 +47,16 @@ class SwipGestureSetting extends StatelessWidget {
                   showCupertinoModalPopup(
                     context: context,
                     builder: (context) => const Material(
-                      child: ListTileCupertinoDilaogue(),
+                      child: ListTileCupertinoDilaogue(
+                        direction: "RTL",
+                      ),
                     ),
                   );
                 },
-                child: data.swapActions.values.elementAt(1),
+                child: Obx(
+                  () => data.swapActions[
+                      getSwapActionFromString(controller.swipeGesturesRTL())]!,
+                ),
               ),
             ],
           ),

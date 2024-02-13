@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:html_editor_enhanced/html_editor.dart';
+import 'package:get/get.dart';
+import 'package:wahda_bank/app/controllers/settings_controller.dart';
 
-class AccountNameSheet extends StatelessWidget {
+class AccountNameSheet extends GetView<SettingController> {
   AccountNameSheet({super.key});
-  final htmlController = HtmlEditorController();
+  final textController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
+    textController.text = controller.accountName();
     return Material(
       child: Padding(
         padding: EdgeInsets.only(
@@ -37,6 +39,7 @@ class AccountNameSheet extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.check),
                     onPressed: () {
+                      controller.accountName(textController.text);
                       Navigator.pop(context);
                     },
                   )
@@ -44,6 +47,7 @@ class AccountNameSheet extends StatelessWidget {
               ),
               const Divider(),
               TextFormField(
+                controller: textController,
                 decoration: const InputDecoration(
                   labelText: 'Name',
                   hintText: 'Enter your name',

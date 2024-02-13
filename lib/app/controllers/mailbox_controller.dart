@@ -1,7 +1,9 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:get/get.dart';
 import 'package:logger/logger.dart';
+import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
+import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import '../../models/hive_mime_storage.dart';
 import '../../services/mail_service.dart';
 
@@ -16,6 +18,8 @@ class MailBoxController extends GetxController {
 
   List<MimeMessage> get boxMails =>
       emails[mailService.client.selectedMailbox] ?? [];
+
+  SettingController settingController = Get.find<SettingController>();
 
   late Mailbox mailBoxInbox;
 
@@ -145,13 +149,33 @@ class MailBoxController extends GetxController {
     }
   }
 
+  Future ltrTap(MimeMessage message) async {
+    SwapAction action =
+        getSwapActionFromString(settingController.swipeGesturesLTR.value);
+    if (action == SwapAction.readUnread) {
+    } else if (action == SwapAction.delete) {
+    } else if (action == SwapAction.archive) {
+    } else if (action == SwapAction.toggleFlag) {
+    } else if (action == SwapAction.markAsJunk) {}
+  }
+
+  Future rtlTap(MimeMessage message) async {
+    SwapAction action =
+        getSwapActionFromString(settingController.swipeGesturesRTL.value);
+    if (action == SwapAction.readUnread) {
+    } else if (action == SwapAction.delete) {
+    } else if (action == SwapAction.archive) {
+    } else if (action == SwapAction.toggleFlag) {
+    } else if (action == SwapAction.markAsJunk) {}
+  }
+
   Future navigatToMailBox(Mailbox mailbox) async {
-    await loadEmailsForBox(mailbox);
     String hiveKey = HiveMailboxMimeStorage.getBoxName(
       mailService.account,
       mailbox,
       'envelopes',
     );
     Get.to(() => MailBoxView(hiveKey: hiveKey, box: mailbox));
+    await loadEmailsForBox(mailbox);
   }
 }

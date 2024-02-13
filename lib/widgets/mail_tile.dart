@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:wahda_bank/widgets/w_listtile.dart';
-
-import 'listile/showDialogueBox.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import '../app/controllers/settings_controller.dart';
 
 class MailTile extends StatelessWidget {
-  const MailTile({
+  MailTile({
     super.key,
     required this.selected,
     required this.onTap,
@@ -30,38 +29,38 @@ class MailTile extends StatelessWidget {
   final MimeMessage message;
   final MailboxFlag flag;
 
+  final settingController = Get.find<SettingController>();
+
   @override
   Widget build(BuildContext context) {
     return Slidable(
       startActionPane: ActionPane(motion: const StretchMotion(), children: [
-        SlidableAction(
-          onPressed: (context) => showDialog(
-            context: context,
-            builder: (BuildContext context) {
-              return CupertinoAlertDialog(
-                title: const Text('Left to right swipe'),
-                content: const ListTileCupertinoDilaogue(),
-                actions: [
-                  CupertinoDialogAction(
-                    child: Text(
-                      'Cancel',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    onPressed: () => Get.back(),
-                  )
-                ],
-              );
+        Obx(
+          () => SlidableAction(
+            onPressed: (context) {
+              Get.find<MailBoxController>().ltrTap(message);
             },
+            backgroundColor:
+                settingController.swipeGesturesLTRModel.backgroundColor,
+            icon: settingController.swipeGesturesLTRModel.icon,
+            label: settingController.swipeGesturesLTRModel.text,
           ),
-          backgroundColor: Colors.blue.shade200,
-          icon: Icons.mark_unread_chat_alt,
-          label: 'Mark as read\n    /unread',
         )
       ]),
-      endActionPane: const ActionPane(
-        motion: BehindMotion(),
+      endActionPane: ActionPane(
+        motion: const BehindMotion(),
         children: [
-          WDeleteListTile(),
+          Obx(
+            () => SlidableAction(
+              onPressed: (context) {
+                Get.find<MailBoxController>().rtlTap(message);
+              },
+              backgroundColor:
+                  settingController.swipeGesturesRTLModel.backgroundColor,
+              icon: settingController.swipeGesturesRTLModel.icon,
+              label: settingController.swipeGesturesRTLModel.text,
+            ),
+          ),
         ],
       ),
       child: ListTile(

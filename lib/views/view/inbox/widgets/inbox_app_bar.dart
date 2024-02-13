@@ -1,16 +1,19 @@
+import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/views/view/inbox/widgets/app_bar_menu_buton.dart';
+import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 
 class InbocAppBar extends StatelessWidget {
   const InbocAppBar({
     super.key,
     required this.indicator,
+    required this.message,
   });
 
   final bool indicator;
+  final MimeMessage message;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +34,11 @@ class InbocAppBar extends StatelessWidget {
                   color: AppTheme.starColor,
                 )
               : const Icon(Icons.star_border_outlined),
-          onPressed: () {},
+          onPressed: () async {
+            await MailService.instance.client.markFlagged(
+              MessageSequence.fromSequenceId(message),
+            );
+          },
         ),
         // const InboxAppBarMenuButton()
         IconButton(

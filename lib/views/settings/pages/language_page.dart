@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:wahda_bank/app/controllers/settings_controller.dart';
 
-class LanguagePage extends StatelessWidget {
+class LanguagePage extends GetView<SettingController> {
   const LanguagePage({super.key});
 
   @override
@@ -13,14 +15,34 @@ class LanguagePage extends StatelessWidget {
       body: ListView(
         children: <Widget>[
           ListTile(
-            leading: const Icon(Icons.check_circle_sharp),
+            leading: Obx(
+              () => Icon(
+                Icons.check_circle_sharp,
+                color: controller.language() == 'English'
+                    ? Colors.green
+                    : Colors.grey,
+              ),
+            ),
             title: const Text('English'),
-            onTap: () {},
+            onTap: () {
+              controller.language('English');
+              Get.updateLocale(const Locale('en'));
+            },
           ),
           ListTile(
-            leading: const Icon(Icons.check_circle_sharp),
+            leading: Obx(
+              () => Icon(
+                Icons.check_circle_sharp,
+                color: controller.language() == 'Arabic'
+                    ? Colors.green
+                    : Colors.grey,
+              ),
+            ),
             title: const Text('Arabic'),
-            onTap: () {},
+            onTap: () {
+              controller.language('Arabic');
+              Get.updateLocale(const Locale('ar'));
+            },
           ),
         ],
       ),

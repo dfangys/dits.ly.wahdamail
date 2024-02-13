@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import '../../views/settings/data/swap_data.dart';
 
-class ListTileCupertinoDilaogue extends StatelessWidget {
+class ListTileCupertinoDilaogue extends GetView<SettingController> {
   const ListTileCupertinoDilaogue({
     super.key,
+    required this.direction,
   });
+
+  final String direction;
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +34,16 @@ class ListTileCupertinoDilaogue extends StatelessWidget {
         itemBuilder: (context, index) {
           return InkWell(
             onTap: () {
-              print(data.swapActions.keys.elementAt(index));
+              if (direction == "LTR") {
+                controller.swipeGesturesLTR(
+                  data.swapActions.keys.elementAt(index).name.toString(),
+                );
+              } else {
+                controller.swipeGesturesRTL(
+                  data.swapActions.keys.elementAt(index).name.toString(),
+                );
+              }
+              Navigator.pop(context);
             },
             child: data.swapActions.values.elementAt(index),
           );

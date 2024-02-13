@@ -6,6 +6,18 @@ import 'package:wahda_bank/views/view/screens/splash.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'app/bindings/home_binding.dart';
 
+class Lang extends Translations {
+  @override
+  Map<String, Map<String, String>> get keys => {
+        'en': {
+          'hello': 'Hello World',
+        },
+        'ar': {
+          'hello': 'مرحبا بالعالم',
+        },
+      };
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -14,6 +26,7 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Wahda Bank',
+      translations: Lang(),
       theme: ThemeData(
         // fontFamily: 'sfp',
         textTheme: GoogleFonts.poppinsTextTheme(),

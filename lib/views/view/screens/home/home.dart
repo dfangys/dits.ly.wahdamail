@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
-import 'package:wahda_bank/views/view/inbox/inbox.dart';
+import 'package:wahda_bank/views/view/inbox/show_message.dart';
 import 'package:wahda_bank/views/view/screens/home/widgets/appbar.dart';
 import 'package:wahda_bank/widgets/drawer/drawer.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
@@ -68,7 +68,11 @@ class HomeScreen extends GetView<MailBoxController> {
                           var mail = item.value.elementAt(i).toMimeMessage();
                           return MailTile(
                             selected: false,
-                            onTap: () => Get.to(() => InboxScreen()),
+                            onTap: () {
+                              Get.to(
+                                () => ShowMessage(message: mail),
+                              );
+                            },
                             message: mail,
                             iconColor: Colors.green,
                             onDelete: () {},
@@ -78,6 +82,7 @@ class HomeScreen extends GetView<MailBoxController> {
                         },
                         separatorBuilder: (context, i) => Divider(
                           color: Colors.grey.shade300,
+                          height: 0,
                         ),
                         itemCount: item.value.length,
                       ),

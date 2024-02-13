@@ -94,11 +94,14 @@ class MailService {
       }
     });
     _mailVanishedEventSubscription =
-        client.eventBus.on<MailVanishedEvent>().listen((event) {
+        client.eventBus.on<MailVanishedEvent>().listen((event) async {
       final sequence = event.sequence;
       if (sequence != null && event.mailClient == client) {
-        // onMessagesVanished(sequence);
+        List<MimeMessage> msgs =
+            await client.fetchMessageSequence(event.sequence!);
+        for (var msg in msgs) {}
       }
+      printError(info: "MailVanishedEvent");
     });
     _mailUpdatedEventSubscription =
         client.eventBus.on<MailUpdateEvent>().listen((event) {

@@ -2,11 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:wahda_bank/views/settings/components/signature_sheet.dart';
-
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import '../../../app/controllers/settings_controller.dart';
 import '../components/account_name.dart';
 
-class SignaturePage extends StatelessWidget {
+class SignaturePage extends GetView<SettingController> {
   const SignaturePage({super.key});
 
   @override
@@ -19,26 +21,53 @@ class SignaturePage extends StatelessWidget {
         padding: const EdgeInsets.all(15.0),
         child: Column(
           children: [
-            // enable or disable Signature for Reply, Forward, New Message
             ListTile(
-              leading: Icon(Icons.check_circle),
+              leading: Obx(
+                () => Icon(
+                  Icons.check_circle,
+                  color:
+                      controller.signatureReply() ? Colors.green : Colors.grey,
+                ),
+              ),
               title: const Text('Reply'),
-              onTap: () {},
+              onTap: () {
+                controller.signatureReply(!controller.signatureReply());
+              },
             ),
             ListTile(
-              leading: Icon(Icons.check_circle),
+              leading: Obx(
+                () => Icon(
+                  Icons.check_circle,
+                  color: controller.signatureForward()
+                      ? Colors.green
+                      : Colors.grey,
+                ),
+              ),
               title: const Text('Forward'),
-              onTap: () {},
+              onTap: () {
+                controller.signatureForward(!controller.signatureForward());
+              },
             ),
             ListTile(
-              leading: Icon(Icons.check_circle),
+              leading: Obx(
+                () => Icon(
+                  Icons.check_circle,
+                  color: controller.signatureNewMessage()
+                      ? Colors.green
+                      : Colors.grey,
+                ),
+              ),
               title: const Text('New Message'),
-              onTap: () {},
+              onTap: () {
+                controller
+                    .signatureNewMessage(!controller.signatureNewMessage());
+              },
             ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.abc),
               title: const Text('Account Name'),
+              subtitle: Obx(() => Text(controller.accountName())),
               onTap: () {
                 if (Platform.isAndroid) {
                   showModalBottomSheet(
@@ -54,32 +83,31 @@ class SignaturePage extends StatelessWidget {
               },
             ),
             const Divider(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("Signature"),
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () {
+                    if (Platform.isAndroid) {
+                      showCupertinoModalPopup(
+                        context: context,
+                        builder: (context) => SignatureSheet(),
+                      );
+                    } else {
+                      showModalBottomSheet(
+                        context: context,
+                        builder: (context) => SignatureSheet(),
+                      );
+                    }
+                  },
+                )
+              ],
+            ),
             Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const Text("Signature"),
-                  Positioned(
-                    // to position the button to the right
-                    right: 0,
-                    child: IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () {
-                        if (Platform.isAndroid) {
-                          showCupertinoModalPopup(
-                            context: context,
-                            builder: (context) => SignatureSheet(),
-                          );
-                        } else {
-                          showModalBottomSheet(
-                            context: context,
-                            builder: (context) => SignatureSheet(),
-                          );
-                        }
-                      },
-                    ),
-                  )
-                ],
+              child: HtmlWidget(
+                controller.signature(),
               ),
             )
           ],
