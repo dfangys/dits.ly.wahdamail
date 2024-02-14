@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
@@ -10,7 +9,7 @@ class LanguagePage extends GetView<SettingController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Language'),
+        title: Text('language'.tr),
       ),
       body: ListView(
         children: <Widget>[
@@ -22,7 +21,7 @@ class LanguagePage extends GetView<SettingController> {
                     controller.language() == 'en' ? Colors.green : Colors.grey,
               ),
             ),
-            title: const Text('English'),
+            title: Text('english'.tr),
             onTap: () {
               controller.language('en');
               Get.updateLocale(const Locale('en'));
@@ -36,7 +35,7 @@ class LanguagePage extends GetView<SettingController> {
                     controller.language() == 'ar' ? Colors.green : Colors.grey,
               ),
             ),
-            title: const Text('Arabic'),
+            title: Text('arabic'.tr),
             onTap: () {
               controller.language('ar');
               Get.updateLocale(const Locale('ar'));

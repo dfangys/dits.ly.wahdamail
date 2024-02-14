@@ -9,7 +9,7 @@ class TrashScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Trash', style: Theme.of(context).textTheme.titleLarge),
+        title: Text('trash'.tr, style: Theme.of(context).textTheme.titleLarge),
         centerTitle: true,
         actions: [
           IconButton(

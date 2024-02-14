@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
@@ -44,51 +45,54 @@ class HomeScreen extends GetView<MailBoxController> {
                   return DateTime(dt.year, dt.month);
                 },
               );
-              return ListView.builder(
-                itemCount: group.length,
-                itemBuilder: (context, index) {
-                  var item = group.entries.elementAt(index);
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          timeago.format(item.key),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).primaryColor,
+              return SlidableAutoCloseBehavior(
+                closeWhenOpened: true,
+                child: ListView.builder(
+                  itemCount: group.length,
+                  itemBuilder: (context, index) {
+                    var item = group.entries.elementAt(index);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Text(
+                            timeago.format(item.key),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).primaryColor,
+                            ),
                           ),
                         ),
-                      ),
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemBuilder: (context, i) {
-                          var mail = item.value.elementAt(i).toMimeMessage();
-                          return MailTile(
-                            selected: false,
-                            onTap: () {
-                              Get.to(
-                                () => ShowMessage(message: mail),
-                              );
-                            },
-                            message: mail,
-                            iconColor: Colors.green,
-                            onDelete: () {},
-                            onLongPress: () {},
-                            flag: MailboxFlag.inbox,
-                          );
-                        },
-                        separatorBuilder: (context, i) => Divider(
-                          color: Colors.grey.shade300,
-                          height: 0,
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemBuilder: (context, i) {
+                            var mail = item.value.elementAt(i).toMimeMessage();
+                            return MailTile(
+                              selected: false,
+                              onTap: () {
+                                Get.to(
+                                  () => ShowMessage(message: mail),
+                                );
+                              },
+                              message: mail,
+                              iconColor: Colors.green,
+                              onDelete: () {},
+                              onLongPress: () {},
+                              flag: MailboxFlag.inbox,
+                            );
+                          },
+                          separatorBuilder: (context, i) => Divider(
+                            color: Colors.grey.shade300,
+                            height: 0,
+                          ),
+                          itemCount: item.value.length,
                         ),
-                        itemCount: item.value.length,
-                      ),
-                    ],
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               );
             },
           );
@@ -125,7 +129,7 @@ class WSearchBar extends StatelessWidget {
           child: Row(
             children: [
               Text(
-                'Search',
+                'search'.tr,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const Spacer(),

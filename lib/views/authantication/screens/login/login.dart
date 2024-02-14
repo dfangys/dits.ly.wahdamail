@@ -59,8 +59,8 @@ class LoginScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const SizedBox(height: WSizes.spaceBtwSections),
-                      const Text(
-                        "Login",
+                      Text(
+                        "login".tr,
                         style: TextStyle(
                           color: Colors.black,
                           fontWeight: FontWeight.bold,
@@ -79,7 +79,7 @@ class LoginScreen extends StatelessWidget {
                       WTextFormField(
                         controller: emailCtrl,
                         icon: "assets/png/mail.png",
-                        hintText: 'Email',
+                        hintText: 'email'.tr,
                         obscureText: false,
                         domainFix: true,
                         validator: (v) {
@@ -118,7 +118,7 @@ class LoginScreen extends StatelessWidget {
                               onPressed: () {
                                 Get.to(() => ResetPasswordScreen());
                               },
-                              child: const Text('Reset Password'),
+                              child: Text('reset_password'.tr),
                             ),
                           ],
                         ),

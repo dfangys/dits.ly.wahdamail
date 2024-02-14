@@ -44,7 +44,7 @@ class Drawer1 extends StatelessWidget {
                 ),
                 WDraweTile(
                   image: WImages.compose,
-                  text: 'Compose',
+                  text: 'compose'.tr,
                   onTap: () {
                     Get.to(() => ComposeScreen());
                   },
@@ -71,7 +71,7 @@ class Drawer1 extends StatelessWidget {
           ),
           WDraweTile(
             image: Icons.settings,
-            text: 'Settings',
+            text: 'settings'.tr,
             onTap: () {
               Get.to(() => const SettingsView());
             },
@@ -80,7 +80,7 @@ class Drawer1 extends StatelessWidget {
           divider(),
           WDraweTile(
             image: WImages.contactus,
-            text: 'Contact Us',
+            text: 'contact_us'.tr,
             onTap: () {
               Get.to(() => ContactUsScreen());
             },
@@ -89,7 +89,7 @@ class Drawer1 extends StatelessWidget {
           divider(),
           WDraweTile(
             image: WImages.files,
-            text: 'Terms and Condition',
+            text: 'terms_and_condition'.tr,
             onTap: () {
               Get.to(() => const TermsAndCondition());
             },
@@ -98,7 +98,7 @@ class Drawer1 extends StatelessWidget {
           divider(),
           WDraweTile(
             image: Icons.logout,
-            text: 'Logout',
+            text: 'logout'.tr,
             onTap: () async {
               await GetStorage().erase();
               // MailService.instance.client.disconnect();

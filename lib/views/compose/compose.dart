@@ -20,8 +20,8 @@ class ComposeScreen extends StatelessWidget {
           },
           icon: SvgPicture.asset(WImages.backErrow),
         ),
-        title: const Text(
-          "Compose",
+        title: Text(
+          "compose".tr,
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         actions: [
@@ -30,22 +30,22 @@ class ComposeScreen extends StatelessWidget {
               showCupertinoModalPopup(
                 context: context,
                 builder: (context) => CupertinoActionSheet(
-                  title: const Text('Attach File'),
+                  title: Text('attach_file'.tr),
                   actions: [
                     CupertinoActionSheetAction(
                       onPressed: () {},
-                      child: const Text('From Files'),
+                      child: Text('from_files'.tr),
                     ),
                     CupertinoActionSheetAction(
                       onPressed: () {},
-                      child: const Text('From Gallery'),
+                      child: Text('from_gallery'.tr),
                     ),
                   ],
                   cancelButton: CupertinoActionSheetAction(
                     onPressed: () {
                       Get.back();
                     },
-                    child: const Text('Cancel'),
+                    child: Text('cancel'.tr),
                   ),
                 ),
               );
@@ -57,26 +57,26 @@ class ComposeScreen extends StatelessWidget {
               showCupertinoModalPopup(
                 context: context,
                 builder: (context) => CupertinoActionSheet(
-                  title: const Text('More Options'),
+                  title: Text('more_options'.tr),
                   actions: [
                     CupertinoActionSheetAction(
                       onPressed: () {},
-                      child: const Text('Save as Draft'),
+                      child: Text('save_as_draft'.tr),
                     ),
                     CupertinoActionSheetAction(
                       onPressed: () {},
-                      child: const Text('Request Read Receipt'),
+                      child: Text('request_read_receipt'.tr),
                     ),
                     CupertinoActionSheetAction(
                       onPressed: () {},
-                      child: const Text('Convert to plain text'),
+                      child: Text('convert_to_plain_text'.tr),
                     ),
                   ],
                   cancelButton: CupertinoActionSheetAction(
                     onPressed: () {
                       Get.back();
                     },
-                    child: const Text('Cancel'),
+                    child: Text('cancel'.tr),
                   ),
                 ),
               );

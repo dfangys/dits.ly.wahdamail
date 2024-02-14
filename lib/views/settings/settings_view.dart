@@ -32,35 +32,35 @@ class SettingsView extends GetView<SettingController> {
             ),
             Divider(),
             ListTile(
-              title: Text('Read receipts'),
-              trailing: Text('Off'),
+              title: Text('readreceipt'.tr),
+              trailing: Text('Off'.tr),
               onTap: () {},
             ),
             Divider(),
             ListTile(
-              title: const Text('Security'),
-              trailing: const Text('Off'),
+              title: Text('security'.tr),
+              trailing: Text('Off'.tr),
               onTap: () {
                 Get.to(() => const SecurityPage());
               },
             ),
             ListTile(
-              title: Text('Swipe Gestures '),
-              trailing: Text('Set your swipe preferences'),
+              title: Text('swipe_gestures'.tr),
+              trailing: Text('set_your_swipe_preferences'.tr),
               onTap: () {
                 Get.to(() => SwipGestureSetting());
               },
             ),
             ListTile(
-              title: Text('Signature'),
-              trailing: Text('Set your signature'),
+              title: Text('signature'.tr),
+              trailing: Text('set_your_sig'.tr),
               onTap: () {
                 Get.to(() => SignaturePage());
               },
             ),
             ListTile(
-              title: Text('Logout'),
-              trailing: Icon(Icons.logout),
+              title: Text('logout'.tr),
+              trailing: const Icon(Icons.logout),
             ),
           ],
         ),

@@ -14,7 +14,7 @@ class HomeAppBarIcon extends StatelessWidget {
         Get.to(() => ComposeScreen());
       },
       child: Container(
-        margin: const EdgeInsets.only(top: 10, bottom: 10, right: 20),
+        margin: const EdgeInsets.only(top: 10, bottom: 10, right: 10, left: 10),
         height: 30,
         width: 30,
         decoration: const BoxDecoration(

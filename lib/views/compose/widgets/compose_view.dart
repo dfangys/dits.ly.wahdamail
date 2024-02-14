@@ -32,14 +32,14 @@ class WComposeView extends StatelessWidget {
             TextFormField(
               initialValue: "info@distly.com",
               readOnly: true,
-              decoration: const InputDecoration(
-                labelText: "From",
+              decoration: InputDecoration(
+                labelText: "from".tr,
                 hintText: "Mr. Abc <info@distly.com>",
               ),
             ),
             Obx(
               () => ToEmailsChipsField(
-                title: "To",
+                title: "to".tr,
                 emails: controller.toList.toList(),
                 onDelete: (int i) {
                   controller.removeFromToList(i);
@@ -72,7 +72,7 @@ class WComposeView extends StatelessWidget {
             firstChild: Column(
               children: [
                 ToEmailsChipsField(
-                  title: "CC",
+                  title: "CC".tr,
                   emails: controller.cclist.toList(),
                   onDelete: (int i) {
                     controller.removeFromCcList(i);
@@ -83,7 +83,7 @@ class WComposeView extends StatelessWidget {
                 ),
                 const Divider(color: Colors.grey, thickness: 0.5, height: 0.5),
                 ToEmailsChipsField(
-                  title: "Bcc",
+                  title: "bcc".tr,
                   emails: controller.bcclist.toList(),
                   onDelete: (int i) {
                     controller.removeFromBccList(i);
@@ -101,8 +101,8 @@ class WComposeView extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         TextFormField(
-          decoration: const InputDecoration(
-            labelText: "Subject",
+          decoration: InputDecoration(
+            labelText: "subject".tr,
           ),
         ),
         const Divider(color: Colors.grey, thickness: 0.5, height: 0.5),
@@ -131,7 +131,7 @@ class WComposeView extends StatelessWidget {
         WRoundedButton(
           controller: btnController,
           onPress: () {},
-          text: 'Send',
+          text: 'send'.tr,
         )
       ],
     );

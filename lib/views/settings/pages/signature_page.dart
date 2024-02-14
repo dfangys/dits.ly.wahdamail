@@ -15,7 +15,7 @@ class SignaturePage extends GetView<SettingController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Signature'),
+        title: Text('signature'.tr),
       ),
       body: Padding(
         padding: const EdgeInsets.all(15.0),
@@ -29,7 +29,7 @@ class SignaturePage extends GetView<SettingController> {
                       controller.signatureReply() ? Colors.green : Colors.grey,
                 ),
               ),
-              title: const Text('Reply'),
+              title: Text('reply'.tr),
               onTap: () {
                 controller.signatureReply(!controller.signatureReply());
               },
@@ -43,7 +43,7 @@ class SignaturePage extends GetView<SettingController> {
                       : Colors.grey,
                 ),
               ),
-              title: const Text('Forward'),
+              title: Text('forward'.tr),
               onTap: () {
                 controller.signatureForward(!controller.signatureForward());
               },
@@ -57,7 +57,7 @@ class SignaturePage extends GetView<SettingController> {
                       : Colors.grey,
                 ),
               ),
-              title: const Text('New Message'),
+              title: Text('new_message'.tr),
               onTap: () {
                 controller
                     .signatureNewMessage(!controller.signatureNewMessage());
@@ -86,7 +86,7 @@ class SignaturePage extends GetView<SettingController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Signature"),
+                Text("signature".tr),
                 IconButton(
                   icon: const Icon(Icons.edit),
                   onPressed: () {

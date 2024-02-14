@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class WSliverAppBar extends StatelessWidget {
   const WSliverAppBar({
@@ -16,8 +17,8 @@ class WSliverAppBar extends StatelessWidget {
       automaticallyImplyLeading: false,
       flexibleSpace: FlexibleSpaceBar(
         centerTitle: true,
-        title: const Text(
-          'Inbox',
+        title: Text(
+          'inbox'.tr,
           style: TextStyle(color: Colors.black),
         ),
         background: Container(
@@ -32,7 +33,7 @@ class WSliverAppBar extends StatelessWidget {
             color: Colors.green,
           ),
           Text(
-            'Accounts',
+            'accounts'.tr,
             style: Theme.of(context)
                 .textTheme
                 .bodyMedium!
@@ -43,8 +44,8 @@ class WSliverAppBar extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () {},
-          child: const Text(
-            'Edit',
+          child: Text(
+            'edit'.tr,
             style: TextStyle(color: Colors.green),
           ),
         ),

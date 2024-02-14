@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/widgets/w_listtile.dart';
 
@@ -21,7 +22,7 @@ class SearchView extends StatelessWidget {
             filled: true,
             contentPadding:
                 const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-            hintText: "Search",
+            hintText: "search".tr,
             isDense: true,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(7),

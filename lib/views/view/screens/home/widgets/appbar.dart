@@ -24,7 +24,7 @@ Widget appBar() {
           child: Row(
             children: [
               Text(
-                'Search',
+                'search'.tr,
                 style: TextStyle(color: Colors.grey.shade700),
               ),
               const Spacer(),

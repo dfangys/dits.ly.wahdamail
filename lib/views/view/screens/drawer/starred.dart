@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:wahda_bank/widgets/w_listtile.dart';
 
 class StarredScreen extends StatelessWidget {
@@ -8,7 +9,7 @@ class StarredScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Starred',
+          'starred'.tr,
           style: Theme.of(context).textTheme.titleLarge,
         ),
         centerTitle: true,

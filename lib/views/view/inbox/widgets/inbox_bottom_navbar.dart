@@ -23,19 +23,19 @@ class InboxBottomNavBar extends StatelessWidget {
               showCupertinoModalPopup(
                 context: context,
                 builder: (context) => CupertinoActionSheet(
-                  title: const Text('Are you sure to delete?'),
+                  title: Text('are_you_u_wtd'.tr),
                   actions: [
                     CupertinoActionSheetAction(
                       onPressed: () {},
                       isDestructiveAction: true,
-                      child: const Text('Delete'),
+                      child: Text('delete'.tr),
                     ),
                   ],
                   cancelButton: CupertinoActionSheetAction(
                     onPressed: () {
                       Get.back();
                     },
-                    child: const Text('Cancel'),
+                    child: Text('cancel'.tr),
                   ),
                 ),
               );

@@ -32,42 +32,45 @@ class WListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<InboxController>();
-    return ListView.builder(
-      itemCount: controller.mailGroups.length,
-      itemBuilder: (BuildContext context, int index) {
-        var item = controller.mailGroups.entries.elementAt(index);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                timeago.format(item.key),
-                style: const TextStyle(fontSize: 12),
+    return SlidableAutoCloseBehavior(
+      closeWhenOpened: true,
+      child: ListView.builder(
+        itemCount: controller.mailGroups.length,
+        itemBuilder: (BuildContext context, int index) {
+          var item = controller.mailGroups.entries.elementAt(index);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  timeago.format(item.key),
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
-            ),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemBuilder: (context, i) => MailTile(
-                selected: selected,
-                onTap: onTap,
-                onLongPress: onLongPress,
-                onDelete: onDelete,
-                icon: icon,
-                iconColor: iconColor,
-                message: MimeMessage.parseFromText("text"),
-                flag: MailboxFlag.inbox,
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemBuilder: (context, i) => MailTile(
+                  selected: selected,
+                  onTap: onTap,
+                  onLongPress: onLongPress,
+                  onDelete: onDelete,
+                  icon: icon,
+                  iconColor: iconColor,
+                  message: MimeMessage.parseFromText("text"),
+                  flag: MailboxFlag.inbox,
+                ),
+                itemCount: item.value.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 2,
+                  color: Colors.grey.shade300,
+                ),
               ),
-              itemCount: item.value.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 2,
-                color: Colors.grey.shade300,
-              ),
-            ),
-          ],
-        );
-      },
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -90,7 +93,7 @@ class WDeleteListTile extends StatelessWidget {
               const SizedBox(
                 width: 1,
               ),
-              const Text('Deleted'),
+              Text('deleted'.tr),
               InkWell(
                 onTap: () {
                   WFullScreenLoader.customToast(message: 'Deleted');
@@ -103,8 +106,8 @@ class WDeleteListTile extends StatelessWidget {
                     color: Colors.green,
                     borderRadius: BorderRadius.circular(7),
                   ),
-                  child: const Center(
-                    child: Text('Undo'),
+                  child: Center(
+                    child: Text('undo'.tr),
                   ),
                 ),
               )
@@ -114,7 +117,7 @@ class WDeleteListTile extends StatelessWidget {
       ),
       backgroundColor: Colors.red,
       icon: Icons.delete,
-      label: 'Delete',
+      label: 'delete'.tr,
     );
   }
 }

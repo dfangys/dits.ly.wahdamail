@@ -39,7 +39,7 @@ class WinboxListTile extends StatelessWidget {
                 onPressed: (context) => {},
                 backgroundColor: Colors.blue.shade200,
                 icon: Icons.mark_unread_chat_alt,
-                label: 'Mark as read',
+                label: 'mark_as_read'.tr,
               )
             ]),
             endActionPane: ActionPane(
@@ -49,7 +49,7 @@ class WinboxListTile extends StatelessWidget {
                   onPressed: (context) => {},
                   backgroundColor: Colors.red,
                   icon: Icons.delete,
-                  label: 'Delete',
+                  label: 'delete'.tr,
                 ),
               ],
             ),
