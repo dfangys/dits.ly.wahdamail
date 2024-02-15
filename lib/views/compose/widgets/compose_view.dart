@@ -30,11 +30,10 @@ class WComposeView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextFormField(
-              initialValue: "info@distly.com",
+              initialValue: controller.email,
               readOnly: true,
               decoration: InputDecoration(
                 labelText: "from".tr,
-                hintText: "Mr. Abc <info@distly.com>",
               ),
             ),
             Obx(

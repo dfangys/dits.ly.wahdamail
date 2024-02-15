@@ -1,12 +1,14 @@
+import 'dart:developer';
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:enough_mail/enough_mail.dart';
 import 'package:enough_mail_flutter/enough_mail_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/views/view/inbox/widgets/inbox_app_bar.dart';
 import 'package:wahda_bank/views/view/inbox/widgets/inbox_bottom_navbar.dart';
@@ -93,20 +95,25 @@ class ShowMessage extends StatelessWidget {
                                 ),
                                 child: Text(c.mediaType!.text),
                               ),
-                              onTap: () {
-                                MimePart? mimePart =
-                                    snapshot.data!.getPart(c.fetchId);
-                                if (mimePart != null) {
-                                  Uint8List? uint8List =
-                                      mimePart.decodeContentBinary();
-                                  if (uint8List != null) {
-                                    saveFile(
-                                      context,
-                                      uint8List,
-                                      c.fileName ?? 'file',
-                                    );
+                              onTap: () async {
+                                try {
+                                  MimePart? mimePart =
+                                      snapshot.data!.getPart(c.fetchId);
+                                  if (mimePart != null) {
+                                    Uint8List? uint8List =
+                                        mimePart.decodeContentBinary();
+                                    if (uint8List != null) {
+                                      bool isSaved = await saveFile(
+                                        context,
+                                        uint8List,
+                                        c.fileName ?? 'file',
+                                      );
+                                      print("Svaed $isSaved");
+                                    }
                                   }
-                                }
+                                } catch (e) {
+                                  log(e.toString());
+                                } finally {}
                               },
                             ),
                         ],
@@ -136,9 +143,10 @@ class ShowMessage extends StatelessWidget {
     try {
       if (Platform.isAndroid) {
         if (await requestPermission(Permission.storage)) {
-          directory = await getExternalStorageDirectory();
+          log("message");
+          directory = await getApplicationCacheDirectory();
           String newPath = "";
-          List<String> paths = directory!.path.split("/");
+          List<String> paths = directory.path.split("/");
 
           for (int x = 1; x < paths.length; x++) {
             String folder = paths[x];
@@ -168,14 +176,24 @@ class ShowMessage extends StatelessWidget {
 
       if (await directory.exists()) {
         File file = File('${directory.path}/$fileName');
-        print("file path = ${file.path}");
         await file.writeAsBytes(uint8List);
+        final result = await Share.shareXFiles(
+          [XFile(file.path)],
+          text: 'I am sharing this',
+        );
+        if (result.status == ShareResultStatus.success) {
+          if (kDebugMode) {
+            print('Thank you for sharing the picture!');
+          }
+        }
         return true;
       }
 
       return false;
     } catch (e) {
-      print(e);
+      if (kDebugMode) {
+        printError(info: e.toString());
+      }
       return false;
     }
   }
@@ -185,7 +203,8 @@ class ShowMessage extends StatelessWidget {
       return true;
     } else {
       var result = await permission.request();
-      if (result == PermissionStatus.granted) {
+      if (result == PermissionStatus.granted ||
+          result == PermissionStatus.limited) {
         return true;
       }
     }

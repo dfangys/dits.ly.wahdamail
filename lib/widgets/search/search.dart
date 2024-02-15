@@ -1,11 +1,14 @@
+import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
-import 'package:wahda_bank/widgets/w_listtile.dart';
+import 'package:wahda_bank/views/view/inbox/show_message.dart';
+import 'package:wahda_bank/widgets/mail_tile.dart';
+import 'controllers/mail_search_controller.dart';
 
 class SearchView extends StatelessWidget {
   SearchView({super.key});
-  final textController = TextEditingController();
+  final controller = Get.put(MailSearchController());
 
   @override
   Widget build(BuildContext context) {
@@ -13,9 +16,8 @@ class SearchView extends StatelessWidget {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
-        automaticallyImplyLeading: false,
         title: TextFormField(
-          controller: textController,
+          controller: controller.searchController,
           onChanged: (String txt) {},
           decoration: InputDecoration(
             fillColor: WColors.fieldbackground,
@@ -42,7 +44,9 @@ class SearchView extends StatelessWidget {
                   margin: const EdgeInsets.symmetric(horizontal: 5),
                 ),
                 GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    controller.onSearch();
+                  },
                   child: const Icon(
                     Icons.search,
                     color: Colors.black,
@@ -54,10 +58,37 @@ class SearchView extends StatelessWidget {
           ),
         ),
       ),
-      body: const Column(
-        children: [
-          Expanded(child: WListTile(selected: false)),
-        ],
+      body: controller.obx(
+        (state) => ListView.separated(
+          controller: controller.scrollController,
+          itemBuilder: (context, index) {
+            return MailTile(
+              selected: false,
+              onTap: () {
+                Get.to(
+                  () => ShowMessage(message: controller.searchMessages[index]),
+                );
+              },
+              onLongPress: () {},
+              onDelete: () {},
+              message: controller.searchMessages[index],
+              flag: MailboxFlag.all,
+            );
+          },
+          separatorBuilder: (context, index) {
+            return const Divider();
+          },
+          itemCount: controller.searchMessages.length,
+        ),
+        onEmpty: Center(
+          child: Text('no_search_result'.tr),
+        ),
+        onLoading: const Center(
+          child: CircularProgressIndicator(),
+        ),
+        onError: (error) => Center(
+          child: Text(error.toString()),
+        ),
       ),
     );
   }

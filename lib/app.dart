@@ -7,11 +7,27 @@ import 'package:wahda_bank/views/view/screens/splash.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'app/bindings/home_binding.dart';
 import 'utills/constants/language.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
   String get locale => GetStorage().read('language') ?? 'en';
+  @override
+  void initState() {
+    super.initState();
+    if (locale == 'ar') {
+      timeago.setLocaleMessages('ar', timeago.ArMessages());
+      timeago.setDefaultLocale(locale);
+    } else {
+      timeago.setDefaultLocale(locale);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

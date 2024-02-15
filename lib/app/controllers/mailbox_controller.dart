@@ -30,6 +30,9 @@ class MailBoxController extends GetxController {
   Rx<Mailbox>? selected;
   RxList<Mailbox> mailboxes = <Mailbox>[].obs;
 
+  List<Mailbox> get drawerBoxes =>
+      mailboxes.where((e) => e.name.toLowerCase() != 'inbox').toList();
+
   @override
   void onInit() async {
     // try {
@@ -204,5 +207,11 @@ class MailBoxController extends GetxController {
     );
     Get.to(() => MailBoxView(hiveKey: hiveKey, box: mailbox));
     await loadEmailsForBox(mailbox);
+  }
+
+  @override
+  void dispose() {
+    MailService.instance.dispose();
+    super.dispose();
   }
 }

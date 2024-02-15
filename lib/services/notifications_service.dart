@@ -77,10 +77,8 @@ class NotificationService {
   }
 
   void showFlutterNotification(
-    String title,
-    String body,
-    Map<String, dynamic> data,
-  ) {
+      String title, String body, Map<String, dynamic> data,
+      [int id = 0]) {
     plugin.show(
       0,
       title,

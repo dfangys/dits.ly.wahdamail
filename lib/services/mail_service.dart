@@ -5,8 +5,6 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 
-import '../models/indexed_cache.dart';
-
 class MailService {
   static MailService? _instance;
   static MailService get instance {
@@ -87,6 +85,7 @@ class MailService {
       _mailReconnectedEventSubscription;
 
   void _subscribeEvents() {
+    printInfo(info: 'Subscribing to events');
     _mailLoadEventSubscription =
         client.eventBus.on<MailLoadEvent>().listen((event) {
       if (event.mailClient == client) {
@@ -136,7 +135,6 @@ class MailService {
 
   void dispose() {
     _unsubscribeEvents();
+    client.disconnect();
   }
-
-  late IndexedCache<MimeMessage> cache;
 }

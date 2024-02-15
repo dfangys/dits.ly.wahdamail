@@ -31,7 +31,12 @@ class MailBoxView extends GetView<MailBoxController> {
           }
           return ValueListenableBuilder<Box<StorageMessageEnvelope>>(
             valueListenable: controller.mailboxStorage[box]!.dataStream,
-            builder: (context, box, child) {
+            builder: (context, Box<StorageMessageEnvelope> box, child) {
+              if (box.isEmpty) {
+                return const Center(
+                  child: Text("No Messages"),
+                );
+              }
               List<StorageMessageEnvelope> rows =
                   box.values.sorted((a, b) => b.date!.compareTo(a.date!));
               Map<DateTime, List<StorageMessageEnvelope>> group = groupBy(

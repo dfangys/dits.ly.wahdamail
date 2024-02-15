@@ -7,10 +7,7 @@ Widget appBar() {
   return AppBar(
     title: GestureDetector(
       onTap: () {
-        SearchController().clear();
-        Get.to(
-          SearchView(),
-        );
+        Get.to(() => SearchView());
       },
       child: Container(
         height: 40,
@@ -34,13 +31,10 @@ Widget appBar() {
                 color: Colors.grey.shade400,
                 margin: const EdgeInsets.symmetric(horizontal: 5),
               ),
-              GestureDetector(
-                onTap: () {},
-                child: const Icon(
-                  Icons.search,
-                  color: Colors.black,
-                  size: 20,
-                ),
+              const Icon(
+                Icons.search,
+                color: Colors.black,
+                size: 20,
               ),
             ],
           ),

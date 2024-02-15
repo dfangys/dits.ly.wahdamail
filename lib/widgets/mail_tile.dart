@@ -85,10 +85,12 @@ class MailTile extends StatelessWidget {
           ),
           title: Text(
             message.from![0].personalName ?? message.from![0].email,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              fontWeight: FontWeight.bold,
+              fontWeight: message.isSeen ? FontWeight.normal : FontWeight.bold,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

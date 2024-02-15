@@ -22,7 +22,7 @@ class ComposeScreen extends StatelessWidget {
         ),
         title: Text(
           "compose".tr,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(

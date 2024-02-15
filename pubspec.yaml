@@ -59,6 +59,7 @@ dependencies:
   flutter_local_notifications: ^16.3.2
   flutter_background_service: ^5.0.5
   background_fetch: ^1.2.2
+  share_plus: ^7.2.2
 
 dev_dependencies:
   flutter_test:
