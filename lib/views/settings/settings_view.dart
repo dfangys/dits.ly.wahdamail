@@ -14,7 +14,7 @@ class SettingsView extends GetView<SettingController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: Text('settings'.tr),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -30,13 +30,13 @@ class SettingsView extends GetView<SettingController> {
                 Get.to(() => const LanguagePage());
               },
             ),
-            Divider(),
+            const Divider(),
             ListTile(
               title: Text('readreceipt'.tr),
               trailing: Text('Off'.tr),
               onTap: () {},
             ),
-            Divider(),
+            const Divider(),
             ListTile(
               title: Text('security'.tr),
               trailing: Text('Off'.tr),
@@ -44,6 +44,7 @@ class SettingsView extends GetView<SettingController> {
                 Get.to(() => const SecurityPage());
               },
             ),
+            const Divider(),
             ListTile(
               title: Text('swipe_gestures'.tr),
               trailing: Text('set_your_swipe_preferences'.tr),
@@ -51,13 +52,15 @@ class SettingsView extends GetView<SettingController> {
                 Get.to(() => SwipGestureSetting());
               },
             ),
+            const Divider(),
             ListTile(
               title: Text('signature'.tr),
               trailing: Text('set_your_sig'.tr),
               onTap: () {
-                Get.to(() => SignaturePage());
+                Get.to(() => const SignaturePage());
               },
             ),
+            const Divider(),
             ListTile(
               title: Text('logout'.tr),
               trailing: const Icon(Icons.logout),

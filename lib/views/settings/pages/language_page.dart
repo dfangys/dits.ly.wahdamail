@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
+import 'package:timeago/timeago.dart' as timeago;
 
 class LanguagePage extends GetView<SettingController> {
   const LanguagePage({super.key});
@@ -24,6 +25,7 @@ class LanguagePage extends GetView<SettingController> {
             title: Text('english'.tr),
             onTap: () {
               controller.language('en');
+              timeago.setDefaultLocale('en');
               Get.updateLocale(const Locale('en'));
             },
           ),
@@ -38,6 +40,8 @@ class LanguagePage extends GetView<SettingController> {
             title: Text('arabic'.tr),
             onTap: () {
               controller.language('ar');
+              timeago.setLocaleMessages('ar', timeago.ArMessages());
+              timeago.setDefaultLocale('ar');
               Get.updateLocale(const Locale('ar'));
             },
           ),

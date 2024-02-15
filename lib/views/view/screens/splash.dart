@@ -6,6 +6,8 @@ import 'package:wahda_bank/views/view/screens/first_loading_view.dart';
 import 'package:wahda_bank/views/view/screens/welcome/welcome.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 
+import '../../../services/notifications_service.dart';
+
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -17,7 +19,8 @@ class _SplashScreenState extends State<SplashScreen> {
   final storage = GetStorage();
   @override
   void initState() {
-    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
+      await NotificationService.instance.setup();
       if (storage.read('email') != null && storage.read('password') != null) {
         Get.offAll(() => const LoadingFirstView());
       } else {

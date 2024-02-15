@@ -56,6 +56,9 @@ dependencies:
   permission_handler: ^11.2.1
   path_provider: ^2.1.2
   flutter_widget_from_html: ^0.14.11
+  flutter_local_notifications: ^16.3.2
+  flutter_background_service: ^5.0.5
+  background_fetch: ^1.2.2
 
 dev_dependencies:
   flutter_test:

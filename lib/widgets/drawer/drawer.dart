@@ -1,3 +1,4 @@
+import 'package:background_fetch/background_fetch.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -104,6 +105,7 @@ class Drawer1 extends StatelessWidget {
               // MailService.instance.client.disconnect();
               // MailService.instance.dispose();
               // await controller.deleteAccount();
+              await BackgroundFetch.stop();
               Get.offAll(() => LoginScreen());
             },
             trailing: '',

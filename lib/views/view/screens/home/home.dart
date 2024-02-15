@@ -1,7 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
@@ -45,8 +44,10 @@ class HomeScreen extends GetView<MailBoxController> {
                   return DateTime(dt.year, dt.month);
                 },
               );
-              return SlidableAutoCloseBehavior(
-                closeWhenOpened: true,
+              return RefreshIndicator(
+                onRefresh: () async {
+                  await controller.loadEmailsForBox(controller.mailBoxInbox);
+                },
                 child: ListView.builder(
                   itemCount: group.length,
                   itemBuilder: (context, index) {
@@ -57,7 +58,11 @@ class HomeScreen extends GetView<MailBoxController> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: Text(
-                            timeago.format(item.key),
+                            timeago.format(
+                              item.value.isNotEmpty
+                                  ? item.value.first.date!
+                                  : DateTime.now(),
+                            ),
                             style: TextStyle(
                               fontSize: 12,
                               color: Theme.of(context).primaryColor,

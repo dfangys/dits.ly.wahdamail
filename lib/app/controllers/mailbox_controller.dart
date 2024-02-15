@@ -1,7 +1,9 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:logger/logger.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
+import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import '../../models/hive_mime_storage.dart';
@@ -85,6 +87,12 @@ class MailBoxController extends GetxController {
 
   Future<void> fetchMailbox(Mailbox mailbox) async {
     int max = mailbox.messagesExists;
+    if (mailbox.uidNext != null && mailbox.isInbox) {
+      await GetStorage().write(
+        BackgroundService.keyInboxLastUid,
+        mailbox.uidNext,
+      );
+    }
     if (max == 0) return;
     if (emails[mailbox] == null) {
       emails[mailbox] = <MimeMessage>[];
@@ -113,6 +121,9 @@ class MailBoxController extends GetxController {
         await mailboxStorage[mailbox]!.saveMessageEnvelopes(newMessages);
       }
       page += 1;
+    }
+    if (mailbox.isInbox) {
+      BackgroundService.checkForNewMail(false);
     }
   }
 
@@ -167,6 +178,22 @@ class MailBoxController extends GetxController {
     } else if (action == SwapAction.archive) {
     } else if (action == SwapAction.toggleFlag) {
     } else if (action == SwapAction.markAsJunk) {}
+  }
+
+  Future handleIncomingMail(MimeMessage message) async {
+    for (var element in mailboxStorage.values) {
+      await element.saveMessageEnvelopes([message]);
+    }
+  }
+
+  Future vanishMails(List<MimeMessage> msgs) async {
+    for (var message in msgs) {
+      if (message.isDeleted) {
+        for (var element in mailboxStorage.values) {
+          await element.deleteMessage(message);
+        }
+      }
+    }
   }
 
   Future navigatToMailBox(Mailbox mailbox) async {

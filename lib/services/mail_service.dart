@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 
 import '../models/indexed_cache.dart';
 
@@ -90,16 +91,21 @@ class MailService {
         client.eventBus.on<MailLoadEvent>().listen((event) {
       if (event.mailClient == client) {
         printError(info: 'MailLoadEvent');
-        // onMessageArrived(event.message);
+        if (Get.isRegistered<MailBoxController>()) {
+          Get.find<MailBoxController>().handleIncomingMail(event.message);
+        }
       }
     });
     _mailVanishedEventSubscription =
         client.eventBus.on<MailVanishedEvent>().listen((event) async {
       final sequence = event.sequence;
-      if (sequence != null && event.mailClient == client) {
-        List<MimeMessage> msgs =
-            await client.fetchMessageSequence(event.sequence!);
-        for (var msg in msgs) {}
+      if (sequence != null) {
+        List<MimeMessage> msgs = await client.fetchMessageSequence(
+          sequence,
+        );
+        if (Get.isRegistered<MailBoxController>()) {
+          Get.find<MailBoxController>().vanishMails(msgs);
+        }
       }
       printError(info: "MailVanishedEvent");
     });
@@ -108,6 +114,9 @@ class MailService {
       if (event.mailClient == client) {
         // onMessageFlagsUpdated(event.message);
         printError(info: 'MailUpdateEvent');
+        if (Get.isRegistered<MailBoxController>()) {
+          Get.find<MailBoxController>().handleIncomingMail(event.message);
+        }
       }
     });
     _mailReconnectedEventSubscription =

@@ -1,3 +1,4 @@
+import 'package:background_fetch/background_fetch.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
@@ -39,6 +40,12 @@ class _LoadingFirstViewState extends State<LoadingFirstView> {
       error = e.toString();
     } finally {
       if (isReadyToRun) {
+        int status = await BackgroundFetch.status;
+        if (status == BackgroundFetch.STATUS_RESTRICTED ||
+            status == BackgroundFetch.STATUS_DENIED) {
+        } else {
+          BackgroundFetch.start();
+        }
         Get.offAllNamed('/home');
       }
     }
