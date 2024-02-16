@@ -10,6 +10,7 @@ import 'package:wahda_bank/views/view/screens/home/widgets/appbar.dart';
 import 'package:wahda_bank/widgets/drawer/drawer.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/widgets/search/search.dart';
+import '../../../../app/controllers/selection_controller.dart';
 import '../../../../models/hive_mime_storage.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -17,6 +18,7 @@ class HomeScreen extends GetView<MailBoxController> {
   const HomeScreen({super.key});
   @override
   Widget build(BuildContext context) {
+    final selectionController = Get.find<SelectionController>();
     return Scaffold(
       backgroundColor: AppTheme.cardDesignColor,
       appBar: PreferredSize(
@@ -75,7 +77,6 @@ class HomeScreen extends GetView<MailBoxController> {
                           itemBuilder: (context, i) {
                             var mail = item.value.elementAt(i).toMimeMessage();
                             return MailTile(
-                              selected: false,
                               onTap: () {
                                 Get.to(
                                   () => ShowMessage(message: mail),
@@ -102,6 +103,45 @@ class HomeScreen extends GetView<MailBoxController> {
             },
           );
         },
+      ),
+      bottomNavigationBar: AnimatedCrossFade(
+        firstChild: const SizedBox(),
+        secondChild: BottomNavigationBar(
+          onTap: (int i) {
+            if (i == 0) {
+              controller.markAsReadUnread(selectionController.selected, true);
+            } else if (i == 1) {
+              controller.markAsReadUnread(selectionController.selected, false);
+            } else if (i == 2) {
+              // move to mulilple
+            } else if (i == 3) {
+              // delete multiple
+              controller.deleteMails(selectionController.selected);
+            }
+          },
+          items: [
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.mark_email_read_outlined),
+              label: 'mark_read'.tr,
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.mark_email_unread_outlined),
+              label: 'mark_undread'.tr,
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.move_to_inbox),
+              label: 'move_to'.tr,
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.delete_outlined, color: Colors.red.shade400),
+              label: 'delete'.tr,
+            ),
+          ],
+        ),
+        crossFadeState: selectionController.isSelecting
+            ? CrossFadeState.showSecond
+            : CrossFadeState.showFirst,
+        duration: const Duration(milliseconds: 300),
       ),
     );
   }

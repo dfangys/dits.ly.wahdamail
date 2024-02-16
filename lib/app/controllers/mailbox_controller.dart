@@ -4,6 +4,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:logger/logger.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/services/background_service.dart';
+import 'package:wahda_bank/services/internet_service.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import '../../models/hive_mime_storage.dart';
@@ -138,20 +139,37 @@ class MailBoxController extends GetxController {
   }
 
   // Operations on emails
-  Future markAsRead(int uId) async {
-    final storage = mailboxStorage[mailService.client.selectedMailbox];
-    if (storage == null) return;
-    final messages = emails[mailService.client.selectedMailbox];
-    if (messages == null) return;
-    final index = messages.indexWhere((element) => element.uid == uId);
-    if (index == -1) return;
-    final message = messages[index];
-    message.isSeen = !message.isSeen;
-    messages[index] = message;
-    emails[mailService.client.selectedMailbox!] = messages;
-    await storage.saveMessageContents(message);
-    var sequence = MessageSequence.fromUid(message);
-    mailService.client.markSeen(sequence);
+  Future markAsReadUnread(List<MimeMessage> messages,
+      [bool isSeen = true]) async {
+    if (!InternetService.instance.connected) {
+      return;
+    }
+    for (var message in messages) {
+      message.isSeen = isSeen;
+      for (var element in mailboxStorage.values) {
+        await element.saveMessageEnvelopes([message]);
+        await mailService.client.flagMessage(message, isSeen: isSeen);
+      }
+    }
+  }
+
+  Future deleteMails(List<MimeMessage> messages) async {
+    for (var message in messages) {
+      message.isDeleted = true;
+      for (var element in mailboxStorage.values) {
+        await element.deleteMessage(message);
+        await mailService.client.deleteMessage(message);
+      }
+    }
+  }
+
+  Future moveMails(List<MimeMessage> messages, Mailbox mailbox) async {
+    for (var message in messages) {
+      for (var element in mailboxStorage.values) {
+        await element.deleteMessage(message);
+        await mailService.client.moveMessage(message, mailbox);
+      }
+    }
   }
 
   // Operations on emails

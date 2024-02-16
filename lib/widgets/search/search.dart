@@ -63,7 +63,6 @@ class SearchView extends StatelessWidget {
           controller: controller.scrollController,
           itemBuilder: (context, index) {
             return MailTile(
-              selected: false,
               onTap: () {
                 Get.to(
                   () => ShowMessage(message: controller.searchMessages[index]),

@@ -4,12 +4,12 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import '../app/controllers/selection_controller.dart';
 import '../app/controllers/settings_controller.dart';
 
 class MailTile extends StatelessWidget {
   MailTile({
     super.key,
-    required this.selected,
     required this.onTap,
     required this.onLongPress,
     required this.onDelete,
@@ -19,7 +19,6 @@ class MailTile extends StatelessWidget {
     required this.flag,
   });
 
-  final bool selected;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onDelete;
@@ -29,6 +28,7 @@ class MailTile extends StatelessWidget {
   final MailboxFlag flag;
 
   final settingController = Get.find<SettingController>();
+  final selectionController = Get.find<SelectionController>();
 
   @override
   Widget build(BuildContext context) {
@@ -64,24 +64,32 @@ class MailTile extends StatelessWidget {
           ],
         ),
         child: ListTile(
-          selected: selected,
-          onTap: onTap,
+          onTap: () {
+            if (selectionController.isSelecting) {
+              selectionController.toggle(message);
+            } else if (onTap != null) {
+              onTap!.call();
+            }
+          },
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 15.0,
             vertical: 5.0,
           ),
-          onLongPress: onLongPress,
+          onLongPress: () {
+            selectionController.toggle(message);
+          },
           leading: CircleAvatar(
-            backgroundColor: Colors.blue,
-            child: !selected
-                ? Center(
-                    child: Text(
-                      message.from![0].email[0].toUpperCase(),
-                      style: const TextStyle(color: Colors.white),
-                      textAlign: TextAlign.center,
-                    ),
-                  )
-                : const Icon(Icons.check, color: Colors.white),
+            child: Obx(
+              () => !selectionController.selected.contains(message)
+                  ? Center(
+                      child: Text(
+                        message.from![0].email[0].toUpperCase(),
+                        style: const TextStyle(color: Colors.white),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : const Icon(Icons.check, color: Colors.white),
+            ),
           ),
           title: Text(
             message.from![0].personalName ?? message.from![0].email,

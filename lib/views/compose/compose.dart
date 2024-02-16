@@ -1,10 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/compose_view.dart';
-import 'package:wahda_bank/utills/constants/image_strings.dart';
 
 class ComposeScreen extends StatelessWidget {
   ComposeScreen({super.key});
@@ -14,17 +12,16 @@ class ComposeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          onPressed: () {
-            Get.back();
-          },
-          icon: SvgPicture.asset(WImages.backErrow),
-        ),
-        title: Text(
-          "compose".tr,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        centerTitle: true,
+        // title: Text(
+        //   "compose".tr,
+        //   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        // ),
         actions: [
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.send_outlined),
+          ),
           IconButton(
             onPressed: () {
               showCupertinoModalPopup(

@@ -52,7 +52,6 @@ class WListTile extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemBuilder: (context, i) => MailTile(
-                  selected: selected,
                   onTap: onTap,
                   onLongPress: onLongPress,
                   onDelete: onDelete,
