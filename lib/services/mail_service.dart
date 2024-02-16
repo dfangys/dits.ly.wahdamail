@@ -72,7 +72,7 @@ class MailService {
         _subscribeEvents();
       }
     } catch (e) {
-      storage.erase();
+      // storage.erase();
       rethrow;
     }
     return client.isConnected;

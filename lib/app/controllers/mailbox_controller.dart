@@ -24,7 +24,12 @@ class MailBoxController extends GetxController {
 
   SettingController settingController = Get.find<SettingController>();
 
-  late Mailbox mailBoxInbox;
+  Mailbox mailBoxInbox = Mailbox(
+    encodedName: 'inbox',
+    encodedPath: 'inbox',
+    flags: [],
+    pathSeparator: '',
+  );
 
   final Logger logger = Logger();
 

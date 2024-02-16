@@ -3,7 +3,9 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:lottie/lottie.dart';
 import 'package:wahda_bank/models/hive_mime_storage.dart';
+import 'package:wahda_bank/views/view/screens/home/home.dart';
 import '../../app/controllers/mailbox_controller.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../widgets/mail_tile.dart';
@@ -25,8 +27,12 @@ class MailBoxView extends GetView<MailBoxController> {
         valueListenable: controller.mailboxStorage[box]!.dataStream,
         builder: (context, Box<StorageMessageEnvelope> box, child) {
           if (box.isEmpty) {
-            return const Center(
-              child: Text("No Messages"),
+            return TAnimationLoaderWidget(
+              text: 'Whoops! Cart is Empty',
+              animation:
+                  'https://lottie.host/44b3d113-55e1-4bb7-9412-60f74b5331ef/CDlMVEzeua.json',
+              showAction: true,
+              actionText: 'Let\'s fill it',
             );
           }
           List<StorageMessageEnvelope> rows =
@@ -83,6 +89,61 @@ class MailBoxView extends GetView<MailBoxController> {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class TAnimationLoaderWidget extends StatelessWidget {
+  const TAnimationLoaderWidget(
+      {super.key,
+      required this.text,
+      required this.animation,
+      this.showAction = false,
+      this.actionText,
+      this.onActionPressed});
+  final String text;
+  final String animation;
+  final bool showAction;
+  final String? actionText;
+  final VoidCallback? onActionPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Lottie.network(
+            animation,
+            width: MediaQuery.of(context).size.width * 0.8,
+          ),
+          const SizedBox(
+            height: 24,
+          ),
+          Text(
+            text,
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(
+            height: 24,
+          ),
+          showAction
+              ? SizedBox(
+                  width: 250,
+                  child: OutlinedButton(
+                    onPressed: onActionPressed,
+                    child: Text(
+                      actionText!,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium!
+                          .apply(color: Colors.grey),
+                    ),
+                  ))
+              : const SizedBox()
+        ],
       ),
     );
   }
