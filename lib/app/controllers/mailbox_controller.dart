@@ -1,4 +1,5 @@
 import 'package:enough_mail/enough_mail.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:logger/logger.dart';
@@ -7,12 +8,15 @@ import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
+import 'package:wahda_bank/widgets/dialogs/process_dialog.dart';
 import '../../models/hive_mime_storage.dart';
 import '../../services/mail_service.dart';
+import '../../views/view/models/box_model.dart';
 
 class MailBoxController extends GetxController {
   late MailService mailService;
   final RxBool isBusy = true.obs;
+  final getStoarage = GetStorage();
 
   final RxMap<Mailbox, HiveMailboxMimeStorage> mailboxStorage =
       <Mailbox, HiveMailboxMimeStorage>{}.obs;
@@ -66,7 +70,12 @@ class MailBoxController extends GetxController {
 
   Future loadMailBoxes() async {
     if (mailService.client.mailboxes == null) {
-      mailboxes(await mailService.client.listMailboxes());
+      var b = getStoarage.read('boxes');
+      if (b == null) {
+        mailboxes(await mailService.client.listMailboxes());
+      } else {
+        mailboxes(b.map((e) => BoxModel.fromJson(e)).toList());
+      }
     } else {
       mailboxes(mailService.client.mailboxes!);
     }
@@ -79,6 +88,7 @@ class MailBoxController extends GetxController {
       emails[mailbox] = <MimeMessage>[];
       await mailboxStorage[mailbox]!.init();
     }
+    isBusy(false);
     initInbox();
   }
 
@@ -144,15 +154,24 @@ class MailBoxController extends GetxController {
   }
 
   // Operations on emails
-  Future markAsReadUnread(List<MimeMessage> messages,
+  Future markAsReadUnread(List<MimeMessage> messages, Mailbox box,
       [bool isSeen = true]) async {
+    showDialog(
+      context: Get.context!,
+      builder: (c) => const ProcessDialog(),
+    );
+    for (var message in messages) {
+      message.isSeen = isSeen;
+      if (mailboxStorage[box] != null) {
+        await mailboxStorage[box]!.saveMessageEnvelopes([message]);
+      }
+    }
     if (!InternetService.instance.connected) {
       return;
     }
-    for (var message in messages) {
-      message.isSeen = isSeen;
-      for (var element in mailboxStorage.values) {
-        await element.saveMessageEnvelopes([message]);
+    // set on server
+    if (mailService.client.isConnected) {
+      for (var message in messages) {
         await mailService.client.flagMessage(message, isSeen: isSeen);
       }
     }
@@ -163,6 +182,11 @@ class MailBoxController extends GetxController {
       message.isDeleted = true;
       for (var element in mailboxStorage.values) {
         await element.deleteMessage(message);
+      }
+    }
+    // set on server
+    if (mailService.client.isConnected) {
+      for (var message in messages) {
         await mailService.client.deleteMessage(message);
       }
     }
@@ -172,6 +196,11 @@ class MailBoxController extends GetxController {
     for (var message in messages) {
       for (var element in mailboxStorage.values) {
         await element.deleteMessage(message);
+      }
+    }
+    // set on server
+    if (mailService.client.isConnected) {
+      for (var message in messages) {
         await mailService.client.moveMessage(message, mailbox);
       }
     }

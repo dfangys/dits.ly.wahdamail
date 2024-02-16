@@ -6,7 +6,7 @@ class SelectionController extends GetxController {
   final _isSelecting = false.obs;
 
   List<MimeMessage> get selected => _selected.toList();
-  bool get isSelecting => _isSelecting.value;
+  bool get isSelecting => selected.isNotEmpty;
 
   void toggle(MimeMessage message) {
     if (_selected.contains(message)) {

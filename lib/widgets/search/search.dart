@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/views/view/inbox/show_message.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
+import '../empty_box.dart';
 import 'controllers/mail_search_controller.dart';
 
 class SearchView extends StatelessWidget {
@@ -79,14 +80,22 @@ class SearchView extends StatelessWidget {
           },
           itemCount: controller.searchMessages.length,
         ),
-        onEmpty: Center(
-          child: Text('no_search_result'.tr),
+        onEmpty: TAnimationLoaderWidget(
+          text: 'Whoops! Box is empty',
+          animation: 'assets/lottie/empty.json',
+          showAction: true,
+          actionText: 'try_again'.tr,
+          onActionPressed: () {},
         ),
         onLoading: const Center(
           child: CircularProgressIndicator(),
         ),
-        onError: (error) => Center(
-          child: Text(error.toString()),
+        onError: (error) => TAnimationLoaderWidget(
+          text: error.toString(),
+          animation: 'assets/lottie/empty.json',
+          showAction: true,
+          actionText: 'try_again'.tr,
+          onActionPressed: () {},
         ),
       ),
     );

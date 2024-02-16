@@ -3,18 +3,19 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:lottie/lottie.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/view/inbox/show_message.dart';
 import 'package:wahda_bank/views/view/screens/home/widgets/appbar.dart';
+import 'package:wahda_bank/widgets/bottomnavs/selection_botttom_nav.dart';
 import 'package:wahda_bank/widgets/drawer/drawer.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/widgets/search/search.dart';
 import '../../../../app/controllers/selection_controller.dart';
 import '../../../../models/hive_mime_storage.dart';
 import 'package:timeago/timeago.dart' as timeago;
+
+import '../../../../widgets/listile/shimmer_mail_loader.dart';
 
 class HomeScreen extends GetView<MailBoxController> {
   const HomeScreen({super.key});
@@ -31,32 +32,8 @@ class HomeScreen extends GetView<MailBoxController> {
       body: Obx(
         () {
           if (controller.isBusy()) {
-            return ListView.builder(
-              itemCount: 30,
-              itemBuilder: (context, index) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ListTile(
-                      leading: CircleAvatar(
-                        radius: 30,
-                        child: TShimmerEffect(
-                          width: double.infinity,
-                          height: 100,
-                          radius: 100,
-                        ),
-                      ),
-                      title: TShimmerEffect(width: 100, height: 50),
-                      // subtitle: TShimmerEffect(
-                      //     width: double.infinity, height: 20),
-                      trailing: TShimmerEffect(width: 20, height: 50),
-                    ),
-                  ],
-                );
-              },
-            );
+            return const ShimmerMailLoader();
           }
-
           return ValueListenableBuilder<Box<StorageMessageEnvelope>>(
             valueListenable:
                 controller.mailboxStorage[controller.mailBoxInbox]!.dataStream,
@@ -130,44 +107,17 @@ class HomeScreen extends GetView<MailBoxController> {
           );
         },
       ),
-      bottomNavigationBar: AnimatedCrossFade(
-        firstChild: const SizedBox(),
-        secondChild: BottomNavigationBar(
-          onTap: (int i) {
-            if (i == 0) {
-              controller.markAsReadUnread(selectionController.selected, true);
-            } else if (i == 1) {
-              controller.markAsReadUnread(selectionController.selected, false);
-            } else if (i == 2) {
-              // move to mulilple
-            } else if (i == 3) {
-              // delete multiple
-              controller.deleteMails(selectionController.selected);
-            }
-          },
-          items: [
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.mark_email_read_outlined),
-              label: 'mark_read'.tr,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.mark_email_unread_outlined),
-              label: 'mark_undread'.tr,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.move_to_inbox),
-              label: 'move_to'.tr,
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.delete_outlined, color: Colors.red.shade400),
-              label: 'delete'.tr,
-            ),
-          ],
+      bottomNavigationBar: Obx(
+        () => AnimatedCrossFade(
+          firstChild: const SizedBox(),
+          secondChild: SelectionBottomNav(
+            box: controller.mailBoxInbox,
+          ),
+          crossFadeState: selectionController.isSelecting
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 300),
         ),
-        crossFadeState: selectionController.isSelecting
-            ? CrossFadeState.showSecond
-            : CrossFadeState.showFirst,
-        duration: const Duration(milliseconds: 300),
       ),
     );
   }
@@ -223,30 +173,5 @@ class WSearchBar extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class TShimmerEffect extends StatelessWidget {
-  const TShimmerEffect(
-      {super.key,
-      required this.width,
-      required this.height,
-      this.radius = 15,
-      this.color});
-  final double width, height, radius;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Shimmer.fromColors(
-        baseColor: Colors.grey.shade400,
-        highlightColor: Colors.grey.shade400,
-        child: Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-              color: Colors.grey.shade400,
-              borderRadius: BorderRadius.circular(radius)),
-        ));
   }
 }
