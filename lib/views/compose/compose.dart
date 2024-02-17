@@ -19,7 +19,7 @@ class ComposeScreen extends StatelessWidget {
         // ),
         actions: [
           IconButton(
-            onPressed: () {},
+            onPressed: controller.sendEmail,
             icon: const Icon(Icons.send_outlined),
           ),
           IconButton(
@@ -30,11 +30,15 @@ class ComposeScreen extends StatelessWidget {
                   title: Text('attach_file'.tr),
                   actions: [
                     CupertinoActionSheetAction(
-                      onPressed: () {},
+                      onPressed: () {
+                        controller.pickFiles();
+                      },
                       child: Text('from_files'.tr),
                     ),
                     CupertinoActionSheetAction(
-                      onPressed: () {},
+                      onPressed: () {
+                        controller.pickImage();
+                      },
                       child: Text('from_gallery'.tr),
                     ),
                   ],

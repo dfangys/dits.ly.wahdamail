@@ -63,6 +63,9 @@ dependencies:
   connectivity_plus: ^5.0.2
   shimmer_effect: ^1.0.4
   shimmer: ^3.0.0
+  file_picker: ^5.5.0
+  image_picker: ^1.0.7
+  awesome_dialog: ^3.2.0
 
 dev_dependencies:
   flutter_test:

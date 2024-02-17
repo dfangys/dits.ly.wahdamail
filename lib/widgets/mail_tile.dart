@@ -13,8 +13,6 @@ class MailTile extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     required this.onDelete,
-    this.icon,
-    this.iconColor,
     required this.message,
     required this.flag,
   });
@@ -22,8 +20,6 @@ class MailTile extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onDelete;
-  final IconData? icon;
-  final Color? iconColor;
   final MimeMessage message;
   final MailboxFlag flag;
 
@@ -142,19 +138,30 @@ class MailTile extends StatelessWidget {
               const SizedBox(
                 height: 5,
               ),
-              GestureDetector(
-                onTap: onDelete,
-                child: InkWell(
-                  child: Icon(
-                    icon,
-                    color: iconColor,
-                  ),
-                ),
-              )
+              getIcon(),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget getIcon() {
+    if (flag == MailboxFlag.inbox) {
+      return Icon(
+        message.isFlagged ? Icons.star : Icons.star_border,
+      );
+    } else if (flag == MailboxFlag.sent) {
+      return Icon(
+        Icons.done,
+        color: message.isSeen ? Colors.grey : Colors.blue,
+      );
+    } else if (flag == MailboxFlag.trash) {
+      return const Icon(
+        Icons.delete,
+        color: Colors.red,
+      );
+    }
+    return const SizedBox.shrink();
   }
 }

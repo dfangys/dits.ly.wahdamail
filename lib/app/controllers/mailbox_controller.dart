@@ -206,6 +206,26 @@ class MailBoxController extends GetxController {
     }
   }
 
+  // update flage on messages on server
+  Future updateFlag(List<MimeMessage> messages) async {
+    for (var message in messages) {
+      message.isFlagged = !message.isFlagged;
+      if (mailboxStorage[mailService.client.selectedMailbox] != null) {
+        await mailboxStorage[mailService.client.selectedMailbox]!
+            .saveMessageEnvelopes([message]);
+      }
+    }
+    // set on server
+    if (mailService.client.isConnected) {
+      for (var message in messages) {
+        await mailService.client.flagMessage(
+          message,
+          isFlagged: !message.isFlagged,
+        );
+      }
+    }
+  }
+
   // Operations on emails
   Future deleteAccount() async {
     for (var mailbox in MailService.instance.client.mailboxes ?? []) {
@@ -257,7 +277,7 @@ class MailBoxController extends GetxController {
       mailbox,
       'envelopes',
     );
-    Get.to(() => MailBoxView(hiveKey: hiveKey, box: mailbox));
+    Get.to(() => MailBoxView(hiveKey: hiveKey, mailBox: mailbox));
     await loadEmailsForBox(mailbox);
   }
 

@@ -36,20 +36,20 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
             spacing: 0,
             runSpacing: -3,
             children: <Widget>[
-              ...widget.emails
-                  .map((email) => Chip(
-                        padding: EdgeInsets.zero,
-                        label: Text(
-                          "${email.personalName ?? ''} <${email.email}>",
-                        ),
-                        deleteIcon: const Icon(Icons.cancel_rounded),
-                        onDeleted: () {
-                          if (!widget.readOnly) {
-                            widget.onDelete(widget.emails.indexOf(email));
-                          }
-                        },
-                      ))
-                  .toList(),
+              ...widget.emails.map(
+                (email) => Chip(
+                  padding: EdgeInsets.zero,
+                  label: Text(
+                    "${email.personalName ?? ''} <${email.email}>",
+                  ),
+                  deleteIcon: const Icon(Icons.cancel_rounded),
+                  onDeleted: () {
+                    if (!widget.readOnly) {
+                      widget.onDelete(widget.emails.indexOf(email));
+                    }
+                  },
+                ),
+              ),
             ],
           ),
           TextFormField(

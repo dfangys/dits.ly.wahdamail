@@ -1,19 +1,36 @@
+import 'package:collection/collection.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 
-class InbocAppBar extends StatelessWidget {
+class InbocAppBar extends StatefulWidget {
   const InbocAppBar({
     super.key,
     required this.indicator,
     required this.message,
+    required this.mailbox,
   });
 
   final bool indicator;
   final MimeMessage message;
+  final Mailbox mailbox;
+
+  @override
+  State<InbocAppBar> createState() => _InbocAppBarState();
+}
+
+class _InbocAppBarState extends State<InbocAppBar> {
+  bool isStarred = false;
+  @override
+  void initState() {
+    super.initState();
+    isStarred = widget.message.isFlagged;
+  }
+
+  final controller = Get.find<MailBoxController>();
 
   @override
   Widget build(BuildContext context) {
@@ -28,19 +45,17 @@ class InbocAppBar extends StatelessWidget {
       actions: [
         IconButton(
           padding: EdgeInsets.zero,
-          icon: indicator
-              ? const Icon(
-                  Icons.star,
-                  color: AppTheme.starColor,
-                )
-              : const Icon(Icons.star_border_outlined),
+          icon: Icon(
+            isStarred ? Icons.star : CupertinoIcons.star,
+            color: isStarred ? AppTheme.starColor : Colors.grey,
+          ),
           onPressed: () async {
-            await MailService.instance.client.markFlagged(
-              MessageSequence.fromSequenceId(message),
-            );
+            controller.updateFlag([widget.message]);
+            setState(() {
+              isStarred = !isStarred;
+            });
           },
         ),
-        // const InboxAppBarMenuButton()
         IconButton(
           onPressed: () {
             showCupertinoModalPopup(
@@ -48,18 +63,16 @@ class InbocAppBar extends StatelessWidget {
               builder: (context) => CupertinoActionSheet(
                 title: const Text('Move Message'),
                 actions: [
-                  CupertinoActionSheetAction(
-                    onPressed: () {},
-                    child: const Text('Move to archive'),
-                  ),
-                  CupertinoActionSheetAction(
-                    onPressed: () {},
-                    child: const Text('Move to sent'),
-                  ),
-                  CupertinoActionSheetAction(
-                    onPressed: () {},
-                    child: const Text('Move to draft'),
-                  ),
+                  for (var box in controller.mailboxes
+                      .whereNot((e) => e == widget.mailbox)
+                      .toList())
+                    CupertinoActionSheetAction(
+                      onPressed: () {
+                        controller.moveMails([widget.message], box);
+                        Get.back();
+                      },
+                      child: Text("move_to_${box.name.toLowerCase().tr}"),
+                    ),
                 ],
                 cancelButton: CupertinoActionSheetAction(
                   onPressed: () {
@@ -70,7 +83,7 @@ class InbocAppBar extends StatelessWidget {
               ),
             );
           },
-          icon: Icon(Icons.more_vert),
+          icon: const Icon(Icons.more_vert_outlined),
         )
       ],
     );

@@ -10,13 +10,13 @@ import '../../app/controllers/selection_controller.dart';
 import '../../widgets/bottomnavs/selection_botttom_nav.dart';
 import '../../widgets/empty_box.dart';
 import '../../widgets/mail_tile.dart';
-import '../view/inbox/show_message.dart';
+import '../view/showmessage/show_message.dart';
 
 class MailBoxView extends GetView<MailBoxController> {
-  const MailBoxView({super.key, required this.hiveKey, required this.box});
+  const MailBoxView({super.key, required this.hiveKey, required this.mailBox});
 
   final String hiveKey;
-  final Mailbox box;
+  final Mailbox mailBox;
 
   @override
   Widget build(BuildContext context) {
@@ -25,10 +25,10 @@ class MailBoxView extends GetView<MailBoxController> {
       onPopInvoked: (didPop) => selectionController.selected.clear(),
       child: Scaffold(
         appBar: AppBar(
-          title: Text(box.name),
+          title: Text(mailBox.name),
         ),
         body: ValueListenableBuilder<Box<StorageMessageEnvelope>>(
-          valueListenable: controller.mailboxStorage[box]!.dataStream,
+          valueListenable: controller.mailboxStorage[mailBox]!.dataStream,
           builder: (context, Box<StorageMessageEnvelope> box, child) {
             if (box.isEmpty) {
               return TAnimationLoaderWidget(
@@ -73,11 +73,11 @@ class MailBoxView extends GetView<MailBoxController> {
                         return MailTile(
                           onTap: () {
                             Get.to(
-                              () => ShowMessage(message: mail),
+                              () =>
+                                  ShowMessage(message: mail, mailbox: mailBox),
                             );
                           },
                           message: mail,
-                          iconColor: Colors.green,
                           onDelete: () {},
                           onLongPress: () {},
                           flag: MailboxFlag.inbox,
@@ -98,7 +98,7 @@ class MailBoxView extends GetView<MailBoxController> {
           () => AnimatedCrossFade(
             firstChild: const SizedBox(),
             secondChild: SelectionBottomNav(
-              box: box,
+              box: mailBox,
             ),
             crossFadeState: selectionController.isSelecting
                 ? CrossFadeState.showSecond

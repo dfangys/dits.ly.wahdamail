@@ -106,9 +106,9 @@ class SignaturePage extends GetView<SettingController> {
               ],
             ),
             Expanded(
-              child: HtmlWidget(
-                controller.signature(),
-              ),
+              child: Obx(() => HtmlWidget(
+                    controller.signature(),
+                  )),
             )
           ],
         ),

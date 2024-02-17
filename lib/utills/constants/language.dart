@@ -60,6 +60,7 @@ class Lang extends Translations {
           'valid_code': 'Please enter a valid code',
           'valid_subject': 'Please enter a valid subject',
           'valid_message': 'Please enter a valid message',
+          'add_a_recipient': 'Please add a recipient',
           'msg_draft_saved': 'Draft saved successfully',
           'msg_email_deleted': 'Email deleted successfully',
           'msg_draft_deleted': 'Draft deleted successfully',

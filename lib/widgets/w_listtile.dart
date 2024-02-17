@@ -55,8 +55,6 @@ class WListTile extends StatelessWidget {
                   onTap: onTap,
                   onLongPress: onLongPress,
                   onDelete: onDelete,
-                  icon: icon,
-                  iconColor: iconColor,
                   message: MimeMessage.parseFromText("text"),
                   flag: MailboxFlag.inbox,
                 ),

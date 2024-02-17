@@ -1,8 +1,9 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
-import 'package:wahda_bank/views/view/inbox/show_message.dart';
+import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 import '../empty_box.dart';
 import 'controllers/mail_search_controller.dart';
@@ -66,7 +67,10 @@ class SearchView extends StatelessWidget {
             return MailTile(
               onTap: () {
                 Get.to(
-                  () => ShowMessage(message: controller.searchMessages[index]),
+                  () => ShowMessage(
+                    message: controller.searchMessages[index],
+                    mailbox: MailService.instance.selectedBox,
+                  ),
                 );
               },
               onLongPress: () {},

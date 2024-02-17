@@ -1,13 +1,22 @@
+import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 
-class InboxBottomNavBar extends StatelessWidget {
-  const InboxBottomNavBar({
+import '../../../../app/controllers/mailbox_controller.dart';
+
+class ViewMessageBottomNav extends StatelessWidget {
+  ViewMessageBottomNav({
     super.key,
+    required this.mailbox,
+    required this.message,
   });
+
+  final MimeMessage message;
+  final Mailbox mailbox;
+  final mailController = Get.find<MailBoxController>();
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +35,11 @@ class InboxBottomNavBar extends StatelessWidget {
                   title: Text('are_you_u_wtd'.tr),
                   actions: [
                     CupertinoActionSheetAction(
-                      onPressed: () {},
+                      onPressed: () {
+                        mailController.deleteMails([message]);
+                        Get.back();
+                        Get.back();
+                      },
                       isDestructiveAction: true,
                       child: Text('delete'.tr),
                     ),
@@ -41,18 +54,35 @@ class InboxBottomNavBar extends StatelessWidget {
               );
             },
           ),
-          const IconButtons(
-            icon: CupertinoIcons.folder_fill_badge_person_crop,
+          IconButtons(
+            icon: CupertinoIcons.reply,
             isImage: false,
-          ),
-          const IconButtons(
-            icon: CupertinoIcons.arrowshape_turn_up_left,
-            isImage: false,
+            onTap: () {
+              Get.to(() => ComposeScreen(), arguments: {
+                'message': message,
+                'type': 'reply',
+              });
+            },
           ),
           IconButtons(
-            icon: CupertinoIcons.pencil_outline,
+            icon: CupertinoIcons.reply_all,
             isImage: false,
-            onTap: () => Get.to(() => ComposeScreen()),
+            onTap: () {
+              Get.to(() => ComposeScreen(), arguments: {
+                'message': message,
+                'type': 'reply_all',
+              });
+            },
+          ),
+          IconButtons(
+            icon: CupertinoIcons.forward,
+            isImage: false,
+            onTap: () {
+              Get.to(() => ComposeScreen(), arguments: {
+                'message': message,
+                'type': 'forward',
+              });
+            },
           )
         ],
       ),

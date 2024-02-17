@@ -1,10 +1,10 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get/get.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
-import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/text_field.dart';
 
@@ -16,7 +16,6 @@ class WComposeView extends StatelessWidget {
 
   RoundedLoadingButtonController btnController =
       RoundedLoadingButtonController();
-  final HtmlEditorController htmlController = HtmlEditorController();
 
   final controller = Get.find<ComposeController>();
 
@@ -30,11 +29,12 @@ class WComposeView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextFormField(
-              initialValue: controller.email,
+              controller: controller.fromController,
               readOnly: true,
               decoration: InputDecoration(
                 labelText: "from".tr,
               ),
+              style: const TextStyle(fontSize: 14),
             ),
             Obx(
               () => ToEmailsChipsField(
@@ -100,13 +100,32 @@ class WComposeView extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         TextFormField(
+          controller: controller.subjectController,
           decoration: InputDecoration(
             labelText: "subject".tr,
           ),
         ),
         const Divider(color: Colors.grey, thickness: 0.5, height: 0.5),
+        Obx(
+          () => ListView.builder(
+            shrinkWrap: true,
+            itemCount: controller.attachments.length,
+            itemBuilder: (context, index) {
+              return ListTile(
+                dense: true,
+                title: Text(controller.attachments[index].path.split('/').last),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () {
+                    controller.attachments.removeAt(index);
+                  },
+                ),
+              );
+            },
+          ),
+        ),
         HtmlEditor(
-          controller: htmlController,
+          controller: controller.htmlController,
           htmlToolbarOptions: const HtmlToolbarOptions(defaultToolbarButtons: [
             FontButtons(),
             ColorButtons(),
@@ -127,10 +146,8 @@ class WComposeView extends StatelessWidget {
             },
           ),
         ),
-        WRoundedButton(
-          controller: btnController,
-          onPress: () {},
-          text: 'send'.tr,
+        Center(
+          child: HtmlWidget(controller.signature),
         )
       ],
     );
