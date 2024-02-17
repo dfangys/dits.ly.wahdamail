@@ -11,6 +11,7 @@ import 'package:wahda_bank/views/view/screens/drawer/contact_us/Contact_us.dart'
 import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/widgets/drawer/drawer_tile.dart';
+import '../../services/mail_service.dart';
 import '../../utills/extensions.dart';
 import '../../views/settings/settings_view.dart';
 
@@ -111,9 +112,9 @@ class Drawer1 extends StatelessWidget {
               text: 'logout'.tr,
               onTap: () async {
                 await GetStorage().erase();
-                // MailService.instance.client.disconnect();
-                // MailService.instance.dispose();
-                // await controller.deleteAccount();
+                MailService.instance.client.disconnect();
+                MailService.instance.dispose();
+                await controller.deleteAccount();
                 await BackgroundFetch.stop();
                 Get.offAll(() => LoginScreen());
               },

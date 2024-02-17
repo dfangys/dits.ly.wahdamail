@@ -3,80 +3,67 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
-class MailMetaTile extends StatefulWidget {
-  const MailMetaTile({super.key, required this.message});
+class MailMetaTile extends StatelessWidget {
+  const MailMetaTile({super.key, required this.message, required this.isShow});
   final MimeMessage message;
-  @override
-  State<MailMetaTile> createState() => _MailMetaTileState();
-}
-
-class _MailMetaTileState extends State<MailMetaTile> {
-  bool isShow = false;
-  @override
-  void initState() {
-    super.initState();
-  }
+  final ValueNotifier<bool> isShow;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedCrossFade(
-      firstChild: TextButton(
-        onPressed: () {
-          setState(() {
-            isShow = !isShow;
-          });
-        },
-        child: const Text('Show'),
-      ),
-      secondChild: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(15),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
-          child: Column(
-            children: [
-              buildMailInfo(
-                "From",
-                widget.message.from != null
-                    ? widget.message.from!.map((e) => e.email).toList()
-                    : [],
-              ),
-              buildMailInfo(
-                "To",
-                widget.message.to != null
-                    ? widget.message.to!.map((e) => e.email).toList()
-                    : [],
-              ),
-              buildMailInfo(
-                "Cc",
-                widget.message.cc != null
-                    ? widget.message.cc!.map((e) => e.email).toList()
-                    : [],
-              ),
-              buildMailInfo(
-                "Bcc",
-                widget.message.bcc != null
-                    ? widget.message.bcc!.map((e) => e.email).toList()
-                    : [],
-              ),
-              buildMailInfo(
-                "Time",
-                [
-                  DateFormat().format(
-                    widget.message.decodeDate() ?? DateTime.now(),
-                  ),
-                ],
-              )
-            ],
+    return ValueListenableBuilder(
+      valueListenable: isShow,
+      builder: (context, value, child) => AnimatedCrossFade(
+        firstChild: const SizedBox.shrink(),
+        secondChild: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+            child: Column(
+              children: [
+                buildMailInfo(
+                  "From",
+                  message.from != null
+                      ? message.from!.map((e) => e.email).toList()
+                      : [],
+                ),
+                buildMailInfo(
+                  "To",
+                  message.to != null
+                      ? message.to!.map((e) => e.email).toList()
+                      : [],
+                ),
+                buildMailInfo(
+                  "Cc",
+                  message.cc != null
+                      ? message.cc!.map((e) => e.email).toList()
+                      : [],
+                ),
+                buildMailInfo(
+                  "Bcc",
+                  message.bcc != null
+                      ? message.bcc!.map((e) => e.email).toList()
+                      : [],
+                ),
+                buildMailInfo(
+                  "Time",
+                  [
+                    DateFormat().format(
+                      message.decodeDate() ?? DateTime.now(),
+                    ),
+                  ],
+                )
+              ],
+            ),
           ),
         ),
+        crossFadeState:
+            value ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+        duration: const Duration(milliseconds: 500),
+        firstCurve: Curves.bounceOut,
       ),
-      crossFadeState:
-          isShow ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-      duration: const Duration(milliseconds: 500),
-      firstCurve: Curves.bounceOut,
     );
   }
 }

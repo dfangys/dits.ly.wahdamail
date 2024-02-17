@@ -1,15 +1,13 @@
 import 'dart:developer';
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
-
 import '../../../../services/mail_service.dart';
 
 class MailAttachments extends StatelessWidget {
@@ -25,16 +23,13 @@ class MailAttachments extends StatelessWidget {
             return Column(
               children: [
                 for (var c in snapshot.data!.findContentInfo())
-                  InkWell(
-                    child: Container(
-                      width: 50,
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: Colors.grey,
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(c.fileName.toString()),
+                  ListTile(
+                    dense: true,
+                    leading: Icon(getAttachmentIcon(c.fileName)),
+                    title: Text(
+                      c.fileName.toString(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     onTap: () async {
                       try {
@@ -66,15 +61,12 @@ class MailAttachments extends StatelessWidget {
   Future<bool> saveFile(
       BuildContext context, Uint8List uint8List, String fileName) async {
     late Directory? directory;
-
     try {
       if (Platform.isAndroid) {
         if (await requestPermission(Permission.storage)) {
-          log("message");
           directory = await getApplicationCacheDirectory();
           String newPath = "";
           List<String> paths = directory.path.split("/");
-
           for (int x = 1; x < paths.length; x++) {
             String folder = paths[x];
             if (folder != "Android") {
@@ -83,7 +75,6 @@ class MailAttachments extends StatelessWidget {
               break;
             }
           }
-
           newPath = "$newPath/NetxMail";
           directory = Directory(newPath);
         } else {
@@ -126,15 +117,76 @@ class MailAttachments extends StatelessWidget {
   }
 
   Future<bool> requestPermission(Permission permission) async {
-    if (await permission.isGranted) {
-      return true;
-    } else {
-      var result = await permission.request();
-      if (result == PermissionStatus.granted ||
-          result == PermissionStatus.limited) {
-        return true;
-      }
-    }
-    return false;
+    return true;
+    // if (await permission.isGranted) {
+    //   return true;
+    // } else {
+    //   var result = await permission.request();
+    //   if (result == PermissionStatus.granted ||
+    //       result == PermissionStatus.limited) {
+    //     return true;
+    //   }
+    // }
+    // return false;
+  }
+}
+
+IconData getAttachmentIcon(String? file) {
+  String ext = file!.split(".").last.toLowerCase();
+  switch (ext) {
+    case 'jpg':
+    case 'jpeg':
+    case 'jfif':
+    case 'pjpeg':
+    case 'pjp':
+    case 'png':
+    case 'sgv':
+    case 'gif':
+      return Icons.image;
+    case 'pdf':
+      return Icons.picture_as_pdf_outlined;
+    case 'pptx':
+    case 'pptm':
+    case 'ppt':
+      return FontAwesomeIcons.solidFilePowerpoint;
+    case 'zip':
+    case 'rar':
+      return FontAwesomeIcons.fileZipper;
+    case 'docx':
+    case 'doc':
+    case 'odt':
+      return FontAwesomeIcons.fileWord;
+    case 'txt':
+    case 'rtf':
+    case 'tex':
+      return FontAwesomeIcons.textWidth;
+    case 'xls':
+    case 'xlsx':
+    case 'xlsm':
+    case 'xlsb':
+    case 'xltx':
+      return FontAwesomeIcons.fileExcel;
+    case 'mp3':
+    case 'mpeg-1':
+    case 'aac ':
+    case 'flac':
+    case 'alac':
+    case 'wav':
+    case 'aiff':
+    case 'dsd':
+      return FontAwesomeIcons.fileAudio;
+    case 'mp4':
+    case 'mov':
+    case 'wmv':
+    case 'avi':
+    case 'avchd':
+    case 'flv':
+    case 'mkv':
+    case 'html5':
+    case 'webm':
+    case 'swf':
+      return FontAwesomeIcons.fileVideo;
+    default:
+      return Icons.attach_file;
   }
 }

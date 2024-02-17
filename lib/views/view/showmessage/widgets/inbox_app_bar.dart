@@ -71,7 +71,7 @@ class _InbocAppBarState extends State<InbocAppBar> {
                         controller.moveMails([widget.message], box);
                         Get.back();
                       },
-                      child: Text("move_to_${box.name.toLowerCase().tr}"),
+                      child: Text("move_to_${box.name.toLowerCase()}".tr),
                     ),
                 ],
                 cancelButton: CupertinoActionSheetAction(

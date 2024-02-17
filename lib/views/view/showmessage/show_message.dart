@@ -1,7 +1,9 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:enough_mail_flutter/enough_mail_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/inbox_app_bar.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/inbox_bottom_navbar.dart';
@@ -10,12 +12,12 @@ import 'package:wahda_bank/views/view/showmessage/widgets/mail_attachments.dart'
 import 'package:wahda_bank/views/view/showmessage/widgets/mail_meta_tile.dart';
 
 class ShowMessage extends StatelessWidget {
-  const ShowMessage({super.key, required this.message, required this.mailbox});
+  ShowMessage({super.key, required this.message, required this.mailbox});
   final MimeMessage message;
   final Mailbox mailbox;
 
   String get name {
-    if (message.from != null && message.from!.isEmpty) {
+    if (message.from != null && message.from!.isNotEmpty) {
       return message.from!.first.personalName ?? message.from!.first.email;
     } else if (message.fromEmail == null) {
       return "Unknown";
@@ -24,7 +26,7 @@ class ShowMessage extends StatelessWidget {
   }
 
   String get email {
-    if (message.from != null && message.from!.isEmpty) {
+    if (message.from != null && message.from!.isNotEmpty) {
       return message.from!.first.email;
     } else if (message.fromEmail == null) {
       return "Unknown";
@@ -37,6 +39,8 @@ class ShowMessage extends StatelessWidget {
       message.decodeDate() ?? DateTime.now(),
     );
   }
+
+  final ValueNotifier<bool> showMeta = ValueNotifier<bool>(false);
 
   @override
   Widget build(BuildContext context) {
@@ -60,13 +64,15 @@ class ShowMessage extends StatelessWidget {
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 10),
               child: ListTile(
-                onTap: () {},
+                onTap: () {
+                  showMeta.value = !showMeta.value;
+                },
                 leading: CircleAvatar(
                   backgroundColor:
                       Colors.primaries[0 % Colors.primaries.length],
                   radius: 25.0,
                   child: Text(
-                    name[0],
+                    name[0].toUpperCase(),
                     style: const TextStyle(color: Colors.white),
                   ),
                 ),
@@ -95,14 +101,29 @@ class ShowMessage extends StatelessWidget {
                 ),
               ),
             ),
-            MailMetaTile(message: message),
+            MailMetaTile(message: message, isShow: showMeta),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                message.decodeSubject() ?? '',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
             const SizedBox(height: WSizes.defaultSpace),
-            if (message.hasAttachments()) MailAttachments(message: message),
+            MailAttachments(message: message),
             MimeMessageDownloader(
               mimeMessage: message,
               mailClient: MailService.instance.client,
               adjustHeight: true,
               markAsSeen: true,
+              onDownloaded: (_msg) {
+                Get.find<MailBoxController>().markAsReadUnread(
+                  [_msg],
+                  mailbox,
+                );
+              },
             ),
           ],
         ),

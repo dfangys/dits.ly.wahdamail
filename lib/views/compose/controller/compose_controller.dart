@@ -31,6 +31,7 @@ class ComposeController extends GetxController {
   final HtmlEditorController htmlController = HtmlEditorController();
   late MessageBuilder messageBuilder;
   RxList<File> attachments = <File>[].obs;
+  String body = '';
   String signature = '';
 
   RxBool isCcAndBccVisible = false.obs;
@@ -108,7 +109,7 @@ class ComposeController extends GetxController {
               : '';
           messageBuilder = MessageBuilder.prepareForwardMessage(msg);
         }
-        htmlController.setText(msg.decodeTextHtmlPart() ?? '');
+        body = (msg.decodeTextHtmlPart() ?? '');
       }
     } else {
       signature = settingController.signatureNewMessage()
@@ -148,6 +149,29 @@ class ComposeController extends GetxController {
         attachments.add(File(file.path!));
       }
     }
+  }
+
+  Future<void> saveAsDraft() async {
+    // attach the signature to the email
+    String html = (await htmlController.getText());
+    // attach the files to the email
+    for (var file in attachments) {
+      messageBuilder.addFile(file, MediaType.guessFromFileName(file.path));
+    }
+    // set the email body
+    messageBuilder.addMultipartAlternative(htmlText: html);
+    messageBuilder.to = toList.toList();
+    messageBuilder.cc = cclist.toList();
+    messageBuilder.bcc = bcclist.toList();
+    messageBuilder.subject = subjectController.text;
+    messageBuilder.from = [MailAddress(name, email)];
+    await client.saveDraftMessage(messageBuilder.buildMimeMessage());
+    AwesomeDialog(
+      context: Get.context!,
+      dialogType: DialogType.success,
+      title: 'Success',
+      desc: 'Email saved as draft successfully',
+    ).show();
   }
 
   // Send the email with attachments

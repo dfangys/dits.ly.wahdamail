@@ -1,5 +1,4 @@
 import 'package:enough_mail/enough_mail.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:logger/logger.dart';
@@ -8,7 +7,6 @@ import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
-import 'package:wahda_bank/widgets/dialogs/process_dialog.dart';
 import '../../models/hive_mime_storage.dart';
 import '../../services/mail_service.dart';
 import '../../views/view/models/box_model.dart';
@@ -74,7 +72,8 @@ class MailBoxController extends GetxController {
       if (b == null) {
         mailboxes(await mailService.client.listMailboxes());
       } else {
-        mailboxes(b.map((e) => BoxModel.fromJson(e)).toList());
+        List bes = List.from(b);
+        mailboxes(bes.map((e) => BoxModel.fromJson(e)).toList());
       }
     } else {
       mailboxes(mailService.client.mailboxes!);
@@ -156,10 +155,6 @@ class MailBoxController extends GetxController {
   // Operations on emails
   Future markAsReadUnread(List<MimeMessage> messages, Mailbox box,
       [bool isSeen = true]) async {
-    showDialog(
-      context: Get.context!,
-      builder: (c) => const ProcessDialog(),
-    );
     for (var message in messages) {
       message.isSeen = isSeen;
       if (mailboxStorage[box] != null) {

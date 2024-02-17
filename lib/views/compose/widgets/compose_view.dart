@@ -1,10 +1,8 @@
 import 'package:enough_mail/enough_mail.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get/get.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
-import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/text_field.dart';
 
@@ -13,9 +11,6 @@ class WComposeView extends StatelessWidget {
   WComposeView({
     super.key,
   });
-
-  RoundedLoadingButtonController btnController =
-      RoundedLoadingButtonController();
 
   final controller = Get.find<ComposeController>();
 
@@ -131,19 +126,12 @@ class WComposeView extends StatelessWidget {
             ColorButtons(),
             ListButtons(),
           ]),
-          htmlEditorOptions: const HtmlEditorOptions(
+          htmlEditorOptions: HtmlEditorOptions(
             hint: "Your message here...",
+            initialText: controller.body,
           ),
           otherOptions: const OtherOptions(
             height: 400,
-          ),
-          callbacks: Callbacks(
-            onInit: () {},
-            onChangeCodeview: (p0) {
-              if (kDebugMode) {
-                print(p0);
-              }
-            },
           ),
         ),
         Center(

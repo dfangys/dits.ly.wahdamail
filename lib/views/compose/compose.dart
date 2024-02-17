@@ -31,12 +31,14 @@ class ComposeScreen extends StatelessWidget {
                   actions: [
                     CupertinoActionSheetAction(
                       onPressed: () {
+                        Get.back();
                         controller.pickFiles();
                       },
                       child: Text('from_files'.tr),
                     ),
                     CupertinoActionSheetAction(
                       onPressed: () {
+                        Get.back();
                         controller.pickImage();
                       },
                       child: Text('from_gallery'.tr),
@@ -61,7 +63,9 @@ class ComposeScreen extends StatelessWidget {
                   title: Text('more_options'.tr),
                   actions: [
                     CupertinoActionSheetAction(
-                      onPressed: () {},
+                      onPressed: () {
+                        controller.saveAsDraft();
+                      },
                       child: Text('save_as_draft'.tr),
                     ),
                     CupertinoActionSheetAction(
@@ -69,7 +73,9 @@ class ComposeScreen extends StatelessWidget {
                       child: Text('request_read_receipt'.tr),
                     ),
                     CupertinoActionSheetAction(
-                      onPressed: () {},
+                      onPressed: () {
+                        controller.htmlController.toggleCodeView();
+                      },
                       child: Text('convert_to_plain_text'.tr),
                     ),
                   ],
