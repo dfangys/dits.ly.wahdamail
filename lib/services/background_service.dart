@@ -104,8 +104,6 @@ class BackgroundService {
     }
     final inbox = await MailService.instance.client.selectInbox();
     final uidNext = inbox.uidNext;
-    logger.i(
-        "Background Service: Checking for new mail... $previousUidNext $uidNext");
     if (uidNext == previousUidNext || uidNext == null) {
       return;
     } else {

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import '../app/controllers/selection_controller.dart';
 import '../app/controllers/settings_controller.dart';
+import '../utills/theme/app_theme.dart';
 
 class MailTile extends StatelessWidget {
   MailTile({
@@ -150,6 +151,7 @@ class MailTile extends StatelessWidget {
     if (flag == MailboxFlag.inbox) {
       return Icon(
         message.isFlagged ? Icons.star : Icons.star_border,
+        color: message.isFlagged ? AppTheme.starColor : Colors.black,
       );
     } else if (flag == MailboxFlag.sent) {
       return Icon(

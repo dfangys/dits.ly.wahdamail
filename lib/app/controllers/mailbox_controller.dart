@@ -68,12 +68,13 @@ class MailBoxController extends GetxController {
 
   Future loadMailBoxes() async {
     if (mailService.client.mailboxes == null) {
-      var b = getStoarage.read('boxes');
-      if (b == null) {
+      List b = getStoarage.read('boxes');
+      if (b.isEmpty) {
         mailboxes(await mailService.client.listMailboxes());
       } else {
-        List bes = List.from(b);
-        mailboxes(bes.map((e) => BoxModel.fromJson(e)).toList());
+        mailboxes(b
+            .map((e) => BoxModel.fromJson(e as Map<String, dynamic>))
+            .toList());
       }
     } else {
       mailboxes(mailService.client.mailboxes!);
@@ -127,7 +128,6 @@ class MailBoxController extends GetxController {
     }
 
     while (emails[mailbox]!.length < max) {
-      logger.d('Fetching page $page for $mailbox $pageSize $max');
       MessageSequence sequence = MessageSequence.fromPage(page, pageSize, max);
       final messages =
           await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
