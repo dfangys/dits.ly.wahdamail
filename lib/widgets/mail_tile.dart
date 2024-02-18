@@ -4,6 +4,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/views/compose/compose.dart';
 import '../app/controllers/selection_controller.dart';
 import '../app/controllers/settings_controller.dart';
 import '../utills/theme/app_theme.dart';
@@ -12,17 +13,13 @@ class MailTile extends StatelessWidget {
   MailTile({
     super.key,
     required this.onTap,
-    required this.onLongPress,
-    required this.onDelete,
     required this.message,
-    required this.flag,
+    required this.mailBox,
   });
 
   final VoidCallback? onTap;
-  final VoidCallback? onLongPress;
-  final VoidCallback? onDelete;
   final MimeMessage message;
-  final MailboxFlag flag;
+  final Mailbox mailBox;
 
   final settingController = Get.find<SettingController>();
   final selectionController = Get.find<SelectionController>();
@@ -35,7 +32,7 @@ class MailTile extends StatelessWidget {
           Obx(
             () => SlidableAction(
               onPressed: (context) {
-                Get.find<MailBoxController>().ltrTap(message);
+                Get.find<MailBoxController>().ltrTap(message, mailBox);
               },
               backgroundColor:
                   settingController.swipeGesturesLTRModel.backgroundColor,
@@ -50,7 +47,7 @@ class MailTile extends StatelessWidget {
             Obx(
               () => SlidableAction(
                 onPressed: (context) {
-                  Get.find<MailBoxController>().rtlTap(message);
+                  Get.find<MailBoxController>().rtlTap(message, mailBox);
                 },
                 backgroundColor:
                     settingController.swipeGesturesRTLModel.backgroundColor,
@@ -64,6 +61,11 @@ class MailTile extends StatelessWidget {
           onTap: () {
             if (selectionController.isSelecting) {
               selectionController.toggle(message);
+            } else if (mailBox.isDrafts) {
+              Get.to(
+                () => ComposeScreen(),
+                arguments: {'type': 'draft', 'message': message},
+              );
             } else if (onTap != null) {
               onTap!.call();
             }
@@ -148,20 +150,25 @@ class MailTile extends StatelessWidget {
   }
 
   Widget getIcon() {
-    if (flag == MailboxFlag.inbox) {
+    if (mailBox.isInbox) {
       return Icon(
         message.isFlagged ? Icons.star : Icons.star_border,
         color: message.isFlagged ? AppTheme.starColor : Colors.black,
       );
-    } else if (flag == MailboxFlag.sent) {
+    } else if (mailBox.isSent) {
       return Icon(
         Icons.done,
         color: message.isSeen ? Colors.grey : Colors.blue,
       );
-    } else if (flag == MailboxFlag.trash) {
+    } else if (mailBox.isTrash) {
       return const Icon(
         Icons.delete,
         color: Colors.red,
+      );
+    } else if (mailBox.isMarked) {
+      return Icon(
+        message.isFlagged ? Icons.star : Icons.star_border,
+        color: message.isFlagged ? AppTheme.starColor : Colors.black,
       );
     }
     return const SizedBox.shrink();

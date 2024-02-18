@@ -19,7 +19,7 @@ class MailSearchController extends GetxController with StateMixin {
     super.onInit();
     change(
       null,
-      status: RxStatus.error('Please enter a search term to continue'),
+      status: RxStatus.error('serach:${'enter_search_text'.tr}'),
     );
     scrollController.addListener(() {
       if (scrollController.position.pixels ==
@@ -37,7 +37,7 @@ class MailSearchController extends GetxController with StateMixin {
       if (searchController.text.isEmpty && searchMessages.isNotEmpty) {
         change(
           null,
-          status: RxStatus.error('Please enter a search term to continue'),
+          status: RxStatus.error('serach:${'enter_search_text'.tr}'),
         );
       }
     });

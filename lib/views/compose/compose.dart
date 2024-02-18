@@ -4,10 +4,25 @@ import 'package:get/get.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/compose_view.dart';
 
-class ComposeScreen extends StatelessWidget {
-  ComposeScreen({super.key});
+class ComposeScreen extends StatefulWidget {
+  const ComposeScreen({super.key});
+
+  @override
+  State<ComposeScreen> createState() => _ComposeScreenState();
+}
+
+class _ComposeScreenState extends State<ComposeScreen> {
   final composeFormKey = GlobalKey<FormState>();
   final controller = Get.put(ComposeController());
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+      if (Get.locale != null && Get.locale!.languageCode == 'ar') {}
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

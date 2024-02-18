@@ -1,5 +1,4 @@
 import 'package:collection/collection.dart';
-import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -14,8 +13,7 @@ import 'package:wahda_bank/widgets/search/search.dart';
 import '../../../../app/controllers/selection_controller.dart';
 import '../../../../models/hive_mime_storage.dart';
 import 'package:timeago/timeago.dart' as timeago;
-
-import '../../../../widgets/listile/shimmer_mail_loader.dart';
+import '../../../../widgets/empty_box.dart';
 
 class HomeScreen extends GetView<MailBoxController> {
   const HomeScreen({super.key});
@@ -32,7 +30,13 @@ class HomeScreen extends GetView<MailBoxController> {
       body: Obx(
         () {
           if (controller.isBusy()) {
-            return const ShimmerMailLoader();
+            return TAnimationLoaderWidget(
+              text: 'Searching for emails',
+              animation: 'assets/lottie/search.json',
+              showAction: false,
+              actionText: 'try_again'.tr,
+              onActionPressed: () {},
+            );
           }
           return ValueListenableBuilder<Box<StorageMessageEnvelope>>(
             valueListenable:
@@ -88,9 +92,7 @@ class HomeScreen extends GetView<MailBoxController> {
                                   );
                                 },
                                 message: mail,
-                                onDelete: () {},
-                                onLongPress: () {},
-                                flag: MailboxFlag.inbox,
+                                mailBox: controller.mailBoxInbox,
                               );
                             });
                           },

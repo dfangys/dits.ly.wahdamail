@@ -41,6 +41,7 @@ class SelectionBottomNav extends StatelessWidget {
                         Get.back();
                         await mailController.deleteMails(
                           selectionController.selected,
+                          box,
                         );
                         selectionController.clear();
                       },
@@ -98,6 +99,7 @@ class SelectionBottomNav extends StatelessWidget {
                           Get.back();
                           await mailController.moveMails(
                             selectionController.selected,
+                            box,
                             item,
                           );
                           selectionController.clear();

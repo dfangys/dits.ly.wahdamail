@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:wahda_bank/views/view/screens/home/home.dart';
 import 'package:wahda_bank/views/view/screens/splash.dart';
 import 'app/bindings/home_binding.dart';
 import 'services/internet_service.dart';
 import 'utills/constants/language.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:intl/date_symbol_data_local.dart';
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -24,8 +26,12 @@ class _MyAppState extends State<MyApp> {
     if (locale == 'ar') {
       timeago.setLocaleMessages('ar', timeago.ArMessages());
       timeago.setDefaultLocale(locale);
+      Intl.defaultLocale = 'ar';
+      initializeDateFormatting('ar');
     } else {
       timeago.setDefaultLocale(locale);
+      Intl.defaultLocale = 'en';
+      initializeDateFormatting('en');
     }
     super.initState();
   }

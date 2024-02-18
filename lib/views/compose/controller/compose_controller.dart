@@ -42,9 +42,6 @@ class ComposeController extends GetxController {
     // regex to check if the email is valid
     if (mailAddress.email.isValidEmail()) {
       toList.add(mailAddress);
-      printInfo(
-          info:
-              "Ends with space or comma --${mailAddress.email} ${toList.length}");
     }
   }
 
@@ -52,14 +49,14 @@ class ComposeController extends GetxController {
 
   void addToCC(MailAddress mailAddress) {
     if (cclist.isNotEmpty && cclist[0] == mailAddress) return;
-    if (GetUtils.isEmail(mailAddress.email)) cclist.add(mailAddress);
+    if (mailAddress.email.isValidEmail()) cclist.add(mailAddress);
   }
 
   void removeFromCcList(int index) => cclist.removeAt(index);
 
   void addToBcc(MailAddress mailAddress) {
     if (bcclist.isNotEmpty && bcclist[0] == mailAddress) return;
-    if (GetUtils.isEmail(mailAddress.email)) bcclist.add(mailAddress);
+    if (mailAddress.email.isValidEmail()) bcclist.add(mailAddress);
   }
 
   void removeFromBccList(int index) => bcclist.removeAt(index);
@@ -108,6 +105,15 @@ class ComposeController extends GetxController {
               ? settingController.signature()
               : '';
           messageBuilder = MessageBuilder.prepareForwardMessage(msg);
+        } else if (type == 'draft') {
+          toList.addAll(msg.to ?? []);
+          cclist.addAll(msg.cc ?? []);
+          bcclist.addAll(msg.bcc ?? []);
+          subjectController.text = '${msg.decodeSubject()}';
+          signature = settingController.signatureNewMessage()
+              ? settingController.signature()
+              : '';
+          messageBuilder = MessageBuilder.prepareFromDraft(msg);
         }
         body = (msg.decodeTextHtmlPart() ?? '');
       }
@@ -207,6 +213,9 @@ class ComposeController extends GetxController {
       messageBuilder.bcc = bcclist.toList();
       messageBuilder.subject = subjectController.text;
       messageBuilder.from = [MailAddress(name, email)];
+      if (settingController.readReceipts()) {
+        messageBuilder.requestReadReceipt();
+      }
       // send the email
       await client.startPolling();
       await client.sendMessage(

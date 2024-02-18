@@ -26,6 +26,10 @@ class Lang extends Translations {
           'login': 'Login',
           'email': 'Email',
           'inbox': 'Inbox',
+          'drafts': 'Drafts',
+          'sent': 'Sent',
+          'spam': 'Spam',
+          'junk': 'Junk',
           'reset_password': 'Reset Password',
           'attach_file': 'Attach File',
           'from_files': 'From File',
@@ -93,6 +97,9 @@ class Lang extends Translations {
           'msg_email_unstarred': 'Email unstarred successfully',
           'msg_email_deleted_from': 'Email deleted from',
           'msg_email_moved_to': 'Email moved to',
+          'try_again': 'Try Again',
+          'move_message': 'Move Message',
+          'enter_search_text': 'Please enter a search term to continue',
         },
         'ar': {
           'no_subject': "لا يوجد موضوع",
@@ -117,6 +124,10 @@ class Lang extends Translations {
           'login': 'تسجيل دخول',
           'email': 'البريد الإلكتروني',
           'inbox': 'صندوق الوارد',
+          'drafts': 'المسودات',
+          'sent': 'الصادر',
+          'spam': 'البريد العشوائي',
+          'junk': 'الغيز مرغوب فيه',
           'reset_password': 'إعادة تعيين كلمة المرور',
           'attach_file': 'إرفاق ملف',
           'from_files': 'من الملفات',
@@ -185,6 +196,9 @@ class Lang extends Translations {
           'msg_email_unstarred': 'تم إلغاء تمييز البريد الإلكتروني بنجاح',
           'msg_email_deleted_from': 'تم حذف البريد الإلكتروني من',
           'msg_email_moved_to': 'تم نقل البريد الإلكتروني إلى',
+          'try_again': 'حاول مرة أخرى',
+          'move_message': 'Move Message',
+          'enter_search_text': 'يرجى إدخال مصطلح بحث للمتابعة',
         }
       };
 }

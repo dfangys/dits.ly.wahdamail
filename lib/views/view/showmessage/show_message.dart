@@ -48,7 +48,6 @@ class ShowMessage extends StatelessWidget {
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(60),
         child: InbocAppBar(
-          indicator: false,
           message: message,
           mailbox: mailbox,
         ),

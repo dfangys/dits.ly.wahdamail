@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 
+import '../controllers/mail_count_controller.dart';
 import '../controllers/mailbox_controller.dart';
 import '../controllers/selection_controller.dart';
 import '../controllers/settings_controller.dart';
@@ -18,5 +19,6 @@ class HomeBinding extends Bindings {
     Get.lazyPut<SettingController>(
       () => SettingController(),
     );
+    Get.lazyPut(() => MailCountController());
   }
 }

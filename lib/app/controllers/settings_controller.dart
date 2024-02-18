@@ -4,9 +4,9 @@ import 'package:get_storage/get_storage.dart';
 import '../../views/settings/data/swap_data.dart';
 
 class SettingController extends GetxController {
-  final language = 'English'.obs;
-  final readReceipts = 'Off'.obs;
-  final security = 'Off'.obs;
+  final language = 'en'.obs;
+  final readReceipts = false.obs;
+  final security = false.obs;
   final swipeGesturesLTR = 'read_unread'.obs;
   final swipeGesturesRTL = 'delete'.obs;
   final signature = ''.obs;
@@ -41,9 +41,9 @@ class SettingController extends GetxController {
   final box = GetStorage();
 
   Future loadLocalSettings() async {
-    language.value = box.read('language') ?? 'English';
-    readReceipts.value = box.read('readReceipts') ?? 'Off';
-    security.value = box.read('security') ?? 'Off';
+    language.value = box.read('language') ?? 'en';
+    readReceipts.value = box.read('readReceipts') ?? false;
+    security.value = box.read('security') ?? false;
     swipeGesturesLTR.value = box.read('swipeGesturesLTR') ?? 'readUnread';
     swipeGesturesRTL.value = box.read('swipeGesturesRTL') ?? 'delete';
     signature.value = box.read('signature') ?? '';

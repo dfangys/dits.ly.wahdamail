@@ -1,4 +1,5 @@
 import 'package:background_fetch/background_fetch.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -14,5 +15,14 @@ Future main() async {
   Hive.registerAdapter(StorageMessageIdAdapter());
   Hive.registerAdapter(StorageMessageEnvelopeAdapter());
   BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);
+  BackgroundFetch.start().then((int status) {
+    if (kDebugMode) {
+      print('[BackgroundFetch] start success: $status');
+    }
+  }).catchError((e) {
+    if (kDebugMode) {
+      print('[BackgroundFetch] start FAILURE: $e');
+    }
+  });
   runApp(const MyApp());
 }

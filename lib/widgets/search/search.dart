@@ -1,4 +1,3 @@
-import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/services/mail_service.dart';
@@ -73,10 +72,8 @@ class SearchView extends StatelessWidget {
                   ),
                 );
               },
-              onLongPress: () {},
-              onDelete: () {},
               message: controller.searchMessages[index],
-              flag: MailboxFlag.all,
+              mailBox: MailService.instance.selectedBox,
             );
           },
           separatorBuilder: (context, index) {
@@ -89,18 +86,30 @@ class SearchView extends StatelessWidget {
           animation: 'assets/lottie/empty.json',
           showAction: true,
           actionText: 'try_again'.tr,
-          onActionPressed: () {},
+          onActionPressed: () {
+            controller.onSearch();
+          },
         ),
         onLoading: const Center(
           child: CircularProgressIndicator(),
         ),
-        onError: (error) => TAnimationLoaderWidget(
-          text: error.toString(),
-          animation: 'assets/lottie/empty.json',
-          showAction: true,
-          actionText: 'try_again'.tr,
-          onActionPressed: () {},
-        ),
+        onError: (error) => error.toString().startsWith('serach:')
+            ? TAnimationLoaderWidget(
+                text: error.toString().split('serach:')[1],
+                animation: 'assets/lottie/search.json',
+                showAction: true,
+                actionText: 'search'.tr,
+                onActionPressed: () {
+                  controller.onSearch();
+                },
+              )
+            : TAnimationLoaderWidget(
+                text: error.toString(),
+                animation: 'assets/lottie/error.json',
+                showAction: true,
+                actionText: 'try_again'.tr,
+                onActionPressed: () {},
+              ),
       ),
     );
   }

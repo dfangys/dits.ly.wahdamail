@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -27,6 +29,8 @@ class LanguagePage extends GetView<SettingController> {
               controller.language('en');
               timeago.setDefaultLocale('en');
               Get.updateLocale(const Locale('en'));
+              Intl.defaultLocale = 'en';
+              initializeDateFormatting('en');
             },
           ),
           ListTile(
@@ -43,6 +47,8 @@ class LanguagePage extends GetView<SettingController> {
               timeago.setLocaleMessages('ar', timeago.ArMessages());
               timeago.setDefaultLocale('ar');
               Get.updateLocale(const Locale('ar'));
+              Intl.defaultLocale = 'ar';
+              initializeDateFormatting('ar');
             },
           ),
         ],

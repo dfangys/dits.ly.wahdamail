@@ -9,12 +9,10 @@ import 'package:wahda_bank/utills/theme/app_theme.dart';
 class InbocAppBar extends StatefulWidget {
   const InbocAppBar({
     super.key,
-    required this.indicator,
     required this.message,
     required this.mailbox,
   });
 
-  final bool indicator;
   final MimeMessage message;
   final Mailbox mailbox;
 
@@ -50,7 +48,7 @@ class _InbocAppBarState extends State<InbocAppBar> {
             color: isStarred ? AppTheme.starColor : Colors.grey,
           ),
           onPressed: () async {
-            controller.updateFlag([widget.message]);
+            controller.updateFlag([widget.message], controller.mailBoxInbox);
             setState(() {
               isStarred = !isStarred;
             });
@@ -61,14 +59,18 @@ class _InbocAppBarState extends State<InbocAppBar> {
             showCupertinoModalPopup(
               context: context,
               builder: (context) => CupertinoActionSheet(
-                title: const Text('Move Message'),
+                title: Text('move_message'.tr),
                 actions: [
                   for (var box in controller.mailboxes
                       .whereNot((e) => e == widget.mailbox)
                       .toList())
                     CupertinoActionSheetAction(
                       onPressed: () {
-                        controller.moveMails([widget.message], box);
+                        controller.moveMails(
+                          [widget.message],
+                          widget.mailbox,
+                          box,
+                        );
                         Get.back();
                       },
                       child: Text("move_to_${box.name.toLowerCase()}".tr),
@@ -78,7 +80,7 @@ class _InbocAppBarState extends State<InbocAppBar> {
                   onPressed: () {
                     Get.back();
                   },
-                  child: const Text('Cancel'),
+                  child: Text('cancel'.tr),
                 ),
               ),
             );

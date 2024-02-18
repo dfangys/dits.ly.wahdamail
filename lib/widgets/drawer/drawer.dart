@@ -11,16 +11,17 @@ import 'package:wahda_bank/views/view/screens/drawer/contact_us/Contact_us.dart'
 import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/widgets/drawer/drawer_tile.dart';
+import '../../app/controllers/mail_count_controller.dart';
 import '../../services/mail_service.dart';
-import '../../utills/extensions.dart';
 import '../../views/settings/settings_view.dart';
 
 class Drawer1 extends StatelessWidget {
-  const Drawer1({Key? key}) : super(key: key);
+  const Drawer1({super.key});
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<MailBoxController>();
+    final countController = Get.find<MailCountController>();
     return Drawer(
       child: Container(
         decoration: BoxDecoration(
@@ -65,14 +66,17 @@ class Drawer1 extends StatelessWidget {
                       children: [
                         WDraweTile(
                           image: boxIcon(box.name),
-                          text: box.encodedName.ucFirst(),
+                          text: box.encodedName.toLowerCase().tr,
                           onTap: () {
                             Get.back();
                             if (!box.isInbox) {
                               controller.navigatToMailBox(box);
                             }
                           },
-                          trailing: box.messagesUnseen.toString(),
+                          trailing: (countController.counts[
+                                      "${box.name.toLowerCase()}_count"] ??
+                                  0)
+                              .toString(),
                         ),
                         divider(),
                       ],

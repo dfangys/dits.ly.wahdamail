@@ -73,14 +73,14 @@ class MailBoxView extends GetView<MailBoxController> {
                         return MailTile(
                           onTap: () {
                             Get.to(
-                              () =>
-                                  ShowMessage(message: mail, mailbox: mailBox),
+                              () => ShowMessage(
+                                message: mail,
+                                mailbox: mailBox,
+                              ),
                             );
                           },
                           message: mail,
-                          onDelete: () {},
-                          onLongPress: () {},
-                          flag: MailboxFlag.inbox,
+                          mailBox: mailBox,
                         );
                       },
                       separatorBuilder: (context, i) => Divider(

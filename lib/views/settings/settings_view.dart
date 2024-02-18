@@ -31,10 +31,14 @@ class SettingsView extends GetView<SettingController> {
               },
             ),
             const Divider(),
-            ListTile(
-              title: Text('readreceipt'.tr),
-              trailing: Text('Off'.tr),
-              onTap: () {},
+            Obx(
+              () => ListTile(
+                title: Text('readreceipt'.tr),
+                trailing: Text(controller.readReceipts() ? 'on'.tr : 'off'.tr),
+                onTap: () {
+                  controller.readReceipts.toggle();
+                },
+              ),
             ),
             const Divider(),
             ListTile(

@@ -1,7 +1,9 @@
 import 'package:enough_mail/enough_mail.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:logger/logger.dart';
+import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
@@ -34,8 +36,6 @@ class MailBoxController extends GetxController {
   );
 
   final Logger logger = Logger();
-
-  Rx<Mailbox>? selected;
   RxList<Mailbox> mailboxes = <Mailbox>[].obs;
 
   List<Mailbox> get drawerBoxes =>
@@ -43,41 +43,33 @@ class MailBoxController extends GetxController {
 
   @override
   void onInit() async {
-    // try {
-    mailService = MailService.instance;
-    await mailService.init();
-    if (mailService.client.mailboxes == null) {
-      await mailService.connect();
+    try {
+      mailService = MailService.instance;
+      await mailService.init();
       await loadMailBoxes();
-    } else {
-      mailboxes(mailService.client.mailboxes!);
-      await loadMailBoxes();
+      super.onInit();
+    } catch (e) {
+      logger.e(e);
     }
-    super.onInit();
-    // } catch (e) {
-    //   logger.e(e);
-    // }
   }
 
   Future<void> initInbox() async {
-    isBusy(true);
-    mailBoxInbox = mailboxes[0];
+    mailBoxInbox = mailboxes.firstWhere(
+      (element) => element.isInbox,
+      orElse: () => mailboxes.first,
+    );
     loadEmailsForBox(mailBoxInbox);
-    isBusy(false);
   }
 
   Future loadMailBoxes() async {
-    if (mailService.client.mailboxes == null) {
-      List b = getStoarage.read('boxes');
-      if (b.isEmpty) {
-        mailboxes(await mailService.client.listMailboxes());
-      } else {
-        mailboxes(b
-            .map((e) => BoxModel.fromJson(e as Map<String, dynamic>))
-            .toList());
-      }
+    List b = getStoarage.read('boxes') ?? [];
+    if (b.isEmpty) {
+      await mailService.connect();
+      mailboxes(await mailService.client.listMailboxes());
     } else {
-      mailboxes(mailService.client.mailboxes!);
+      mailboxes(
+        b.map((e) => BoxModel.fromJson(e as Map<String, dynamic>)).toList(),
+      );
     }
     for (var mailbox in mailboxes) {
       if (mailboxStorage[mailbox] != null) continue;
@@ -143,6 +135,12 @@ class MailBoxController extends GetxController {
     if (mailbox.isInbox) {
       BackgroundService.checkForNewMail(false);
     }
+    if (Get.isRegistered<MailCountController>()) {
+      final countControll = Get.find<MailCountController>();
+      String key = "${mailbox.name.toLowerCase()}_count";
+      countControll.counts[key] =
+          emails[mailbox]!.where((e) => !e.isSeen).length;
+    }
   }
 
   Future<List<MimeMessage>> queue(MessageSequence sequence) async {
@@ -172,42 +170,77 @@ class MailBoxController extends GetxController {
     }
   }
 
-  Future deleteMails(List<MimeMessage> messages) async {
+  //
+  DeleteResult? deleteResult;
+  Map<Mailbox, List<MimeMessage>> deletedMessages = {};
+
+  Future deleteMails(List<MimeMessage> messages, Mailbox mailbox) async {
     for (var message in messages) {
-      message.isDeleted = true;
-      for (var element in mailboxStorage.values) {
-        await element.deleteMessage(message);
+      if (mailboxStorage[mailbox] != null) {
+        await mailboxStorage[mailbox]!.deleteMessage(message);
       }
     }
+    deletedMessages[mailbox] = messages;
     // set on server
     if (mailService.client.isConnected) {
-      for (var message in messages) {
-        await mailService.client.deleteMessage(message);
-      }
+      deleteResult = await mailService.client.deleteMessages(
+        MessageSequence.fromMessages(messages),
+        messages: messages,
+        expunge: false,
+      );
+    }
+    if (deleteResult != null && deleteResult!.canUndo) {
+      Get.showSnackbar(
+        GetSnackBar(
+          message: 'messages_deleted'.tr,
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 5),
+          mainButton: TextButton(
+            onPressed: () async {
+              await undoDelete();
+            },
+            child: Text('undo'.tr),
+          ),
+        ),
+      );
     }
   }
 
-  Future moveMails(List<MimeMessage> messages, Mailbox mailbox) async {
+  Future undoDelete() async {
+    if (deleteResult != null) {
+      await mailService.client.undoDeleteMessages(deleteResult!);
+      deleteResult = null;
+      for (var mailbox in deletedMessages.keys) {
+        await mailboxStorage[mailbox]!
+            .saveMessageEnvelopes(deletedMessages[mailbox]!);
+      }
+      deletedMessages.clear();
+    }
+  }
+
+  Future moveMails(List<MimeMessage> messages, Mailbox from, Mailbox to) async {
     for (var message in messages) {
-      for (var element in mailboxStorage.values) {
-        await element.deleteMessage(message);
+      if (mailboxStorage[from] != null) {
+        await mailboxStorage[from]!.deleteMessage(message);
+      }
+      if (mailboxStorage[to] != null) {
+        await mailboxStorage[to]!.saveMessageEnvelopes([message]);
       }
     }
     // set on server
     if (mailService.client.isConnected) {
       for (var message in messages) {
-        await mailService.client.moveMessage(message, mailbox);
+        await mailService.client.moveMessage(message, to);
       }
     }
   }
 
   // update flage on messages on server
-  Future updateFlag(List<MimeMessage> messages) async {
+  Future updateFlag(List<MimeMessage> messages, Mailbox mailbox) async {
     for (var message in messages) {
       message.isFlagged = !message.isFlagged;
-      if (mailboxStorage[mailService.client.selectedMailbox] != null) {
-        await mailboxStorage[mailService.client.selectedMailbox]!
-            .saveMessageEnvelopes([message]);
+      if (mailboxStorage[mailbox] != null) {
+        await mailboxStorage[mailbox]!.saveMessageEnvelopes([message]);
       }
     }
     // set on server
@@ -215,7 +248,7 @@ class MailBoxController extends GetxController {
       for (var message in messages) {
         await mailService.client.flagMessage(
           message,
-          isFlagged: !message.isFlagged,
+          isFlagged: message.isFlagged,
         );
       }
     }
@@ -230,29 +263,54 @@ class MailBoxController extends GetxController {
     }
   }
 
-  Future ltrTap(MimeMessage message) async {
+  Future ltrTap(MimeMessage message, Mailbox mailbox) async {
     SwapAction action =
-        getSwapActionFromString(settingController.swipeGesturesLTR.value);
-    if (action == SwapAction.readUnread) {
-    } else if (action == SwapAction.delete) {
-    } else if (action == SwapAction.archive) {
-    } else if (action == SwapAction.toggleFlag) {
-    } else if (action == SwapAction.markAsJunk) {}
+        getSwapActionFromString(settingController.swipeGesturesLTR());
+    _doSwapAction(
+      action,
+      message,
+      mailbox,
+    );
   }
 
-  Future rtlTap(MimeMessage message) async {
+  Future rtlTap(MimeMessage message, Mailbox mailbox) async {
     SwapAction action =
-        getSwapActionFromString(settingController.swipeGesturesRTL.value);
+        getSwapActionFromString(settingController.swipeGesturesRTL());
+    _doSwapAction(
+      action,
+      message,
+      mailbox,
+    );
+  }
+
+  Future _doSwapAction(
+      SwapAction action, MimeMessage message, Mailbox box) async {
     if (action == SwapAction.readUnread) {
+      await markAsReadUnread([message], box, !message.isSeen);
     } else if (action == SwapAction.delete) {
+      await deleteMails([message], box);
     } else if (action == SwapAction.archive) {
+      Mailbox? archive = mailboxes.firstWhereOrNull((e) => e.isArchive);
+      if (archive != null) {
+        await moveMails([message], box, archive);
+      }
     } else if (action == SwapAction.toggleFlag) {
-    } else if (action == SwapAction.markAsJunk) {}
+      await updateFlag([message], box);
+    } else if (action == SwapAction.markAsJunk) {
+      Mailbox? junk = mailboxes.firstWhereOrNull((e) => e.isJunk);
+      if (junk != null) {
+        await moveMails([message], box, junk);
+      }
+    }
   }
 
   Future handleIncomingMail(MimeMessage message) async {
-    for (var element in mailboxStorage.values) {
-      await element.saveMessageEnvelopes([message]);
+    // detect the mailbox from the message
+    Mailbox? mailbox = mailboxes.firstWhereOrNull(
+      (element) => element.flags.any((e) => message.hasFlag(e.name)),
+    );
+    if (mailbox != null) {
+      await mailboxStorage[mailbox]!.saveMessageEnvelopes([message]);
     }
   }
 

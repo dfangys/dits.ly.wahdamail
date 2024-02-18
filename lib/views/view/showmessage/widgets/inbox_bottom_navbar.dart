@@ -36,7 +36,7 @@ class ViewMessageBottomNav extends StatelessWidget {
                   actions: [
                     CupertinoActionSheetAction(
                       onPressed: () {
-                        mailController.deleteMails([message]);
+                        mailController.deleteMails([message], mailbox);
                         Get.back();
                         Get.back();
                       },
