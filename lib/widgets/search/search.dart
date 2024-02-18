@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
@@ -10,6 +10,7 @@ import 'controllers/mail_search_controller.dart';
 class SearchView extends StatelessWidget {
   SearchView({super.key});
   final controller = Get.put(MailSearchController());
+  final mailboxController = Get.find<MailBoxController>();
 
   @override
   Widget build(BuildContext context) {
@@ -68,12 +69,12 @@ class SearchView extends StatelessWidget {
                 Get.to(
                   () => ShowMessage(
                     message: controller.searchMessages[index],
-                    mailbox: MailService.instance.selectedBox,
+                    mailbox: mailboxController.mailBoxInbox,
                   ),
                 );
               },
               message: controller.searchMessages[index],
-              mailBox: MailService.instance.selectedBox,
+              mailBox: mailboxController.mailBoxInbox,
             );
           },
           separatorBuilder: (context, index) {
