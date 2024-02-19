@@ -13,9 +13,7 @@ import '../../widgets/mail_tile.dart';
 import '../view/showmessage/show_message.dart';
 
 class MailBoxView extends GetView<MailBoxController> {
-  const MailBoxView({super.key, required this.hiveKey, required this.mailBox});
-
-  final String hiveKey;
+  const MailBoxView({super.key, required this.mailBox});
   final Mailbox mailBox;
 
   @override

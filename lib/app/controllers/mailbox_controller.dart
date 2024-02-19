@@ -16,6 +16,7 @@ import '../../views/view/models/box_model.dart';
 class MailBoxController extends GetxController {
   late MailService mailService;
   final RxBool isBusy = true.obs;
+  final RxBool isBoxBusy = true.obs;
   final getStoarage = GetStorage();
 
   final RxMap<Mailbox, HiveMailboxMimeStorage> mailboxStorage =
@@ -38,8 +39,28 @@ class MailBoxController extends GetxController {
   final Logger logger = Logger();
   RxList<Mailbox> mailboxes = <Mailbox>[].obs;
 
-  List<Mailbox> get drawerBoxes =>
-      mailboxes.where((e) => e.name.toLowerCase() != 'inbox').toList();
+  List<String> predefinedOrder = [
+    'inbox',
+    'sent',
+    'drafts',
+    'trash',
+    'junk',
+    'archive',
+  ];
+
+  List<Mailbox> get sortedMailBoxes {
+    return mailboxes.toList()
+      ..sort((a, b) {
+        // Get the index of each item in the predefined order
+        int indexA = predefinedOrder.indexOf(a.name.toLowerCase());
+        int indexB = predefinedOrder.indexOf(b.name.toLowerCase());
+        // Handle cases where the item is not in the predefined order
+        if (indexA == -1) indexA = predefinedOrder.length;
+        if (indexB == -1) indexB = predefinedOrder.length;
+        // Compare based on the indices
+        return indexA.compareTo(indexB);
+      });
+  }
 
   @override
   void onInit() async {
@@ -326,12 +347,7 @@ class MailBoxController extends GetxController {
   }
 
   Future navigatToMailBox(Mailbox mailbox) async {
-    String hiveKey = HiveMailboxMimeStorage.getBoxName(
-      mailService.account,
-      mailbox,
-      'envelopes',
-    );
-    Get.to(() => MailBoxView(hiveKey: hiveKey, mailBox: mailbox));
+    Get.to(() => MailBoxView(mailBox: mailbox));
     await loadEmailsForBox(mailbox);
   }
 
@@ -340,7 +356,11 @@ class MailBoxController extends GetxController {
     mails.addAll(getStoarage.read('mails') ?? []);
     for (var msg in messages) {
       if (msg.from != null) {
-        mails.addAll(msg.from!.map((e) => e.encode()).toList());
+        for (var e in msg.from!) {
+          if (e.email.isNotEmpty) {
+            mails.add(e.encode());
+          }
+        }
       }
     }
     getStoarage.write('mails', mails);

@@ -79,17 +79,6 @@ class HiveMailboxMimeStorage extends OfflineMimeStorage {
       _boxEnvelopes =
           await Hive.openBox<StorageMessageEnvelope>(_boxNameEnvelopes);
       dataStream = _boxEnvelopes.listenable();
-      dataStream.addListener(() {
-        // List<StorageMessageEnvelope> rows = dataStream.value.values
-        //     .sorted((a, b) => b.date!.compareTo(a.date!));
-        // Map<DateTime, List<StorageMessageEnvelope>> group = groupBy(
-        //   rows,
-        //   (p) {
-        //     var dt = p.date ?? DateTime.now();
-        //     return DateTime(dt.year, dt.month);
-        //   },
-        // );
-      });
     }
 
     Future<void> initFullMessages() async {

@@ -72,6 +72,7 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
             onSelected: (MailAddress address) {
               widget.onInsert(address);
             },
+            hideOnEmpty: true,
             builder: (context, ctrl, focusNode) => TextFormField(
               readOnly: widget.readOnly,
               focusNode: focusNode,

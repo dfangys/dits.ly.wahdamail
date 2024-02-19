@@ -2,7 +2,6 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import '../app/controllers/selection_controller.dart';
@@ -62,7 +61,7 @@ class MailTile extends StatelessWidget {
           onTap: () {
             if (selectionController.isSelecting) {
               selectionController.toggle(message);
-            } else if (mailBox.isDrafts) {
+            } else if (mailBox.name.toLowerCase() == 'drafts') {
               Get.to(
                 () => const ComposeScreen(),
                 arguments: {'type': 'draft', 'message': message},

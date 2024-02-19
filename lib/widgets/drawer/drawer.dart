@@ -61,7 +61,7 @@ class Drawer1 extends StatelessWidget {
                     trailing: '',
                   ),
                   divider(),
-                  for (Mailbox box in controller.mailboxes)
+                  for (Mailbox box in controller.sortedMailBoxes)
                     Column(
                       children: [
                         WDraweTile(
