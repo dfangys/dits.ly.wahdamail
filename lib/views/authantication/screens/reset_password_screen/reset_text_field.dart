@@ -4,15 +4,12 @@ import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_
 import 'package:wahda_bank/views/authantication/screens/otp/verify_reset_password/verify_reset_password_otp.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 
-// ignore: must_be_immutable
 class ResetPasswordTextField extends StatelessWidget {
   ResetPasswordTextField({
     super.key,
   });
-  bool isBusy = false;
-  final TextEditingController emailController = TextEditingController(
-    text: "@wahdabank.com.ly",
-  );
+  final bool isBusy = false;
+  final TextEditingController emailController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +39,7 @@ class ResetPasswordTextField extends StatelessWidget {
                 icon: WImages.mail,
                 hintText: 'Email',
                 obscureText: false,
+                domainFix: true,
                 validator: (value) {
                   if (value!.isEmpty) {
                     return 'Please enter your email';

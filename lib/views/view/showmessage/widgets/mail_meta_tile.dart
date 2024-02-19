@@ -1,7 +1,10 @@
 import 'package:enough_mail/enough_mail.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:wahda_bank/views/compose/compose.dart';
+import 'package:wahda_bank/widgets/search/search.dart';
 
 class MailMetaTile extends StatelessWidget {
   const MailMetaTile({super.key, required this.message, required this.isShow});
@@ -84,10 +87,51 @@ Widget buildMailInfo(String title, List<String> data) {
         ),
         Expanded(
           child: GestureDetector(
-            onLongPress: () {
-              Clipboard.setData(ClipboardData(
-                text: data.join(' '),
-              ));
+            onTap: () {
+              if (title.startsWith('Time')) {
+                return;
+              }
+              showCupertinoModalPopup(
+                context: Get.context!,
+                builder: (context) => CupertinoActionSheet(
+                  message: Text(data.join(' ')),
+                  actions: [
+                    CupertinoActionSheetAction(
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(
+                          text: data.join(' '),
+                        ));
+                        Navigator.pop(context);
+                      },
+                      child: const Text("Copy"),
+                    ),
+                    CupertinoActionSheetAction(
+                      onPressed: () {
+                        Get.back();
+                        Get.to(() => const ComposeScreen(), arguments: {
+                          "to": data.join(' '),
+                        });
+                      },
+                      child: Text("new_message".tr),
+                    ),
+                    CupertinoActionSheetAction(
+                      onPressed: () {
+                        Get.back();
+                        Get.to(() => SearchView(), arguments: {
+                          "terms": data.join(' '),
+                        });
+                      },
+                      child: Text("search".tr),
+                    ),
+                  ],
+                  cancelButton: CupertinoActionSheetAction(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text("Cancel"),
+                  ),
+                ),
+              );
             },
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

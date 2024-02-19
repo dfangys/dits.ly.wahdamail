@@ -107,7 +107,7 @@ class SearchView extends StatelessWidget {
             : TAnimationLoaderWidget(
                 text: error.toString(),
                 animation: 'assets/lottie/error.json',
-                showAction: true,
+                showAction: false,
                 actionText: 'try_again'.tr,
                 onActionPressed: () {},
               ),

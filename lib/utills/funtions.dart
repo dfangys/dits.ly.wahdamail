@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 
-String formatDate(DateTime? dateTime) {
+String mailTileTimeFormat(DateTime? dateTime) {
   String formatedDate;
   dateTime = dateTime ?? DateTime.now();
   if (DateTime.now().difference(dateTime).inDays > 7) {

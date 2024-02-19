@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:html/parser.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 
@@ -35,6 +36,10 @@ class ComposeController extends GetxController {
   String signature = '';
 
   RxBool isCcAndBccVisible = false.obs;
+  List<MailAddress> get mailAddresses =>
+      (GetStorage().read('mails') ?? []).map<MailAddress>((e) {
+        return MailAddress.parse(e.toString());
+      }).toList();
 
   void addTo(MailAddress mailAddress) {
     if (toList.isNotEmpty && toList[0] == mailAddress) return;
@@ -74,6 +79,12 @@ class ComposeController extends GetxController {
     if (Get.arguments != null) {
       String? type = Get.arguments['type'];
       MimeMessage? msg = Get.arguments['message'];
+      String? toMails = Get.arguments['to'];
+      if (toMails != null) {
+        toMails.split(' ').forEach((e) {
+          toList.add(MailAddress("", e));
+        });
+      }
       if (msg != null) {
         if (type == 'reply') {
           toList.addAll(msg.from ?? []);
@@ -201,13 +212,21 @@ class ComposeController extends GetxController {
         return;
       }
       // attach the signature to the email
-      String html = (await htmlController.getText()) + signature;
+      late String body;
+      if (isHtml.value) {
+        body = (await htmlController.getText()) + signature;
+      } else {
+        body = plainTextController.text + signature;
+      }
       // attach the files to the email
       for (var file in attachments) {
         messageBuilder.addFile(file, MediaType.guessFromFileName(file.path));
       }
       // set the email body
-      messageBuilder.addMultipartAlternative(htmlText: html);
+      messageBuilder.addMultipartAlternative(
+        htmlText: isHtml.isTrue ? body : '',
+        plainText: isHtml.isTrue ? '' : body,
+      );
       messageBuilder.to = toList.toList();
       messageBuilder.cc = cclist.toList();
       messageBuilder.bcc = bcclist.toList();
@@ -237,5 +256,37 @@ class ComposeController extends GetxController {
         desc: e.toString(),
       ).show();
     }
+  }
+
+  void deleteAttachment(int index) {
+    attachments.removeAt(index);
+  }
+
+  // Html and plain text conversion
+  TextEditingController plainTextController = TextEditingController();
+  RxBool isHtml = true.obs;
+  String htmlBody = '';
+  Future togglePlainHtml() async {
+    if (isHtml.value) {
+      htmlBody = await htmlController.getText();
+      String plainText = removeAllHtmlTags(htmlBody);
+      plainTextController.text = plainText;
+    } else {
+      String text = plainTextController.text;
+      htmlController.setText(text);
+    }
+    isHtml.toggle();
+  }
+
+  String _removeAllHtmlTags(String htmlText) {
+    final document = parse(htmlText);
+    final String parsedString =
+        parse(document.body!.text).documentElement!.text;
+    return parsedString;
+  }
+
+  String removeAllHtmlTags(String htmlText) {
+    RegExp exp = RegExp(r"<[^>]*>", multiLine: true, caseSensitive: true);
+    return htmlText.replaceAll(exp, '');
   }
 }

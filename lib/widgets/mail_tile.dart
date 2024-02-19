@@ -7,6 +7,7 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import '../app/controllers/selection_controller.dart';
 import '../app/controllers/settings_controller.dart';
+import '../utills/funtions.dart';
 import '../utills/theme/app_theme.dart';
 
 class MailTile extends StatelessWidget {
@@ -63,7 +64,7 @@ class MailTile extends StatelessWidget {
               selectionController.toggle(message);
             } else if (mailBox.isDrafts) {
               Get.to(
-                () => ComposeScreen(),
+                () => const ComposeScreen(),
                 arguments: {'type': 'draft', 'message': message},
               );
             } else if (onTap != null) {
@@ -128,15 +129,24 @@ class MailTile extends StatelessWidget {
           trailing: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              Text(
-                DateFormat("E HH:mm a").format(
-                  message.decodeDate() ?? DateTime.now(),
-                ),
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    mailTileTimeFormat(message.decodeDate()),
+                    style: const TextStyle(
+                      color: Colors.grey,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (message.hasAttachments())
+                    const Icon(
+                      Icons.attach_file,
+                      color: Colors.green,
+                      size: 12,
+                    ),
+                ],
               ),
               const SizedBox(
                 height: 5,

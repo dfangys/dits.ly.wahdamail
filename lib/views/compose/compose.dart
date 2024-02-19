@@ -79,6 +79,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
                   actions: [
                     CupertinoActionSheetAction(
                       onPressed: () {
+                        Get.back();
                         controller.saveAsDraft();
                       },
                       child: Text('save_as_draft'.tr),
@@ -89,7 +90,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
                     ),
                     CupertinoActionSheetAction(
                       onPressed: () {
-                        controller.htmlController.toggleCodeView();
+                        Get.back();
+                        controller.togglePlainHtml();
                       },
                       child: Text('convert_to_plain_text'.tr),
                     ),

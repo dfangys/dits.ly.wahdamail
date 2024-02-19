@@ -11,6 +11,8 @@ import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/mail_attachments.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/mail_meta_tile.dart';
 
+import '../../../widgets/empty_box.dart';
+
 class ShowMessage extends StatelessWidget {
   ShowMessage({super.key, required this.message, required this.mailbox});
   final MimeMessage message;
@@ -123,6 +125,13 @@ class ShowMessage extends StatelessWidget {
                   mailbox,
                 );
               },
+              onError: (exception, stackTrace) => TAnimationLoaderWidget(
+                text: 'Whoops! ${exception.toString()}',
+                animation: 'assets/lottie/error.json',
+                showAction: false,
+                actionText: 'try_again'.tr,
+                onActionPressed: () {},
+              ),
             ),
           ],
         ),

@@ -17,6 +17,9 @@ class MailSearchController extends GetxController with StateMixin {
   @override
   void onInit() {
     super.onInit();
+    if (Get.arguments != null) {
+      searchController.text = Get.arguments['terms'];
+    }
     change(
       null,
       status: RxStatus.error('serach:${'enter_search_text'.tr}'),
@@ -50,6 +53,7 @@ class MailSearchController extends GetxController with StateMixin {
       MailSearch(
         searchController.text,
         SearchQueryType.allTextHeaders,
+        messageType: SearchMessageType.all,
       ),
     );
     searchMessages.clear();

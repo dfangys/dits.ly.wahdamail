@@ -1,6 +1,9 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:get/get.dart';
+import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 
 class ToEmailsChipsField extends StatefulWidget {
   final Function(MailAddress) onInsert;
@@ -26,6 +29,7 @@ class ToEmailsChipsField extends StatefulWidget {
 class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
   TextEditingController controller = TextEditingController();
   FocusNode focusNode = FocusNode();
+  final composeController = Get.find<ComposeController>();
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -52,59 +56,73 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
               ),
             ],
           ),
-          TextFormField(
-            readOnly: widget.readOnly,
-            decoration: InputDecoration(
-              hintText: widget.title,
-              border: InputBorder.none,
-              isDense: true,
-              hintStyle: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
-              suffixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.ccBccWidget != null) widget.ccBccWidget!,
-                  IconButton(
-                    onPressed: () async {
-                      if (await FlutterContacts.requestPermission(
-                          readonly: true)) {
-                        final Contact? contact =
-                            await FlutterContacts.openExternalPick();
-                        if (contact != null) {
-                          widget.onInsert(
-                            MailAddress(
-                              contact.displayName,
-                              contact.emails.first.address,
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    icon: const Icon(Icons.contacts_outlined),
-                  ),
-                ],
-              ),
-            ),
-            autofocus: true,
+          TypeAheadField(
             controller: controller,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.done,
-            onChanged: (String val) {
-              if (val.endsWith(' ') || val.endsWith(',')) {
-                widget.onInsert(MailAddress("", val));
+            suggestionsCallback: (pattern) {
+              return composeController.mailAddresses
+                  .where((element) => element.email.contains(pattern))
+                  .toList();
+            },
+            itemBuilder: (context, MailAddress suggestion) {
+              return ListTile(
+                dense: true,
+                title: Text(suggestion.email),
+              );
+            },
+            onSelected: (MailAddress address) {
+              widget.onInsert(address);
+            },
+            builder: (context, ctrl, focusNode) => TextFormField(
+              readOnly: widget.readOnly,
+              focusNode: focusNode,
+              decoration: InputDecoration(
+                hintText: widget.title,
+                border: InputBorder.none,
+                isDense: true,
+                hintStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                ),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.ccBccWidget != null) widget.ccBccWidget!,
+                    IconButton(
+                      onPressed: () async {
+                        if (await FlutterContacts.requestPermission(
+                            readonly: true)) {
+                          final Contact? contact =
+                              await FlutterContacts.openExternalPick();
+                          if (contact != null) {
+                            widget.onInsert(
+                              MailAddress(
+                                contact.displayName,
+                                contact.emails.first.address,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.contacts_outlined),
+                    ),
+                  ],
+                ),
+              ),
+              autofocus: true,
+              controller: ctrl,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.done,
+              onChanged: (String val) {
+                if (val.endsWith(' ') || val.endsWith(',')) {
+                  widget.onInsert(MailAddress("", val));
+                  controller.clear();
+                }
+              },
+              onEditingComplete: () {
+                widget.onInsert(MailAddress("", controller.text));
                 controller.clear();
-              }
-            },
-            onEditingComplete: () {
-              widget.onInsert(MailAddress("", controller.text));
-              controller.clear();
-            },
-            onTapOutside: (event) {
-              widget.onInsert(MailAddress("", controller.text));
-              controller.clear();
-            },
-          )
+              },
+            ),
+          ),
         ],
       ),
     );

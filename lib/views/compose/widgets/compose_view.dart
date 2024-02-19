@@ -6,7 +6,6 @@ import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/text_field.dart';
 
-// ignore: must_be_immutable
 class WComposeView extends StatelessWidget {
   WComposeView({
     super.key,
@@ -119,19 +118,44 @@ class WComposeView extends StatelessWidget {
             },
           ),
         ),
-        HtmlEditor(
-          controller: controller.htmlController,
-          htmlToolbarOptions: const HtmlToolbarOptions(defaultToolbarButtons: [
-            FontButtons(),
-            ColorButtons(),
-            ListButtons(),
-          ]),
-          htmlEditorOptions: HtmlEditorOptions(
-            hint: "Your message here...",
-            initialText: controller.body,
-          ),
-          otherOptions: const OtherOptions(
-            height: 400,
+        Obx(
+          () => AnimatedCrossFade(
+            firstChild: HtmlEditor(
+              controller: controller.htmlController,
+              htmlToolbarOptions: const HtmlToolbarOptions(
+                defaultToolbarButtons: [
+                  FontButtons(),
+                  ColorButtons(),
+                  ListButtons(),
+                  ParagraphButtons(
+                    caseConverter: false,
+                    textDirection: true,
+                  ),
+                ],
+              ),
+              htmlEditorOptions: HtmlEditorOptions(
+                hint: "Your message here...",
+                initialText: controller.body,
+              ),
+              otherOptions: const OtherOptions(
+                height: 400,
+              ),
+            ),
+            secondChild: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: TextFormField(
+                controller: controller.plainTextController,
+                maxLines: null,
+                keyboardType: TextInputType.multiline,
+                decoration: const InputDecoration(
+                  hintText: "Your message here...",
+                ),
+              ),
+            ),
+            crossFadeState: controller.isHtml.isTrue
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            duration: const Duration(milliseconds: 300),
           ),
         ),
         Center(

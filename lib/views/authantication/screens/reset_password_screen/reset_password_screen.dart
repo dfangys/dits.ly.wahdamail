@@ -8,9 +8,7 @@ import 'package:wahda_bank/utills/constants/image_strings.dart';
 class ResetPasswordScreen extends StatelessWidget {
   ResetPasswordScreen({super.key});
   bool isBusy = false;
-  final TextEditingController emailController = TextEditingController(
-    text: '@wahdabank.com.ly',
-  );
+  final TextEditingController emailController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {

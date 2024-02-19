@@ -1,4 +1,5 @@
 class WText {
+  static const String emailSuffix = '@wahdabank.com.ly';
   // -- Global Texts
 
   // -- Welcome Texts

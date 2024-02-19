@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
+import 'package:wahda_bank/utills/constants/text_strings.dart';
 
 class WTextFormField extends StatelessWidget {
   const WTextFormField({
@@ -38,7 +39,7 @@ class WTextFormField extends StatelessWidget {
             width: 2,
             child: Image.asset(icon),
           ),
-          suffixText: domainFix ? '@schooloftechnologies.com' : '',
+          suffixText: domainFix ? WText.emailSuffix : '',
           contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
           hintText: hintText,
           focusColor: WColors.welcomeScafhold,

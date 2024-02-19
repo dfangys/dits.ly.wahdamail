@@ -25,7 +25,7 @@ class MailBoxView extends GetView<MailBoxController> {
       onPopInvoked: (didPop) => selectionController.selected.clear(),
       child: Scaffold(
         appBar: AppBar(
-          title: Text(mailBox.name),
+          title: Text(mailBox.name.toLowerCase().tr),
         ),
         body: ValueListenableBuilder<Box<StorageMessageEnvelope>>(
           valueListenable: controller.mailboxStorage[mailBox]!.dataStream,

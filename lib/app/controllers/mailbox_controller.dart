@@ -141,6 +141,7 @@ class MailBoxController extends GetxController {
       countControll.counts[key] =
           emails[mailbox]!.where((e) => !e.isSeen).length;
     }
+    storeContactMails(emails[mailbox]!);
   }
 
   Future<List<MimeMessage>> queue(MessageSequence sequence) async {
@@ -332,6 +333,17 @@ class MailBoxController extends GetxController {
     );
     Get.to(() => MailBoxView(hiveKey: hiveKey, mailBox: mailbox));
     await loadEmailsForBox(mailbox);
+  }
+
+  void storeContactMails(List<MimeMessage> messages) {
+    Set<String> mails = {};
+    mails.addAll(getStoarage.read('mails') ?? []);
+    for (var msg in messages) {
+      if (msg.from != null) {
+        mails.addAll(msg.from!.map((e) => e.encode()).toList());
+      }
+    }
+    getStoarage.write('mails', mails);
   }
 
   @override
