@@ -357,9 +357,11 @@ class MailBoxController extends GetxController {
     for (var msg in messages) {
       if (msg.from != null) {
         for (var e in msg.from!) {
-          if (e.email.isNotEmpty) {
-            mails.add(e.encode());
-          }
+          try {
+              mails.add(e.email);
+            } catch (e) {
+              logger.e(e);
+            }
         }
       }
     }

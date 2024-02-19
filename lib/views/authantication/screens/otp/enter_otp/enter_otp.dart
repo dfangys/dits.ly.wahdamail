@@ -3,14 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:otp_text_field/otp_text_field.dart';
 import 'package:otp_text_field/style.dart';
+import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/app/controllers/otp_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
+import '../../login/widgets/rounded_button.dart';
 
 class EnterOtpScreen extends GetView<OtpController> {
-  const EnterOtpScreen({super.key});
+  EnterOtpScreen({super.key});
+
+  final RoundedLoadingButtonController btnController =
+      RoundedLoadingButtonController();
 
   @override
   Widget build(BuildContext context) {
@@ -90,17 +95,19 @@ class EnterOtpScreen extends GetView<OtpController> {
                             if (kDebugMode) {
                               print("Completed: $pin");
                             }
-                            controller.verifyPhoneOtp(pin);
+                            controller.verifyPhoneOtp(otp: pin);
                           },
                         ),
                         // const SizedBox(
                         //   height: WSizes.spaceBtwSections * 2,
                         // ),
-                        // WRoundedButton(
-                        //   controller: btnController,
-                        //   onPress: () {},
-                        //   text: 'Submit',
-                        // )
+                        WRoundedButton(
+                          controller: btnController,
+                          onPress: () {
+                            controller.verifyPhoneOtp(otp: controller.otpPin);
+                          },
+                          text: 'Submit',
+                        )
                       ],
                     )
                   ],

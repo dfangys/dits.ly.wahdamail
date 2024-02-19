@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -145,19 +146,29 @@ class LoginScreen extends StatelessWidget {
                               if (message.startsWith('null')) {
                                 message = "Authentication failed";
                               }
-                              Get.showSnackbar(GetSnackBar(
-                                message: message,
-                                duration: const Duration(seconds: 3),
-                              ));
+                              AwesomeDialog(
+                                context: Get.context!,
+                                dialogType: DialogType.error,
+                                title: 'error'.tr,
+                                desc: message,
+                                btnOkOnPress: () {
+                                  Get.back();
+                                },
+                              ).show();
                             } on SocketException catch (e) {
                               String message = e.toString();
                               if (e.toString().startsWith('null')) {
                                 message = "Server not connected";
                               }
-                              Get.showSnackbar(GetSnackBar(
-                                message: message,
-                                duration: const Duration(seconds: 3),
-                              ));
+                              AwesomeDialog(
+                                context: Get.context!,
+                                dialogType: DialogType.error,
+                                title: 'error'.tr,
+                                desc: message,
+                                btnOkOnPress: () {
+                                  Get.back();
+                                },
+                              ).show();
                             } finally {
                               controller!.stop();
                             }

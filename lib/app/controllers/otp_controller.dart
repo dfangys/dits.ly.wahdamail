@@ -29,7 +29,7 @@ class OtpController extends GetxController {
         } else if (data.containsKey('otp_send') && data['otp_send']) {
           // goto otp verifiy view
           listenForSms();
-          Get.to(() => const EnterOtpScreen());
+          Get.to(() => EnterOtpScreen());
         }
       } else {
         AwesomeDialog(
@@ -57,28 +57,26 @@ class OtpController extends GetxController {
         }
         onSmsReceived(message.body);
       },
-      onBackgroundMessage: (message) {
-        if (kDebugMode) {
-          print('OnBackground message: ${message.address} - ${message.body}');
-        }
-      },
     );
   }
 
   void onSmsReceived(String? message) {
     if (message != null) {
-      String num = message.replaceAll(RegExp(r'[^0-9]'), '');
+      String numCode = message.replaceAll(RegExp(r'[^0-9]'), '');
       List<String> code = [];
-      for (var i = 0; i < num.length; i++) {
-        code[i] = num[i];
+      for (var i = 0; i < numCode.length; i++) {
+        code[i] = numCode[i];
       }
       fieldController.set(code);
+      otpPin = numCode;
     }
   }
 
-  Future verifyPhoneOtp(String otp) async {
+  String otpPin = '';
+
+  Future verifyPhoneOtp({String? otp}) async {
     try {
-      var data = await appApi.verifyOp(otp);
+      var data = await appApi.verifyOp(otp ?? otpPin);
       if (data is Map && data.containsKey('verified') && data['verified']) {
         await _storage.write('otp', true);
         Get.offAll(() => const LoadingFirstView());
