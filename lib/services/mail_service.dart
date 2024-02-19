@@ -42,17 +42,17 @@ class MailService {
     account = MailAccount.fromManualSettings(
       name: email,
       email: email,
-      incomingHost: 'schooloftechnologies.com',
-      outgoingHost: 'schooloftechnologies.com',
+      incomingHost: 'wbmail.wahdabank.com.ly',
+      outgoingHost: 'wbmail.wahdabank.com.ly',
       password: password,
       incomingType: ServerType.imap,
       outgoingType: ServerType.smtp,
-      incomingPort: 993,
-      outgoingPort: 465,
+      incomingPort: 43245,
+      outgoingPort: 43244,
       incomingSocketType: SocketType.ssl,
       outgoingSocketType: SocketType.starttls,
       userName: email,
-      outgoingClientDomain: 'schooloftechnologies.com',
+      outgoingClientDomain: 'wbmail.wahdabank.com.ly',
     );
     client = MailClient(
       account,

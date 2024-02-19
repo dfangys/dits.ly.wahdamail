@@ -242,6 +242,7 @@ class ComposeController extends GetxController {
         recipients: toList.toList(),
       );
       await client.stopPolling();
+      Get.back();
       AwesomeDialog(
         context: Get.context!,
         dialogType: DialogType.success,
@@ -252,8 +253,15 @@ class ComposeController extends GetxController {
       AwesomeDialog(
         context: Get.context!,
         dialogType: DialogType.error,
-        title: 'Error',
+        title: 'error'.tr,
         desc: e.toString(),
+        btnOk: ElevatedButton(
+          onPressed: () {
+            Get.back();
+            sendEmail();
+          },
+          child: Text('try_again'.tr),
+        ),
       ).show();
     }
   }

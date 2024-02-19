@@ -1,17 +1,20 @@
+import 'dart:io';
+
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_field.dart';
 import 'package:wahda_bank/views/authantication/screens/reset_password_screen/reset_password_screen.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
-
-import '../../../view/screens/first_loading_view.dart';
+import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
+import '../otp/otp_view/send_otp_view.dart';
 
 // ignore: must_be_immutable
 class LoginScreen extends StatelessWidget {
@@ -61,7 +64,7 @@ class LoginScreen extends StatelessWidget {
                       const SizedBox(height: WSizes.spaceBtwSections),
                       Text(
                         "login".tr,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Colors.black,
                           fontWeight: FontWeight.bold,
                           fontSize: 30,
@@ -84,11 +87,12 @@ class LoginScreen extends StatelessWidget {
                         domainFix: true,
                         validator: (v) {
                           if (v == null || v.isEmpty) {
-                            return 'Please enter email to continue';
+                            return 'valid_required'.tr;
                           }
-                          v = "$v@schooloftechnologies.com";
-                          if (!GetUtils.isEmail(v)) {
-                            return 'Please enter valid email';
+                          v = "$v${WText.emailSuffix}";
+                          print(v);
+                          if (!v.isValidEmail()) {
+                            return 'valid_email'.tr;
                           }
                           return null;
                         },
@@ -130,12 +134,11 @@ class LoginScreen extends StatelessWidget {
                             try {
                               controller!.start();
                               await MailService.instance.init(
-                                mail:
-                                    '${emailCtrl.text}@schooloftechnologies.com',
+                                mail: '${emailCtrl.text}${WText.emailSuffix}',
                                 pass: passwordCtrl.text,
                               );
                               await MailService.instance.connect();
-                              Get.to(() => const LoadingFirstView());
+                              Get.to(() => const SendOtpView());
                             } on MailException catch (e) {
                               String message =
                                   e.message ?? 'Somthing went wrong';
@@ -146,7 +149,7 @@ class LoginScreen extends StatelessWidget {
                                 message: message,
                                 duration: const Duration(seconds: 3),
                               ));
-                            } catch (e) {
+                            } on SocketException catch (e) {
                               String message = e.toString();
                               if (e.toString().startsWith('null')) {
                                 message = "Server not connected";
