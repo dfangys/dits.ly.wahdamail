@@ -19,7 +19,7 @@ class WSliverAppBar extends StatelessWidget {
         centerTitle: true,
         title: Text(
           'inbox'.tr,
-          style: TextStyle(color: Colors.black),
+          style: const TextStyle(color: Colors.black),
         ),
         background: Container(
           width: double.infinity,
@@ -46,7 +46,7 @@ class WSliverAppBar extends StatelessWidget {
           onPressed: () {},
           child: Text(
             'edit'.tr,
-            style: TextStyle(color: Colors.green),
+            style: const TextStyle(color: Colors.green),
           ),
         ),
       ],

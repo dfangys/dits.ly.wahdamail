@@ -52,7 +52,7 @@ class InboxBottomNavBar extends StatelessWidget {
           IconButtons(
             icon: CupertinoIcons.pencil_outline,
             isImage: false,
-            onTap: () => Get.to(() => ComposeScreen()),
+            onTap: () => Get.to(() => const ComposeScreen()),
           )
         ],
       ),

@@ -58,7 +58,7 @@ class ViewMessageBottomNav extends StatelessWidget {
             icon: CupertinoIcons.reply,
             isImage: false,
             onTap: () {
-              Get.to(() => ComposeScreen(), arguments: {
+              Get.to(() => const ComposeScreen(), arguments: {
                 'message': message,
                 'type': 'reply',
               });
@@ -68,7 +68,7 @@ class ViewMessageBottomNav extends StatelessWidget {
             icon: CupertinoIcons.reply_all,
             isImage: false,
             onTap: () {
-              Get.to(() => ComposeScreen(), arguments: {
+              Get.to(() => const ComposeScreen(), arguments: {
                 'message': message,
                 'type': 'reply_all',
               });
@@ -78,7 +78,7 @@ class ViewMessageBottomNav extends StatelessWidget {
             icon: CupertinoIcons.forward,
             isImage: false,
             onTap: () {
-              Get.to(() => ComposeScreen(), arguments: {
+              Get.to(() => const ComposeScreen(), arguments: {
                 'message': message,
                 'type': 'forward',
               });

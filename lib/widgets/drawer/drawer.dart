@@ -56,7 +56,7 @@ class Drawer1 extends StatelessWidget {
                     image: WImages.compose,
                     text: 'compose'.tr,
                     onTap: () {
-                      Get.to(() => ComposeScreen());
+                      Get.to(() => const ComposeScreen());
                     },
                     trailing: '',
                   ),
