@@ -73,8 +73,10 @@ class _SendOtpViewState extends State<SendOtpView> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          onPressed: () {},
-                          child: const Text('Resend'),
+                          onPressed: () {
+                            controller.requestOtp();
+                          },
+                          child: Text('resend'.tr),
                         ),
                       ),
                     if (isError)
@@ -89,10 +91,12 @@ class _SendOtpViewState extends State<SendOtpView> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          onPressed: () async {},
-                          child: const Text(
-                            'Logout',
-                            style: TextStyle(color: Colors.white),
+                          onPressed: () async {
+                            controller.logout();
+                          },
+                          child: Text(
+                            'logout'.tr,
+                            style: const TextStyle(color: Colors.white),
                           ),
                         ),
                       ),

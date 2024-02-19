@@ -5,6 +5,8 @@ import 'package:get_storage/get_storage.dart';
 import 'package:otp_text_field/otp_text_field.dart';
 import 'package:telephony/telephony.dart';
 import 'package:wahda_bank/app/apis/app_api.dart';
+import 'package:wahda_bank/views/authantication/screens/login/login.dart';
+import 'package:wahda_bank/views/authantication/screens/otp/enter_otp/enter_otp.dart';
 import 'package:wahda_bank/views/view/screens/first_loading_view.dart';
 
 class OtpController extends GetxController {
@@ -27,6 +29,7 @@ class OtpController extends GetxController {
         } else if (data.containsKey('otp_send') && data['otp_send']) {
           // goto otp verifiy view
           listenForSms();
+          Get.to(() => const EnterOtpScreen());
         }
       } else {
         AwesomeDialog(
@@ -83,7 +86,7 @@ class OtpController extends GetxController {
         AwesomeDialog(
           context: Get.context!,
           dialogType: DialogType.error,
-          title: 'Error',
+          title: 'error'.tr,
           desc: data['message'] ?? 'Something went wrong',
         ).show();
       }
@@ -91,9 +94,14 @@ class OtpController extends GetxController {
       AwesomeDialog(
         context: Get.context!,
         dialogType: DialogType.error,
-        title: 'Error',
+        title: 'error'.tr,
         desc: e.toString(),
       ).show();
     }
+  }
+
+  Future logout() async {
+    await _storage.erase();
+    Get.offAll(() => LoginScreen());
   }
 }
