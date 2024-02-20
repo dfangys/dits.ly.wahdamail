@@ -1,18 +1,14 @@
-import 'package:background_fetch/background_fetch.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import 'package:wahda_bank/views/authantication/screens/login/login.dart';
 import 'package:wahda_bank/views/view/screens/drawer/terms_and_conditions.dart';
 import 'package:wahda_bank/views/view/screens/drawer/contact_us/Contact_us.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/widgets/drawer/drawer_tile.dart';
 import '../../app/controllers/mail_count_controller.dart';
-import '../../services/mail_service.dart';
 import '../../views/settings/settings_view.dart';
 
 class Drawer1 extends StatelessWidget {
@@ -107,20 +103,6 @@ class Drawer1 extends StatelessWidget {
               text: 'terms_and_condition'.tr,
               onTap: () {
                 Get.to(() => const TermsAndCondition());
-              },
-              trailing: '',
-            ),
-            divider(),
-            WDraweTile(
-              image: Icons.logout,
-              text: 'logout'.tr,
-              onTap: () async {
-                await GetStorage().erase();
-                MailService.instance.client.disconnect();
-                MailService.instance.dispose();
-                await controller.deleteAccount();
-                await BackgroundFetch.stop();
-                Get.offAll(() => LoginScreen());
               },
               trailing: '',
             ),

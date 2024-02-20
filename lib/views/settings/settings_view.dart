@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 
 import '../../app/controllers/settings_controller.dart';
 import 'pages/language_page.dart';
@@ -41,14 +42,14 @@ class SettingsView extends GetView<SettingController> {
               ),
             ),
             const Divider(),
-            ListTile(
-              title: Text('security'.tr),
-              trailing: Text('Off'.tr),
-              onTap: () {
-                Get.to(() => const SecurityPage());
-              },
-            ),
-            const Divider(),
+            // ListTile(
+            //   title: Text('security'.tr),
+            //   trailing: Text('Off'.tr),
+            //   onTap: () {
+            //     Get.to(() => const SecurityPage());
+            //   },
+            // ),
+            // const Divider(),
             ListTile(
               title: Text('swipe_gestures'.tr),
               trailing: Text('set_your_swipe_preferences'.tr),
@@ -66,6 +67,9 @@ class SettingsView extends GetView<SettingController> {
             ),
             const Divider(),
             ListTile(
+              onTap: () {
+                Get.find<MailBoxController>().logout();
+              },
               title: Text('logout'.tr),
               trailing: const Icon(Icons.logout),
             ),

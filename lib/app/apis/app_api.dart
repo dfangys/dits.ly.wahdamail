@@ -32,6 +32,13 @@ class AppApi extends GetConnect {
     return parse(res);
   }
 
+  Future sendResetPasswordOtp(String email) async {
+    var res = await post("/reset-password/send-otp", {
+      'email': email,
+    });
+    return parse(res);
+  }
+
   Future resetPassword(String email, String password, String code) async {
     var res = await post("/reset-password/verify", {
       'email': email,

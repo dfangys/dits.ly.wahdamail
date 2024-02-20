@@ -1,3 +1,4 @@
+import 'package:background_fetch/background_fetch.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -11,6 +12,7 @@ import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import '../../models/hive_mime_storage.dart';
 import '../../services/mail_service.dart';
+import '../../views/authantication/screens/login/login.dart';
 import '../../views/view/models/box_model.dart';
 
 class MailBoxController extends GetxController {
@@ -353,19 +355,32 @@ class MailBoxController extends GetxController {
 
   void storeContactMails(List<MimeMessage> messages) {
     Set<String> mails = {};
-    mails.addAll(getStoarage.read('mails') ?? []);
+    mails.addAll((getStoarage.read('mails') ?? []).cast<String>());
     for (var msg in messages) {
       if (msg.from != null) {
         for (var e in msg.from!) {
           try {
-              mails.add(e.email);
-            } catch (e) {
-              logger.e(e);
-            }
+            mails.add(e.email);
+          } catch (e) {
+            logger.e(e);
+          }
         }
       }
     }
-    getStoarage.write('mails', mails);
+    getStoarage.write('mails', mails.cast<String>().toList());
+  }
+
+  Future logout() async {
+    try {
+      await GetStorage().erase();
+      MailService.instance.client.disconnect();
+      MailService.instance.dispose();
+      await deleteAccount();
+      await BackgroundFetch.stop();
+      Get.offAll(() => LoginScreen());
+    } catch (e) {
+      logger.e(e);
+    }
   }
 
   @override

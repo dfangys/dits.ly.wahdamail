@@ -159,17 +159,16 @@ class MailTile extends StatelessWidget {
   }
 
   Widget getIcon() {
-    if (mailBox.isInbox) {
-      return Icon(
-        message.isFlagged ? Icons.star : Icons.star_border,
-        color: message.isFlagged ? AppTheme.starColor : Colors.black,
+    if (mailBox.name.toLowerCase() == 'drafts') {
+      return const Icon(
+        Icons.edit_document,
       );
-    } else if (mailBox.isSent) {
+    } else if (mailBox.name.toLowerCase() == 'sent') {
       return Icon(
         Icons.done,
         color: message.isSeen ? Colors.grey : Colors.blue,
       );
-    } else if (mailBox.isTrash) {
+    } else if (mailBox.name.toLowerCase() == 'trash') {
       return const Icon(
         Icons.delete,
         color: Colors.red,

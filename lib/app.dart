@@ -1,4 +1,6 @@
+import 'package:background_fetch/background_fetch.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -34,6 +36,7 @@ class _MyAppState extends State<MyApp> {
       initializeDateFormatting('en');
     }
     super.initState();
+    BackgroundFetch.start();
   }
 
   @override
@@ -63,6 +66,7 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       home: const SplashScreen(),
+      builder: EasyLoading.init(),
       getPages: [
         GetPage(
           name: '/home',

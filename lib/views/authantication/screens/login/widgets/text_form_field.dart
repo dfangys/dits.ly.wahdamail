@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
 
@@ -30,6 +31,10 @@ class WTextFormField extends StatelessWidget {
         cursorColor: WColors.welcomeScafhold,
         autofocus: true,
         obscureText: obscureText,
+        inputFormatters: [
+          if (domainFix)
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9.]+$')),
+        ],
         decoration: InputDecoration(
           fillColor: Colors.white,
           filled: true,

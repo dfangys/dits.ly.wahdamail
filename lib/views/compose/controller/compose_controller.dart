@@ -4,10 +4,11 @@ import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:html/parser.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
+import 'package:intl/intl.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 
 import '../../../app/controllers/settings_controller.dart';
@@ -34,6 +35,8 @@ class ComposeController extends GetxController {
   RxList<File> attachments = <File>[].obs;
   String body = '';
   String signature = '';
+
+  RxBool canPop = false.obs;
 
   RxBool isCcAndBccVisible = false.obs;
   List<MailAddress> get mailAddresses =>
@@ -169,31 +172,46 @@ class ComposeController extends GetxController {
   }
 
   Future<void> saveAsDraft() async {
-    // attach the signature to the email
-    String html = (await htmlController.getText());
-    // attach the files to the email
-    for (var file in attachments) {
-      messageBuilder.addFile(file, MediaType.guessFromFileName(file.path));
+    try {
+      EasyLoading.showInfo('Saving as draft...');
+      // attach the signature to the email
+      late String body;
+      if (isHtml.value) {
+        body = (await htmlController.getText()) + signature;
+      } else {
+        body = plainTextController.text + signature;
+      }
+      // attach the files to the email
+      for (var file in attachments) {
+        messageBuilder.addFile(file, MediaType.guessFromFileName(file.path));
+      }
+      // set the email body
+      messageBuilder.addMultipartAlternative(
+        htmlText: isHtml.isTrue ? body : null,
+        plainText: isHtml.isTrue ? null : body,
+      );
+      messageBuilder.to = toList.toList();
+      messageBuilder.cc = cclist.toList();
+      messageBuilder.bcc = bcclist.toList();
+      messageBuilder.subject = subjectController.text;
+      messageBuilder.from = [MailAddress(name, email)];
+      await client.saveDraftMessage(messageBuilder.buildMimeMessage());
+      AwesomeDialog(
+        context: Get.context!,
+        dialogType: DialogType.success,
+        title: 'Success',
+        desc: 'Email saved as draft successfully',
+      ).show();
+    } catch (e) {
+    } finally {
+      EasyLoading.dismiss();
     }
-    // set the email body
-    messageBuilder.addMultipartAlternative(htmlText: html);
-    messageBuilder.to = toList.toList();
-    messageBuilder.cc = cclist.toList();
-    messageBuilder.bcc = bcclist.toList();
-    messageBuilder.subject = subjectController.text;
-    messageBuilder.from = [MailAddress(name, email)];
-    await client.saveDraftMessage(messageBuilder.buildMimeMessage());
-    AwesomeDialog(
-      context: Get.context!,
-      dialogType: DialogType.success,
-      title: 'Success',
-      desc: 'Email saved as draft successfully',
-    ).show();
   }
 
   // Send the email with attachments
   Future<void> sendEmail() async {
     try {
+      EasyLoading.showInfo('Sending email...');
       if (toList.isEmpty) {
         AwesomeDialog(
           context: Get.context!,
@@ -249,6 +267,8 @@ class ComposeController extends GetxController {
         title: 'Success',
         desc: 'Email sent successfully',
       ).show();
+      canPop(true);
+      Get.back();
     } catch (e) {
       AwesomeDialog(
         context: Get.context!,
@@ -263,6 +283,8 @@ class ComposeController extends GetxController {
           child: Text('try_again'.tr),
         ),
       ).show();
+    } finally {
+      EasyLoading.dismiss();
     }
   }
 
@@ -286,15 +308,9 @@ class ComposeController extends GetxController {
     isHtml.toggle();
   }
 
-  String _removeAllHtmlTags(String htmlText) {
-    final document = parse(htmlText);
-    final String parsedString =
-        parse(document.body!.text).documentElement!.text;
-    return parsedString;
-  }
-
   String removeAllHtmlTags(String htmlText) {
-    RegExp exp = RegExp(r"<[^>]*>", multiLine: true, caseSensitive: true);
-    return htmlText.replaceAll(exp, '');
+    // RegExp exp = RegExp(r"<[^>]*>|\n", multiLine: true, caseSensitive: true);
+    return Bidi.stripHtmlIfNeeded(htmlText);
+    // return htmlText.replaceAll(exp, '');
   }
 }

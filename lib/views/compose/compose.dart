@@ -4,6 +4,8 @@ import 'package:get/get.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/compose_view.dart';
 
+import '../../utills/funtions.dart';
+
 class ComposeScreen extends StatefulWidget {
   const ComposeScreen({super.key});
 
@@ -25,97 +27,110 @@ class _ComposeScreenState extends State<ComposeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        // title: Text(
-        //   "compose".tr,
-        //   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        // ),
-        actions: [
-          IconButton(
-            onPressed: controller.sendEmail,
-            icon: const Icon(Icons.send_outlined),
-          ),
-          IconButton(
-            onPressed: () {
-              showCupertinoModalPopup(
-                context: context,
-                builder: (context) => CupertinoActionSheet(
-                  title: Text('attach_file'.tr),
-                  actions: [
-                    CupertinoActionSheetAction(
+    return PopScope(
+      canPop: controller.canPop(),
+      onPopInvoked: (didPop) async {
+        if (!didPop) {
+          bool isConfirmed = await confirmDraft(context);
+          if (isConfirmed) {
+            await controller.saveAsDraft();
+          }
+          controller.canPop(true);
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          centerTitle: true,
+          // title: Text(
+          //   "compose".tr,
+          //   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          // ),
+          actions: [
+            IconButton(
+              onPressed: controller.sendEmail,
+              icon: const Icon(Icons.send_outlined),
+            ),
+            IconButton(
+              onPressed: () {
+                showCupertinoModalPopup(
+                  context: context,
+                  builder: (context) => CupertinoActionSheet(
+                    title: Text('attach_file'.tr),
+                    actions: [
+                      CupertinoActionSheetAction(
+                        onPressed: () {
+                          Get.back();
+                          controller.pickFiles();
+                        },
+                        child: Text('from_files'.tr),
+                      ),
+                      CupertinoActionSheetAction(
+                        onPressed: () {
+                          Get.back();
+                          controller.pickImage();
+                        },
+                        child: Text('from_gallery'.tr),
+                      ),
+                    ],
+                    cancelButton: CupertinoActionSheetAction(
                       onPressed: () {
                         Get.back();
-                        controller.pickFiles();
                       },
-                      child: Text('from_files'.tr),
+                      child: Text('cancel'.tr),
                     ),
-                    CupertinoActionSheetAction(
-                      onPressed: () {
-                        Get.back();
-                        controller.pickImage();
-                      },
-                      child: Text('from_gallery'.tr),
-                    ),
-                  ],
-                  cancelButton: CupertinoActionSheetAction(
-                    onPressed: () {
-                      Get.back();
-                    },
-                    child: Text('cancel'.tr),
                   ),
-                ),
-              );
-            },
-            icon: const Icon(Icons.attach_file_outlined),
-          ),
-          IconButton(
-            onPressed: () {
-              showCupertinoModalPopup(
-                context: context,
-                builder: (context) => CupertinoActionSheet(
-                  title: Text('more_options'.tr),
-                  actions: [
-                    CupertinoActionSheetAction(
+                );
+              },
+              icon: const Icon(Icons.attach_file_outlined),
+            ),
+            IconButton(
+              onPressed: () {
+                showCupertinoModalPopup(
+                  context: context,
+                  builder: (context) => CupertinoActionSheet(
+                    title: Text('more_options'.tr),
+                    actions: [
+                      CupertinoActionSheetAction(
+                        onPressed: () {
+                          Get.back();
+                          controller.saveAsDraft();
+                        },
+                        child: Text('save_as_draft'.tr),
+                      ),
+                      CupertinoActionSheetAction(
+                        onPressed: () {},
+                        child: Text('request_read_receipt'.tr),
+                      ),
+                      CupertinoActionSheetAction(
+                        onPressed: () {
+                          Get.back();
+                          controller.togglePlainHtml();
+                        },
+                        child: Text('convert_to_plain_text'.tr),
+                      ),
+                    ],
+                    cancelButton: CupertinoActionSheetAction(
                       onPressed: () {
                         Get.back();
-                        controller.saveAsDraft();
                       },
-                      child: Text('save_as_draft'.tr),
+                      child: Text('cancel'.tr),
                     ),
-                    CupertinoActionSheetAction(
-                      onPressed: () {},
-                      child: Text('request_read_receipt'.tr),
-                    ),
-                    CupertinoActionSheetAction(
-                      onPressed: () {
-                        Get.back();
-                        controller.togglePlainHtml();
-                      },
-                      child: Text('convert_to_plain_text'.tr),
-                    ),
-                  ],
-                  cancelButton: CupertinoActionSheetAction(
-                    onPressed: () {
-                      Get.back();
-                    },
-                    child: Text('cancel'.tr),
                   ),
-                ),
-              );
-            },
-            icon: const Icon(Icons.more_vert_outlined),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Form(
-          key: composeFormKey,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0),
-            child: WComposeView(),
+                );
+              },
+              icon: const Icon(Icons.more_vert_outlined),
+            ),
+          ],
+        ),
+        body: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Form(
+            key: composeFormKey,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              child: WComposeView(),
+            ),
           ),
         ),
       ),

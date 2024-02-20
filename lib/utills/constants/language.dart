@@ -71,6 +71,8 @@ class Lang extends Translations {
           'msg_email_deleted': 'Email deleted successfully',
           'msg_draft_deleted': 'Draft deleted successfully',
           'msg_email_sent': 'Email sent successfully',
+          'confirm_save_draft':
+              'You have made changes.\nWould you like to save them?',
           'mark_as_junk': 'Mark as junk',
           'mark_as_unread': 'Mark as unread',
           'archive': 'Archive',
@@ -170,6 +172,7 @@ class Lang extends Translations {
           'msg_email_deleted': 'تم حذف البريد الإلكتروني بنجاح',
           'msg_draft_deleted': 'تم حذف المسودة بنجاح',
           'msg_email_sent': 'تم إرسال البريد الإلكتروني بنجاح',
+          'confirm_save_draft': 'لقد قمت بإجراء تغييرات.\nهل ترغب في حفظها؟',
           'mark_as_junk': 'تمييز كبريد غير هام',
           'mark_as_unread': 'تمييز كغير مقروء',
           'archive': 'أرشفة',

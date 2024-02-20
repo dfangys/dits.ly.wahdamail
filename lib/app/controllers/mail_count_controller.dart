@@ -30,4 +30,10 @@ class MailCountController extends GetxController {
       }
     }
   }
+
+  void setCount(String key, int value) {
+    counts[key] = value;
+    counts.refresh();
+    storage.write(key, value);
+  }
 }

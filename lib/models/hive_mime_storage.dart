@@ -1,10 +1,10 @@
 import 'dart:async';
-
-import 'package:collection/collection.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
+import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:logger/logger.dart';
+import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
 import 'offline_mime_storage.dart';
 
 part 'hive_mime_storage.g.dart';
@@ -79,6 +79,16 @@ class HiveMailboxMimeStorage extends OfflineMimeStorage {
       _boxEnvelopes =
           await Hive.openBox<StorageMessageEnvelope>(_boxNameEnvelopes);
       dataStream = _boxEnvelopes.listenable();
+      dataStream.addListener(() {
+        logger.d('dataStream changed');
+        int count = dataStream.value.values
+            .where((e) => !e.toMimeMessage().isSeen)
+            .length;
+        if (Get.isRegistered<MailCountController>()) {
+          Get.find<MailCountController>()
+              .setCount("${_mailbox.name.toLowerCase()}_count", count);
+        }
+      });
     }
 
     Future<void> initFullMessages() async {

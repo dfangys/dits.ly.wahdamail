@@ -71,6 +71,7 @@ dependencies:
   html: ^0.15.4
   flutter_typeahead: ^5.0.1
   flutter_native_splash: ^2.3.10
+  flutter_easyloading: ^3.0.5
 
 dev_dependencies:
   flutter_test:
