@@ -50,9 +50,9 @@ class MailService {
       incomingPort: 43245,
       outgoingPort: 43244,
       incomingSocketType: SocketType.ssl,
-      outgoingSocketType: SocketType.ssl,
+      outgoingSocketType: SocketType.starttls,
       userName: email,
-      outgoingClientDomain: 'wbmail.wahdabank.com.ly',
+      outgoingClientDomain: 'wahdabank.com.ly',
     );
     client = MailClient(
       account,

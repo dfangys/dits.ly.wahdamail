@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
+import 'package:wahda_bank/app/apis/app_api.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
@@ -15,6 +16,7 @@ import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
+import '../../../../app/controllers/otp_controller.dart';
 import '../otp/otp_view/send_otp_view.dart';
 
 // ignore: must_be_immutable
@@ -24,6 +26,8 @@ class LoginScreen extends StatelessWidget {
   TextEditingController passwordCtrl = TextEditingController();
   RoundedLoadingButtonController? controller = RoundedLoadingButtonController();
   final loginFormKey = GlobalKey<FormState>();
+  final api = Get.put(AppApi());
+  final otpController = Get.put(OtpController());
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +95,6 @@ class LoginScreen extends StatelessWidget {
                             return 'valid_required'.tr;
                           }
                           v = "$v${WText.emailSuffix}";
-                          print(v);
                           if (!v.isValidEmail()) {
                             return 'valid_email'.tr;
                           }

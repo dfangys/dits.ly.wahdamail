@@ -1,4 +1,5 @@
 import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:background_fetch/background_fetch.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -47,6 +48,14 @@ class _LoadingFirstViewState extends State<LoadingFirstView> {
       error = e.toString();
     } finally {
       if (isReadyToRun) {
+        BackgroundFetch.scheduleTask(
+          TaskConfig(
+            taskId: 'com.transistorsoft.customtask',
+            delay: 15 * 60 * 1000,
+            requiredNetworkType: NetworkType.ANY,
+            startOnBoot: true,
+          ),
+        );
         Get.offAllNamed('/home');
       } else {
         AwesomeDialog(
@@ -76,23 +85,21 @@ class _LoadingFirstViewState extends State<LoadingFirstView> {
                 fit: BoxFit.cover,
               )),
               child: Center(
-                child: SizedBox(
-                  width: MediaQuery.of(context).size.width - 50,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      InkWell(
-                        onTap: () {},
-                        child: SvgPicture.asset(
-                          WImages.logo,
-                        ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      height: 105.0,
+                      width: 273,
+                      child: SvgPicture.asset(
+                        WImages.logo,
                       ),
-                      const SizedBox(height: 20),
-                      const CircularProgressIndicator(
-                        color: Colors.white,
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 10),
+                    const CircularProgressIndicator(
+                      color: Colors.white,
+                    ),
+                  ],
                 ),
               ),
             )

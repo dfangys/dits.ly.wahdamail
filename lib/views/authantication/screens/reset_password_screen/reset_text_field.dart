@@ -2,7 +2,6 @@ import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/apis/app_api.dart';
-import 'package:wahda_bank/app/controllers/otp_controller.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_field.dart';
 import 'package:wahda_bank/views/authantication/screens/otp/verify_reset_password/verify_reset_password_otp.dart';

@@ -57,6 +57,7 @@ class OtpController extends GetxController {
         }
         onSmsReceived(message.body);
       },
+      listenInBackground: false,
     );
   }
 

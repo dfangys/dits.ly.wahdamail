@@ -38,6 +38,7 @@ class _VerifyResetPasswordOtpScreenState
       onNewMessage: (SmsMessage message) {
         onSmsReceived(message.body);
       },
+      listenInBackground: false,
     );
   }
 

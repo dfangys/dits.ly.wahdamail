@@ -24,6 +24,16 @@ class MailTile extends StatelessWidget {
   final settingController = Get.find<SettingController>();
   final selectionController = Get.find<SelectionController>();
 
+  String get name {
+    if (mailBox.name.toLowerCase() == 'sent') {
+      return message.to!.first.personalName ?? message.to!.first.email;
+    }
+    if (message.from != null) {
+      return message.from!.first.personalName ?? message.from!.first.email;
+    }
+    return "";
+  }
+
   @override
   Widget build(BuildContext context) {
     return SlidableAutoCloseBehavior(
@@ -82,7 +92,7 @@ class MailTile extends StatelessWidget {
               () => !selectionController.selected.contains(message)
                   ? Center(
                       child: Text(
-                        message.from![0].email[0].toUpperCase(),
+                        name[0].toUpperCase(),
                         style: const TextStyle(color: Colors.white),
                         textAlign: TextAlign.center,
                       ),
@@ -91,7 +101,7 @@ class MailTile extends StatelessWidget {
             ),
           ),
           title: Text(
-            message.from![0].personalName ?? message.from![0].email,
+            name,
             style: TextStyle(
               fontSize: 14,
               fontWeight: message.isSeen ? FontWeight.normal : FontWeight.bold,
@@ -173,7 +183,7 @@ class MailTile extends StatelessWidget {
         Icons.delete,
         color: Colors.red,
       );
-    } else if (mailBox.isMarked) {
+    } else if (mailBox.isMarked || mailBox.name.toLowerCase() == 'inbox') {
       return Icon(
         message.isFlagged ? Icons.star : Icons.star_border,
         color: message.isFlagged ? AppTheme.starColor : Colors.black,

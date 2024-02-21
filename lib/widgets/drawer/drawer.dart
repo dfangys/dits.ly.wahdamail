@@ -22,9 +22,11 @@ class Drawer1 extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [
-              Colors.green,
-              Colors.green.shade800,
+              Theme.of(context).primaryColor,
+              Theme.of(context).primaryColor.withOpacity(0.8),
             ],
           ),
         ),
@@ -35,8 +37,8 @@ class Drawer1 extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 children: [
                   DrawerHeader(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF0A993C),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
                     ),
                     child: Container(
                       margin: const EdgeInsets.only(

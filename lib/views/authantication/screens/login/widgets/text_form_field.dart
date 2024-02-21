@@ -33,7 +33,10 @@ class WTextFormField extends StatelessWidget {
         obscureText: obscureText,
         inputFormatters: [
           if (domainFix)
-            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9.]+$')),
+            FilteringTextInputFormatter(
+              RegExp(r'[a-zA-Z0-9.]+$'),
+              allow: true,
+            ),
         ],
         decoration: InputDecoration(
           fillColor: Colors.white,

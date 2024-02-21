@@ -123,6 +123,7 @@ class WComposeView extends StatelessWidget {
             firstChild: HtmlEditor(
               controller: controller.htmlController,
               htmlToolbarOptions: const HtmlToolbarOptions(
+                renderSeparatorWidget: true,
                 defaultToolbarButtons: [
                   FontButtons(),
                   ColorButtons(),
@@ -139,6 +140,9 @@ class WComposeView extends StatelessWidget {
               ),
               otherOptions: const OtherOptions(
                 height: 400,
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                ),
               ),
             ),
             secondChild: Padding(

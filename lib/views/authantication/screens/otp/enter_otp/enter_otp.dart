@@ -98,9 +98,7 @@ class EnterOtpScreen extends GetView<OtpController> {
                             controller.verifyPhoneOtp(otp: pin);
                           },
                         ),
-                        // const SizedBox(
-                        //   height: WSizes.spaceBtwSections * 2,
-                        // ),
+                        const SizedBox(height: WSizes.defaultSpace),
                         WRoundedButton(
                           controller: btnController,
                           onPress: () {

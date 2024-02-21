@@ -31,7 +31,8 @@ class _ComposeScreenState extends State<ComposeScreen> {
       canPop: controller.canPop(),
       onPopInvoked: (didPop) async {
         if (!didPop) {
-          bool isConfirmed = await confirmDraft(context);
+          var isConfirmed = await confirmDraft(context);
+          printInfo(info: isConfirmed.toString());
           if (isConfirmed) {
             await controller.saveAsDraft();
           }
@@ -42,10 +43,6 @@ class _ComposeScreenState extends State<ComposeScreen> {
       child: Scaffold(
         appBar: AppBar(
           centerTitle: true,
-          // title: Text(
-          //   "compose".tr,
-          //   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          // ),
           actions: [
             IconButton(
               onPressed: controller.sendEmail,

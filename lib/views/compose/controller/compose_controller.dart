@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:file_picker/file_picker.dart';
@@ -83,10 +82,15 @@ class ComposeController extends GetxController {
       String? type = Get.arguments['type'];
       MimeMessage? msg = Get.arguments['message'];
       String? toMails = Get.arguments['to'];
+      String? support = Get.arguments['support'];
       if (toMails != null) {
         toMails.split(' ').forEach((e) {
           toList.add(MailAddress("", e));
         });
+      }
+      if (support != null) {
+        toList.add(MailAddress("", support));
+        messageBuilder = MessageBuilder();
       }
       if (msg != null) {
         if (type == 'reply') {
@@ -195,14 +199,17 @@ class ComposeController extends GetxController {
       messageBuilder.bcc = bcclist.toList();
       messageBuilder.subject = subjectController.text;
       messageBuilder.from = [MailAddress(name, email)];
-      await client.saveDraftMessage(messageBuilder.buildMimeMessage());
+      await client.selectMailboxByFlag(MailboxFlag.sent);
+      client.saveDraftMessage(messageBuilder.buildMimeMessage());
+      canPop(true);
+      Get.back();
+    } catch (e) {
       AwesomeDialog(
         context: Get.context!,
-        dialogType: DialogType.success,
-        title: 'Success',
-        desc: 'Email saved as draft successfully',
+        dialogType: DialogType.error,
+        title: 'error'.tr,
+        desc: e.toString(),
       ).show();
-    } catch (e) {
     } finally {
       EasyLoading.dismiss();
     }
@@ -254,12 +261,12 @@ class ComposeController extends GetxController {
         messageBuilder.requestReadReceipt();
       }
       // send the email
+      await client.selectMailboxByFlag(MailboxFlag.sent);
       await client.startPolling();
       await client.sendMessage(
         messageBuilder.buildMimeMessage(),
         recipients: toList.toList(),
       );
-      await client.stopPolling();
       Get.back();
       AwesomeDialog(
         context: Get.context!,
@@ -309,8 +316,6 @@ class ComposeController extends GetxController {
   }
 
   String removeAllHtmlTags(String htmlText) {
-    // RegExp exp = RegExp(r"<[^>]*>|\n", multiLine: true, caseSensitive: true);
     return Bidi.stripHtmlIfNeeded(htmlText);
-    // return htmlText.replaceAll(exp, '');
   }
 }

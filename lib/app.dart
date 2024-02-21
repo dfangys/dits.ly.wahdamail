@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/view/screens/home/home.dart';
 import 'package:wahda_bank/views/view/screens/splash.dart';
 import 'app/bindings/home_binding.dart';
@@ -50,12 +51,12 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         // fontFamily: 'sfp',
         textTheme: GoogleFonts.poppinsTextTheme(),
-        primaryColor: Colors.green,
+        primaryColor: AppTheme.primaryColor,
         colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: Colors.green,
-          accentColor: Colors.green,
+          primarySwatch: AppTheme.primaryColor,
+          // accentColor: AppTheme.primaryColor.shade300,
         ),
-        useMaterial3: true,
+        useMaterial3: false,
         scaffoldBackgroundColor: const Color(0xFFF2F7FA),
         appBarTheme: const AppBarTheme(
           titleTextStyle: TextStyle(color: Colors.black),

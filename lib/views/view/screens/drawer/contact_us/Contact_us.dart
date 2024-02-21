@@ -1,6 +1,7 @@
 // ignore_for_file: file_names
 
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
@@ -51,15 +52,13 @@ class ContactUsScreen extends StatelessWidget {
                   WRoundedButton(
                     controller: controller1,
                     onPress: () {
-                      controller.stop();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ComposeScreen(),
-                        ),
+                      Get.to(
+                        () => const ComposeScreen(),
+                        arguments: {'support': 'info@wahdabank.com'},
                       );
+                      controller1.stop();
                     },
-                    text: ' "Email"',
+                    text: "Email",
                   ),
                   const SizedBox(height: WSizes.spaceBtwSections),
                 ],

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/app/apis/app_api.dart';
 import 'package:wahda_bank/app/controllers/otp_controller.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
@@ -13,11 +12,8 @@ class SendOtpView extends StatefulWidget {
 }
 
 class _SendOtpViewState extends State<SendOtpView> {
-  final api = Get.put(AppApi());
-  final controller = Get.put(OtpController());
-
   bool isError = false;
-
+  final controller = Get.find<OtpController>();
   @override
   void initState() {
     super.initState();
