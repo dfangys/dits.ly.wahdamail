@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
-import 'package:wahda_bank/utills/constants/colors.dart';
 
 class WRoundedButton extends StatelessWidget {
   const WRoundedButton(
@@ -15,7 +14,7 @@ class WRoundedButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RoundedLoadingButton(
-      color: WColors.primaryColor,
+      color: Theme.of(context).primaryColor,
       borderRadius: 10,
       elevation: 3,
       width: MediaQuery.of(context).size.width - 40,

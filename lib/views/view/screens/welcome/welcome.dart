@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wahda_bank/views/view/screens/welcome/widgets/button.dart';
-import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
@@ -12,7 +11,7 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size.height * 1;
     return Scaffold(
-      backgroundColor: WColors.welcomeScafhold,
+      backgroundColor: Theme.of(context).primaryColor,
       body: Container(
         constraints: const BoxConstraints.expand(),
         margin: EdgeInsets.only(top: size * 0.06),
@@ -37,12 +36,12 @@ class WelcomeScreen extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                     fontSize: size * 0.04),
               ),
-              const SizedBox(
+              SizedBox(
                 width: 80,
                 child: Divider(
                   height: 10,
                   thickness: 3,
-                  color: WColors.welcomeScafhold,
+                  color: Theme.of(context).primaryColor,
                 ),
               ),
               const SizedBox(height: WSizes.defaultSpace),

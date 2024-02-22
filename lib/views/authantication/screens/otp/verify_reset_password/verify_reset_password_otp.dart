@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -31,26 +33,35 @@ class _VerifyResetPasswordOtpScreenState
   RoundedLoadingButtonController controller = RoundedLoadingButtonController();
   final formKey = GlobalKey<FormState>();
   String otpPin = '';
+
   @override
   void initState() {
+    listenForSms();
     super.initState();
-    telephony.listenIncomingSms(
-      onNewMessage: (SmsMessage message) {
-        onSmsReceived(message.body);
-      },
-      listenInBackground: false,
-    );
+  }
+
+  Future listenForSms() async {
+    if (Platform.isAndroid) {
+      bool? permissionsGranted = await telephony.requestSmsPermissions;
+      if (permissionsGranted != null && permissionsGranted) {
+        telephony.listenIncomingSms(
+          onNewMessage: (SmsMessage message) {
+            onSmsReceived(message.body);
+          },
+          listenInBackground: false,
+        );
+      }
+    }
   }
 
   void onSmsReceived(String? message) {
     if (message != null) {
-      String numCode = message.replaceAll(RegExp(r'[^0-9]'), '');
-      List<String> code = [];
-      for (var i = 0; i < numCode.length; i++) {
-        code[i] = numCode[i];
+      var match = RegExp(r'\d+').firstMatch(message);
+      if (match != null) {
+        String numCode = match.group(0) ?? '';
+        otpController.set(numCode.split(''));
+        otpPin = numCode;
       }
-      otpController.set(code);
-      otpPin = numCode;
     }
   }
 
@@ -90,6 +101,13 @@ class _VerifyResetPasswordOtpScreenState
             desc: data['message'] ?? 'Something went wrong',
           ).show();
         }
+      } on AppApiException catch (e) {
+        AwesomeDialog(
+          context: context,
+          dialogType: DialogType.error,
+          title: 'error'.tr,
+          desc: e.message,
+        ).show();
       } catch (e) {
         AwesomeDialog(
           context: context,
@@ -170,6 +188,7 @@ class _VerifyResetPasswordOtpScreenState
                       ),
                       onCompleted: (pin) {
                         otpPin = pin;
+                        verifyOtp();
                       },
                     ),
                     const SizedBox(height: WSizes.defaultSpace),

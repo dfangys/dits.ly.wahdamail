@@ -12,7 +12,6 @@ import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_field.dart';
 import 'package:wahda_bank/views/authantication/screens/reset_password_screen/reset_password_screen.dart';
-import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
@@ -32,7 +31,7 @@ class LoginScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: WColors.welcomeScafhold,
+      backgroundColor: Theme.of(context).primaryColor,
       body: Column(
         children: [
           const SizedBox(height: 80),
@@ -75,12 +74,12 @@ class LoginScreen extends StatelessWidget {
                           fontSize: 30,
                         ),
                       ),
-                      const SizedBox(
+                      SizedBox(
                         width: 75,
                         child: Divider(
                           height: 10,
                           thickness: 3,
-                          color: WColors.welcomeScafhold,
+                          color: Theme.of(context).primaryColor,
                         ),
                       ),
                       const SizedBox(height: 40),

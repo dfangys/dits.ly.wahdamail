@@ -28,14 +28,12 @@ class WTextFormField extends StatelessWidget {
       child: TextFormField(
         controller: controller,
         validator: validator,
-        cursorColor: WColors.welcomeScafhold,
         autofocus: true,
         obscureText: obscureText,
         inputFormatters: [
           if (domainFix)
-            FilteringTextInputFormatter(
-              RegExp(r'[a-zA-Z0-9.]+$'),
-              allow: true,
+            FilteringTextInputFormatter.allow(
+              RegExp(r'[a-zA-Z0-9.]'),
             ),
         ],
         decoration: InputDecoration(
@@ -50,7 +48,6 @@ class WTextFormField extends StatelessWidget {
           suffixText: domainFix ? WText.emailSuffix : '',
           contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
           hintText: hintText,
-          focusColor: WColors.welcomeScafhold,
           errorStyle: const TextStyle(height: 0, color: WColors.errorColor),
           hintStyle: const TextStyle(
             fontSize: 16,

@@ -6,7 +6,6 @@ import 'package:otp_text_field/style.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/app/controllers/otp_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
-import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 import '../../login/widgets/rounded_button.dart';
@@ -20,7 +19,7 @@ class EnterOtpScreen extends GetView<OtpController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: WColors.welcomeScafhold,
+      backgroundColor: Theme.of(context).primaryColor,
       body: Column(
         children: [
           const SizedBox(
@@ -103,6 +102,7 @@ class EnterOtpScreen extends GetView<OtpController> {
                           controller: btnController,
                           onPress: () {
                             controller.verifyPhoneOtp(otp: controller.otpPin);
+                            btnController.reset();
                           },
                           text: 'Submit',
                         )

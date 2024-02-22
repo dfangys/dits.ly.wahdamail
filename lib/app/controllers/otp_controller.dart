@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:otp_text_field/otp_text_field.dart';
@@ -28,7 +31,9 @@ class OtpController extends GetxController {
           Get.offAll(() => const LoadingFirstView());
         } else if (data.containsKey('otp_send') && data['otp_send']) {
           // goto otp verifiy view
-          listenForSms();
+          if (Platform.isAndroid) {
+            listenForSms();
+          }
           Get.to(() => EnterOtpScreen());
         }
       } else {
@@ -39,6 +44,13 @@ class OtpController extends GetxController {
           desc: data['message'] ?? 'Something went wrong',
         ).show();
       }
+    } on AppApiException catch (e) {
+      AwesomeDialog(
+        context: Get.context!,
+        dialogType: DialogType.error,
+        title: 'error'.tr,
+        desc: e.message,
+      ).show();
     } catch (e) {
       AwesomeDialog(
         context: Get.context!,
@@ -50,26 +62,29 @@ class OtpController extends GetxController {
   }
 
   Future listenForSms() async {
-    telephony.listenIncomingSms(
-      onNewMessage: (SmsMessage message) {
-        if (kDebugMode) {
-          print('New incoming message: ${message.address} - ${message.body}');
-        }
-        onSmsReceived(message.body);
-      },
-      listenInBackground: false,
-    );
+    bool? permissionsGranted = await telephony.requestSmsPermissions;
+    if (permissionsGranted != null && permissionsGranted) {
+      telephony.listenIncomingSms(
+        onNewMessage: (SmsMessage message) {
+          if (kDebugMode) {
+            print('New incoming message: ${message.address} - ${message.body}');
+          }
+          onSmsReceived(message.body);
+        },
+        listenInBackground: false,
+      );
+    }
   }
 
   void onSmsReceived(String? message) {
     if (message != null) {
-      String numCode = message.replaceAll(RegExp(r'[^0-9]'), '');
-      List<String> code = [];
-      for (var i = 0; i < numCode.length; i++) {
-        code[i] = numCode[i];
+      var match = RegExp(r'\d+').firstMatch(message);
+      if (match != null) {
+        printInfo(info: match.group(0) ?? '');
+        String numCode = match.group(0) ?? '';
+        fieldController.set(numCode.split(''));
+        otpPin = numCode;
       }
-      fieldController.set(code);
-      otpPin = numCode;
     }
   }
 
@@ -87,6 +102,8 @@ class OtpController extends GetxController {
           dialogType: DialogType.error,
           title: 'error'.tr,
           desc: data['message'] ?? 'Something went wrong',
+          btnOkText: 'Ok',
+          btnOkColor: Theme.of(Get.context!).primaryColor,
         ).show();
       }
     } catch (e) {
