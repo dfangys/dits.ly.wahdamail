@@ -71,6 +71,7 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
             },
             onSelected: (MailAddress address) {
               widget.onInsert(address);
+              controller.clear();
             },
             hideOnEmpty: true,
             builder: (context, ctrl, focusNode) => TextFormField(
@@ -108,7 +109,7 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
                   ],
                 ),
               ),
-              autofocus: true,
+              autofocus: false,
               controller: ctrl,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.done,

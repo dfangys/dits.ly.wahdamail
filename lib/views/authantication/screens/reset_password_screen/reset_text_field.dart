@@ -1,8 +1,10 @@
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/app/apis/app_api.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
+import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_field.dart';
 import 'package:wahda_bank/views/authantication/screens/otp/verify_reset_password/verify_reset_password_otp.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
@@ -15,6 +17,7 @@ class ResetPasswordTextField extends StatelessWidget {
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
   final appApi = Get.find<AppApi>();
+  final btnController = RoundedLoadingButtonController();
 
   @override
   Widget build(BuildContext context) {
@@ -56,50 +59,43 @@ class ResetPasswordTextField extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              SizedBox(
-                height: 50,
-                width: MediaQuery.of(context).size.width - 50,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    shadowColor: Colors.green,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: () async {
-                    if (formKey.currentState!.validate()) {
-                      try {
-                        String email =
-                            emailController.text.trim() + WText.emailSuffix;
-                        var res = await appApi.sendResetPasswordOtp(email);
-                        if (res is Map && res.isNotEmpty) {
-                          if (res.containsKey('otp_send') && res['otp_send']) {
-                            Get.to(() => VerifyResetPasswordOtpScreen(
-                                  email: email,
-                                ));
-                          } else {
-                            AwesomeDialog(
-                              context: context,
-                              dialogType: DialogType.error,
-                              title: 'error'.tr,
-                              desc: res['message'] ?? 'error'.tr,
-                              btnCancelOnPress: () {},
-                            ).show();
-                          }
+              WRoundedButton(
+                controller: btnController,
+                onPress: () async {
+                  if (formKey.currentState!.validate()) {
+                    try {
+                      String email =
+                          emailController.text.trim() + WText.emailSuffix;
+                      var res = await appApi.sendResetPasswordOtp(email);
+                      if (res is Map && res.isNotEmpty) {
+                        if (res.containsKey('otp_send') && res['otp_send']) {
+                          Get.to(
+                            () => VerifyResetPasswordOtpScreen(email: email),
+                          );
+                        } else {
+                          AwesomeDialog(
+                            context: context,
+                            dialogType: DialogType.error,
+                            title: 'error'.tr,
+                            desc: res['message'] ?? 'error'.tr,
+                            btnCancelOnPress: () {},
+                          ).show();
                         }
-                      } catch (e) {
-                        AwesomeDialog(
-                          context: context,
-                          dialogType: DialogType.error,
-                          title: 'error'.tr,
-                          desc: e.toString(),
-                          btnCancelOnPress: () {},
-                        ).show();
                       }
+                    } on AppApiException catch (e) {
+                      AwesomeDialog(
+                        context: context,
+                        dialogType: DialogType.error,
+                        title: 'error'.tr,
+                        desc: e.message,
+                        btnCancelOnPress: () {},
+                      ).show();
+                    } finally {
+                      btnController.stop();
                     }
-                  },
-                  child: const Text('Send Reset OTP'),
-                ),
+                  }
+                },
+                text: "Send Reset OTP",
               ),
             ],
           ),

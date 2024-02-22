@@ -45,10 +45,14 @@ class ComposeController extends GetxController {
 
   void addTo(MailAddress mailAddress) {
     if (toList.isNotEmpty && toList[0] == mailAddress) return;
-
-    // regex to check if the email is valid
     if (mailAddress.email.isValidEmail()) {
       toList.add(mailAddress);
+    }
+    if (bcclist.contains(mailAddress)) {
+      bcclist.remove(mailAddress);
+    }
+    if (cclist.contains(mailAddress)) {
+      cclist.remove(mailAddress);
     }
   }
 
@@ -57,6 +61,12 @@ class ComposeController extends GetxController {
   void addToCC(MailAddress mailAddress) {
     if (cclist.isNotEmpty && cclist[0] == mailAddress) return;
     if (mailAddress.email.isValidEmail()) cclist.add(mailAddress);
+    if (toList.contains(mailAddress)) {
+      toList.remove(mailAddress);
+    }
+    if (bcclist.contains(mailAddress)) {
+      bcclist.remove(mailAddress);
+    }
   }
 
   void removeFromCcList(int index) => cclist.removeAt(index);
@@ -64,6 +74,12 @@ class ComposeController extends GetxController {
   void addToBcc(MailAddress mailAddress) {
     if (bcclist.isNotEmpty && bcclist[0] == mailAddress) return;
     if (mailAddress.email.isValidEmail()) bcclist.add(mailAddress);
+    if (toList.contains(mailAddress)) {
+      toList.remove(mailAddress);
+    }
+    if (cclist.contains(mailAddress)) {
+      cclist.remove(mailAddress);
+    }
   }
 
   void removeFromBccList(int index) => bcclist.removeAt(index);

@@ -85,6 +85,7 @@ class _VerifyResetPasswordOtpScreenState
                 Get.offAll(() => LoginScreen());
               },
             ).show();
+            Get.offAll(() => LoginScreen());
           } else {
             AwesomeDialog(
               context: context,
@@ -154,7 +155,7 @@ class _VerifyResetPasswordOtpScreenState
                     const Text(
                       "Enter OTP & Password",
                       style: TextStyle(
-                        fontSize: 32,
+                        fontSize: 25,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -204,8 +205,8 @@ class _VerifyResetPasswordOtpScreenState
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please enter your password';
-                            } else if (value.length < 6) {
-                              return 'Password must be at least 6 characters';
+                            } else if (value.length < 8) {
+                              return 'Password must be at least 8 characters';
                             }
                             return null;
                           },

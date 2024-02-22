@@ -54,6 +54,8 @@ class _LoadingFirstViewState extends State<LoadingFirstView> {
             delay: 15 * 60 * 1000,
             requiredNetworkType: NetworkType.ANY,
             startOnBoot: true,
+            enableHeadless: true,
+            periodic: true,
           ),
         );
         Get.offAllNamed('/home');
