@@ -44,8 +44,9 @@ class ComposeController extends GetxController {
       }).toList();
 
   void addTo(MailAddress mailAddress) {
-    if (toList.isNotEmpty && toList[0] == mailAddress) return;
-    if (mailAddress.email.isValidEmail()) {
+    if (toList.any((e) => e.email == mailAddress.email)) {
+      return;
+    } else if (mailAddress.email.isValidEmail()) {
       toList.add(mailAddress);
     }
     if (bcclist.contains(mailAddress)) {
@@ -59,8 +60,11 @@ class ComposeController extends GetxController {
   void removeFromToList(int index) => toList.removeAt(index);
 
   void addToCC(MailAddress mailAddress) {
-    if (cclist.isNotEmpty && cclist[0] == mailAddress) return;
-    if (mailAddress.email.isValidEmail()) cclist.add(mailAddress);
+    if (cclist.any((e) => e.email == mailAddress.email)) {
+      return;
+    } else if (mailAddress.email.isValidEmail()) {
+      cclist.add(mailAddress);
+    }
     if (toList.contains(mailAddress)) {
       toList.remove(mailAddress);
     }
@@ -72,8 +76,11 @@ class ComposeController extends GetxController {
   void removeFromCcList(int index) => cclist.removeAt(index);
 
   void addToBcc(MailAddress mailAddress) {
-    if (bcclist.isNotEmpty && bcclist[0] == mailAddress) return;
-    if (mailAddress.email.isValidEmail()) bcclist.add(mailAddress);
+    if (bcclist.any((e) => e.email == mailAddress.email)) {
+      return;
+    } else if (mailAddress.email.isValidEmail()) {
+      bcclist.add(mailAddress);
+    }
     if (toList.contains(mailAddress)) {
       toList.remove(mailAddress);
     }
@@ -92,11 +99,13 @@ class ComposeController extends GetxController {
 
   final settingController = Get.find<SettingController>();
 
+  MimeMessage? msg;
+
   @override
   void onInit() {
     if (Get.arguments != null) {
       String? type = Get.arguments['type'];
-      MimeMessage? msg = Get.arguments['message'];
+      msg = Get.arguments['message'];
       String? toMails = Get.arguments['to'];
       String? support = Get.arguments['support'];
       if (toMails != null) {
@@ -110,46 +119,46 @@ class ComposeController extends GetxController {
       }
       if (msg != null) {
         if (type == 'reply') {
-          toList.addAll(msg.from ?? []);
-          subjectController.text = 'Re: ${msg.decodeSubject()}';
+          toList.addAll(msg!.from ?? []);
+          subjectController.text = 'Re: ${msg!.decodeSubject()}';
           signature = settingController.signatureReply()
               ? settingController.signature()
               : '';
           messageBuilder = MessageBuilder.prepareReplyToMessage(
-            msg,
+            msg!,
             MailAddress(name, email),
           );
         } else if (type == 'reply_all') {
-          toList.addAll(msg.to ?? []);
-          cclist.addAll(msg.cc ?? []);
-          bcclist.addAll(msg.bcc ?? []);
-          subjectController.text = 'Re: ${msg.decodeSubject()}';
+          toList.addAll(msg!.to ?? []);
+          cclist.addAll(msg!.cc ?? []);
+          bcclist.addAll(msg!.bcc ?? []);
+          subjectController.text = 'Re: ${msg!.decodeSubject()}';
           signature = settingController.signatureReply()
               ? settingController.signature()
               : '';
 
           messageBuilder = MessageBuilder.prepareReplyToMessage(
-            msg,
+            msg!,
             MailAddress(name, email),
             replyAll: true,
           );
         } else if (type == 'forward') {
-          subjectController.text = 'Fwd: ${msg.decodeSubject()}';
+          subjectController.text = 'Fwd: ${msg!.decodeSubject()}';
           signature = settingController.signatureForward()
               ? settingController.signature()
               : '';
-          messageBuilder = MessageBuilder.prepareForwardMessage(msg);
+          messageBuilder = MessageBuilder.prepareForwardMessage(msg!);
         } else if (type == 'draft') {
-          toList.addAll(msg.to ?? []);
-          cclist.addAll(msg.cc ?? []);
-          bcclist.addAll(msg.bcc ?? []);
-          subjectController.text = '${msg.decodeSubject()}';
+          toList.addAll(msg!.to ?? []);
+          cclist.addAll(msg!.cc ?? []);
+          bcclist.addAll(msg!.bcc ?? []);
+          subjectController.text = '${msg!.decodeSubject()}';
           signature = settingController.signatureNewMessage()
               ? settingController.signature()
               : '';
-          messageBuilder = MessageBuilder.prepareFromDraft(msg);
+          messageBuilder = MessageBuilder.prepareFromDraft(msg!);
         }
-        body = (msg.decodeTextHtmlPart() ?? '');
+        body = (msg!.decodeTextHtmlPart() ?? msg!.decodeTextPlainPart() ?? '');
       }
     } else {
       signature = settingController.signatureNewMessage()
@@ -215,7 +224,6 @@ class ComposeController extends GetxController {
       messageBuilder.bcc = bcclist.toList();
       messageBuilder.subject = subjectController.text;
       messageBuilder.from = [MailAddress(name, email)];
-      await client.selectMailboxByFlag(MailboxFlag.sent);
       client.saveDraftMessage(messageBuilder.buildMimeMessage());
       canPop(true);
       Get.back();
@@ -276,9 +284,10 @@ class ComposeController extends GetxController {
       if (settingController.readReceipts()) {
         messageBuilder.requestReadReceipt();
       }
+      if (msg != null) {
+        await client.deleteMessage(msg!);
+      }
       // send the email
-      await client.selectMailboxByFlag(MailboxFlag.sent);
-      await client.startPolling();
       await client.sendMessage(
         messageBuilder.buildMimeMessage(),
         recipients: toList.toList(),

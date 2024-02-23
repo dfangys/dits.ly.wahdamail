@@ -25,13 +25,15 @@ class MailTile extends StatelessWidget {
   final selectionController = Get.find<SelectionController>();
 
   String get name {
-    if (mailBox.name.toLowerCase() == 'sent') {
+    if ((["sent", "drafts"].contains(mailBox.name.toLowerCase())) &&
+        message.to != null &&
+        message.to!.isNotEmpty) {
       return message.to!.first.personalName ?? message.to!.first.email;
     }
     if (message.from != null) {
       return message.from!.first.personalName ?? message.from!.first.email;
     }
-    return "";
+    return "Unknown";
   }
 
   @override

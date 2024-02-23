@@ -19,6 +19,7 @@ class MailService {
   late MailClient client;
   late Mailbox selectedBox;
   bool isClientSet = false;
+  bool isSubscribed = false;
 
   Future<bool> init({String? mail, String? pass}) async {
     String? email = mail ?? storage.read('email');
@@ -50,7 +51,7 @@ class MailService {
       incomingPort: 43245,
       outgoingPort: 43244,
       incomingSocketType: SocketType.ssl,
-      outgoingSocketType: SocketType.starttls,
+      outgoingSocketType: SocketType.plain,
       userName: email,
       outgoingClientDomain: 'wahdabank.com.ly',
     );
@@ -69,7 +70,10 @@ class MailService {
     try {
       if (!client.isConnected) {
         await client.connect();
-        _subscribeEvents();
+        await client.startPolling();
+        if (isSubscribed == false) {
+          _subscribeEvents();
+        }
       }
     } catch (e) {
       // storage.erase();
@@ -97,6 +101,7 @@ class MailService {
     });
     _mailVanishedEventSubscription =
         client.eventBus.on<MailVanishedEvent>().listen((event) async {
+      printError(info: "MailVanishedEvent");
       final sequence = event.sequence;
       if (sequence != null) {
         List<MimeMessage> msgs = await client.fetchMessageSequence(
@@ -106,12 +111,10 @@ class MailService {
           Get.find<MailBoxController>().vanishMails(msgs);
         }
       }
-      printError(info: "MailVanishedEvent");
     });
     _mailUpdatedEventSubscription =
         client.eventBus.on<MailUpdateEvent>().listen((event) {
       if (event.mailClient == client) {
-        // onMessageFlagsUpdated(event.message);
         printError(info: 'MailUpdateEvent');
         if (Get.isRegistered<MailBoxController>()) {
           Get.find<MailBoxController>().handleIncomingMail(event.message);
@@ -124,6 +127,7 @@ class MailService {
         data.mailClient.isConnected;
       }
     });
+    isSubscribed = true;
   }
 
   void _unsubscribeEvents() {

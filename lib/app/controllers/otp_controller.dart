@@ -78,7 +78,7 @@ class OtpController extends GetxController {
 
   void onSmsReceived(String? message) {
     if (message != null) {
-      var match = RegExp(r'\d+').firstMatch(message);
+      var match = RegExp(r'\d{5}').firstMatch(message);
       if (match != null) {
         printInfo(info: match.group(0) ?? '');
         String numCode = match.group(0) ?? '';

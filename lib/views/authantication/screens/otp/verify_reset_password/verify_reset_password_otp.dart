@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:otp_autofill/otp_autofill.dart';
 import 'package:otp_text_field/otp_text_field.dart';
 import 'package:otp_text_field/style.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
@@ -34,6 +36,10 @@ class _VerifyResetPasswordOtpScreenState
   final formKey = GlobalKey<FormState>();
   String otpPin = '';
 
+  // autofill otp
+  late OTPTextEditController autoFillOtpController;
+  late OTPInteractor _otpInteractor;
+
   @override
   void initState() {
     listenForSms();
@@ -41,6 +47,7 @@ class _VerifyResetPasswordOtpScreenState
   }
 
   Future listenForSms() async {
+    _initInteractor();
     if (Platform.isAndroid) {
       bool? permissionsGranted = await telephony.requestSmsPermissions;
       if (permissionsGranted != null && permissionsGranted) {
@@ -51,12 +58,48 @@ class _VerifyResetPasswordOtpScreenState
           listenInBackground: false,
         );
       }
+    } else if (Platform.isIOS) {
+      autoFillOtpController = OTPTextEditController(
+        codeLength: 5,
+        onCodeReceive: (code) {
+          onSmsReceived(code);
+        },
+        otpInteractor: _otpInteractor,
+        onTimeOutException: () {
+          autoFillOtpController.startListenUserConsent(
+            (code) {
+              final exp = RegExp(r'(\d{5})');
+              return exp.stringMatch(code ?? '') ?? '';
+            },
+            strategies: [
+              // SampleStrategy(),
+            ],
+          );
+        },
+      )..startListenUserConsent(
+          (code) {
+            final exp = RegExp(r'(\d{5})');
+            return exp.stringMatch(code ?? '') ?? '';
+          },
+          strategies: [
+            // TimeoutStrategy(),
+          ],
+        );
+    }
+  }
+
+  Future<void> _initInteractor() async {
+    _otpInteractor = OTPInteractor();
+    // You can receive your app signature by using this method.
+    final appSignature = await _otpInteractor.getAppSignature();
+    if (kDebugMode) {
+      print('Your app signature: $appSignature');
     }
   }
 
   void onSmsReceived(String? message) {
     if (message != null) {
-      var match = RegExp(r'\d+').firstMatch(message);
+      var match = RegExp(r'\d{5}').firstMatch(message);
       if (match != null) {
         String numCode = match.group(0) ?? '';
         otpController.set(numCode.split(''));
@@ -247,5 +290,13 @@ class _VerifyResetPasswordOtpScreenState
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    if (Platform.isIOS) {
+      autoFillOtpController.dispose();
+    }
+    super.dispose();
   }
 }
