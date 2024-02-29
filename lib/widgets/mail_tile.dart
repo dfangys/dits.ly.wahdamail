@@ -1,11 +1,9 @@
 import 'package:enough_mail/enough_mail.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import '../app/controllers/selection_controller.dart';
 import '../app/controllers/settings_controller.dart';
@@ -79,20 +77,16 @@ class MailTile extends StatelessWidget {
               if (selectionController.isSelecting) {
                 selectionController.toggle(message);
               } else if (mailBox.name.toLowerCase() == 'drafts') {
-                EasyLoading.showInfo('Loading');
-                MimeMessage msg = await MailService.instance.client
-                    .fetchMessageContents(message);
+                EasyLoading.showInfo('Loading...');
                 Get.to(
                   () => const ComposeScreen(),
-                  arguments: {'type': 'draft', 'message': msg},
+                  arguments: {'type': 'draft', 'message': message},
                 );
               } else if (onTap != null) {
                 onTap!.call();
               }
             } catch (e) {
-              if (kDebugMode) {
-                print(e.toString());
-              }
+              EasyLoading.showError(e.toString());
             } finally {
               EasyLoading.dismiss();
             }

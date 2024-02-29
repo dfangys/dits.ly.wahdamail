@@ -3,9 +3,16 @@ import 'package:get/get.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import '../../../app/controllers/settings_controller.dart';
 
-class SignatureSheet extends GetView<SettingController> {
-  SignatureSheet({super.key});
+class SignatureSheet extends StatefulWidget {
+  const SignatureSheet({super.key});
+
+  @override
+  State<SignatureSheet> createState() => _SignatureSheetState();
+}
+
+class _SignatureSheetState extends State<SignatureSheet> {
   final htmlController = HtmlEditorController();
+  final controller = Get.find<SettingController>();
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -42,6 +49,19 @@ class SignatureSheet extends GetView<SettingController> {
                         onPressed: () {
                           controller.signature("");
                           Get.back();
+                        },
+                      ),
+                      IconButton(
+                        icon: Obx(
+                          () => Icon(
+                            controller.signatureCodeView()
+                                ? Icons.code_off
+                                : Icons.code,
+                          ),
+                        ),
+                        onPressed: () {
+                          controller.signatureCodeView.toggle();
+                          htmlController.toggleCodeView();
                         },
                       ),
                       IconButton(

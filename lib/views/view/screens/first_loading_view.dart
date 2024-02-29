@@ -49,7 +49,7 @@ class _LoadingFirstViewState extends State<LoadingFirstView> {
     } finally {
       if (isReadyToRun) {
         Workmanager().registerPeriodicTask(
-          "fetching-emails",
+          "fetch-new-mails-identifier",
           "simplePeriodicTask",
         );
         Get.offAllNamed('/home');

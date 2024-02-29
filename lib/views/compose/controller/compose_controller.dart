@@ -101,11 +101,12 @@ class ComposeController extends GetxController {
   final settingController = Get.find<SettingController>();
 
   MimeMessage? msg;
+  String? type;
 
   @override
   void onInit() {
     if (Get.arguments != null) {
-      String? type = Get.arguments['type'];
+      type = Get.arguments['type'];
       msg = Get.arguments['message'];
       String? toMails = Get.arguments['to'];
       String? support = Get.arguments['support'];
@@ -231,11 +232,13 @@ class ComposeController extends GetxController {
       final box = boxController.mailboxes.firstWhere(
         (e) => e.name.toLowerCase() == 'drafts',
       );
-      if (msg != null) {
-        await boxController.deleteMails([msg!], box);
-      }
+      await client.selectMailboxByFlag(MailboxFlag.drafts);
       MimeMessage draftMessage = messageBuilder.buildMimeMessage();
       await client.saveDraftMessage(draftMessage);
+      boxController.mailboxStorage[box]!.saveMessageEnvelopes([draftMessage]);
+      if (msg != null && type != null && type == 'draft') {
+        await boxController.deleteMails([msg!], box);
+      }
       canPop(true);
     } catch (e) {
       AwesomeDialog(

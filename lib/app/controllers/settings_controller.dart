@@ -15,6 +15,8 @@ class SettingController extends GetxController {
   final signatureNewMessage = true.obs;
   final accountName = ''.obs;
 
+  final signatureCodeView = false.obs;
+
   SwapActionModel get swipeGesturesLTRModel => SwapSettingData()
       .swapActionModel[getSwapActionFromString(swipeGesturesLTR.value)]!;
 

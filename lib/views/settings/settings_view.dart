@@ -39,12 +39,12 @@ class SettingsView extends GetView<SettingController> {
                 },
               ),
             ),
-            const Divider(),
-            ListTile(
-              title: Text('security'.tr),
-              trailing: Text('Off'.tr),
-              onTap: () {},
-            ),
+            // const Divider(),
+            // ListTile(
+            //   title: Text('security'.tr),
+            //   trailing: Text('Off'.tr),
+            //   onTap: () {},
+            // ),
             const Divider(),
             ListTile(
               title: Text('swipe_gestures'.tr),

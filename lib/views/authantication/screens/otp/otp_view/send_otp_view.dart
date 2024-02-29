@@ -12,13 +12,18 @@ class SendOtpView extends StatefulWidget {
 }
 
 class _SendOtpViewState extends State<SendOtpView> {
-  bool isError = false;
   final controller = Get.find<OtpController>();
+  bool isError = false;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       controller.requestOtp();
+    });
+    controller.isError.listen((p) {
+      setState(() {
+        isError = p;
+      });
     });
   }
 
@@ -63,7 +68,7 @@ class _SendOtpViewState extends State<SendOtpView> {
                       SizedBox(
                         height: 50,
                         width: MediaQuery.of(context).size.width - 50,
-                        child: TextButton(
+                        child: OutlinedButton(
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),

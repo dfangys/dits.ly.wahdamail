@@ -98,6 +98,19 @@ class EnterOtpScreen extends GetView<OtpController> {
                           },
                         ),
                         const SizedBox(height: WSizes.defaultSpace),
+                        TextButton(
+                          onPressed: () {
+                            controller.requestOtp();
+                          },
+                          child: Text(
+                            'Resend OTP',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: WSizes.defaultSpace),
                         WRoundedButton(
                           controller: btnController,
                           onPress: () {

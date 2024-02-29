@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/compose_view.dart';
 
@@ -96,7 +97,10 @@ class _ComposeScreenState extends State<ComposeScreen> {
                         child: Text('save_as_draft'.tr),
                       ),
                       CupertinoActionSheetAction(
-                        onPressed: () {},
+                        onPressed: () {
+                          Get.back();
+                          Get.find<SettingController>().readReceipts.toggle();
+                        },
                         child: Text('request_read_receipt'.tr),
                       ),
                       CupertinoActionSheetAction(

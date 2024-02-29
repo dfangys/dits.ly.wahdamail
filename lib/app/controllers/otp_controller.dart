@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:otp_autofill/otp_autofill.dart';
 import 'package:otp_text_field/otp_text_field.dart';
 import 'package:telephony/telephony.dart';
 import 'package:wahda_bank/app/apis/app_api.dart';
@@ -20,9 +21,11 @@ class OtpController extends GetxController {
 
   //
   OtpFieldController fieldController = OtpFieldController();
+  RxBool isError = false.obs;
 
   Future requestOtp() async {
     try {
+      isError(false);
       var data = await appApi.requestOtp();
       if (data is Map) {
         if (data.containsKey('white_list') && data['white_list']) {
@@ -33,6 +36,9 @@ class OtpController extends GetxController {
           // goto otp verifiy view
           if (Platform.isAndroid) {
             listenForSms();
+          } else if (Platform.isIOS) {
+            await _initInteractor();
+            _listenforIosSms();
           }
           Get.to(() => EnterOtpScreen());
         }
@@ -51,6 +57,7 @@ class OtpController extends GetxController {
         title: 'error'.tr,
         desc: e.message,
       ).show();
+      isError(true);
     } catch (e) {
       AwesomeDialog(
         context: Get.context!,
@@ -58,6 +65,7 @@ class OtpController extends GetxController {
         title: 'Error',
         desc: e.toString(),
       ).show();
+      isError(true);
     }
   }
 
@@ -73,6 +81,47 @@ class OtpController extends GetxController {
         },
         listenInBackground: false,
       );
+    }
+  }
+
+  // ios listen for sms
+  late OTPInteractor _otpInteractor;
+  late OTPTextEditController autoFillOtpController;
+  Future _listenforIosSms() async {
+    autoFillOtpController = OTPTextEditController(
+      codeLength: 5,
+      onCodeReceive: (code) {
+        onSmsReceived(code);
+      },
+      otpInteractor: _otpInteractor,
+      onTimeOutException: () {
+        autoFillOtpController.startListenUserConsent(
+          (code) {
+            final exp = RegExp(r'(\d{5})');
+            return exp.stringMatch(code ?? '') ?? '';
+          },
+          strategies: [
+            // SampleStrategy(),
+          ],
+        );
+      },
+    )..startListenUserConsent(
+        (code) {
+          final exp = RegExp(r'(\d{5})');
+          return exp.stringMatch(code ?? '') ?? '';
+        },
+        strategies: [
+          // TimeoutStrategy(),
+        ],
+      );
+  }
+
+  Future<void> _initInteractor() async {
+    _otpInteractor = OTPInteractor();
+    // You can receive your app signature by using this method.
+    final appSignature = await _otpInteractor.getAppSignature();
+    if (kDebugMode) {
+      print('Your app signature: $appSignature');
     }
   }
 

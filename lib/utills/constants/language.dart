@@ -33,7 +33,7 @@ class Lang extends Translations {
           'reset_password': 'Reset Password',
           'attach_file': 'Attach File',
           'from_files': 'From File',
-          'from_gallery': 'From File',
+          'from_gallery': 'From Gallery',
           'more_options': 'More Options',
           'save_as_draft': 'Save as Draft',
           'request_read_receipt': 'Request Read Receipt',
