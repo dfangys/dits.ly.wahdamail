@@ -1,4 +1,3 @@
-import 'package:background_fetch/background_fetch.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -10,6 +9,7 @@ import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
+import 'package:workmanager/workmanager.dart';
 import '../../models/hive_mime_storage.dart';
 import '../../services/mail_service.dart';
 import '../../views/authantication/screens/login/login.dart';
@@ -376,7 +376,8 @@ class MailBoxController extends GetxController {
       MailService.instance.client.disconnect();
       MailService.instance.dispose();
       await deleteAccount();
-      await BackgroundFetch.stop();
+      // await BackgroundFetch.stop();
+      await Workmanager().cancelAll();
       Get.offAll(() => LoginScreen());
     } catch (e) {
       logger.e(e);

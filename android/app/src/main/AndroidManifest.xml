@@ -6,6 +6,7 @@ xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECEIVE_SMS"/>
     <uses-permission android:minSdkVersion="34" android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <application
         tools:replace="android:label"
         android:label="Wahda Bank"
@@ -39,6 +40,10 @@ xmlns:tools="http://schemas.android.com/tools">
 			<action android:name="android.provider.Telephony.SMS_RECEIVED"/>
 		    </intent-filter>
 		</receiver>
+        <!-- <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="connectedDevice"
+        /> -->
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

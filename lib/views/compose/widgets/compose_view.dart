@@ -136,7 +136,7 @@ class WComposeView extends StatelessWidget {
               ),
               htmlEditorOptions: HtmlEditorOptions(
                 hint: "Your message here...",
-                initialText: controller.body,
+                initialText: controller.bodyPart,
               ),
               otherOptions: const OtherOptions(
                 height: 400,

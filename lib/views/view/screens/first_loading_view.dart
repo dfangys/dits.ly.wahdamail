@@ -1,11 +1,11 @@
 import 'package:awesome_dialog/awesome_dialog.dart';
-import 'package:background_fetch/background_fetch.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/views/view/models/box_model.dart';
+import 'package:workmanager/workmanager.dart';
 import '../../../services/mail_service.dart';
 import '../../../utills/constants/image_strings.dart';
 
@@ -48,15 +48,9 @@ class _LoadingFirstViewState extends State<LoadingFirstView> {
       error = e.toString();
     } finally {
       if (isReadyToRun) {
-        BackgroundFetch.scheduleTask(
-          TaskConfig(
-            taskId: 'com.transistorsoft.customtask',
-            delay: 15 * 60 * 1000,
-            requiredNetworkType: NetworkType.ANY,
-            startOnBoot: true,
-            enableHeadless: true,
-            periodic: true,
-          ),
+        Workmanager().registerPeriodicTask(
+          "fetching-emails",
+          "simplePeriodicTask",
         );
         Get.offAllNamed('/home');
       } else {

@@ -25,72 +25,80 @@ class MailBoxView extends GetView<MailBoxController> {
         appBar: AppBar(
           title: Text(mailBox.name.toLowerCase().tr),
         ),
-        body: ValueListenableBuilder<Box<StorageMessageEnvelope>>(
-          valueListenable: controller.mailboxStorage[mailBox]!.dataStream,
-          builder: (context, Box<StorageMessageEnvelope> box, child) {
-            if (box.isEmpty) {
-              return TAnimationLoaderWidget(
-                text: 'Whoops! Box is empty',
-                animation: 'assets/lottie/empty.json',
-                showAction: true,
-                actionText: 'try_again'.tr,
-                onActionPressed: () {},
-              );
-            }
-            List<StorageMessageEnvelope> rows =
-                box.values.sorted((a, b) => b.date!.compareTo(a.date!));
-            Map<DateTime, List<StorageMessageEnvelope>> group = groupBy(
-              rows,
-              (p) {
-                var dt = p.date ?? DateTime.now();
-                return DateTime(dt.year, dt.month);
-              },
-            );
-            return ListView.builder(
-              itemCount: group.length,
-              itemBuilder: (context, index) {
-                var item = group.entries.elementAt(index);
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        timeago.format(item.key),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).primaryColor,
+        body: RefreshIndicator(
+          onRefresh: () async {
+            await controller.loadEmailsForBox(mailBox);
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: ValueListenableBuilder<Box<StorageMessageEnvelope>>(
+              valueListenable: controller.mailboxStorage[mailBox]!.dataStream,
+              builder: (context, Box<StorageMessageEnvelope> box, child) {
+                if (box.isEmpty) {
+                  return TAnimationLoaderWidget(
+                    text: 'Whoops! Box is empty',
+                    animation: 'assets/lottie/empty.json',
+                    showAction: true,
+                    actionText: 'try_again'.tr,
+                    onActionPressed: () {},
+                  );
+                }
+                List<StorageMessageEnvelope> rows =
+                    box.values.sorted((a, b) => b.date!.compareTo(a.date!));
+                Map<DateTime, List<StorageMessageEnvelope>> group = groupBy(
+                  rows,
+                  (p) {
+                    var dt = p.date ?? DateTime.now();
+                    return DateTime(dt.year, dt.month);
+                  },
+                );
+                return ListView.builder(
+                  itemCount: group.length,
+                  itemBuilder: (context, index) {
+                    var item = group.entries.elementAt(index);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Text(
+                            timeago.format(item.key),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemBuilder: (context, i) {
-                        var mail = item.value.elementAt(i).toMimeMessage();
-                        return MailTile(
-                          onTap: () {
-                            Get.to(
-                              () => ShowMessage(
-                                message: mail,
-                                mailbox: mailBox,
-                              ),
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemBuilder: (context, i) {
+                            var mail = item.value.elementAt(i).toMimeMessage();
+                            return MailTile(
+                              onTap: () {
+                                Get.to(
+                                  () => ShowMessage(
+                                    message: mail,
+                                    mailbox: mailBox,
+                                  ),
+                                );
+                              },
+                              message: mail,
+                              mailBox: mailBox,
                             );
                           },
-                          message: mail,
-                          mailBox: mailBox,
-                        );
-                      },
-                      separatorBuilder: (context, i) => Divider(
-                        color: Colors.grey.shade300,
-                      ),
-                      itemCount: item.value.length,
-                    ),
-                  ],
+                          separatorBuilder: (context, i) => Divider(
+                            color: Colors.grey.shade300,
+                          ),
+                          itemCount: item.value.length,
+                        ),
+                      ],
+                    );
+                  },
                 );
               },
-            );
-          },
+            ),
+          ),
         ),
         bottomNavigationBar: Obx(
           () => AnimatedCrossFade(

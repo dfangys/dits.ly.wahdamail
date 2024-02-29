@@ -1,8 +1,11 @@
 import 'package:enough_mail/enough_mail.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import '../app/controllers/selection_controller.dart';
 import '../app/controllers/settings_controller.dart';
@@ -23,6 +26,7 @@ class MailTile extends StatelessWidget {
 
   final settingController = Get.find<SettingController>();
   final selectionController = Get.find<SelectionController>();
+  final mailboxController = Get.find<MailBoxController>();
 
   String get name {
     if ((["sent", "drafts"].contains(mailBox.name.toLowerCase())) &&
@@ -44,7 +48,7 @@ class MailTile extends StatelessWidget {
           Obx(
             () => SlidableAction(
               onPressed: (context) {
-                Get.find<MailBoxController>().ltrTap(message, mailBox);
+                mailboxController.ltrTap(message, mailBox);
               },
               backgroundColor:
                   settingController.swipeGesturesLTRModel.backgroundColor,
@@ -59,7 +63,7 @@ class MailTile extends StatelessWidget {
             Obx(
               () => SlidableAction(
                 onPressed: (context) {
-                  Get.find<MailBoxController>().rtlTap(message, mailBox);
+                  mailboxController.rtlTap(message, mailBox);
                 },
                 backgroundColor:
                     settingController.swipeGesturesRTLModel.backgroundColor,
@@ -70,16 +74,27 @@ class MailTile extends StatelessWidget {
           ],
         ),
         child: ListTile(
-          onTap: () {
-            if (selectionController.isSelecting) {
-              selectionController.toggle(message);
-            } else if (mailBox.name.toLowerCase() == 'drafts') {
-              Get.to(
-                () => const ComposeScreen(),
-                arguments: {'type': 'draft', 'message': message},
-              );
-            } else if (onTap != null) {
-              onTap!.call();
+          onTap: () async {
+            try {
+              if (selectionController.isSelecting) {
+                selectionController.toggle(message);
+              } else if (mailBox.name.toLowerCase() == 'drafts') {
+                EasyLoading.showInfo('Loading');
+                MimeMessage msg = await MailService.instance.client
+                    .fetchMessageContents(message);
+                Get.to(
+                  () => const ComposeScreen(),
+                  arguments: {'type': 'draft', 'message': msg},
+                );
+              } else if (onTap != null) {
+                onTap!.call();
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print(e.toString());
+              }
+            } finally {
+              EasyLoading.dismiss();
             }
           },
           contentPadding: const EdgeInsets.symmetric(

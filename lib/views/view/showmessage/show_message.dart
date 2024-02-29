@@ -117,7 +117,6 @@ class ShowMessage extends StatelessWidget {
             MimeMessageDownloader(
               mimeMessage: message,
               mailClient: MailService.instance.client,
-              adjustHeight: true,
               markAsSeen: true,
               onDownloaded: (_msg) {
                 Get.find<MailBoxController>().markAsReadUnread(

@@ -1,32 +1,31 @@
 import 'dart:math';
-import 'package:background_fetch/background_fetch.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:logger/logger.dart';
 import 'package:wahda_bank/models/hive_mime_storage.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
 
-@pragma('vm:entry-point')
-void backgroundFetchHeadlessTask(HeadlessTask task) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  String taskId = task.taskId;
-  bool isTimeout = task.timeout;
-  if (isTimeout) {
-    if (kDebugMode) {
-      print("[BackgroundFetch] Headless task timed-out: $taskId");
-    }
-    BackgroundFetch.finish(taskId);
-    return;
-  }
-  await BackgroundService.checkForNewMail();
-  if (kDebugMode) {
-    print('[BackgroundFetch] Headless event received.');
-  }
-  BackgroundFetch.finish(taskId);
-}
+// @pragma('vm:entry-point')
+// void backgroundFetchHeadlessTask(HeadlessTask task) async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//   DartPluginRegistrant.ensureInitialized();
+//   String taskId = task.taskId;
+//   bool isTimeout = task.timeout;
+//   if (isTimeout) {
+//     if (kDebugMode) {
+//       print("[BackgroundFetch] Headless task timed-out: $taskId");
+//     }
+//     BackgroundFetch.finish(taskId);
+//     return;
+//   }
+//   await BackgroundService.checkForNewMail();
+//   if (kDebugMode) {
+//     print('[BackgroundFetch] Headless event received.');
+//   }
+//   BackgroundFetch.finish(taskId);
+// }
 
 class BackgroundService {
   static const String keyInboxLastUid = 'inboxLastUid';
@@ -37,32 +36,26 @@ class BackgroundService {
 
   static Logger logger = Logger();
 
-  Future init() async {
-    await BackgroundFetch.configure(
-        BackgroundFetchConfig(
-          minimumFetchInterval: 15,
-          startOnBoot: true,
-          stopOnTerminate: false,
-          enableHeadless: true,
-          requiresBatteryNotLow: false,
-          requiresCharging: false,
-          requiresStorageNotLow: false,
-          requiresDeviceIdle: false,
-          requiredNetworkType: NetworkType.ANY,
-        ), (String taskId) async {
-      try {
-        // await locator<MailService>().resume();
-      } catch (e, s) {
-        if (kDebugMode) {
-          print('Error: Unable to finish foreground background fetch: $e $s');
-        }
-      }
-      BackgroundFetch.finish(taskId);
-    }, (String taskId) {
-      BackgroundFetch.finish(taskId);
-    });
-    await BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);
-  }
+  // Future init() async {
+  //   await BackgroundFetch.configure(
+  //     BackgroundFetchConfig(
+  //       minimumFetchInterval: 15,
+  //       startOnBoot: true,
+  //       stopOnTerminate: false,
+  //       enableHeadless: true,
+  //       requiresBatteryNotLow: false,
+  //       requiresCharging: false,
+  //       requiresStorageNotLow: false,
+  //       requiresDeviceIdle: false,
+  //       requiredNetworkType: NetworkType.ANY,
+  //       forceAlarmManager: false,
+  //     ),
+  //     backgroundFetchHeadlessTask,
+  //     (String taskId) {
+  //       BackgroundFetch.finish(taskId);
+  //     },
+  //   );
+  // }
 
   Future<void> addNextUidFor() async {
     try {

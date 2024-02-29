@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:intl/intl.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 
 import '../../../app/controllers/settings_controller.dart';
@@ -32,7 +33,7 @@ class ComposeController extends GetxController {
   final HtmlEditorController htmlController = HtmlEditorController();
   late MessageBuilder messageBuilder;
   RxList<File> attachments = <File>[].obs;
-  String body = '';
+  String bodyPart = '';
   String signature = '';
 
   RxBool canPop = false.obs;
@@ -158,7 +159,9 @@ class ComposeController extends GetxController {
               : '';
           messageBuilder = MessageBuilder.prepareFromDraft(msg!);
         }
-        body = (msg!.decodeTextHtmlPart() ?? msg!.decodeTextPlainPart() ?? '');
+        bodyPart =
+            (msg!.decodeTextHtmlPart() ?? msg!.decodeTextPlainPart() ?? '');
+        printInfo(info: "Init body part $bodyPart");
       }
     } else {
       signature = settingController.signatureNewMessage()
@@ -216,17 +219,24 @@ class ComposeController extends GetxController {
       }
       // set the email body
       messageBuilder.addMultipartAlternative(
-        htmlText: isHtml.isTrue ? body : null,
-        plainText: isHtml.isTrue ? null : body,
+        htmlText: "<p>$body</p>",
+        plainText: body,
       );
       messageBuilder.to = toList.toList();
       messageBuilder.cc = cclist.toList();
       messageBuilder.bcc = bcclist.toList();
       messageBuilder.subject = subjectController.text;
       messageBuilder.from = [MailAddress(name, email)];
-      client.saveDraftMessage(messageBuilder.buildMimeMessage());
+      final boxController = Get.find<MailBoxController>();
+      final box = boxController.mailboxes.firstWhere(
+        (e) => e.name.toLowerCase() == 'drafts',
+      );
+      if (msg != null) {
+        await boxController.deleteMails([msg!], box);
+      }
+      MimeMessage draftMessage = messageBuilder.buildMimeMessage();
+      await client.saveDraftMessage(draftMessage);
       canPop(true);
-      Get.back();
     } catch (e) {
       AwesomeDialog(
         context: Get.context!,
@@ -247,7 +257,7 @@ class ComposeController extends GetxController {
         AwesomeDialog(
           context: Get.context!,
           dialogType: DialogType.error,
-          title: 'Error',
+          title: 'error'.tr,
           desc: 'add_a_recipient'.tr,
         ).show();
         return;
@@ -255,7 +265,7 @@ class ComposeController extends GetxController {
         AwesomeDialog(
           context: Get.context!,
           dialogType: DialogType.error,
-          title: 'Error',
+          title: 'error'.tr,
           desc: 'valid_subject'.tr,
         ).show();
         return;
@@ -273,8 +283,8 @@ class ComposeController extends GetxController {
       }
       // set the email body
       messageBuilder.addMultipartAlternative(
-        htmlText: isHtml.isTrue ? body : '',
-        plainText: isHtml.isTrue ? '' : body,
+        htmlText: "<p>$body</p>",
+        plainText: body,
       );
       messageBuilder.to = toList.toList();
       messageBuilder.cc = cclist.toList();
@@ -297,7 +307,7 @@ class ComposeController extends GetxController {
         context: Get.context!,
         dialogType: DialogType.success,
         title: 'Success',
-        desc: 'Email sent successfully',
+        desc: 'msg_email_sent'.tr,
       ).show();
       canPop(true);
       Get.back();
