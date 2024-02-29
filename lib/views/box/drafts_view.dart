@@ -6,6 +6,8 @@ import 'package:get/get.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 
+import '../../widgets/empty_box.dart';
+
 class DraftView extends StatefulWidget {
   const DraftView({super.key});
 
@@ -33,6 +35,7 @@ class _DraftViewState extends State<DraftView> {
 
   Future fetchMail() async {
     try {
+      emails.clear();
       mailbox = await service.client.selectMailboxByFlag(MailboxFlag.drafts);
       int maxExist = mailbox.messagesExists;
       while (emails.length < maxExist) {
@@ -69,6 +72,17 @@ class _DraftViewState extends State<DraftView> {
           stream: _streamController.stream,
           builder: (context, snapshot) {
             if (snapshot.hasData) {
+              if (snapshot.data!.isEmpty) {
+                return TAnimationLoaderWidget(
+                  text: 'Whoops! Box is empty',
+                  animation: 'assets/lottie/empty.json',
+                  showAction: true,
+                  actionText: 'try_again'.tr,
+                  onActionPressed: () {
+                    fetchMail();
+                  },
+                );
+              }
               return ListView.builder(
                 itemCount: snapshot.data!.length,
                 itemBuilder: (context, index) {
@@ -80,12 +94,20 @@ class _DraftViewState extends State<DraftView> {
                 },
               );
             } else if (snapshot.hasError) {
-              return Center(
-                child: Text('Error: ${snapshot.error}'),
+              return TAnimationLoaderWidget(
+                text: snapshot.error.toString(),
+                animation: 'assets/lottie/error.json',
+                showAction: true,
+                actionText: 'try_again'.tr,
+                onActionPressed: () {
+                  fetchMail();
+                },
               );
             }
-            return const Center(
-              child: CircularProgressIndicator(),
+            return const TAnimationLoaderWidget(
+              text: 'Loading...',
+              animation: 'assets/lottie/search.json',
+              showAction: false,
             );
           },
         ),
