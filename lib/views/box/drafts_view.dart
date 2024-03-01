@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -36,13 +37,17 @@ class _DraftViewState extends State<DraftView> {
   Future fetchMail() async {
     try {
       emails.clear();
+      page = 1;
       mailbox = await service.client.selectMailboxByFlag(MailboxFlag.drafts);
       int maxExist = mailbox.messagesExists;
       while (emails.length < maxExist) {
         MessageSequence sequence = MessageSequence.fromPage(page, 10, maxExist);
         List<MimeMessage> fetched = await queue(sequence);
         emails.addAll(fetched);
+        emails =
+            emails.sorted((a, b) => b.decodeDate()!.compareTo(a.decodeDate()!));
         _streamController.add(emails);
+        page++;
       }
     } catch (e) {
       Get.snackbar('Error', e.toString());
@@ -53,7 +58,7 @@ class _DraftViewState extends State<DraftView> {
   Future<List<MimeMessage>> queue(MessageSequence sequence) async {
     return await service.client.fetchMessageSequence(
       sequence,
-      fetchPreference: FetchPreference.full,
+      fetchPreference: FetchPreference.envelope,
     );
   }
 
@@ -113,5 +118,11 @@ class _DraftViewState extends State<DraftView> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _streamController.close();
+    super.dispose();
   }
 }

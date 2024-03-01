@@ -228,16 +228,20 @@ class ComposeController extends GetxController {
       messageBuilder.bcc = bcclist.toList();
       messageBuilder.subject = subjectController.text;
       messageBuilder.from = [MailAddress(name, email)];
+      messageBuilder.date = DateTime.now();
       final boxController = Get.find<MailBoxController>();
-      final box = boxController.mailboxes.firstWhere(
-        (e) => e.name.toLowerCase() == 'drafts',
-      );
-      await client.selectMailboxByFlag(MailboxFlag.drafts);
+      var box = await client.selectMailboxByFlag(MailboxFlag.drafts);
       MimeMessage draftMessage = messageBuilder.buildMimeMessage();
-      await client.saveDraftMessage(draftMessage);
-      boxController.mailboxStorage[box]!.saveMessageEnvelopes([draftMessage]);
+      UidResponseCode? code = await client.saveDraftMessage(draftMessage);
+      if (code == null) {
+        EasyLoading.showError('Failed to save draft');
+      } else {
+        EasyLoading.showSuccess('Draft saved with ${code.uidValidity}');
+      }
       if (msg != null && type != null && type == 'draft') {
         await boxController.deleteMails([msg!], box);
+        await boxController.mailboxStorage[box]!
+            .saveMessageEnvelopes([draftMessage]);
       }
       canPop(true);
     } catch (e) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:wahda_bank/models/hive_mime_storage.dart';
+import 'package:wahda_bank/utills/funtions.dart';
 import '../../app/controllers/mailbox_controller.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../app/controllers/selection_controller.dart';
@@ -47,10 +48,7 @@ class MailBoxView extends GetView<MailBoxController> {
                     box.values.sorted((a, b) => b.date!.compareTo(a.date!));
                 Map<DateTime, List<StorageMessageEnvelope>> group = groupBy(
                   rows,
-                  (p) {
-                    var dt = p.date ?? DateTime.now();
-                    return DateTime(dt.year, dt.month);
-                  },
+                  (p) => filterDate(p.date ?? DateTime.now()),
                 );
                 return ListView.builder(
                   itemCount: group.length,
@@ -62,7 +60,11 @@ class MailBoxView extends GetView<MailBoxController> {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: Text(
-                            timeago.format(item.key),
+                            timeago.format(
+                              item.value.isNotEmpty
+                                  ? item.value.first.date!
+                                  : DateTime.now(),
+                            ),
                             style: TextStyle(
                               fontSize: 12,
                               color: Theme.of(context).primaryColor,

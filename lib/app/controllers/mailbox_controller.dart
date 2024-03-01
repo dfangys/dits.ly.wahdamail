@@ -7,7 +7,6 @@ import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
-import 'package:wahda_bank/views/box/drafts_view.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import 'package:workmanager/workmanager.dart';
@@ -133,6 +132,7 @@ class MailBoxController extends GetxController {
       emails[mailbox] = <MimeMessage>[];
     }
     page = 1;
+    emails[mailbox]!.clear();
     //
 
     if (mailboxStorage[mailbox] == null) {
@@ -144,7 +144,12 @@ class MailBoxController extends GetxController {
     }
 
     while (emails[mailbox]!.length < max) {
-      MessageSequence sequence = MessageSequence.fromPage(page, pageSize, max);
+      MessageSequence sequence = MessageSequence.fromPage(
+        page,
+        pageSize,
+        max,
+        isUidSequence: true,
+      );
       final messages =
           await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
       if (messages != null && messages.isNotEmpty) {
@@ -350,12 +355,12 @@ class MailBoxController extends GetxController {
   }
 
   Future navigatToMailBox(Mailbox mailbox) async {
-    if (mailbox.name.toLowerCase() == 'drafts') {
-      Get.to(() => const DraftView());
-    } else {
-      Get.to(() => MailBoxView(mailBox: mailbox));
-      await loadEmailsForBox(mailbox);
-    }
+    // if (mailbox.name.toLowerCase() == 'drafts') {
+    //   Get.to(() => const DraftView());
+    // } else {
+    Get.to(() => MailBoxView(mailBox: mailbox));
+    await loadEmailsForBox(mailbox);
+    // }
   }
 
   void storeContactMails(List<MimeMessage> messages) {

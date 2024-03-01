@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/utills/funtions.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/views/view/screens/home/widgets/appbar.dart';
@@ -46,10 +47,7 @@ class HomeScreen extends GetView<MailBoxController> {
                   box.values.sorted((a, b) => b.date!.compareTo(a.date!));
               Map<DateTime, List<StorageMessageEnvelope>> group = groupBy(
                 rows,
-                (p) {
-                  var dt = p.date ?? DateTime.now();
-                  return DateTime(dt.year, dt.month);
-                },
+                (p) => filterDate(p.date ?? DateTime.now()),
               );
               return RefreshIndicator(
                 onRefresh: () async {

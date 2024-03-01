@@ -365,7 +365,7 @@ class StorageMessageEnvelope {
       cc: _mapAddresses(message.cc),
       bcc: _mapAddresses(message.bcc),
       subject: message.decodeSubject(),
-      date: message.decodeDate(),
+      date: message.decodeDate() ?? DateTime.now(),
       messageId: message.getHeaderValue(MailConventions.headerMessageId),
       inReplyTo: message.getHeaderValue(MailConventions.headerInReplyTo),
       flags: message.flags,

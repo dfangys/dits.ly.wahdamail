@@ -114,22 +114,28 @@ class ShowMessage extends StatelessWidget {
             ),
             const SizedBox(height: WSizes.defaultSpace),
             MailAttachments(message: message),
-            MimeMessageDownloader(
-              mimeMessage: message,
-              mailClient: MailService.instance.client,
-              markAsSeen: true,
-              onDownloaded: (_msg) {
-                Get.find<MailBoxController>().markAsReadUnread(
-                  [_msg],
-                  mailbox,
-                );
-              },
-              onError: (exception, stackTrace) => TAnimationLoaderWidget(
-                text: 'Whoops! ${exception.toString()}',
-                animation: 'assets/lottie/error.json',
-                showAction: false,
-                actionText: 'try_again'.tr,
-                onActionPressed: () {},
+            SizedBox(
+              width: MediaQuery.of(context).size.width,
+              child: MimeMessageDownloader(
+                mimeMessage: message,
+                mailClient: MailService.instance.client,
+                markAsSeen: true,
+                onDownloaded: (_msg) {
+                  Get.find<MailBoxController>().markAsReadUnread(
+                    [_msg],
+                    mailbox,
+                  );
+                  Get.find<MailBoxController>()
+                      .mailboxStorage[mailbox]!
+                      .saveMessageContents(_msg);
+                },
+                onError: (exception, stackTrace) => TAnimationLoaderWidget(
+                  text: 'Whoops! ${exception.toString()}',
+                  animation: 'assets/lottie/error.json',
+                  showAction: false,
+                  actionText: 'try_again'.tr,
+                  onActionPressed: () {},
+                ),
               ),
             ),
           ],

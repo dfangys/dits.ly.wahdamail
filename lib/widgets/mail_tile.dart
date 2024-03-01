@@ -78,9 +78,14 @@ class MailTile extends StatelessWidget {
                 selectionController.toggle(message);
               } else if (mailBox.name.toLowerCase() == 'drafts') {
                 EasyLoading.showInfo('Loading...');
+                MimeMessage? msg = await mailboxController
+                    .mailboxStorage[mailBox]!
+                    .fetchMessageContents(message);
+                msg ??= await mailboxController.mailService.client
+                    .fetchMessageContents(message);
                 Get.to(
                   () => const ComposeScreen(),
-                  arguments: {'type': 'draft', 'message': message},
+                  arguments: {'type': 'draft', 'message': msg},
                 );
               } else if (onTap != null) {
                 onTap!.call();
