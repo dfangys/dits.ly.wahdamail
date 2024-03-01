@@ -22,6 +22,7 @@ class OtpController extends GetxController {
   //
   OtpFieldController fieldController = OtpFieldController();
   RxBool isError = false.obs;
+  RxBool isSuccess = false.obs;
 
   Future requestOtp() async {
     try {
@@ -34,6 +35,7 @@ class OtpController extends GetxController {
           Get.offAll(() => const LoadingFirstView());
         } else if (data.containsKey('otp_send') && data['otp_send']) {
           // goto otp verifiy view
+          isSuccess(true);
           if (Platform.isAndroid) {
             listenForSms();
           } else if (Platform.isIOS) {

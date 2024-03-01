@@ -56,7 +56,10 @@ class MailAttachments extends StatelessWidget {
           }
         } else if (snapshot.hasError) {
           return Center(
-            child: Text('Attachment Error: ${snapshot.error}'),
+            child: Text(
+              'Attachment Error: ${snapshot.error}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           );
         }
         return const SizedBox.shrink();

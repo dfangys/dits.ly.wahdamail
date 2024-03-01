@@ -14,6 +14,7 @@ class SendOtpView extends StatefulWidget {
 class _SendOtpViewState extends State<SendOtpView> {
   final controller = Get.find<OtpController>();
   bool isError = false;
+  bool isSuccess = false;
   @override
   void initState() {
     super.initState();
@@ -23,6 +24,11 @@ class _SendOtpViewState extends State<SendOtpView> {
     controller.isError.listen((p) {
       setState(() {
         isError = p;
+      });
+    });
+    controller.isSuccess.listen((p) {
+      setState(() {
+        isSuccess = p;
       });
     });
   }
@@ -58,13 +64,24 @@ class _SendOtpViewState extends State<SendOtpView> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      isError ? "Error in sending OTP" : "Sending OTP",
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      isError
+                          ? "Error in sending OTP"
+                          : isSuccess
+                              ? "OTP sent successfully"
+                              : "Sending OTP",
+                      style:
+                          Theme.of(context).textTheme.headlineSmall!.copyWith(
+                                color: isError
+                                    ? Colors.red
+                                    : isSuccess
+                                        ? Colors.green
+                                        : Colors.black,
+                              ),
                     ),
                     const SizedBox(height: 10),
                     if (!isError) const CircularProgressIndicator.adaptive(),
                     const SizedBox(height: 10),
-                    if (isError)
+                    if (isError || isSuccess)
                       SizedBox(
                         height: 50,
                         width: MediaQuery.of(context).size.width - 50,
@@ -80,7 +97,7 @@ class _SendOtpViewState extends State<SendOtpView> {
                           child: Text('resend'.tr),
                         ),
                       ),
-                    if (isError)
+                    if (isError || isSuccess)
                       Container(
                         height: 50,
                         margin: const EdgeInsets.only(top: 10),

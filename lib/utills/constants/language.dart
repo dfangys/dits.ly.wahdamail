@@ -104,6 +104,7 @@ class Lang extends Translations {
           'try_again': 'Try Again',
           'move_message': 'Move Message',
           'enter_search_text': 'Please enter a search term to continue',
+          'msg_no_internet': 'No internet connection',
         },
         'ar': {
           'no_subject': "لا يوجد موضوع",
@@ -206,6 +207,7 @@ class Lang extends Translations {
           'try_again': 'حاول مرة أخرى',
           'move_message': 'Move Message',
           'enter_search_text': 'يرجى إدخال مصطلح بحث للمتابعة',
+          'msg_no_internet': 'لا يوجد اتصال بالإنترنت',
         }
       };
 }
