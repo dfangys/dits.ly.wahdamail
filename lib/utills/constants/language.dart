@@ -105,6 +105,7 @@ class Lang extends Translations {
           'move_message': 'Move Message',
           'enter_search_text': 'Please enter a search term to continue',
           'msg_no_internet': 'No internet connection',
+          'resend_otp': 'Resend OTP',
         },
         'ar': {
           'no_subject': "لا يوجد موضوع",
@@ -208,6 +209,7 @@ class Lang extends Translations {
           'move_message': 'Move Message',
           'enter_search_text': 'يرجى إدخال مصطلح بحث للمتابعة',
           'msg_no_internet': 'لا يوجد اتصال بالإنترنت',
+          'resend_otp': 'إعادة إرسال رمز التحقق',
         }
       };
 }

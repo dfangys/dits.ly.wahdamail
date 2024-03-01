@@ -176,7 +176,7 @@ class MailBoxController extends GetxController {
   Future<List<MimeMessage>> queue(MessageSequence sequence) async {
     return await mailService.client.fetchMessageSequence(
       sequence,
-      fetchPreference: FetchPreference.full,
+      fetchPreference: FetchPreference.envelope,
     );
   }
 

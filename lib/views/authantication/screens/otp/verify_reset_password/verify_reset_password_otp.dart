@@ -109,6 +109,7 @@ class _VerifyResetPasswordOtpScreenState
   }
 
   final appApi = Get.find<AppApi>();
+
   Future verifyOtp() async {
     if (formKey.currentState!.validate()) {
       try {
@@ -163,6 +164,28 @@ class _VerifyResetPasswordOtpScreenState
     }
   }
 
+  Future resendSms() async {
+    try {
+      String email = widget.email;
+      var res = await appApi.sendResetPasswordOtp(email);
+      if (res is Map && res.isNotEmpty) {
+        if (res.containsKey('otp_send') && res['otp_send']) {
+          Get.to(
+            () => VerifyResetPasswordOtpScreen(email: email),
+          );
+        }
+      }
+    } on AppApiException catch (e) {
+      AwesomeDialog(
+        context: context,
+        dialogType: DialogType.error,
+        title: 'error'.tr,
+        desc: e.message,
+        btnCancelOnPress: () {},
+      ).show();
+    } finally {}
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -194,7 +217,20 @@ class _VerifyResetPasswordOtpScreenState
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    const SizedBox(height: 50),
+                    Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: IconButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            icon: const Icon(Icons.arrow_back),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
                     const Text(
                       "Enter OTP & Password",
                       style: TextStyle(
@@ -235,7 +271,18 @@ class _VerifyResetPasswordOtpScreenState
                         verifyOtp();
                       },
                     ),
-                    const SizedBox(height: WSizes.defaultSpace),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Row(
+                        children: [
+                          TextButton(
+                            onPressed: resendSms,
+                            child: Text('resend_otp'.tr),
+                          )
+                        ],
+                      ),
+                    ),
                     SizedBox(
                       width: MediaQuery.of(context).size.width - 40,
                       child: Form(
