@@ -19,35 +19,37 @@ class TAnimationLoaderWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Lottie.asset(
-            animation,
-            width: MediaQuery.of(context).size.width * 0.8,
-          ),
-          const SizedBox(
-            height: 24,
-          ),
-          Text(
-            text,
-            style: Theme.of(context).textTheme.bodyMedium,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(
-            height: 24,
-          ),
-          showAction
-              ? SizedBox(
-                  width: 250,
-                  child: OutlinedButton(
-                    onPressed: onActionPressed,
-                    child: Text(
-                      actionText!,
-                    ),
-                  ))
-              : const SizedBox()
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Lottie.asset(
+              animation,
+              width: MediaQuery.of(context).size.width * 0.8,
+            ),
+            const SizedBox(
+              height: 24,
+            ),
+            Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(
+              height: 24,
+            ),
+            showAction
+                ? SizedBox(
+                    width: 250,
+                    child: OutlinedButton(
+                      onPressed: onActionPressed,
+                      child: Text(
+                        actionText!,
+                      ),
+                    ))
+                : const SizedBox()
+          ],
+        ),
       ),
     );
   }

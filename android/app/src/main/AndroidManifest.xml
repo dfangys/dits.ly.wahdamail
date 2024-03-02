@@ -9,7 +9,7 @@ xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <application
         tools:replace="android:label"
-        android:label="Wahda Bank"
+        android:label="Wahda Mail"
         android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

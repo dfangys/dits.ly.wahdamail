@@ -102,6 +102,7 @@ class ComposeController extends GetxController {
 
   MimeMessage? msg;
   String? type;
+  bool isUiBusy = false;
 
   @override
   void onInit() {
@@ -205,7 +206,9 @@ class ComposeController extends GetxController {
   }
 
   Future<void> saveAsDraft() async {
+    if (isUiBusy) return;
     try {
+      isUiBusy = true;
       EasyLoading.showInfo('Saving as draft...');
       // attach the signature to the email
       late String body;
@@ -253,12 +256,15 @@ class ComposeController extends GetxController {
       ).show();
     } finally {
       EasyLoading.dismiss();
+      isUiBusy = false;
     }
   }
 
   // Send the email with attachments
   Future<void> sendEmail() async {
+    if (isUiBusy) return;
     try {
+      isUiBusy = true;
       EasyLoading.showInfo('Sending email...');
       if (toList.isEmpty) {
         AwesomeDialog(
@@ -334,6 +340,7 @@ class ComposeController extends GetxController {
       ).show();
     } finally {
       EasyLoading.dismiss();
+      isUiBusy = false;
     }
   }
 

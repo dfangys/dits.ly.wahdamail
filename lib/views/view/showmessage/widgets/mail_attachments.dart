@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'dart:io';
 import 'package:enough_mail/enough_mail.dart';
+import 'package:enough_mail_flutter/enough_mail_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -19,41 +20,40 @@ class MailAttachments extends StatelessWidget {
       future: MailService.instance.client.fetchMessageContents(message),
       builder: (context, snapshot) {
         if (snapshot.hasData && snapshot.data != null) {
-          if (snapshot.data!.findContentInfo().isNotEmpty) {
-            return Column(
-              children: [
-                for (var c in snapshot.data!.findContentInfo())
-                  ListTile(
-                    dense: true,
-                    leading: Icon(getAttachmentIcon(c.fileName)),
-                    title: Text(
-                      c.fileName.toString(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    onTap: () async {
-                      try {
-                        MimePart? mimePart = snapshot.data!.getPart(c.fetchId);
-                        if (mimePart != null) {
-                          Uint8List? uint8List = mimePart.decodeContentBinary();
-                          if (uint8List != null) {
-                            await saveFile(
-                              context,
-                              uint8List,
-                              c.fileName ?? 'file',
-                            );
-                          }
-                        }
-                      } catch (e) {
-                        log(e.toString());
-                      } finally {}
-                    },
+          return Column(
+            children: [
+              for (var c in snapshot.data!.findContentInfo())
+                ListTile(
+                  dense: true,
+                  leading: Icon(getAttachmentIcon(c.fileName)),
+                  title: Text(
+                    c.fileName.toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-              ],
-            );
-          } else {
-            return const SizedBox.shrink();
-          }
+                  onTap: () async {
+                    try {
+                      MimePart? mimePart = snapshot.data!.getPart(c.fetchId);
+                      if (mimePart != null) {
+                        Uint8List? uint8List = mimePart.decodeContentBinary();
+                        if (uint8List != null) {
+                          await saveFile(
+                            context,
+                            uint8List,
+                            c.fileName ?? 'file',
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      log(e.toString());
+                    } finally {}
+                  },
+                ),
+              MimeMessageViewer(
+                mimeMessage: snapshot.data!,
+              ),
+            ],
+          );
         } else if (snapshot.hasError) {
           return Center(
             child: Text(
@@ -62,7 +62,7 @@ class MailAttachments extends StatelessWidget {
             ),
           );
         }
-        return const SizedBox.shrink();
+        return const CircularProgressIndicator.adaptive();
       },
     );
   }

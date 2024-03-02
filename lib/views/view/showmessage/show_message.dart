@@ -1,17 +1,11 @@
 import 'package:enough_mail/enough_mail.dart';
-import 'package:enough_mail_flutter/enough_mail_flutter.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/inbox_app_bar.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/inbox_bottom_navbar.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/mail_attachments.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/mail_meta_tile.dart';
-
-import '../../../widgets/empty_box.dart';
 
 class ShowMessage extends StatelessWidget {
   ShowMessage({super.key, required this.message, required this.mailbox});
@@ -114,30 +108,6 @@ class ShowMessage extends StatelessWidget {
             ),
             const SizedBox(height: WSizes.defaultSpace),
             MailAttachments(message: message),
-            SizedBox(
-              width: MediaQuery.of(context).size.width,
-              child: MimeMessageDownloader(
-                mimeMessage: message,
-                mailClient: MailService.instance.client,
-                markAsSeen: true,
-                onDownloaded: (_msg) {
-                  Get.find<MailBoxController>().markAsReadUnread(
-                    [_msg],
-                    mailbox,
-                  );
-                  Get.find<MailBoxController>()
-                      .mailboxStorage[mailbox]!
-                      .saveMessageContents(_msg);
-                },
-                onError: (exception, stackTrace) => TAnimationLoaderWidget(
-                  text: 'Whoops! ${exception.toString()}',
-                  animation: 'assets/lottie/error.json',
-                  showAction: false,
-                  actionText: 'try_again'.tr,
-                  onActionPressed: () {},
-                ),
-              ),
-            ),
           ],
         ),
       ),

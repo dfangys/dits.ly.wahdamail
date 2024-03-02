@@ -43,11 +43,11 @@ class _MyAppState extends State<MyApp> {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: InternetService.instance.navigatorKey,
-      title: 'Wahda Bank',
+      title: 'Wahda Mail',
       translations: Lang(),
       locale: Locale(locale),
       theme: ThemeData(
-        // fontFamily: 'sfp',
+        fontFamily: locale == 'en' ? 'sfp' : 'arb',
         textTheme: GoogleFonts.poppinsTextTheme(),
         primaryColor: AppTheme.primaryColor,
         colorScheme: ColorScheme.fromSwatch(
