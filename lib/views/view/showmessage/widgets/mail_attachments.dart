@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
+import 'package:open_app_file/open_app_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
@@ -104,15 +105,20 @@ class MailAttachments extends StatelessWidget {
       if (await directory.exists()) {
         File file = File('${directory.path}/$fileName');
         await file.writeAsBytes(uint8List);
-        final result = await Share.shareXFiles(
-          [XFile(file.path)],
-          text: 'I am sharing this',
-        );
-        if (result.status == ShareResultStatus.success) {
-          if (kDebugMode) {
-            print('Thank you for sharing the picture!');
-          }
-        }
+        // final Uri uri = Uri.file(file.path);
+        // if (!await launchUrl(uri)) {
+        //   printError(info: 'Could not open file: $uri');
+        // }
+        await OpenAppFile.open(file.path);
+        // final result = await Share.shareXFiles(
+        //   [XFile(file.path)],
+        //   text: 'I am sharing this',
+        // );
+        // if (result.status == ShareResultStatus.success) {
+        //   if (kDebugMode) {
+        //     print('Thank you for sharing the picture!');
+        //   }
+        // }
         return true;
       }
 

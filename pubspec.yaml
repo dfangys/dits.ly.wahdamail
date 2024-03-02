@@ -73,6 +73,8 @@ dependencies:
   otp_autofill: ^3.0.2
   workmanager: ^0.5.2
   flutter_app_lock: ^4.1.1+1
+  url_launcher: ^6.2.5
+  open_app_file: ^4.0.2
 
 dev_dependencies:
   flutter_test:

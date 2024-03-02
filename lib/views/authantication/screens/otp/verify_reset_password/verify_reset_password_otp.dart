@@ -257,7 +257,7 @@ class _VerifyResetPasswordOtpScreenState
                     const SizedBox(height: 10),
                     OTPTextField(
                       length: 5,
-                      width: MediaQuery.of(context).size.width - 30,
+                      width: MediaQuery.of(context).size.width * 0.7,
                       fieldWidth: 50,
                       style: const TextStyle(fontSize: 17),
                       textFieldAlignment: MainAxisAlignment.spaceAround,

@@ -148,7 +148,6 @@ class MailBoxController extends GetxController {
         page,
         pageSize,
         max,
-        isUidSequence: true,
       );
       final messages =
           await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);

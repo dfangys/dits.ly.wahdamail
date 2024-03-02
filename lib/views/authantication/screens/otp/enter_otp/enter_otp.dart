@@ -81,7 +81,7 @@ class EnterOtpScreen extends GetView<OtpController> {
                         OTPTextField(
                           length: 5,
                           controller: controller.fieldController,
-                          width: MediaQuery.of(context).size.width,
+                          width: MediaQuery.of(context).size.width * 0.7,
                           fieldWidth: 60,
                           style: const TextStyle(fontSize: 17),
                           textFieldAlignment: MainAxisAlignment.spaceAround,
