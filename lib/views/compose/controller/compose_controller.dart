@@ -295,15 +295,16 @@ class ComposeController extends GetxController {
         messageBuilder.addFile(file, MediaType.guessFromFileName(file.path));
       }
       // set the email body
-      messageBuilder.addMultipartAlternative(
-        htmlText: "<p>$body</p>",
-        plainText: body,
-      );
-      messageBuilder.to = toList.toList();
-      messageBuilder.cc = cclist.toList();
-      messageBuilder.bcc = bcclist.toList();
-      messageBuilder.subject = subjectController.text;
-      messageBuilder.from = [MailAddress(name, email)];
+      messageBuilder
+        ..to = toList.toList()
+        ..cc = cclist.toList()
+        ..bcc = bcclist.toList()
+        ..subject = subjectController.text
+        ..from = [MailAddress(name, email)]
+        ..addMultipartAlternative(
+          htmlText: "<p>$body</p>",
+          plainText: body,
+        );
       if (settingController.readReceipts()) {
         messageBuilder.requestReadReceipt();
       }
@@ -311,10 +312,7 @@ class ComposeController extends GetxController {
         await client.deleteMessage(msg!);
       }
       // send the email
-      await client.sendMessage(
-        messageBuilder.buildMimeMessage(),
-        recipients: toList.toList(),
-      );
+      await client.sendMessage(messageBuilder.buildMimeMessage());
       Get.back();
       AwesomeDialog(
         context: Get.context!,

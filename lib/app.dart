@@ -48,7 +48,7 @@ class _MyAppState extends State<MyApp> {
       locale: Locale(locale),
       theme: ThemeData(
         fontFamily: locale == 'en' ? 'sfp' : 'arb',
-        textTheme: GoogleFonts.poppinsTextTheme(),
+        // textTheme: GoogleFonts.poppinsTextTheme(),
         primaryColor: AppTheme.primaryColor,
         colorScheme: ColorScheme.fromSwatch(
           primarySwatch: AppTheme.primaryColor,
