@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -78,25 +80,7 @@ class EnterOtpScreen extends GetView<OtpController> {
                           style: TextStyle(color: Color(0xFF37373F)),
                         ),
                         const SizedBox(height: 20),
-                        OTPTextField(
-                          length: 5,
-                          controller: controller.fieldController,
-                          width: MediaQuery.of(context).size.width * 0.7,
-                          fieldWidth: 60,
-                          style: const TextStyle(fontSize: 17),
-                          textFieldAlignment: MainAxisAlignment.spaceAround,
-                          otpFieldStyle: OtpFieldStyle(
-                            backgroundColor: Colors.white,
-                            focusBorderColor: Colors.white,
-                          ),
-                          fieldStyle: FieldStyle.box,
-                          onCompleted: (pin) {
-                            if (kDebugMode) {
-                              print("Completed: $pin");
-                            }
-                            controller.verifyPhoneOtp(otp: pin);
-                          },
-                        ),
+                        _buildOtpField(context),
                         const SizedBox(height: WSizes.defaultSpace),
                         TextButton(
                           onPressed: () {
@@ -114,7 +98,14 @@ class EnterOtpScreen extends GetView<OtpController> {
                         WRoundedButton(
                           controller: btnController,
                           onPress: () {
-                            controller.verifyPhoneOtp(otp: controller.otpPin);
+                            String code = "";
+                            if (controller
+                                .autoFillOtpController.text.isNotEmpty) {
+                              code = controller.autoFillOtpController.text;
+                            } else {
+                              code = controller.otpPin;
+                            }
+                            controller.verifyPhoneOtp(otp: code);
                             btnController.reset();
                           },
                           text: 'Submit',
@@ -128,6 +119,53 @@ class EnterOtpScreen extends GetView<OtpController> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildOtpField(BuildContext context) {
+    if (Platform.isIOS) {
+      return TextFormField(
+        controller: controller.autoFillOtpController,
+        keyboardType: TextInputType.number,
+        maxLength: 5,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 17),
+        decoration: InputDecoration(
+          counterText: '',
+          contentPadding: const EdgeInsets.all(10),
+          hintText: 'Enter OTP',
+          hintStyle: const TextStyle(fontSize: 17),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.white),
+          ),
+        ),
+        onFieldSubmitted: (value) {
+          controller.verifyPhoneOtp(otp: value);
+        },
+        onSaved: (value) {
+          controller.verifyPhoneOtp(otp: value);
+        },
+      );
+    }
+    return OTPTextField(
+      length: 5,
+      controller: controller.fieldController,
+      width: MediaQuery.of(context).size.width * 0.7,
+      fieldWidth: 60,
+      style: const TextStyle(fontSize: 17),
+      textFieldAlignment: MainAxisAlignment.spaceAround,
+      otpFieldStyle: OtpFieldStyle(
+        backgroundColor: Colors.white,
+        focusBorderColor: Colors.white,
+      ),
+      fieldStyle: FieldStyle.box,
+      onCompleted: (pin) {
+        if (kDebugMode) {
+          print("Completed: $pin");
+        }
+        controller.verifyPhoneOtp(otp: pin);
+      },
     );
   }
 }
