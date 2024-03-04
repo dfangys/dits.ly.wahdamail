@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:clipboard/clipboard.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -123,36 +124,31 @@ class EnterOtpScreen extends GetView<OtpController> {
   }
 
   Widget _buildOtpField(BuildContext context) {
-    if (Platform.isIOS) {
-      return TextFormField(
-        //controller: controller.autoFillOtpController,
-        keyboardType: TextInputType.number,
-        maxLength: 5,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 17),
-        decoration: InputDecoration(
-          counterText: '',
-          contentPadding: const EdgeInsets.all(10),
-          hintText: 'Enter OTP',
-          hintStyle: const TextStyle(fontSize: 17),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.white),
-          ),
-        ),
-        onChanged: (value){
-          if(value !=null && value.length == 5){
-            controller.verifyPhoneOtp(otp:value);
-          }
-        },
-        onFieldSubmitted: (value) {
-          controller.verifyPhoneOtp(otp: value);
-        },
-        onSaved: (value) {
-          controller.verifyPhoneOtp(otp: value);
-        },
-      );
-    }
+    // if (Platform.isIOS) {
+    //   return SizedBox(
+    //     width: MediaQuery.of(context).size.width * 0.7,
+    //     child: TextFormField(
+    //       keyboardType: TextInputType.number,
+    //       maxLength: 5,
+    //       textAlign: TextAlign.center,
+    //       style: const TextStyle(fontSize: 17),
+    //       decoration: InputDecoration(
+    //         contentPadding: const EdgeInsets.all(10),
+    //         hintText: 'Enter OTP',
+    //         hintStyle: const TextStyle(fontSize: 17),
+    //         border: OutlineInputBorder(
+    //           borderRadius: BorderRadius.circular(10),
+    //           borderSide: const BorderSide(color: Colors.white),
+    //         ),
+    //       ),
+    //       onChanged: (value) {
+    //         if (value.length == 5) {
+    //           controller.verifyPhoneOtp(otp: value);
+    //         }
+    //       },
+    //     ),
+    //   );
+    // }
     return OTPTextField(
       length: 5,
       controller: controller.fieldController,
@@ -170,6 +166,12 @@ class EnterOtpScreen extends GetView<OtpController> {
           print("Completed: $pin");
         }
         controller.verifyPhoneOtp(otp: pin);
+      },
+      onChanged: (value) async {
+        if (Platform.isIOS && value.length == 1) {
+          String clipboardText = await FlutterClipboard.paste();
+          controller.onSmsReceived(clipboardText);
+        }
       },
     );
   }

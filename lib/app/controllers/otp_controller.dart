@@ -133,6 +133,7 @@ class OtpController extends GetxController {
       if (match != null) {
         printInfo(info: match.group(0) ?? '');
         String numCode = match.group(0) ?? '';
+        fieldController.clear();
         fieldController.set(numCode.split(''));
         otpPin = numCode;
       }
