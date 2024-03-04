@@ -125,7 +125,7 @@ class EnterOtpScreen extends GetView<OtpController> {
   Widget _buildOtpField(BuildContext context) {
     if (Platform.isIOS) {
       return TextFormField(
-        controller: controller.autoFillOtpController,
+        //controller: controller.autoFillOtpController,
         keyboardType: TextInputType.number,
         maxLength: 5,
         textAlign: TextAlign.center,
@@ -140,6 +140,11 @@ class EnterOtpScreen extends GetView<OtpController> {
             borderSide: const BorderSide(color: Colors.white),
           ),
         ),
+        onChanged: (value){
+          if(value !=null && value.length == 5){
+            controller.verifyPhoneOtp(otp:value);
+          }
+        },
         onFieldSubmitted: (value) {
           controller.verifyPhoneOtp(otp: value);
         },

@@ -39,8 +39,8 @@ class OtpController extends GetxController {
           if (Platform.isAndroid) {
             listenForSms();
           } else if (Platform.isIOS) {
-            await _initInteractor();
-            _listenforIosSms();
+            //await _initInteractor();
+            //_listenforIosSms();
           }
           Get.to(() => EnterOtpScreen());
         }
