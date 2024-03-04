@@ -219,7 +219,10 @@ class ComposeController extends GetxController {
       }
       // attach the files to the email
       for (var file in attachments) {
-        messageBuilder.addFile(file, MediaType.guessFromFileName(file.path));
+        await messageBuilder.addFile(
+          file,
+          MediaType.guessFromFileName(file.path),
+        );
       }
       // set the email body
       messageBuilder.addMultipartAlternative(
@@ -292,7 +295,10 @@ class ComposeController extends GetxController {
       }
       // attach the files to the email
       for (var file in attachments) {
-        messageBuilder.addFile(file, MediaType.guessFromFileName(file.path));
+        await messageBuilder.addFile(
+          file,
+          MediaType.guessFromFileName(file.path),
+        );
       }
       // set the email body
       messageBuilder
