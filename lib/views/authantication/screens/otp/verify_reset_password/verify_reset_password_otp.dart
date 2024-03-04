@@ -255,22 +255,7 @@ class _VerifyResetPasswordOtpScreenState
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 10),
-                    OTPTextField(
-                      length: 5,
-                      width: MediaQuery.of(context).size.width * 0.7,
-                      fieldWidth: 50,
-                      style: const TextStyle(fontSize: 17),
-                      textFieldAlignment: MainAxisAlignment.spaceAround,
-                      fieldStyle: FieldStyle.box,
-                      controller: otpController,
-                      otpFieldStyle: OtpFieldStyle(
-                        backgroundColor: Colors.white,
-                      ),
-                      onCompleted: (pin) {
-                        otpPin = pin;
-                        verifyOtp();
-                      },
-                    ),
+                    _buildOtpField(context),
                     const SizedBox(height: 10),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -336,6 +321,51 @@ class _VerifyResetPasswordOtpScreenState
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildOtpField(BuildContext context) {
+    if (Platform.isIOS) {
+      return TextFormField(
+        controller: autoFillOtpController,
+        keyboardType: TextInputType.number,
+        maxLength: 5,
+        textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 17),
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.all(10),
+          hintText: 'Enter OTP',
+          hintStyle: const TextStyle(fontSize: 17),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.white),
+          ),
+        ),
+        onFieldSubmitted: (value) {
+          otpPin = value;
+          verifyOtp();
+        },
+        onSaved: (value) {
+          if (value != null) otpPin = value;
+          verifyOtp();
+        },
+      );
+    }
+    return OTPTextField(
+      length: 5,
+      width: MediaQuery.of(context).size.width * 0.7,
+      fieldWidth: 50,
+      style: const TextStyle(fontSize: 17),
+      textFieldAlignment: MainAxisAlignment.spaceAround,
+      fieldStyle: FieldStyle.box,
+      controller: otpController,
+      otpFieldStyle: OtpFieldStyle(
+        backgroundColor: Colors.white,
+      ),
+      onCompleted: (pin) {
+        otpPin = pin;
+        verifyOtp();
+      },
     );
   }
 
