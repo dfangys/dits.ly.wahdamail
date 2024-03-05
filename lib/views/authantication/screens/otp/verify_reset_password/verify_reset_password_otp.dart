@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:awesome_dialog/awesome_dialog.dart';
+import 'package:clipboard/clipboard.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -123,8 +124,8 @@ class _VerifyResetPasswordOtpScreenState
             AwesomeDialog(
               context: context,
               dialogType: DialogType.success,
-              title: 'Success',
-              desc: 'Password reset successfully',
+              title: 'success'.tr,
+              desc: 'msg_password_reset_successfully'.tr,
               btnOkOnPress: () {
                 Get.offAll(() => LoginScreen());
               },
@@ -135,7 +136,7 @@ class _VerifyResetPasswordOtpScreenState
               context: context,
               dialogType: DialogType.error,
               title: 'error'.tr,
-              desc: data['message'] ?? 'Something went wrong',
+              desc: data['message'] ?? 'msg_some_thing_went_wrong'.tr,
             ).show();
           }
         } else {
@@ -143,7 +144,7 @@ class _VerifyResetPasswordOtpScreenState
             context: context,
             dialogType: DialogType.error,
             title: 'Error',
-            desc: data['message'] ?? 'Something went wrong',
+            desc: data['message'] ?? 'msg_some_thing_went_wrong'.tr,
           ).show();
         }
       } on AppApiException catch (e) {
@@ -231,9 +232,9 @@ class _VerifyResetPasswordOtpScreenState
                       ],
                     ),
                     const SizedBox(height: 5),
-                    const Text(
-                      "Enter OTP & Password",
-                      style: TextStyle(
+                    Text(
+                      "msg_enter_and_password".tr,
+                      style: const TextStyle(
                         fontSize: 25,
                         fontWeight: FontWeight.bold,
                       ),
@@ -279,9 +280,10 @@ class _VerifyResetPasswordOtpScreenState
                           obscureText: true,
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
+                              return 'valid_password'.tr;
                             } else if (value.length < 8) {
-                              return 'Password must be at least 8 characters';
+                              return 'password_must_be_at_least_8_characters'
+                                  .tr;
                             }
                             return null;
                           },
@@ -325,35 +327,35 @@ class _VerifyResetPasswordOtpScreenState
   }
 
   Widget _buildOtpField(BuildContext context) {
-    if (Platform.isIOS) {
-      return TextFormField(
-        controller: autoFillOtpController,
-        keyboardType: TextInputType.number,
-        maxLength: 5,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 17),
-        decoration: InputDecoration(
-          contentPadding: const EdgeInsets.all(10),
-          hintText: 'Enter OTP',
-          hintStyle: const TextStyle(fontSize: 17),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Colors.white),
-          ),
-        ),
-        onFieldSubmitted: (value) {
-          otpPin = value;
-          verifyOtp();
-        },
-        onSaved: (value) {
-          if (value != null) otpPin = value;
-          verifyOtp();
-        },
-      );
-    }
+    // if (Platform.isIOS) {
+    //   return TextFormField(
+    //     controller: autoFillOtpController,
+    //     keyboardType: TextInputType.number,
+    //     maxLength: 5,
+    //     textAlign: TextAlign.center,
+    //     style: const TextStyle(fontSize: 17),
+    //     decoration: InputDecoration(
+    //       contentPadding: const EdgeInsets.all(10),
+    //       hintText: 'Enter OTP',
+    //       hintStyle: const TextStyle(fontSize: 17),
+    //       border: OutlineInputBorder(
+    //         borderRadius: BorderRadius.circular(10),
+    //         borderSide: const BorderSide(color: Colors.white),
+    //       ),
+    //     ),
+    //     onFieldSubmitted: (value) {
+    //       otpPin = value;
+    //       verifyOtp();
+    //     },
+    //     onSaved: (value) {
+    //       if (value != null) otpPin = value;
+    //       verifyOtp();
+    //     },
+    //   );
+    // }
     return OTPTextField(
       length: 5,
-      width: MediaQuery.of(context).size.width * 0.7,
+      width: MediaQuery.of(context).size.width * 0.8,
       fieldWidth: 50,
       style: const TextStyle(fontSize: 17),
       textFieldAlignment: MainAxisAlignment.spaceAround,
@@ -365,6 +367,12 @@ class _VerifyResetPasswordOtpScreenState
       onCompleted: (pin) {
         otpPin = pin;
         verifyOtp();
+      },
+      onChanged: (value) async {
+        if (Platform.isIOS && value.length == 1) {
+          String clipboardText = await FlutterClipboard.paste();
+          onSmsReceived(clipboardText);
+        }
       },
     );
   }

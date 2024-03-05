@@ -318,14 +318,14 @@ class ComposeController extends GetxController {
         await client.deleteMessage(msg!);
       }
       // send the email
-      await client.sendMessage(messageBuilder.buildMimeMessage());
+      client.sendMessage(messageBuilder.buildMimeMessage());
       Get.back();
-      AwesomeDialog(
-        context: Get.context!,
-        dialogType: DialogType.success,
-        title: 'Success',
-        desc: 'msg_email_sent'.tr,
-      ).show();
+      // AwesomeDialog(
+      //   context: Get.context!,
+      //   dialogType: DialogType.success,
+      //   title: 'Success',
+      //   desc: 'msg_email_sent'.tr,
+      // ).show();
       canPop(true);
       Get.back();
     } catch (e) {

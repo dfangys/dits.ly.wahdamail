@@ -56,9 +56,12 @@ class _MyAppState extends State<MyApp> {
         ),
         useMaterial3: false,
         scaffoldBackgroundColor: const Color(0xFFF2F7FA),
-        appBarTheme: const AppBarTheme(
-          titleTextStyle: TextStyle(color: Colors.black),
-          iconTheme: IconThemeData(color: Colors.black),
+        appBarTheme: AppBarTheme(
+          titleTextStyle: TextStyle(
+            color: Colors.black,
+            fontFamily: locale == 'en' ? 'sfp' : 'arb',
+          ),
+          iconTheme: const IconThemeData(color: Colors.black),
           elevation: 0,
           centerTitle: true,
           color: Colors.transparent,

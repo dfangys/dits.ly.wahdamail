@@ -106,13 +106,13 @@ class LoginScreen extends StatelessWidget {
                       WTextFormField(
                         controller: passwordCtrl,
                         icon: 'assets/png/lock.png',
-                        hintText: 'Password',
+                        hintText: 'password'.tr,
                         obscureText: true,
                         validator: (v) {
                           if (v == null || v.isEmpty) {
-                            return 'Please enter password to continue';
+                            return 'valid_password'.tr;
                           } else if (v.length < 6) {
-                            return 'Password must be at least 6 characters';
+                            return 'password_must_be_at_least_8_characters'.tr;
                           }
                           return null;
                         },
@@ -144,9 +144,9 @@ class LoginScreen extends StatelessWidget {
                               Get.to(() => const SendOtpView());
                             } on MailException catch (e) {
                               String message =
-                                  e.message ?? 'Somthing went wrong';
+                                  e.message ?? 'msg_some_thing_went_wrong'.tr;
                               if (message.startsWith('null')) {
-                                message = "Authentication failed";
+                                message = "msg_auth_failed".tr;
                               }
                               AwesomeDialog(
                                 context: Get.context!,
@@ -160,7 +160,7 @@ class LoginScreen extends StatelessWidget {
                             } on SocketException catch (e) {
                               String message = e.toString();
                               if (e.toString().startsWith('null')) {
-                                message = "Server not connected";
+                                message = "msg_server_error".tr;
                               }
                               AwesomeDialog(
                                 context: Get.context!,
@@ -178,7 +178,7 @@ class LoginScreen extends StatelessWidget {
                             controller!.stop();
                           }
                         },
-                        text: 'Login',
+                        text: 'login'.tr,
                       )
                     ],
                   ),

@@ -57,9 +57,9 @@ class EnterOtpScreen extends GetView<OtpController> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const SizedBox(height: 60),
-                        const Text(
-                          "Enter OTP",
-                          style: TextStyle(
+                        Text(
+                          "enter_otp".tr,
+                          style: const TextStyle(
                             color: Colors.black,
                             fontWeight: FontWeight.bold,
                             fontSize: 30,
@@ -74,11 +74,10 @@ class EnterOtpScreen extends GetView<OtpController> {
                           ),
                         ),
                         const SizedBox(height: WSizes.defaultSpace),
-                        const Text(
-                          "An one time password sent to your email id and \n"
-                          " phone number \n",
+                        Text(
+                          "msg_otp_sent_to_your_email_and_phone".tr,
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Color(0xFF37373F)),
+                          style: const TextStyle(color: Color(0xFF37373F)),
                         ),
                         const SizedBox(height: 20),
                         _buildOtpField(context),
@@ -88,7 +87,7 @@ class EnterOtpScreen extends GetView<OtpController> {
                             controller.requestOtp();
                           },
                           child: Text(
-                            'Resend OTP',
+                            'resend_otp'.tr,
                             style: TextStyle(
                               fontSize: 16,
                               color: Theme.of(context).primaryColor,
@@ -109,7 +108,7 @@ class EnterOtpScreen extends GetView<OtpController> {
                             controller.verifyPhoneOtp(otp: code);
                             btnController.reset();
                           },
-                          text: 'Submit',
+                          text: 'continue'.tr,
                         )
                       ],
                     )
@@ -152,7 +151,7 @@ class EnterOtpScreen extends GetView<OtpController> {
     return OTPTextField(
       length: 5,
       controller: controller.fieldController,
-      width: MediaQuery.of(context).size.width * 0.7,
+      width: MediaQuery.of(context).size.width * 0.8,
       fieldWidth: 60,
       style: const TextStyle(fontSize: 17),
       textFieldAlignment: MainAxisAlignment.spaceAround,

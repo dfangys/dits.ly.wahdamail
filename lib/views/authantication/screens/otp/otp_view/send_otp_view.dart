@@ -65,10 +65,10 @@ class _SendOtpViewState extends State<SendOtpView> {
                   children: [
                     Text(
                       isError
-                          ? "Error in sending OTP"
+                          ? "error_in_sending_otp".tr
                           : isSuccess
-                              ? "OTP sent successfully"
-                              : "Sending OTP",
+                              ? "msg_otp_sent_successfully".tr
+                              : "msg_sending_otp".tr,
                       style:
                           Theme.of(context).textTheme.headlineSmall!.copyWith(
                                 color: isError
