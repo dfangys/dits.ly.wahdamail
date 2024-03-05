@@ -379,6 +379,17 @@ class MailBoxController extends GetxController {
     getStoarage.write('mails', mails.cast<String>().toList());
   }
 
+  Future sendMail(MimeMessage message, MimeMessage? msg) async {
+    try {
+      await mailService.client.sendMessage(message);
+      if (msg != null) {
+        await mailService.client.deleteMessage(msg);
+      }
+    } catch (e) {
+      logger.e(e);
+    }
+  }
+
   Future logout() async {
     try {
       await GetStorage().erase();

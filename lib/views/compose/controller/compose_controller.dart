@@ -314,11 +314,10 @@ class ComposeController extends GetxController {
       if (settingController.readReceipts()) {
         messageBuilder.requestReadReceipt();
       }
-      if (msg != null) {
-        await client.deleteMessage(msg!);
-      }
-      // send the email
-      client.sendMessage(messageBuilder.buildMimeMessage());
+      Get.find<MailBoxController>().sendMail(
+        messageBuilder.buildMimeMessage(),
+        msg,
+      );
       Get.back();
       // AwesomeDialog(
       //   context: Get.context!,
