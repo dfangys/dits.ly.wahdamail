@@ -38,6 +38,7 @@
 		<array>
 			<string>fetch</string>
 			<string>processing</string>
+			<string>remote-notification</string>
 		</array>
 		<key>UILaunchStoryboardName</key>
 		<string>LaunchScreen</string>
@@ -65,5 +66,11 @@
 			<string>sms</string>
 			<string>tel</string>
 		</array>
+		<key>NSAppleMusicUsageDescription</key>
+		<string>Explain why your app uses music</string>
+		<key>LSSupportsOpeningDocumentsInPlace</key>
+		<true/>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>App is required permission to attach the document to the mail</string>
 	</dict>
 </plist>

@@ -9,7 +9,6 @@ import 'package:get/get.dart';
 import 'package:open_app_file/open_app_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../../../services/mail_service.dart';
 
 class MailAttachments extends StatelessWidget {
@@ -132,17 +131,17 @@ class MailAttachments extends StatelessWidget {
   }
 
   Future<bool> requestPermission(Permission permission) async {
-    return true;
-    // if (await permission.isGranted) {
-    //   return true;
-    // } else {
-    //   var result = await permission.request();
-    //   if (result == PermissionStatus.granted ||
-    //       result == PermissionStatus.limited) {
-    //     return true;
-    //   }
-    // }
-    // return false;
+    // return true;
+    if (await permission.isGranted) {
+      return true;
+    } else {
+      var result = await permission.request();
+      if (result == PermissionStatus.granted ||
+          result == PermissionStatus.limited) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
