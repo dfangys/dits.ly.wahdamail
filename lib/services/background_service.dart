@@ -6,26 +6,7 @@ import 'package:logger/logger.dart';
 import 'package:wahda_bank/models/hive_mime_storage.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
-
-// @pragma('vm:entry-point')
-// void backgroundFetchHeadlessTask(HeadlessTask task) async {
-//   WidgetsFlutterBinding.ensureInitialized();
-//   DartPluginRegistrant.ensureInitialized();
-//   String taskId = task.taskId;
-//   bool isTimeout = task.timeout;
-//   if (isTimeout) {
-//     if (kDebugMode) {
-//       print("[BackgroundFetch] Headless task timed-out: $taskId");
-//     }
-//     BackgroundFetch.finish(taskId);
-//     return;
-//   }
-//   await BackgroundService.checkForNewMail();
-//   if (kDebugMode) {
-//     print('[BackgroundFetch] Headless event received.');
-//   }
-//   BackgroundFetch.finish(taskId);
-// }
+import 'package:hive_flutter/hive_flutter.dart';
 
 class BackgroundService {
   static const String keyInboxLastUid = 'inboxLastUid';
@@ -35,27 +16,6 @@ class BackgroundService {
       defaultTargetPlatform == TargetPlatform.iOS;
 
   static Logger logger = Logger();
-
-  // Future init() async {
-  //   await BackgroundFetch.configure(
-  //     BackgroundFetchConfig(
-  //       minimumFetchInterval: 15,
-  //       startOnBoot: true,
-  //       stopOnTerminate: false,
-  //       enableHeadless: true,
-  //       requiresBatteryNotLow: false,
-  //       requiresCharging: false,
-  //       requiresStorageNotLow: false,
-  //       requiresDeviceIdle: false,
-  //       requiredNetworkType: NetworkType.ANY,
-  //       forceAlarmManager: false,
-  //     ),
-  //     backgroundFetchHeadlessTask,
-  //     (String taskId) {
-  //       BackgroundFetch.finish(taskId);
-  //     },
-  //   );
-  // }
 
   Future<void> addNextUidFor() async {
     try {
@@ -83,6 +43,13 @@ class BackgroundService {
     }
     await NotificationService.instance.setup();
     await GetStorage.init();
+    await Hive.initFlutter();
+    if (!Hive.isAdapterRegistered(1)) {
+      Hive.registerAdapter(StorageMessageIdAdapter());
+    }
+    if (!Hive.isAdapterRegistered(2)) {
+      Hive.registerAdapter(StorageMessageEnvelopeAdapter());
+    }
     final prefs = GetStorage();
     int? previousUidNext = prefs.read(keyInboxLastUid);
     if (previousUidNext == null) {
