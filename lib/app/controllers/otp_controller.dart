@@ -141,9 +141,12 @@ class OtpController extends GetxController {
   }
 
   String otpPin = '';
+  bool isVerifying = false;
 
   Future verifyPhoneOtp({String? otp}) async {
     try {
+      if(isVerifying) return;
+      isVerifying = true;
       var data = await appApi.verifyOp(otp ?? otpPin);
       if (data is Map && data.containsKey('verified') && data['verified']) {
         await _storage.write('otp', true);
@@ -165,6 +168,8 @@ class OtpController extends GetxController {
         title: 'error'.tr,
         desc: e.toString(),
       ).show();
+    }finally{
+      isVerifying = false;
     }
   }
 
