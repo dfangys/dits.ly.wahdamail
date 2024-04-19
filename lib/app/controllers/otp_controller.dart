@@ -145,7 +145,7 @@ class OtpController extends GetxController {
 
   Future verifyPhoneOtp({String? otp}) async {
     try {
-      if(isVerifying) return;
+      if (isVerifying) return;
       isVerifying = true;
       var data = await appApi.verifyOp(otp ?? otpPin);
       if (data is Map && data.containsKey('verified') && data['verified']) {
@@ -160,6 +160,7 @@ class OtpController extends GetxController {
           btnOkText: 'Ok',
           btnOkColor: Theme.of(Get.context!).primaryColor,
         ).show();
+        fieldController.clear();
       }
     } catch (e) {
       AwesomeDialog(
@@ -168,7 +169,8 @@ class OtpController extends GetxController {
         title: 'error'.tr,
         desc: e.toString(),
       ).show();
-    }finally{
+      fieldController.clear();
+    } finally {
       isVerifying = false;
     }
   }
