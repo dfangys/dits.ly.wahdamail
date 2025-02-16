@@ -121,14 +121,16 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> {
         setState(() {
           isError = true;
         });
-        AwesomeDialog(
-          context: context,
-          dialogType: DialogType.error,
-          title: 'error'.tr,
-          desc: e.message,
-          btnOkOnPress: () {},
-          btnOkColor: Theme.of(context).primaryColor,
-        ).show();
+        if (mounted) {
+          AwesomeDialog(
+            context: context,
+            dialogType: DialogType.error,
+            title: 'error'.tr,
+            desc: e.message,
+            btnOkOnPress: () {},
+            btnOkColor: Theme.of(context).primaryColor,
+          ).show();
+        }
       } finally {
         btnController.stop();
       }

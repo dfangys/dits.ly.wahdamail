@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
 
 class TermsAndCondition extends StatelessWidget {
-  const TermsAndCondition({Key? key}) : super(key: key);
+  const TermsAndCondition({super.key});
 
   @override
   Widget build(BuildContext context) {

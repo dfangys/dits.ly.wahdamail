@@ -89,7 +89,7 @@ class OtpController extends GetxController {
   // ios listen for sms
   late OTPInteractor _otpInteractor;
   late OTPTextEditController autoFillOtpController;
-  Future _listenforIosSms() async {
+  Future listenforIosSms() async {
     autoFillOtpController = OTPTextEditController(
       codeLength: 5,
       onCodeReceive: (code) {
@@ -118,7 +118,7 @@ class OtpController extends GetxController {
       );
   }
 
-  Future<void> _initInteractor() async {
+  Future<void> initInteractor() async {
     _otpInteractor = OTPInteractor();
     // You can receive your app signature by using this method.
     final appSignature = await _otpInteractor.getAppSignature();

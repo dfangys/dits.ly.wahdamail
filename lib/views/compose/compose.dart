@@ -38,7 +38,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
             await controller.saveAsDraft();
           }
           controller.canPop(true);
-          Navigator.pop(context);
+          if (mounted) {
+            Navigator.pop(context);
+          }
         }
       },
       child: Scaffold(

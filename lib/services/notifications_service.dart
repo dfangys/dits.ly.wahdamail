@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 // @pragma('vm:entry-point')
@@ -12,8 +13,10 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 @pragma('vm:entry-point')
 void notificationTapBackground(NotificationResponse notificationResponse) {
-  print('notificationTapBackground');
-  print(notificationResponse);
+  if (kDebugMode) {
+    print('notificationTapBackground');
+    print(notificationResponse);
+  }
   // final data = jsonDecode(notificationResponse.payload);
   // if (data['type'] == 'message') {
   //   Get.to(() => ComposeScreen());

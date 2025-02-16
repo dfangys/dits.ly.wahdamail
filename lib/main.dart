@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -15,7 +14,7 @@ Future main() async {
   Hive.registerAdapter(StorageMessageEnvelopeAdapter());
   await Workmanager().initialize(
     backgroundFetchHeadlessTask,
-    isInDebugMode: kDebugMode,
+    isInDebugMode: false, // kDebugMode,
   );
   runApp(const MyApp());
 }

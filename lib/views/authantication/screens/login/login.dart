@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:enough_mail/enough_mail.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
@@ -21,8 +22,10 @@ import '../otp/otp_view/send_otp_view.dart';
 // ignore: must_be_immutable
 class LoginScreen extends StatelessWidget {
   LoginScreen({super.key});
-  TextEditingController emailCtrl = TextEditingController();
-  TextEditingController passwordCtrl = TextEditingController();
+  TextEditingController emailCtrl =
+      TextEditingController(text: kDebugMode ? "abdullah.salemnaseeb" : "");
+  TextEditingController passwordCtrl =
+      TextEditingController(text: kDebugMode ? "Aa102030.@" : "");
   RoundedLoadingButtonController? controller = RoundedLoadingButtonController();
   final loginFormKey = GlobalKey<FormState>();
   final api = Get.put(AppApi());

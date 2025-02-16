@@ -119,7 +119,7 @@ class _VerifyResetPasswordOtpScreenState
           passwordController.text,
           otpPin,
         );
-        if (data is Map) {
+        if (data is Map && mounted) {
           if (data.containsKey('verified') && data['verified']) {
             AwesomeDialog(
               context: context,
@@ -139,7 +139,7 @@ class _VerifyResetPasswordOtpScreenState
               desc: data['message'] ?? 'msg_some_thing_went_wrong'.tr,
             ).show();
           }
-        } else {
+        } else if (mounted) {
           AwesomeDialog(
             context: context,
             dialogType: DialogType.error,
@@ -148,19 +148,23 @@ class _VerifyResetPasswordOtpScreenState
           ).show();
         }
       } on AppApiException catch (e) {
-        AwesomeDialog(
-          context: context,
-          dialogType: DialogType.error,
-          title: 'error'.tr,
-          desc: e.message,
-        ).show();
+        if (mounted) {
+          AwesomeDialog(
+            context: context,
+            dialogType: DialogType.error,
+            title: 'error'.tr,
+            desc: e.message,
+          ).show();
+        }
       } catch (e) {
-        AwesomeDialog(
-          context: context,
-          dialogType: DialogType.error,
-          title: 'error'.tr,
-          desc: e.toString(),
-        ).show();
+        if (mounted) {
+          AwesomeDialog(
+            context: context,
+            dialogType: DialogType.error,
+            title: 'error'.tr,
+            desc: e.toString(),
+          ).show();
+        }
       }
     }
   }
@@ -177,13 +181,15 @@ class _VerifyResetPasswordOtpScreenState
         }
       }
     } on AppApiException catch (e) {
-      AwesomeDialog(
-        context: context,
-        dialogType: DialogType.error,
-        title: 'error'.tr,
-        desc: e.message,
-        btnCancelOnPress: () {},
-      ).show();
+      if (mounted) {
+        AwesomeDialog(
+          context: context,
+          dialogType: DialogType.error,
+          title: 'error'.tr,
+          desc: e.message,
+          btnCancelOnPress: () {},
+        ).show();
+      }
     } finally {}
   }
 

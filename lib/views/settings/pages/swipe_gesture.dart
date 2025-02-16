@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import '../../../app/controllers/settings_controller.dart';
-import '../../../widgets/listile/showDialogueBox.dart';
+import '../../../widgets/listile/show_dialog_box.dart';
 
 class SwipGestureSetting extends GetView<SettingController> {
   SwipGestureSetting({super.key});
