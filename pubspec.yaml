@@ -46,7 +46,7 @@ dependencies:
   flutter_contacts: ^1.1.7+1
   collection: ^1.18.0
   timeago: ^3.6.1
-  get_storage: 
+  get_storage:
   hive_flutter:
   logger: ^2.0.2+1
   enough_mail_flutter: ^2.0.0
@@ -74,6 +74,7 @@ dependencies:
   url_launcher: ^6.2.5
   open_app_file: ^4.0.2
   clipboard: ^0.1.3
+  dart_imap:
 
 dev_dependencies:
   flutter_test:

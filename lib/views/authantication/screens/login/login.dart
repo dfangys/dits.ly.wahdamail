@@ -16,6 +16,7 @@ import 'package:wahda_bank/views/authantication/screens/reset_password_screen/re
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
+import 'package:wahda_bank/views/view/screens/home/home.dart';
 import '../../../../app/controllers/otp_controller.dart';
 import '../otp/otp_view/send_otp_view.dart';
 
