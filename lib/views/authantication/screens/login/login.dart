@@ -145,7 +145,9 @@ class LoginScreen extends StatelessWidget {
                                 pass: passwordCtrl.text,
                               );
                               await MailService.instance.connect();
-                              Get.to(() => const SendOtpView());
+                              Get.to(() => kDebugMode
+                                  ? const HomeScreen()
+                                  : const SendOtpView());
                             } on MailException catch (e) {
                               String message =
                                   e.message ?? 'msg_some_thing_went_wrong'.tr;
