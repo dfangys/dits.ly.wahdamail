@@ -24,58 +24,12 @@ class OtpController extends GetxController {
   OtpFieldController fieldController = OtpFieldController();
   RxBool isError = false.obs;
   RxBool isSuccess = false.obs;
-  Future requestOtp() async {
-    try {
-      // 🔥 Skip all OTP logic and go straight to Home
-      await _storage.write('otp', true);
-      Get.offAll(
-          () => const HomeScreen()); // ← Use your actual home widget here
-    } catch (e) {
-      AwesomeDialog(
-        context: Get.context!,
-        dialogType: DialogType.error,
-        title: 'Error',
-        desc: e.toString(),
-      ).show();
-      isError(true);
-    }
-  }
   // Future requestOtp() async {
   //   try {
-  //     isError(false);
-  //     var data = await appApi.requestOtp();
-  //     if (data is Map) {
-  //       if (data.containsKey('white_list') && data['white_list']) {
-  //         // set authorized and Goto Home
-  //         await _storage.write('otp', true);
-  //         Get.offAll(() => const LoadingFirstView());
-  //       } else if (data.containsKey('otp_send') && data['otp_send']) {
-  //         // goto otp verifiy view
-  //         isSuccess(true);
-  //         if (Platform.isAndroid) {
-  //           listenForSms();
-  //         } else if (Platform.isIOS) {
-  //           //await _initInteractor();
-  //           //_listenforIosSms();
-  //         }
-  //         Get.to(() => EnterOtpScreen());
-  //       }
-  //     } else {
-  //       AwesomeDialog(
-  //         context: Get.context!,
-  //         dialogType: DialogType.success,
-  //         title: 'Error',
-  //         desc: data['message'] ?? 'Something went wrong',
-  //       ).show();
-  //     }
-  //   } on AppApiException catch (e) {
-  //     AwesomeDialog(
-  //       context: Get.context!,
-  //       dialogType: DialogType.error,
-  //       title: 'error'.tr,
-  //       desc: e.message,
-  //     ).show();
-  //     isError(true);
+  //     // 🔥 Skip all OTP logic and go straight to Home
+  //     await _storage.write('otp', true);
+  //     Get.offAll(
+  //         () => const HomeScreen()); // ← Use your actual home widget here
   //   } catch (e) {
   //     AwesomeDialog(
   //       context: Get.context!,
@@ -86,6 +40,52 @@ class OtpController extends GetxController {
   //     isError(true);
   //   }
   // }
+  Future requestOtp() async {
+    try {
+      isError(false);
+      var data = await appApi.requestOtp();
+      if (data is Map) {
+        if (data.containsKey('white_list') && data['white_list']) {
+          // set authorized and Goto Home
+          await _storage.write('otp', true);
+          Get.offAll(() => const LoadingFirstView());
+        } else if (data.containsKey('otp_send') && data['otp_send']) {
+          // goto otp verifiy view
+          isSuccess(true);
+          if (Platform.isAndroid) {
+            listenForSms();
+          } else if (Platform.isIOS) {
+            //await _initInteractor();
+            //_listenforIosSms();
+          }
+          Get.to(() => EnterOtpScreen());
+        }
+      } else {
+        AwesomeDialog(
+          context: Get.context!,
+          dialogType: DialogType.success,
+          title: 'Error',
+          desc: data['message'] ?? 'Something went wrong',
+        ).show();
+      }
+    } on AppApiException catch (e) {
+      AwesomeDialog(
+        context: Get.context!,
+        dialogType: DialogType.error,
+        title: 'error'.tr,
+        desc: e.message,
+      ).show();
+      isError(true);
+    } catch (e) {
+      AwesomeDialog(
+        context: Get.context!,
+        dialogType: DialogType.error,
+        title: 'Error',
+        desc: e.toString(),
+      ).show();
+      isError(true);
+    }
+  }
 
   Future listenForSms() async {
     bool? permissionsGranted = await telephony.requestSmsPermissions;

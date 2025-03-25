@@ -8,6 +8,9 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/app/apis/app_api.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/controllers/selection_controller.dart';
+import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
@@ -145,9 +148,7 @@ class LoginScreen extends StatelessWidget {
                                 pass: passwordCtrl.text,
                               );
                               await MailService.instance.connect();
-                              Get.to(() => kDebugMode
-                                  ? const HomeScreen()
-                                  : const SendOtpView());
+                              Get.to(() => const SendOtpView());
                             } on MailException catch (e) {
                               String message =
                                   e.message ?? 'msg_some_thing_went_wrong'.tr;

@@ -31,7 +31,7 @@ class MailService {
     if (mail != null && pass != null) {
       await setAccount(mail, pass);
     }
-    // EmailNotificationService().connectAndListen();
+    // EmailNotificationService().imapListener();
     return isClientSet = setClientAndAccount(email, password);
   }
 
