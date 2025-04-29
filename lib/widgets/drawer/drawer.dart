@@ -1,7 +1,9 @@
 import 'package:enough_mail/enough_mail.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/views/view/screens/drawer/terms_and_conditions.dart';
 import 'package:wahda_bank/views/view/screens/drawer/contact_us/Contact_us.dart';
@@ -51,7 +53,7 @@ class Drawer1 extends StatelessWidget {
                     ),
                   ),
                   WDraweTile(
-                    image: WImages.compose,
+                    image: Iconsax.edit5,
                     text: 'compose'.tr,
                     onTap: () {
                       Get.to(() => const ComposeScreen());
@@ -101,7 +103,7 @@ class Drawer1 extends StatelessWidget {
             ),
             divider(),
             WDraweTile(
-              image: WImages.files,
+              image: CupertinoIcons.doc_text,
               text: 'terms_and_condition'.tr,
               onTap: () {
                 Get.to(() => const TermsAndCondition());

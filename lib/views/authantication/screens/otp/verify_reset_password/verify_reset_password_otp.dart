@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:otp_autofill/otp_autofill.dart';
 import 'package:otp_text_field/otp_text_field.dart';
 import 'package:otp_text_field/style.dart';
@@ -281,7 +282,7 @@ class _VerifyResetPasswordOtpScreenState
                         key: formKey,
                         child: WTextFormField(
                           controller: passwordController,
-                          icon: WImages.lock,
+                          icon: Icon(Iconsax.lock_1),
                           hintText: 'password'.tr,
                           obscureText: true,
                           validator: (value) {

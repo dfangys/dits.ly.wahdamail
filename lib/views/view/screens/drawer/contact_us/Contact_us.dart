@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
@@ -42,7 +43,13 @@ class ContactUsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 30),
-                  Image.asset(WImages.contactMail),
+                  const Stack(
+                    children: [
+                      Icon(Iconsax.sms, size: WSizes.iconXlg,color: Colors.green,),
+                      // Icon(Iconsax.sms, size: WSizes.iconLg,),
+
+                    ],
+                  ),
                   const SizedBox(height: 10),
                   const Text(
                     "info@wahdabank.com",
@@ -75,7 +82,13 @@ class ContactUsScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const SizedBox(height: 30),
-                  Image.asset(WImages.contactPhone),
+                  const Stack(
+                    children: [
+                      Icon(Iconsax.call_calling4, size: WSizes.iconXlg,color: Colors.green,),
+                      Icon(Iconsax.call, size: WSizes.iconXlg,),
+
+                    ],
+                  ),
                   const SizedBox(height: 10),
                   const Text(
                     "+218 61 2224256",

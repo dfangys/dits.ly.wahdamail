@@ -29,7 +29,8 @@ class SelectionBottomNav extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           IconButtons(
-            image: WImages.delete,
+            isImage:false,
+            icon: CupertinoIcons.trash,
             onTap: () {
               showCupertinoModalPopup(
                 context: context,

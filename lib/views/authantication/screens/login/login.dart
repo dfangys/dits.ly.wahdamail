@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/app/apis/app_api.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
@@ -92,7 +93,7 @@ class LoginScreen extends StatelessWidget {
                       const SizedBox(height: 40),
                       WTextFormField(
                         controller: emailCtrl,
-                        icon: "assets/png/mail.png",
+                        icon: Icon(Iconsax.sms),
                         hintText: 'email'.tr,
                         obscureText: false,
                         domainFix: true,
@@ -112,7 +113,7 @@ class LoginScreen extends StatelessWidget {
                       ),
                       WTextFormField(
                         controller: passwordCtrl,
-                        icon: 'assets/png/lock.png',
+                        icon: Icon(Iconsax.lock_1),
                         hintText: 'password'.tr,
                         obscureText: true,
                         validator: (v) {

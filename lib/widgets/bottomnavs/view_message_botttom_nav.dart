@@ -18,7 +18,7 @@ class InboxBottomNavBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           IconButtons(
-            image: WImages.delete,
+            icon: CupertinoIcons.trash,
             onTap: () {
               showCupertinoModalPopup(
                 context: context,

@@ -1,6 +1,7 @@
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:iconsax/iconsax.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/app/apis/app_api.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
@@ -59,7 +60,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> {
                     width: MediaQuery.of(context).size.width - 40,
                     child: WTextFormField(
                       controller: emailController,
-                      icon: WImages.mail,
+                      icon: Icon(Iconsax.sms),
                       hintText: 'email'.tr,
                       obscureText: false,
                       domainFix: true,
