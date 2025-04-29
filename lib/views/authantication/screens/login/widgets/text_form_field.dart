@@ -7,7 +7,8 @@ class WTextFormField extends StatelessWidget {
   const WTextFormField({
     super.key,
     required this.controller,
-    required this.icon,
+    this.image = '',
+    this.icon = const SizedBox(),
     required this.hintText,
     required this.obscureText,
     required this.validator,
@@ -15,7 +16,8 @@ class WTextFormField extends StatelessWidget {
   });
 
   final TextEditingController controller;
-  final String icon;
+  final String image;
+  final Widget icon;
   final String hintText;
   final bool obscureText;
   final String? Function(String?)? validator;
@@ -43,7 +45,7 @@ class WTextFormField extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 12),
             height: 2,
             width: 2,
-            child: Image.asset(icon),
+            child: image != ''?Image.asset(image):icon,
           ),
           suffixText: domainFix ? WText.emailSuffix : '',
           contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
