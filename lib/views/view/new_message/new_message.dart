@@ -31,11 +31,11 @@ class NewMessageScreen extends StatelessWidget {
                     CupertinoIcons.add,
                     color: Colors.green,
                   )),
-              InkWell(
-                onTap: () => showCupertinoDialog(
+              IconButton(
+                onPressed: () => showCupertinoDialog(
                     context: context, builder: createDialog),
-                child: const ImageIcon(
-                  AssetImage(WImages.sent),
+                icon: const Icon(
+                  CupertinoIcons.paperplane,
                   color: Colors.green,
                 ),
               ),
