@@ -30,7 +30,10 @@ part 'hive_mime_storage.g.dart';
 ///    clear 1, 2 and 3
 /// store/flag message:
 ///    update 2 and 3
-class HiveMailboxMimeStorage extends OfflineMimeStorage {
+class HiveMailboxMimeStorage {
+
+
+
   HiveMailboxMimeStorage({
     required MailAccount mailAccount,
     required Mailbox mailbox,
@@ -66,6 +69,8 @@ class HiveMailboxMimeStorage extends OfflineMimeStorage {
   // static Future<void> initGlobal() async {
   //   await Hive.initFlutter();
   // }
+
+
 
   @override
   Future<void> init() {
