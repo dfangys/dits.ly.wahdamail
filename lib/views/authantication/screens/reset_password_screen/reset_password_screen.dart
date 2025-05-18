@@ -1,37 +1,92 @@
+import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/views/authantication/screens/reset_password_screen/reset_text_field.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 
-// ignore: must_be_immutable
-class ResetPasswordScreen extends StatelessWidget {
+class ResetPasswordScreen extends StatefulWidget {
   ResetPasswordScreen({super.key});
-  bool isBusy = false;
-  final TextEditingController emailController = TextEditingController();
+
+  @override
+  State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
+}
+
+class _ResetPasswordScreenState extends State<ResetPasswordScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.width > 600;
+
     return Scaffold(
       backgroundColor: Theme.of(context).primaryColor,
-      body: Column(
-        children: [
-          const SizedBox(height: 80),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: SvgPicture.asset(
-              WImages.logo,
-              fit: BoxFit.cover,
-              // ignore: deprecated_member_use
-              color: Colors.white,
-              width: Get.width * 0.7,
+      body: SafeArea(
+        child: Column(
+          children: [
+            SizedBox(height: isTablet ? 80 : 60),
+            // Logo with animation
+            FadeTransition(
+              opacity: _fadeAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: Padding(
+                  padding: EdgeInsets.all(isTablet ? 30 : 20),
+                  child: SvgPicture.asset(
+                    WImages.logo,
+                    fit: BoxFit.cover,
+                    // ignore: deprecated_member_use
+                    color: Colors.white,
+                    width: Get.width * (isTablet ? 0.6 : 0.7),
+                  ),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 30),
-          const Expanded(
-            child: ResetPasswordTextField(),
-          ),
-        ],
+            SizedBox(height: isTablet ? 30 : 20),
+            // Main content container with animation
+            Expanded(
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideAnimation,
+                  child: const ResetPasswordTextField(),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

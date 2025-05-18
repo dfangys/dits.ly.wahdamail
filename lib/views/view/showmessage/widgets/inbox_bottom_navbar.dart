@@ -1,145 +1,224 @@
 import 'package:enough_mail/enough_mail.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/views/compose/compose.dart';
-import 'package:wahda_bank/utills/constants/image_strings.dart';
-
-import '../../../../app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/utills/theme/app_theme.dart';
 
 class ViewMessageBottomNav extends StatelessWidget {
-  ViewMessageBottomNav({
+  const ViewMessageBottomNav({
     super.key,
     required this.mailbox,
     required this.message,
   });
 
-  final MimeMessage message;
   final Mailbox mailbox;
-  final mailController = Get.find<MailBoxController>();
+  final MimeMessage message;
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<MailBoxController>();
+    final isTablet = MediaQuery.of(context).size.width > 600;
+
     return Container(
-      height: 60,
-      color: const Color.fromRGBO(255, 255, 255, 1).withOpacity(0.8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          IconButtons(
-            image: WImages.delete,
-            onTap: () {
-              showCupertinoModalPopup(
-                context: context,
-                builder: (context) => CupertinoActionSheet(
-                  title: Text('are_you_u_wtd'.tr),
-                  actions: [
-                    CupertinoActionSheetAction(
-                      onPressed: () {
-                        mailController.deleteMails([message], mailbox);
-                        Get.back();
-                        Get.back();
-                      },
-                      isDestructiveAction: true,
-                      child: Text('delete'.tr),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
+        boxShadow: AppTheme.bottomNavShadow,
+      ),
+      padding: EdgeInsets.only(
+        top: 12,
+        bottom: 12 + MediaQuery.of(context).padding.bottom,
+        left: isTablet ? 24 : 16,
+        right: isTablet ? 24 : 16,
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildActionButton(
+              context: context,
+              icon: Icons.archive_outlined,
+              label: 'Archive',
+              onTap: () {
+                // Find archive mailbox
+                final archiveBox = controller.mailboxes.firstWhereOrNull(
+                      (box) => box.name.toLowerCase() == 'archive',
+                );
+
+                if (archiveBox != null) {
+                  controller.moveMails(
+                    [message],
+                    mailbox,
+                    archiveBox,
+                  );
+                  Get.back();
+                } else {
+                  // Show error or create archive folder
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Archive folder not found'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppTheme.errorColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
-                  ],
-                  cancelButton: CupertinoActionSheetAction(
-                    onPressed: () {
-                      Get.back();
-                    },
-                    child: Text('cancel'.tr),
+                  );
+                }
+              },
+            ),
+
+            _buildActionButton(
+              context: context,
+              icon: Icons.delete_outline_rounded,
+              label: 'Delete',
+              onTap: () {
+                // Show delete confirmation
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.red[700],
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text('Delete Message'),
+                      ],
+                    ),
+                    content: const Text('Are you sure you want to delete this message? This action cannot be undone.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Get.back(),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: AppTheme.textPrimaryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          // Delete message
+                          controller.deleteMessages([message], mailbox);
+                          Get.back(); // Close dialog
+                          Get.back(); // Return to previous screen
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red[700],
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'Delete',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    backgroundColor: AppTheme.surfaceColor,
+                    elevation: 4,
                   ),
-                ),
-              );
-            },
-          ),
-          IconButtons(
-            icon: CupertinoIcons.reply,
-            isImage: false,
-            onTap: () {
-              Get.to(() => const ComposeScreen(), arguments: {
-                'message': message,
-                'type': 'reply',
-              });
-            },
-          ),
-          IconButtons(
-            icon: CupertinoIcons.reply_all,
-            isImage: false,
-            onTap: () {
-              Get.to(() => const ComposeScreen(), arguments: {
-                'message': message,
-                'type': 'reply_all',
-              });
-            },
-          ),
-          IconButtons(
-            icon: CupertinoIcons.forward,
-            isImage: false,
-            onTap: () {
-              Get.to(() => const ComposeScreen(), arguments: {
-                'message': message,
-                'type': 'forward',
-              });
-            },
-          )
-        ],
+                );
+              },
+              destructive: true,
+            ),
+
+            _buildActionButton(
+              context: context,
+              icon: Icons.mark_email_unread_rounded,
+              label: 'Unread',
+              onTap: () {
+                controller.markAsUnread([message], mailbox);
+                Get.back();
+              },
+            ),
+
+            _buildActionButton(
+              context: context,
+              icon: Icons.forward_rounded,
+              label: 'Forward',
+              onTap: () {
+                Get.toNamed('/compose', arguments: {
+                  'replyTo': message,
+                  'action': 'forward',
+                });
+              },
+            ),
+
+            _buildActionButton(
+              context: context,
+              icon: Icons.reply_all_rounded,
+              label: 'Reply All',
+              onTap: () {
+                Get.toNamed('/compose', arguments: {
+                  'replyTo': message,
+                  'action': 'replyAll',
+                });
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
-}
 
-Widget bottomButton(VoidCallback onTap, String text, IconData icon) {
-  return InkWell(
-    onTap: onTap,
-    child: Container(
-      width: 70,
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        // border: Border.all(),
-        color: Colors.blue.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+  Widget _buildActionButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool destructive = false,
+  }) {
+    final isTablet = MediaQuery.of(context).size.width > 600;
 
-class IconButtons extends StatelessWidget {
-  const IconButtons(
-      {super.key, this.icon, this.isImage = true, this.image, this.onTap});
-  final IconData? icon;
-  final bool isImage;
-  final String? image;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: SizedBox(
-        height: 25,
-        child: isImage
-            ? Image.asset(
-                image!,
-                color: Colors.blue,
-              )
-            : Icon(
-                icon,
-                color: Colors.blue,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isTablet ? 12 : 8,
+          vertical: 8,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: isTablet ? 48 : 40,
+              height: isTablet ? 48 : 40,
+              decoration: BoxDecoration(
+                color: destructive
+                    ? Colors.red.withOpacity(0.1)
+                    : AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(
+                icon,
+                size: isTablet ? 24 : 20,
+                color: destructive ? Colors.red : AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: destructive ? Colors.red : AppTheme.textPrimaryColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

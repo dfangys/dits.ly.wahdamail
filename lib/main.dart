@@ -6,8 +6,10 @@ import 'package:wahda_bank/services/bg_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
 import 'package:workmanager/workmanager.dart';
 import 'models/hive_mime_storage.dart';
+import 'package:wahda_bank/utills/fixed_imports.dart';
 
 Future main() async {
+  FixedImports.init();
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
 

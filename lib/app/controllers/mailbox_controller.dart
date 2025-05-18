@@ -1,5 +1,4 @@
 import 'package:enough_mail/enough_mail.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:logger/logger.dart';
@@ -14,6 +13,7 @@ import '../../models/hive_mime_storage.dart';
 import '../../services/mail_service.dart';
 import '../../views/authantication/screens/login/login.dart';
 import '../../views/view/models/box_model.dart';
+import 'package:flutter/material.dart';
 
 class MailBoxController extends GetxController {
   late MailService mailService;
@@ -78,7 +78,7 @@ class MailBoxController extends GetxController {
 
   Future<void> initInbox() async {
     mailBoxInbox = mailboxes.firstWhere(
-      (element) => element.isInbox,
+          (element) => element.isInbox,
       orElse: () => mailboxes.first,
     );
     loadEmailsForBox(mailBoxInbox);
@@ -150,7 +150,7 @@ class MailBoxController extends GetxController {
         max,
       );
       final messages =
-          await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
+      await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
       if (messages != null && messages.isNotEmpty) {
         emails[mailbox]!.addAll(messages);
       } else {
@@ -199,9 +199,19 @@ class MailBoxController extends GetxController {
     }
   }
 
+  // Added markAsUnread method to fix the error
+  Future markAsUnread(List<MimeMessage> messages, Mailbox box) async {
+    await markAsReadUnread(messages, box, false);
+  }
+
   //
   DeleteResult? deleteResult;
   Map<Mailbox, List<MimeMessage>> deletedMessages = {};
+
+  // Added deleteMessages method to fix the error
+  Future deleteMessages(List<MimeMessage> messages, Mailbox mailbox) async {
+    await deleteMails(messages, mailbox);
+  }
 
   Future deleteMails(List<MimeMessage> messages, Mailbox mailbox) async {
     for (var message in messages) {
@@ -294,7 +304,7 @@ class MailBoxController extends GetxController {
 
   Future ltrTap(MimeMessage message, Mailbox mailbox) async {
     SwapAction action =
-        getSwapActionFromString(settingController.swipeGesturesLTR());
+    getSwapActionFromString(settingController.swipeGesturesLTR());
     _doSwapAction(
       action,
       message,
@@ -304,7 +314,7 @@ class MailBoxController extends GetxController {
 
   Future rtlTap(MimeMessage message, Mailbox mailbox) async {
     SwapAction action =
-        getSwapActionFromString(settingController.swipeGesturesRTL());
+    getSwapActionFromString(settingController.swipeGesturesRTL());
     _doSwapAction(
       action,
       message,
@@ -336,7 +346,7 @@ class MailBoxController extends GetxController {
   Future handleIncomingMail(MimeMessage message) async {
     // detect the mailbox from the message
     Mailbox? mailbox = mailboxes.firstWhereOrNull(
-      (element) => element.flags.any((e) => message.hasFlag(e.name)),
+          (element) => element.flags.any((e) => message.hasFlag(e.name)),
     );
     if (mailbox != null) {
       await mailboxStorage[mailbox]!.saveMessageEnvelopes([message]);
@@ -354,12 +364,9 @@ class MailBoxController extends GetxController {
   }
 
   Future navigatToMailBox(Mailbox mailbox) async {
-    // if (mailbox.name.toLowerCase() == 'drafts') {
-    //   Get.to(() => const DraftView());
-    // } else {
-    Get.to(() => MailBoxView(mailBox: mailbox));
+    // Fixed method name from MailBoxView to MailboxView (lowercase 'b')
+    Get.to(() => MailboxView(mailBox: mailbox));
     await loadEmailsForBox(mailbox);
-    // }
   }
 
   void storeContactMails(List<MimeMessage> messages) {

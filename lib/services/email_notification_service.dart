@@ -1,168 +1,130 @@
-// import 'dart:async';
+import 'dart:async';
 
-// import 'package:enough_mail/enough_mail.dart';
-// import 'package:flutter/foundation.dart';
+import 'package:enough_mail/enough_mail.dart';
+import 'package:flutter/foundation.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/services/notifications_service.dart';
 
-// class EmailNotificationService {
-//   // late ImapClient _client;
-//   final String _host =
-//       'wbmail.wahdabank.com.ly'; // Replace with your IMAP server
-//   final String _username = kDebugMode ? "abdullah.salemnaseeb" : "";
-//   final String _password = kDebugMode ? "Aa102030.@" : "";
+class EmailNotificationService {
+  static EmailNotificationService? _instance;
+  static EmailNotificationService get instance {
+    return _instance ??= EmailNotificationService._();
+  }
 
-//   // Future<void> connectAndListen({bool useIdle = true}) async {
-//   //   _client = ImapClient(
-//   //     isLogEnabled: true,
-//   //   );
+  EmailNotificationService._();
 
-//   //   try {
-//   //     if (kDebugMode) {
-//   //       print("🔌 Connecting to IMAP server...");
-//   //     }
+  // Remove separate client and use the one from MailService
+  Timer? _pollingTimer;
+  bool _isListening = false;
+  final Duration _pollInterval = const Duration(seconds: 30);
 
-//   //     // Use standard IMAP SSL port (993)
-//   //     await _client.connectToServer(_host, 993, isSecure: false).then((value) {
-//   //       if (kDebugMode) {
-//   //         print("✅ IMAP Connected successfully");
-//   //       }
-//   //     });
+  // Initialize without creating a separate connection
+  Future<void> initialize() async {
+    // No need to read credentials or create connection here
+    // We'll use the existing MailService client
+  }
 
-//   //     // Or use STARTTLS if needed
-//   //     // await _client.connectToServer(_host, 45734, isSecure: false);
-//   //     // await _client.startTls();
+  Future<bool> connectAndListen() async {
+    if (_isListening) {
+      if (kDebugMode) {
+        print("ℹ️ Already listening for emails");
+      }
+      return true;
+    }
 
-//   //     await _client.login(_username, _password);
-//   //     if (kDebugMode) {
-//   //       print("✅ IMAP Logged in successfully");
-//   //     }
+    // Get the mail service instance
+    final mailService = MailService.instance;
 
-//   //     await _client.selectInbox();
-//   //     if (kDebugMode) {
-//   //       print("📩 IMAP Inbox selected");
-//   //     }
+    // Check if mail service is connected
+    if (!mailService.isClientSet || !mailService.client.isConnected) {
+      if (kDebugMode) {
+        print("⚠️ Mail service not connected yet, will try again later");
+      }
+      // Schedule a retry after mail service is connected
+      Future.delayed(const Duration(seconds: 5), () {
+        connectAndListen();
+      });
+      return false;
+    }
 
-//   //     if (useIdle) {
-//   //       if (kDebugMode) {
-//   //         print("🔄 Listening for new emails (IMAP IDLE mode)...");
-//   //       }
-//   //       _client.enable(['IDLE']);
-//   //       _client.idleStart();
-//   //     }
-//   //   } catch (e) {
-//   //     if (kDebugMode) {
-//   //       print("❌ IMAP Connection Error: $e");
-//   //     }
-//   //   }
-//   // }
+    try {
+      if (kDebugMode) {
+        print("🔌 Setting up email notifications using existing mail connection");
+      }
 
-//   // void disconnect() {
-//   //   _client.logout();
-//   //   if (kDebugMode) {
-//   //     print("🔌 Disconnected from IMAP server");
-//   //   }
-//   // }
+      // Skip IDLE capability check and just use polling mode
+      // This is more compatible with different versions of enough_mail
+      if (kDebugMode) {
+        print("ℹ️ Using polling mode for notifications (more compatible)");
+      }
 
-//   Future<void> imapListener() async {
-//     final client = ImapClient(isLogEnabled: false);
-//     try {
-//       await client.connectToServer(_host, 993, isSecure: false);
-//       await client.login(_username, _password);
-//       await client.selectInbox();
+      // Set up listeners for mail events
+      _setupMessageListener(mailService.client);
+      _isListening = true;
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print("❌ Email notification setup error: $e");
+      }
+      _isListening = false;
+      return false;
+    }
+  }
 
-//       // Initial fetch to get the current message count
-//       int lastMessageCount =
-//           (await client.fetchRecentMessages()).messages.length;
+  void _setupMessageListener(MailClient mailClient) {
+    // Use the client's event bus to listen for new messages
+    // These listeners will be in addition to the ones in mail_service.dart
+    // but they'll be handling different aspects (notifications vs UI updates)
+    mailClient.eventBus.on<MailLoadEvent>().listen(_handleMailEvent);
+    mailClient.eventBus.on<MailUpdateEvent>().listen(_handleMailEvent);
 
-//       // Polling interval (adjust as needed)
-//       const Duration pollInterval = Duration(seconds: 3);
+    if (kDebugMode) {
+      print("⏳ Email notification listeners active");
+    }
+  }
 
-//       Timer.periodic(pollInterval, (Timer timer) async {
-//         try {
-//           final currentMessageCount =
-//               (await client.fetchRecentMessages()).messages.length;
+  void _handleMailEvent(dynamic event) async {
+    if (kDebugMode) {
+      print("📬 Mail event received for notification: ${event.runtimeType}");
+    }
 
-//           if (currentMessageCount > lastMessageCount) {
-//             // New messages received
-//             final newMessagesCount = currentMessageCount - lastMessageCount;
-//             final fetchResult = await client.fetchRecentMessages(
-//                 messageCount: newMessagesCount, criteria: 'BODY.PEEK[]');
+    // Process the message for notification
+    if (event is MailLoadEvent || event is MailUpdateEvent) {
+      MimeMessage message;
+      if (event is MailLoadEvent) {
+        message = event.message;
+      } else {
+        message = (event as MailUpdateEvent).message;
+      }
 
-//             for (final message in fetchResult.messages) {
-//               printMessage(message); // Process the new message
-//               // or your notification logic here.
-//             }
-//             lastMessageCount = currentMessageCount; // Update last count
-//           }
-//         } on ImapException catch (e) {
-//           if (kDebugMode) {
-//             print('IMAP poll failed with $e');
-//           }
-//           // Handle potential errors during polling (e.g., reconnect)
-//         }
-//       });
+      if (!message.isSeen) {
+        _processNewMessage(message);
+      }
+    }
+  }
 
-//       // You might want to handle app closure or interruptions here
-//       // by canceling the timer and logging out.
-//     } on ImapException catch (e) {
-//       if (kDebugMode) {
-//         print('IMAP connection failed with $e');
-//       }
-//     }
-//   }
+  void _processNewMessage(MimeMessage message) {
+    if (kDebugMode) {
+      print('📨 New message received for notification:');
+      print('From: ${message.from}');
+      print('Subject: ${message.decodeSubject()}');
+    }
 
-//   void printMessage(MimeMessage message) {
-//     if (kDebugMode) {
-//       print('From: ${message.from}');
-//       print('Subject: ${message.body}');
-//       print(
-//           'Body: ${message.decodeTextPlainPart()}'); // Or decodeTextHtmlPart()
-//       print('---');
-//     }
-//   }
-// }
+    // Show notification
+    NotificationService.instance.showFlutterNotification(
+      message.from?[0].email ?? 'Unknown Sender',
+      message.decodeSubject() ?? 'New Mail',
+      {'action': 'inbox', 'message': message.decodeSubject() ?? ''},
+    );
+  }
 
-
-
-
-// // Future<void> imapListener() async {
-// //   final client = ImapClient(isLogEnabled: false);
-// //   try {
-// //     await client.connectToServer(imapServerHost, imapServerPort,
-// //         isSecure: isImapServerSecure);
-// //     await client.login(userName, password);
-// //     await client.selectInbox();
-
-// //     // Initial fetch to get the current message count
-// //     int lastMessageCount = (await client.fetchMessageCount()) ?? 0;
-
-// //     // Polling interval (adjust as needed)
-// //     const Duration pollInterval = Duration(seconds: 30);
-
-// //     Timer.periodic(pollInterval, (Timer timer) async {
-// //       try {
-// //         final currentMessageCount = (await client.fetchMessageCount()) ?? 0;
-
-// //         if (currentMessageCount > lastMessageCount) {
-// //           // New messages received
-// //           final newMessagesCount = currentMessageCount - lastMessageCount;
-// //           final fetchResult = await client.fetchRecentMessages(
-// //               messageCount: newMessagesCount, criteria: 'BODY.PEEK[]');
-
-// //           for (final message in fetchResult.messages) {
-// //             printMessage(message); // Process the new message
-// //             // or your notification logic here.
-// //           }
-// //           lastMessageCount = currentMessageCount; // Update last count
-// //         }
-// //       } on ImapException catch (e) {
-// //         print('IMAP poll failed with $e');
-// //         // Handle potential errors during polling (e.g., reconnect)
-// //       }
-// //     });
-
-// //     // You might want to handle app closure or interruptions here
-// //     // by canceling the timer and logging out.
-// //   } on ImapException catch (e) {
-// //     print('IMAP connection failed with $e');
-// //   }
-// // }
+  void disconnect() {
+    _pollingTimer?.cancel();
+    _isListening = false;
+    if (kDebugMode) {
+      print("🔌 Email notification service stopped");
+    }
+    // We don't disconnect the client here since it's managed by mail_service.dart
+  }
+}

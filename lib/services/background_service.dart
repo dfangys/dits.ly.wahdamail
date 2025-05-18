@@ -13,7 +13,7 @@ class BackgroundService {
 
   static bool get isSupported =>
       defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.iOS;
+          defaultTargetPlatform == TargetPlatform.iOS;
 
   static Logger logger = Logger();
 
@@ -74,7 +74,7 @@ class BackgroundService {
         isUidSequence: true,
       );
       final mimeMessages =
-          await MailService.instance.client.fetchMessageSequence(
+      await MailService.instance.client.fetchMessageSequence(
         sequence,
         fetchPreference: FetchPreference.envelope,
       );

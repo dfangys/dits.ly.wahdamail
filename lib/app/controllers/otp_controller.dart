@@ -13,6 +13,7 @@ import 'package:wahda_bank/views/authantication/screens/login/login.dart';
 import 'package:wahda_bank/views/authantication/screens/otp/enter_otp/enter_otp.dart';
 import 'package:wahda_bank/views/view/screens/first_loading_view.dart';
 import 'package:wahda_bank/views/view/screens/home/home.dart';
+import 'package:wahda_bank/utills/helpers/widget_parameter_fixes.dart';
 
 class OtpController extends GetxController {
   final appApi = Get.find<AppApi>();
