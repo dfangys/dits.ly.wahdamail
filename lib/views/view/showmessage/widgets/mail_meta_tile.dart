@@ -1,10 +1,12 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/widgets/search/search.dart';
+import 'package:wahda_bank/utills/theme/app_theme.dart';
 
 class MailMetaTile extends StatelessWidget {
   const MailMetaTile({super.key, required this.message, required this.isShow});
@@ -18,13 +20,15 @@ class MailMetaTile extends StatelessWidget {
       builder: (context, value, child) => AnimatedCrossFade(
         firstChild: const SizedBox.shrink(),
         secondChild: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.only(top: 16.0),
           child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(15),
+              color: AppTheme.backgroundColor,
+              borderRadius: BorderRadius.circular(AppTheme.borderRadius),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+            padding: const EdgeInsets.all(16.0),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 buildMailInfo(
                   "From",
@@ -51,9 +55,9 @@ class MailMetaTile extends StatelessWidget {
                       : [],
                 ),
                 buildMailInfo(
-                  "Time",
+                  "Date",
                   [
-                    DateFormat().format(
+                    DateFormat("EEEE, MMMM d, yyyy 'at' h:mm a").format(
                       message.decodeDate() ?? DateTime.now(),
                     ),
                   ],
@@ -63,9 +67,11 @@ class MailMetaTile extends StatelessWidget {
           ),
         ),
         crossFadeState:
-            value ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-        duration: const Duration(milliseconds: 500),
-        firstCurve: Curves.bounceOut,
+        value ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+        duration: AppTheme.mediumAnimationDuration,
+        sizeCurve: Curves.easeInOut,
+        firstCurve: Curves.easeOut,
+        secondCurve: Curves.easeIn,
       ),
     );
   }
@@ -73,75 +79,123 @@ class MailMetaTile extends StatelessWidget {
 
 Widget buildMailInfo(String title, List<String> data) {
   if (data.isEmpty) return const SizedBox.shrink();
-  data.join(",");
+
   return Padding(
-    padding: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.only(bottom: 12),
     child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: 60,
           child: Text(
-            "$title :",
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            "$title:",
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondaryColor,
+              fontSize: 14,
+            ),
           ),
         ),
         Expanded(
-          child: GestureDetector(
-            onTap: () {
-              if (title.startsWith('Time')) {
-                return;
-              }
-              showCupertinoModalPopup(
-                context: Get.context!,
-                builder: (context) => CupertinoActionSheet(
-                  message: Text(data.join(' ')),
-                  actions: [
-                    CupertinoActionSheetAction(
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(
-                          text: data.join(' '),
-                        ));
-                        Navigator.pop(context);
-                      },
-                      child: const Text("Copy"),
-                    ),
-                    CupertinoActionSheetAction(
-                      onPressed: () {
-                        Get.back();
-                        Get.to(() => const ComposeScreen(), arguments: {
-                          "to": data.join(' '),
-                        });
-                      },
-                      child: Text("new_message".tr),
-                    ),
-                    CupertinoActionSheetAction(
-                      onPressed: () {
-                        Get.back();
-                        Get.to(() => SearchView(), arguments: {
-                          "terms": data.join(' '),
-                        });
-                      },
-                      child: Text("search".tr),
-                    ),
-                  ],
-                  cancelButton: CupertinoActionSheetAction(
-                    onPressed: () {
-                      Navigator.pop(context);
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: data.map((email) =>
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: GestureDetector(
+                    onTap: () {
+                      if (title == "Date") return;
+                      _showEmailOptions(email);
                     },
-                    child: const Text("Cancel"),
+                    child: Text(
+                      email,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: title == "Date"
+                            ? AppTheme.textSecondaryColor
+                            : AppTheme.primaryColor,
+                      ),
+                    ),
                   ),
-                ),
-              );
-            },
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ...data.map((e) => Text("$e${data.last == e ? "" : ","}"))
-              ],
-            ),
+                )
+            ).toList(),
           ),
         )
       ],
+    ),
+  );
+}
+
+void _showEmailOptions(String email) {
+  showCupertinoModalPopup(
+    context: Get.context!,
+    builder: (context) => CupertinoActionSheet(
+      title: Text('Email Options'),
+      message: Text(email),
+      actions: [
+        CupertinoActionSheetAction(
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: email));
+            Navigator.pop(context);
+
+            // Show copy confirmation
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Email address copied to clipboard'),
+                backgroundColor: AppTheme.successColor,
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.copy, size: 20, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              const Text("Copy Email Address"),
+            ],
+          ),
+        ),
+        CupertinoActionSheetAction(
+          onPressed: () {
+            Get.back();
+            Get.to(() => const ComposeScreen(), arguments: {
+              "to": email,
+            });
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.email_outlined, size: 20, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              Text("New Message"),
+            ],
+          ),
+        ),
+        CupertinoActionSheetAction(
+          onPressed: () {
+            Get.back();
+            Get.to(() => SearchView(), arguments: {
+              "terms": email,
+            });
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.search, size: 20, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              Text("Search"),
+            ],
+          ),
+        ),
+      ],
+      cancelButton: CupertinoActionSheetAction(
+        onPressed: () {
+          Navigator.pop(context);
+        },
+        child: const Text("Cancel"),
+      ),
     ),
   );
 }

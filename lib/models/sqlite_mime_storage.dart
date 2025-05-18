@@ -4,13 +4,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
 
-class OfflineMimeStorage {
-  static final OfflineMimeStorage instance = OfflineMimeStorage._init();
+class SqliteMimeStorage {
+  static final SqliteMimeStorage instance = SqliteMimeStorage._init();
   static Database? _database;
 
-  OfflineMimeStorage._init();
+  SqliteMimeStorage._init();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -146,9 +145,7 @@ class OfflineMimeStorage {
     try {
       return MimeMessage.parseFromText(mimeSource);
     } catch (e) {
-      if (kDebugMode) {
-        print('Error parsing MIME message: $e');
-      }
+      print('Error parsing MIME message: $e');
       return null;
     }
   }
@@ -170,9 +167,7 @@ class OfflineMimeStorage {
       try {
         return MimeMessage.parseFromText(mimeSource);
       } catch (e) {
-        if (kDebugMode) {
-          print('Error parsing MIME message: $e');
-        }
+        print('Error parsing MIME message: $e');
         return null;
       }
     }).where((message) => message != null).cast<MimeMessage>().toList();
@@ -344,64 +339,6 @@ class OfflineMimeStorage {
         }
       }
     });
-  }
-
-  // Performance optimized methods
-  Future<List<Map<String, dynamic>>> getMessageHeaders(String accountId, String mailboxPath, {int limit = 50, int offset = 0}) async {
-    final db = await instance.database;
-    
-    return await db.query(
-      'messages',
-      columns: ['id', 'uid', 'subject', 'from_email', 'date', 'is_seen', 'is_flagged', 'has_attachments'],
-      where: 'account_id = ? AND mailbox_path = ?',
-      whereArgs: [accountId, mailboxPath],
-      orderBy: 'date DESC',
-      limit: limit,
-      offset: offset,
-    );
-  }
-
-  Future<int> getMessageCount(String accountId, String mailboxPath) async {
-    final db = await instance.database;
-    
-    final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM messages WHERE account_id = ? AND mailbox_path = ?',
-      [accountId, mailboxPath],
-    );
-    
-    return Sqflite.firstIntValue(result) ?? 0;
-  }
-
-  Future<int> getUnreadMessageCount(String accountId, String mailboxPath) async {
-    final db = await instance.database;
-    
-    final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM messages WHERE account_id = ? AND mailbox_path = ? AND is_seen = 0',
-      [accountId, mailboxPath],
-    );
-    
-    return Sqflite.firstIntValue(result) ?? 0;
-  }
-
-  // Update message flags
-  Future<int> updateMessageFlags(String id, {bool? isSeen, bool? isFlagged, bool? isAnswered, bool? isForwarded}) async {
-    final db = await instance.database;
-    
-    final Map<String, dynamic> values = {};
-    
-    if (isSeen != null) values['is_seen'] = isSeen ? 1 : 0;
-    if (isFlagged != null) values['is_flagged'] = isFlagged ? 1 : 0;
-    if (isAnswered != null) values['is_answered'] = isAnswered ? 1 : 0;
-    if (isForwarded != null) values['is_forwarded'] = isForwarded ? 1 : 0;
-    
-    if (values.isEmpty) return 0;
-    
-    return await db.update(
-      'messages',
-      values,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
   }
 
   // Close the database
