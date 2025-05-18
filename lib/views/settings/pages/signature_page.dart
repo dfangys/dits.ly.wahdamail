@@ -13,65 +13,203 @@ class SignaturePage extends GetView<SettingController> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('signature'.tr),
+        title: Text(
+          'signature'.tr,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        foregroundColor: theme.colorScheme.primary,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(15.0),
-        child: Column(
-          children: [
-            ListTile(
-              leading: Obx(
-                () => Icon(
-                  Icons.check_circle,
-                  color:
-                      controller.signatureReply() ? Colors.green : Colors.grey,
-                ),
-              ),
-              title: Text('reply'.tr),
-              onTap: () {
-                controller.signatureReply(!controller.signatureReply());
-              },
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with explanation
+          Container(
+            margin: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-            ListTile(
-              leading: Obx(
-                () => Icon(
-                  Icons.check_circle,
-                  color: controller.signatureForward()
-                      ? Colors.green
-                      : Colors.grey,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.edit_note,
+                  color: theme.colorScheme.primary,
+                  size: 28,
                 ),
-              ),
-              title: Text('forward'.tr),
-              onTap: () {
-                controller.signatureForward(!controller.signatureForward());
-              },
-            ),
-            ListTile(
-              leading: Obx(
-                () => Icon(
-                  Icons.check_circle,
-                  color: controller.signatureNewMessage()
-                      ? Colors.green
-                      : Colors.grey,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    'Your signature will be added to the end of your emails',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.colorScheme.onSurface.withOpacity(0.8),
+                    ),
+                  ),
                 ),
-              ),
-              title: Text('new_message'.tr),
-              onTap: () {
-                controller
-                    .signatureNewMessage(!controller.signatureNewMessage());
-              },
+              ],
             ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.abc),
+          ),
+
+          // Signature options section
+          Padding(
+            padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
+            child: Text(
+              'signature_options'.tr,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+
+          // Signature options card
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: theme.dividerColor.withOpacity(0.1),
+              ),
+            ),
+            child: Column(
+              children: [
+                // Reply signature option
+                Obx(() => SwitchListTile(
+                  title: Text('reply'.tr),
+                  subtitle: Text(
+                    'Include signature when replying',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                  value: controller.signatureReply(),
+                  activeColor: theme.colorScheme.primary,
+                  onChanged: (value) => controller.signatureReply(value),
+                  secondary: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.reply, color: Colors.blue),
+                  ),
+                )),
+
+                Divider(height: 1, indent: 70, color: theme.dividerColor.withOpacity(0.1)),
+
+                // Forward signature option
+                Obx(() => SwitchListTile(
+                  title: Text('forward'.tr),
+                  subtitle: Text(
+                    'Include signature when forwarding',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                  value: controller.signatureForward(),
+                  activeColor: theme.colorScheme.primary,
+                  onChanged: (value) => controller.signatureForward(value),
+                  secondary: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.forward, color: Colors.green),
+                  ),
+                )),
+
+                Divider(height: 1, indent: 70, color: theme.dividerColor.withOpacity(0.1)),
+
+                // New message signature option
+                Obx(() => SwitchListTile(
+                  title: Text('new_message'.tr),
+                  subtitle: Text(
+                    'Include signature in new messages',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                  value: controller.signatureNewMessage(),
+                  activeColor: theme.colorScheme.primary,
+                  onChanged: (value) => controller.signatureNewMessage(value),
+                  secondary: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.edit, color: Colors.purple),
+                  ),
+                )),
+              ],
+            ),
+          ),
+
+          // Account name section
+          Padding(
+            padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
+            child: Text(
+              'account_details'.tr,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+
+          // Account name card
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: theme.dividerColor.withOpacity(0.1),
+              ),
+            ),
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.person, color: Colors.orange),
+              ),
               title: const Text('Account Name'),
-              subtitle: Obx(() => Text(controller.accountName())),
+              subtitle: Obx(() => Text(
+                controller.accountName(),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                ),
+              )),
+              trailing: Icon(
+                Icons.edit,
+                size: 20,
+                color: theme.colorScheme.primary,
+              ),
               onTap: () {
                 if (Platform.isAndroid) {
                   showModalBottomSheet(
                     context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
                     builder: (context) => AccountNameSheet(),
                   );
                 } else {
@@ -82,36 +220,101 @@ class SignaturePage extends GetView<SettingController> {
                 }
               },
             ),
-            const Divider(),
-            Row(
+          ),
+
+          // Signature content section
+          Padding(
+            padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8, right: 16),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("signature".tr),
-                IconButton(
-                  icon: const Icon(Icons.edit),
+                Text(
+                  "signature".tr,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: Text('edit'.tr),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    textStyle: const TextStyle(fontWeight: FontWeight.w600),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                   onPressed: () {
                     if (Platform.isAndroid) {
-                      showCupertinoModalPopup(
+                      showModalBottomSheet(
                         context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
                         builder: (context) => const SignatureSheet(),
                       );
                     } else {
-                      showModalBottomSheet(
+                      showCupertinoModalPopup(
                         context: context,
                         builder: (context) => const SignatureSheet(),
                       );
                     }
                   },
-                )
+                ),
               ],
             ),
-            Expanded(
-              child: Obx(() => HtmlWidget(
-                    controller.signature(),
-                  )),
-            )
-          ],
-        ),
+          ),
+
+          // Signature preview
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.dividerColor.withOpacity(0.2)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Obx(() => controller.signature().isEmpty
+                  ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.edit_note,
+                      size: 48,
+                      color: theme.colorScheme.onSurface.withOpacity(0.3),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No signature set',
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+                  : SingleChildScrollView(
+                child: HtmlWidget(
+                  controller.signature(),
+                  textStyle: const TextStyle(fontSize: 14),
+                ),
+              ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
