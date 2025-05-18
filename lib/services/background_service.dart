@@ -1,102 +1,163 @@
-import 'dart:math';
-import 'package:enough_mail/enough_mail.dart';
-import 'package:flutter/foundation.dart';
-import 'package:get_storage/get_storage.dart';
-import 'package:logger/logger.dart';
-import 'package:wahda_bank/models/hive_mime_storage.dart';
-import 'package:wahda_bank/services/mail_service.dart';
-import 'package:wahda_bank/services/notifications_service.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:wahda_bank/services/email_notification_service.dart';
+import 'package:wahda_bank/services/notifications_service.dart';
+import 'package:workmanager/workmanager.dart';
+
+/// Enhanced background service for email notifications
+///
+/// This service optimizes battery usage and resource consumption
+/// while ensuring reliable email notifications in background.
 class BackgroundService {
   static const String keyInboxLastUid = 'inboxLastUid';
+  static const String keyBackgroundServiceEnabled = 'backgroundServiceEnabled';
+  static const String keyBackgroundServiceLastRun = 'backgroundServiceLastRun';
+  static const int notificationId = 888;
 
   static bool get isSupported =>
       defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.iOS;
+          defaultTargetPlatform == TargetPlatform.iOS;
 
-  static Logger logger = Logger();
+  /// Initialize the background service
+  static Future<void> initializeService() async {
+    await GetStorage.init();
 
-  Future<void> addNextUidFor() async {
-    try {
-      MailService mailService = MailService.instance;
-      await mailService.init();
-      await mailService.client.connect();
-      if (mailService.client.isConnected) {
-        var box = await mailService.client.selectInbox();
-        final uidNext = box.uidNext;
-        if (uidNext != null) {
-          var prefs = GetStorage();
-          await prefs.write(keyInboxLastUid, uidNext);
-        }
-      }
-    } catch (e, s) {
-      if (kDebugMode) {
-        print('Error while getting Inbox.nextUids for : $e $s');
-      }
+    // Initialize Workmanager for background tasks
+    if (Platform.isAndroid || Platform.isIOS) {
+      await Workmanager().initialize(
+        backgroundTaskCallback,
+        isInDebugMode: kDebugMode,
+      );
     }
   }
 
-  static Future checkForNewMail([bool showNotifications = true]) async {
-    if (kDebugMode) {
-      logger.d('background check at ${DateTime.now()}');
+  /// Start the background service
+  static Future<bool> startService() async {
+    // Register periodic task
+    if (Platform.isAndroid || Platform.isIOS) {
+      await Workmanager().registerPeriodicTask(
+        'com.wahda_bank.emailCheck',
+        'emailBackgroundCheck',
+        frequency: const Duration(minutes: 15),
+        constraints: Constraints(
+          networkType: NetworkType.connected,
+        ),
+        existingWorkPolicy: ExistingWorkPolicy.replace,
+        backoffPolicy: BackoffPolicy.linear,
+        backoffPolicyDelay: const Duration(minutes: 5),
+      );
     }
+
+    // Store service state
+    final storage = GetStorage();
+    await storage.write(keyBackgroundServiceEnabled, true);
+    await storage.write(keyBackgroundServiceLastRun, DateTime.now().toIso8601String());
+
+    return true;
+  }
+
+  /// Stop the background service
+  static Future<bool> stopService() async {
+    // Cancel all tasks
+    if (Platform.isAndroid || Platform.isIOS) {
+      await Workmanager().cancelAll();
+    }
+
+    // Store service state
+    final storage = GetStorage();
+    await storage.write(keyBackgroundServiceEnabled, false);
+
+    return true;
+  }
+
+  /// Check if the background service is enabled
+  static Future<bool> isServiceEnabled() async {
+    final storage = GetStorage();
+    return storage.read<bool>(keyBackgroundServiceEnabled) ?? false;
+  }
+
+  /// Background task callback for Workmanager
+  @pragma('vm:entry-point')
+  static void backgroundTaskCallback() {
+    WidgetsFlutterBinding.ensureInitialized();
+    DartPluginRegistrant.ensureInitialized();
+
+    Workmanager().executeTask((taskName, inputData) async {
+      try {
+        // Initialize required services
+        await GetStorage.init();
+        await NotificationService.instance.setup();
+
+        // Show notification that we're checking for emails
+        NotificationService.instance.showFlutterNotification(
+          "Wahda Bank",
+          "Checking for new mail...",
+          {},
+          notificationId,
+        );
+
+        // Check for new emails
+        await EmailNotificationService.instance.initialize();
+        await EmailNotificationService.instance.checkForNewMessages();
+
+        // Update last run timestamp
+        final storage = GetStorage();
+        await storage.write(keyBackgroundServiceLastRun, DateTime.now().toIso8601String());
+
+        // Remove the checking notification
+        await NotificationService.instance.plugin.cancel(notificationId);
+
+        return true;
+      } catch (e) {
+        if (kDebugMode) {
+          print('Background task error: $e');
+        }
+        return false;
+      }
+    });
+  }
+
+  /// Check for new emails (legacy method, kept for compatibility)
+  static Future<void> checkForNewMail([bool showNotifications = true]) async {
     await NotificationService.instance.setup();
     await GetStorage.init();
-    await Hive.initFlutter();
-    if (!Hive.isAdapterRegistered(1)) {
-      Hive.registerAdapter(StorageMessageIdAdapter());
-    }
-    if (!Hive.isAdapterRegistered(2)) {
-      Hive.registerAdapter(StorageMessageEnvelopeAdapter());
-    }
-    final prefs = GetStorage();
-    int? previousUidNext = prefs.read(keyInboxLastUid);
-    if (previousUidNext == null) {
-      return;
-    }
-    await MailService.instance.init();
-    if (!MailService.instance.client.isConnected) {
-      await MailService.instance.connect();
-    }
-    if (!MailService.instance.client.isConnected) {
-      return;
-    }
-    final inbox = await MailService.instance.client.selectInbox();
-    final uidNext = inbox.uidNext;
-    if (uidNext == previousUidNext || uidNext == null) {
-      return;
-    } else {
-      MessageSequence sequence = MessageSequence.fromRangeToLast(
-        previousUidNext == 0
-            ? max(previousUidNext, uidNext - 10)
-            : previousUidNext,
-        isUidSequence: true,
+
+    if (showNotifications) {
+      NotificationService.instance.showFlutterNotification(
+        "Wahda Bank",
+        "Checking for new mail...",
+        {},
+        notificationId,
       );
-      final mimeMessages =
-          await MailService.instance.client.fetchMessageSequence(
-        sequence,
-        fetchPreference: FetchPreference.envelope,
-      );
-      HiveMailboxMimeStorage mailStorage = HiveMailboxMimeStorage(
-        mailAccount: MailService.instance.account,
-        mailbox: inbox,
-      );
-      if (mimeMessages.isNotEmpty) {
-        await GetStorage().write(keyInboxLastUid, uidNext);
-        await mailStorage.init();
-        await mailStorage.saveMessageEnvelopes(mimeMessages);
-      }
-      if (showNotifications) {
-        for (final mimeMessage in mimeMessages) {
-          if (!mimeMessage.isSeen) {
-            NotificationService.instance.showFlutterNotification(
-              mimeMessage.from![0].email,
-              mimeMessage.decodeSubject() ?? 'New Mail',
-              {'action': 'inbox', 'message': mimeMessage.decodeSubject() ?? ''},
-            );
-          }
-        }
+    }
+
+    await EmailNotificationService.instance.initialize();
+    await EmailNotificationService.instance.checkForNewMessages();
+
+    if (showNotifications) {
+      await NotificationService.instance.plugin.cancel(notificationId);
+    }
+  }
+
+  /// Optimize battery usage by requesting battery optimization exemption
+  static Future<void> optimizeBatteryUsage() async {
+    await EmailNotificationService.instance.requestBatteryOptimizationExemption();
+  }
+
+  /// Add next UID for inbox (legacy method, kept for compatibility)
+  Future<void> addNextUidFor() async {
+    try {
+      // This functionality is now handled by EmailNotificationService
+      await EmailNotificationService.instance.initialize();
+      await EmailNotificationService.instance.checkForNewMessages();
+    } catch (e, s) {
+      if (kDebugMode) {
+        print('Error while getting Inbox.nextUids for : $e $s');
       }
     }
   }
