@@ -1,53 +1,98 @@
 import 'package:flutter/material.dart';
+import 'package:iconsax/iconsax.dart';
 
-class WDraweTile extends StatelessWidget {
-  const WDraweTile({
+class WDrawerTile extends StatelessWidget {
+  const WDrawerTile({
     super.key,
-    required this.image,
+    required this.icon,
     required this.text,
     required this.onTap,
-    this.trailing,
+    this.count = 0,
+    this.isActive = false,
   });
-  final dynamic image;
+
+  final IconData icon;
   final String text;
-  final String? trailing;
+  final int count;
+  final bool isActive;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      dense: true,
-      leading: Container(
-        margin: const EdgeInsets.only(left: 5),
-        height: 20,
-        width: 20,
-        child: image is IconData
-            ? Icon(
-                image,
-                color: Colors.white,
-              )
-            : Image.asset(image),
-      ),
-      title: Text(
-        text,
-        style: const TextStyle(color: Colors.white),
-      ),
-      onTap: onTap,
-      trailing: trailing == null || trailing!.isEmpty
-          ? const SizedBox.shrink()
-          : Container(
-              padding: const EdgeInsets.all(5),
-              width: 45,
-              height: 30,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(5),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: isActive
+                ? Colors.white.withOpacity(0.2)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              // Icon with background
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? Colors.white.withOpacity(0.3)
+                      : Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
-              child: Center(
-                child: Text("$trailing"),
+
+              const SizedBox(width: 12),
+
+              // Text
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                    fontSize: 15,
+                  ),
+                ),
               ),
-            ),
+
+              // Count badge
+              if (count > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    count.toString(),
+                    style: TextStyle(
+                      color: Theme.of(context).primaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+
+              // Arrow indicator for navigation
+              if (count == 0)
+                Icon(
+                  Iconsax.arrow_right_3,
+                  color: Colors.white.withOpacity(0.5),
+                  size: 16,
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
