@@ -1,6 +1,6 @@
 import 'package:enough_mail/enough_mail.dart';
 
-/// Model class for storing draft email information
+/// Model class for storing draft email information with enhanced features
 class DraftModel {
   /// Unique identifier for the draft
   final int? id;
@@ -41,6 +41,30 @@ class DraftModel {
   /// When the draft is scheduled to be sent (null if not scheduled)
   final DateTime? scheduledFor;
 
+  /// Version number for tracking changes and conflict resolution
+  final int version;
+
+  /// Category for organizing drafts (e.g., "work", "personal")
+  final String category;
+
+  /// Priority level (0-5, with 5 being highest)
+  final int priority;
+
+  /// Whether this draft has been synced with the server
+  final bool isSynced;
+
+  /// Server UID for this draft (if synced)
+  final int? serverUid;
+
+  /// Whether this draft has unsaved changes
+  final bool isDirty;
+
+  /// Tags for additional organization
+  final List<String> tags;
+
+  /// Last error encountered when saving this draft
+  final String? lastError;
+
   DraftModel({
     this.id,
     this.messageId,
@@ -55,6 +79,14 @@ class DraftModel {
     required this.updatedAt,
     this.isScheduled = false,
     this.scheduledFor,
+    this.version = 1,
+    this.category = 'default',
+    this.priority = 0,
+    this.isSynced = false,
+    this.serverUid,
+    this.isDirty = true,
+    this.tags = const [],
+    this.lastError,
   });
 
   /// Create a copy of this draft with updated fields
@@ -72,6 +104,14 @@ class DraftModel {
     DateTime? updatedAt,
     bool? isScheduled,
     DateTime? scheduledFor,
+    int? version,
+    String? category,
+    int? priority,
+    bool? isSynced,
+    int? serverUid,
+    bool? isDirty,
+    List<String>? tags,
+    String? lastError,
   }) {
     return DraftModel(
       id: id ?? this.id,
@@ -87,7 +127,56 @@ class DraftModel {
       updatedAt: updatedAt ?? this.updatedAt,
       isScheduled: isScheduled ?? this.isScheduled,
       scheduledFor: scheduledFor ?? this.scheduledFor,
+      version: version ?? this.version,
+      category: category ?? this.category,
+      priority: priority ?? this.priority,
+      isSynced: isSynced ?? this.isSynced,
+      serverUid: serverUid ?? this.serverUid,
+      isDirty: isDirty ?? this.isDirty,
+      tags: tags ?? this.tags,
+      lastError: lastError ?? this.lastError,
     );
+  }
+
+  /// Mark this draft as dirty (has unsaved changes)
+  DraftModel markDirty() {
+    return copyWith(isDirty: true);
+  }
+
+  /// Mark this draft as clean (no unsaved changes)
+  DraftModel markClean() {
+    return copyWith(isDirty: false);
+  }
+
+  /// Increment the version of this draft
+  DraftModel incrementVersion() {
+    return copyWith(version: version + 1);
+  }
+
+  /// Mark this draft as synced with the server
+  DraftModel markSynced(int serverUid) {
+    return copyWith(isSynced: true, serverUid: serverUid);
+  }
+
+  /// Mark this draft as having a sync error
+  DraftModel markSyncError(String error) {
+    return copyWith(isSynced: false, lastError: error);
+  }
+
+  /// Add a tag to this draft
+  DraftModel addTag(String tag) {
+    final newTags = List<String>.from(tags);
+    if (!newTags.contains(tag)) {
+      newTags.add(tag);
+    }
+    return copyWith(tags: newTags);
+  }
+
+  /// Remove a tag from this draft
+  DraftModel removeTag(String tag) {
+    final newTags = List<String>.from(tags);
+    newTags.remove(tag);
+    return copyWith(tags: newTags);
   }
 
   /// Convert draft to a map for database storage
@@ -106,6 +195,14 @@ class DraftModel {
       'updated_at': updatedAt.millisecondsSinceEpoch,
       'is_scheduled': isScheduled ? 1 : 0,
       'scheduled_for': scheduledFor?.millisecondsSinceEpoch,
+      'version': version,
+      'category': category,
+      'priority': priority,
+      'is_synced': isSynced ? 1 : 0,
+      'server_uid': serverUid,
+      'is_dirty': isDirty ? 1 : 0,
+      'tags': tags.join('||'),
+      'last_error': lastError,
     };
   }
 
@@ -135,6 +232,16 @@ class DraftModel {
       scheduledFor: map['scheduled_for'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['scheduled_for'])
           : null,
+      version: map['version'] ?? 1,
+      category: map['category'] ?? 'default',
+      priority: map['priority'] ?? 0,
+      isSynced: map['is_synced'] == 1,
+      serverUid: map['server_uid'],
+      isDirty: map['is_dirty'] == 1,
+      tags: map['tags'] != null && map['tags'].isNotEmpty
+          ? map['tags'].split('||')
+          : <String>[],
+      lastError: map['last_error'],
     );
   }
 
@@ -166,6 +273,33 @@ class DraftModel {
       messageId = null;
     }
 
+    // Extract any custom headers for enhanced draft features
+    String category = 'default';
+    int priority = 0;
+    List<String> tags = [];
+
+    try {
+      // Try to extract category from X-Category header
+      final categoryHeader = message.getHeaderValue('X-Category');
+      if (categoryHeader != null && categoryHeader.isNotEmpty) {
+        category = categoryHeader;
+      }
+
+      // Try to extract priority from X-Priority header
+      final priorityHeader = message.getHeaderValue('X-Priority');
+      if (priorityHeader != null) {
+        priority = int.tryParse(priorityHeader) ?? 0;
+      }
+
+      // Try to extract tags from X-Tags header
+      final tagsHeader = message.getHeaderValue('X-Tags');
+      if (tagsHeader != null && tagsHeader.isNotEmpty) {
+        tags = tagsHeader.split(',').map((tag) => tag.trim()).toList();
+      }
+    } catch (e) {
+      // Ignore header extraction errors
+    }
+
     // Create draft model
     return DraftModel(
       messageId: messageId,
@@ -178,6 +312,12 @@ class DraftModel {
       attachmentPaths: [], // Attachments need to be downloaded separately
       createdAt: message.decodeDate() ?? DateTime.now(),
       updatedAt: DateTime.now(),
+      category: category,
+      priority: priority,
+      tags: tags,
+      isSynced: true, // Since it came from the server
+      serverUid: message.uid,
+      isDirty: false, // Initially not dirty since it just came from the server
     );
   }
 
@@ -202,6 +342,14 @@ class DraftModel {
 
     // Set sender
     builder.from = [MailAddress(account.name, account.email)];
+
+    // Add custom headers for enhanced draft features
+    builder.addHeader('X-Category', category);
+    builder.addHeader('X-Priority', priority.toString());
+    if (tags.isNotEmpty) {
+      builder.addHeader('X-Tags', tags.join(','));
+    }
+    builder.addHeader('X-Draft-Version', version.toString());
 
     // Build message
     return builder.buildMimeMessage();
@@ -230,5 +378,47 @@ class DraftModel {
         .replaceAll('&quot;', '"')
         .replaceAll('&#39;', "'")
         .trim();
+  }
+
+  /// Check if this draft has enough content to be saved
+  bool get hasSaveableContent {
+    return subject.isNotEmpty ||
+        body.isNotEmpty ||
+        to.isNotEmpty ||
+        cc.isNotEmpty ||
+        bcc.isNotEmpty ||
+        attachmentPaths.isNotEmpty;
+  }
+
+  /// Get a summary of this draft for display
+  String get summary {
+    final recipientCount = to.length + cc.length + bcc.length;
+    final hasSubject = subject.isNotEmpty;
+    final hasBody = body.isNotEmpty;
+    final hasAttachments = attachmentPaths.isNotEmpty;
+
+    final parts = <String>[];
+
+    if (hasSubject) {
+      parts.add(subject);
+    }
+
+    if (recipientCount > 0) {
+      parts.add('$recipientCount recipients');
+    }
+
+    if (hasAttachments) {
+      parts.add('${attachmentPaths.length} attachments');
+    }
+
+    if (hasBody) {
+      final previewLength = 50;
+      final preview = _stripHtml(body).replaceAll('\n', ' ');
+      parts.add(preview.length > previewLength
+          ? '${preview.substring(0, previewLength)}...'
+          : preview);
+    }
+
+    return parts.join(' • ');
   }
 }

@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -26,7 +29,7 @@ class SqliteMimeStorage {
 
     return await openDatabase(
       path,
-      version: 2, // Increased version for schema updates
+      version: 3, // Increased version for enhanced draft schema
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -79,7 +82,7 @@ class SqliteMimeStorage {
     )
     ''');
 
-    // Drafts table
+    // Enhanced drafts table with additional fields
     await db.execute('''
     CREATE TABLE drafts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,7 +97,33 @@ class SqliteMimeStorage {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       is_scheduled INTEGER NOT NULL DEFAULT 0,
-      scheduled_for INTEGER
+      scheduled_for INTEGER,
+      version INTEGER NOT NULL DEFAULT 1,
+      category TEXT NOT NULL DEFAULT 'default',
+      priority INTEGER NOT NULL DEFAULT 0,
+      is_synced INTEGER NOT NULL DEFAULT 0,
+      server_uid INTEGER,
+      is_dirty INTEGER NOT NULL DEFAULT 1,
+      tags TEXT,
+      last_error TEXT
+    )
+    ''');
+
+    // Draft versions table for history tracking
+    await db.execute('''
+    CREATE TABLE draft_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      draft_id INTEGER NOT NULL,
+      version INTEGER NOT NULL,
+      subject TEXT NOT NULL,
+      body TEXT NOT NULL,
+      is_html INTEGER NOT NULL,
+      to_recipients TEXT NOT NULL,
+      cc_recipients TEXT NOT NULL,
+      bcc_recipients TEXT NOT NULL,
+      attachment_paths TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (draft_id) REFERENCES drafts (id) ON DELETE CASCADE
     )
     ''');
 
@@ -114,6 +143,9 @@ class SqliteMimeStorage {
     await db.execute('CREATE INDEX idx_messages_uid ON messages(uid)');
     await db.execute('CREATE INDEX idx_attachments_message_id ON attachments(message_id)');
     await db.execute('CREATE INDEX idx_drafts_message_id ON drafts(message_id)');
+    await db.execute('CREATE INDEX idx_drafts_category ON drafts(category)');
+    await db.execute('CREATE INDEX idx_drafts_is_scheduled ON drafts(is_scheduled, scheduled_for)');
+    await db.execute('CREATE INDEX idx_draft_versions_draft_id ON draft_versions(draft_id, version DESC)');
     await db.execute('CREATE INDEX idx_contacts_email ON contacts(email)');
     await db.execute('CREATE INDEX idx_contacts_frequency ON contacts(frequency DESC)');
   }
@@ -154,6 +186,41 @@ class SqliteMimeStorage {
       await db.execute('CREATE INDEX IF NOT EXISTS idx_drafts_message_id ON drafts(message_id)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_contacts_frequency ON contacts(frequency DESC)');
+    }
+
+    if (oldVersion < 3) {
+      // Add new columns to drafts table for enhanced features
+      await db.execute('ALTER TABLE drafts ADD COLUMN version INTEGER NOT NULL DEFAULT 1');
+      await db.execute('ALTER TABLE drafts ADD COLUMN category TEXT NOT NULL DEFAULT "default"');
+      await db.execute('ALTER TABLE drafts ADD COLUMN priority INTEGER NOT NULL DEFAULT 0');
+      await db.execute('ALTER TABLE drafts ADD COLUMN is_synced INTEGER NOT NULL DEFAULT 0');
+      await db.execute('ALTER TABLE drafts ADD COLUMN server_uid INTEGER');
+      await db.execute('ALTER TABLE drafts ADD COLUMN is_dirty INTEGER NOT NULL DEFAULT 1');
+      await db.execute('ALTER TABLE drafts ADD COLUMN tags TEXT');
+      await db.execute('ALTER TABLE drafts ADD COLUMN last_error TEXT');
+
+      // Create draft versions table for history tracking
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS draft_versions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        draft_id INTEGER NOT NULL,
+        version INTEGER NOT NULL,
+        subject TEXT NOT NULL,
+        body TEXT NOT NULL,
+        is_html INTEGER NOT NULL,
+        to_recipients TEXT NOT NULL,
+        cc_recipients TEXT NOT NULL,
+        bcc_recipients TEXT NOT NULL,
+        attachment_paths TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (draft_id) REFERENCES drafts (id) ON DELETE CASCADE
+      )
+      ''');
+
+      // Create new indexes for enhanced draft features
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_drafts_category ON drafts(category)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_drafts_is_scheduled ON drafts(is_scheduled, scheduled_for)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_draft_versions_draft_id ON draft_versions(draft_id, version DESC)');
     }
   }
 
@@ -212,174 +279,64 @@ class SqliteMimeStorage {
     return id;
   }
 
-  Future<MimeMessage?> getMessage(String id) async {
-    final db = await instance.database;
-
-    final maps = await db.query(
-      'messages',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-
-    if (maps.isEmpty) {
-      return null;
-    }
-
-    // Convert map to MimeMessage
-    final messageMap = maps.first;
-    final mimeSource = messageMap['mime_source'] as String;
-
-    if (mimeSource.isEmpty) {
-      return null;
-    }
-
-    try {
-      return MimeMessage.parseFromText(mimeSource);
-    } catch (e) {
-      print('Error parsing MIME message: $e');
-      return null;
-    }
-  }
-
-  Future<List<MimeMessage>> getMessages(String accountId, String mailboxPath, {int limit = 50, int offset = 0}) async {
-    final db = await instance.database;
-
-    final maps = await db.query(
-      'messages',
-      where: 'account_id = ? AND mailbox_path = ?',
-      whereArgs: [accountId, mailboxPath],
-      orderBy: 'date DESC',
-      limit: limit,
-      offset: offset,
-    );
-
-    return maps.map((map) {
-      final mimeSource = map['mime_source'] as String;
-      try {
-        return MimeMessage.parseFromText(mimeSource);
-      } catch (e) {
-        print('Error parsing MIME message: $e');
-        return null;
-      }
-    }).where((message) => message != null).cast<MimeMessage>().toList();
-  }
-
-  Future<int> deleteMessage(String id) async {
-    final db = await instance.database;
-
-    return await db.delete(
-      'messages',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<int> deleteMessages(String accountId, String mailboxPath) async {
-    final db = await instance.database;
-
-    return await db.delete(
-      'messages',
-      where: 'account_id = ? AND mailbox_path = ?',
-      whereArgs: [accountId, mailboxPath],
-    );
-  }
-
-  // Attachment operations
-  Future<String> insertAttachment(String messageId, String fileName, String contentType, int size, Uint8List content, String fetchId) async {
-    final db = await instance.database;
-
-    // Generate a unique ID for the attachment
-    final id = '${messageId}_${fetchId}';
-
-    final attachmentMap = {
-      'id': id,
-      'message_id': messageId,
-      'file_name': fileName,
-      'content_type': contentType,
-      'size': size,
-      'content': content,
-      'fetch_id': fetchId,
-      'created_at': DateTime.now().toIso8601String(),
-    };
-
-    await db.insert(
-      'attachments',
-      attachmentMap,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-
-    return id;
-  }
-
-  Future<Map<String, dynamic>?> getAttachment(String id) async {
-    final db = await instance.database;
-
-    final maps = await db.query(
-      'attachments',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-
-    if (maps.isEmpty) {
-      return null;
-    }
-
-    return maps.first;
-  }
-
-  Future<List<Map<String, dynamic>>> getAttachments(String messageId) async {
-    final db = await instance.database;
-
-    return await db.query(
-      'attachments',
-      where: 'message_id = ?',
-      whereArgs: [messageId],
-    );
-  }
-
-  Future<int> deleteAttachment(String id) async {
-    final db = await instance.database;
-
-    return await db.delete(
-      'attachments',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<int> deleteAttachments(String messageId) async {
-    final db = await instance.database;
-
-    return await db.delete(
-      'attachments',
-      where: 'message_id = ?',
-      whereArgs: [messageId],
-    );
-  }
-
-  // Draft operations
+  // Draft operations with enhanced features
+// Fix for sqlite_mime_storage.dart
   Future<DraftModel> saveDraft(DraftModel draft) async {
     final db = await instance.database;
+    final now = DateTime.now();
 
-    final draftMap = draft.toMap();
+    // Create a copy with updated timestamp and clean state
+    final updatedDraft = draft.copyWith(
+      updatedAt: now,
+      isDirty: false,
+    );
 
-    int id;
-    if (draft.id != null) {
-      // Update existing draft
-      await db.update(
-        'drafts',
-        draftMap,
-        where: 'id = ?',
-        whereArgs: [draft.id],
-      );
-      id = draft.id!;
-    } else {
-      // Insert new draft
-      id = await db.insert('drafts', draftMap);
-    }
+    final draftMap = updatedDraft.toMap();
+
+    // Initialize id with a default value
+    int id = draft.id ?? -1;
+
+    await db.transaction((txn) async {
+      if (draft.id != null) {
+        // Update existing draft
+        await txn.update(
+          'drafts',
+          draftMap,
+          where: 'id = ?',
+          whereArgs: [draft.id],
+        );
+        id = draft.id!;
+
+        // Save version history if version changed
+        if (draft.version > 1) {
+          await _saveDraftVersion(txn, draft);
+        }
+      } else {
+        // Insert new draft
+        id = await txn.insert('drafts', draftMap);
+      }
+    });
 
     // Return updated draft with ID
-    return draft.copyWith(id: id);
+    return updatedDraft.copyWith(id: id);
+  }
+
+  // Save draft version for history tracking
+  Future<void> _saveDraftVersion(Transaction txn, DraftModel draft) async {
+    if (draft.id == null) return;
+
+    await txn.insert('draft_versions', {
+      'draft_id': draft.id,
+      'version': draft.version,
+      'subject': draft.subject,
+      'body': draft.body,
+      'is_html': draft.isHtml ? 1 : 0,
+      'to_recipients': draft.to.join('||'),
+      'cc_recipients': draft.cc.join('||'),
+      'bcc_recipients': draft.bcc.join('||'),
+      'attachment_paths': draft.attachmentPaths.join('||'),
+      'created_at': DateTime.now().millisecondsSinceEpoch,
+    });
   }
 
   Future<DraftModel?> getDraft(int id) async {
@@ -414,11 +371,40 @@ class SqliteMimeStorage {
     return DraftModel.fromMap(maps.first);
   }
 
-  Future<List<DraftModel>> getAllDrafts({int limit = 50, int offset = 0}) async {
+  Future<List<DraftModel>> getAllDrafts({
+    int limit = 50,
+    int offset = 0,
+    String? category,
+    bool? isScheduled,
+    bool? isDirty,
+  }) async {
     final db = await instance.database;
+
+    // Build where clause based on filters
+    String whereClause = '';
+    List<dynamic> whereArgs = [];
+
+    if (category != null) {
+      whereClause += 'category = ?';
+      whereArgs.add(category);
+    }
+
+    if (isScheduled != null) {
+      if (whereClause.isNotEmpty) whereClause += ' AND ';
+      whereClause += 'is_scheduled = ?';
+      whereArgs.add(isScheduled ? 1 : 0);
+    }
+
+    if (isDirty != null) {
+      if (whereClause.isNotEmpty) whereClause += ' AND ';
+      whereClause += 'is_dirty = ?';
+      whereArgs.add(isDirty ? 1 : 0);
+    }
 
     final maps = await db.query(
       'drafts',
+      where: whereClause.isNotEmpty ? whereClause : null,
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
       orderBy: 'updated_at DESC',
       limit: limit,
       offset: offset,
@@ -429,11 +415,51 @@ class SqliteMimeStorage {
 
   Future<List<DraftModel>> getScheduledDrafts() async {
     final db = await instance.database;
+    final now = DateTime.now().millisecondsSinceEpoch;
 
     final maps = await db.query(
       'drafts',
-      where: 'is_scheduled = 1',
+      where: 'is_scheduled = 1 AND scheduled_for <= ?',
+      whereArgs: [now],
       orderBy: 'scheduled_for ASC',
+    );
+
+    return maps.map((map) => DraftModel.fromMap(map)).toList();
+  }
+
+  Future<List<DraftModel>> getDraftsByCategory(String category) async {
+    final db = await instance.database;
+
+    final maps = await db.query(
+      'drafts',
+      where: 'category = ?',
+      whereArgs: [category],
+      orderBy: 'updated_at DESC',
+    );
+
+    return maps.map((map) => DraftModel.fromMap(map)).toList();
+  }
+
+  Future<List<DraftModel>> searchDrafts(String query) async {
+    final db = await instance.database;
+
+    final maps = await db.query(
+      'drafts',
+      where: 'subject LIKE ? OR body LIKE ?',
+      whereArgs: ['%$query%', '%$query%'],
+      orderBy: 'updated_at DESC',
+    );
+
+    return maps.map((map) => DraftModel.fromMap(map)).toList();
+  }
+
+  Future<List<DraftModel>> getDirtyDrafts() async {
+    final db = await instance.database;
+
+    final maps = await db.query(
+      'drafts',
+      where: 'is_dirty = 1',
+      orderBy: 'updated_at DESC',
     );
 
     return maps.map((map) => DraftModel.fromMap(map)).toList();
@@ -442,20 +468,165 @@ class SqliteMimeStorage {
   Future<int> deleteDraft(int id) async {
     final db = await instance.database;
 
-    return await db.delete(
-      'drafts',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.transaction((txn) async {
+      // Delete draft versions first
+      await txn.delete(
+        'draft_versions',
+        where: 'draft_id = ?',
+        whereArgs: [id],
+      );
+
+      // Then delete the draft
+      return await txn.delete(
+        'drafts',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    });
   }
 
   Future<int> deleteDraftByMessageId(String messageId) async {
     final db = await instance.database;
 
-    return await db.delete(
+    // First get the draft to find its ID
+    final draft = await getDraftByMessageId(messageId);
+    if (draft == null || draft.id == null) {
+      return 0;
+    }
+
+    return await deleteDraft(draft.id!);
+  }
+
+  Future<List<Map<String, dynamic>>> getDraftVersionHistory(int draftId) async {
+    final db = await instance.database;
+
+    return await db.query(
+      'draft_versions',
+      where: 'draft_id = ?',
+      whereArgs: [draftId],
+      orderBy: 'version DESC',
+    );
+  }
+
+  Future<DraftModel?> restoreDraftVersion(int draftId, int version) async {
+    final db = await instance.database;
+
+    final versionMaps = await db.query(
+      'draft_versions',
+      where: 'draft_id = ? AND version = ?',
+      whereArgs: [draftId, version],
+    );
+
+    if (versionMaps.isEmpty) {
+      return null;
+    }
+
+    final versionMap = versionMaps.first;
+
+    // Get current draft
+    final currentDraft = await getDraft(draftId);
+    if (currentDraft == null) {
+      return null;
+    }
+
+    // Create restored draft with version data but keep metadata
+    final restoredDraft = currentDraft.copyWith(
+      subject: versionMap['subject'] as String,
+      body: versionMap['body'] as String,
+      isHtml: versionMap['is_html'] == 1,
+      to: (versionMap['to_recipients'] as String).split('||'),
+      cc: (versionMap['cc_recipients'] as String).split('||'),
+      bcc: (versionMap['bcc_recipients'] as String).split('||'),
+      attachmentPaths: (versionMap['attachment_paths'] as String).split('||'),
+      version: currentDraft.version + 1, // Increment version
+      isDirty: true, // Mark as dirty
+      updatedAt: DateTime.now(),
+    );
+
+    // Save the restored draft
+    return await saveDraft(restoredDraft);
+  }
+
+  Future<int> markDraftSynced(int id, int serverUid) async {
+    final db = await instance.database;
+
+    return await db.update(
       'drafts',
-      where: 'message_id = ?',
-      whereArgs: [messageId],
+      {
+        'is_synced': 1,
+        'server_uid': serverUid,
+        'is_dirty': 0,
+        'last_error': null,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> markDraftSyncError(int id, String error) async {
+    final db = await instance.database;
+
+    return await db.update(
+      'drafts',
+      {
+        'is_synced': 0,
+        'last_error': error,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> updateDraftCategory(int id, String category) async {
+    final db = await instance.database;
+
+    return await db.update(
+      'drafts',
+      {'category': category},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> updateDraftTags(int id, List<String> tags) async {
+    final db = await instance.database;
+
+    return await db.update(
+      'drafts',
+      {'tags': tags.join('||')},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> batchDeleteDrafts(List<int> ids) async {
+    final db = await instance.database;
+
+    return await db.transaction((txn) async {
+      // Delete draft versions first
+      await txn.delete(
+        'draft_versions',
+        where: 'draft_id IN (${ids.map((_) => '?').join(', ')})',
+        whereArgs: ids,
+      );
+
+      // Then delete the drafts
+      return await txn.delete(
+        'drafts',
+        where: 'id IN (${ids.map((_) => '?').join(', ')})',
+        whereArgs: ids,
+      );
+    });
+  }
+
+  Future<int> batchUpdateDraftCategory(List<int> ids, String category) async {
+    final db = await instance.database;
+
+    return await db.update(
+      'drafts',
+      {'category': category},
+      where: 'id IN (${ids.map((_) => '?').join(', ')})',
+      whereArgs: ids,
     );
   }
 
@@ -499,21 +670,14 @@ class SqliteMimeStorage {
     }
   }
 
-  Future<List<MailAddress>> getContactSuggestions({int limit = 20}) async {
-    final db = await instance.database;
-
-    final maps = await db.query(
-      'contacts',
-      orderBy: 'frequency DESC, last_used DESC',
-      limit: limit,
-    );
-
-    return maps.map((map) {
-      return MailAddress(
-        map['name'] as String? ?? '',
-        map['email'] as String,
-      );
-    }).toList();
+  Future<List<MailAddress>> getContactSuggestions() async {
+    try {
+      final storage = Get.find<SqliteMimeStorage>();
+      return await storage.getContactSuggestions();
+    } catch (error) {
+      debugPrint('Error getting contact suggestions: $error');
+      return <MailAddress>[];
+    }
   }
 
   Future<List<MailAddress>> searchContacts(String query, {int limit = 10}) async {
@@ -533,60 +697,5 @@ class SqliteMimeStorage {
         map['email'] as String,
       );
     }).toList();
-  }
-
-  // Migration from Hive
-  Future<void> migrateFromHive(String accountId, String mailboxPath, List<MimeMessage> messages) async {
-    final db = await instance.database;
-
-    // Begin transaction for better performance
-    await db.transaction((txn) async {
-      for (final message in messages) {
-        final messageId = '${accountId}_${mailboxPath}_${message.uid}';
-
-        // Get the raw source of the message for storage
-        String mimeSource = '';
-        try {
-          // In enough_mail 2.1.6, we need to get the raw source differently
-          mimeSource = message.toString();
-        } catch (e) {
-          print('Error getting MIME source: $e');
-        }
-
-        // Insert message
-        final messageMap = {
-          'id': messageId,
-          'account_id': accountId,
-          'mailbox_path': mailboxPath,
-          'sequence_id': message.sequenceId ?? 0,
-          'uid': message.uid ?? 0,
-          'subject': message.decodeSubject() ?? '',
-          'from_email': message.fromEmail ?? '',
-          'to_email': message.to != null ? message.to!.map((e) => e.email).join(', ') : '',
-          'cc_email': message.cc != null ? message.cc!.map((e) => e.email).join(', ') : '',
-          'bcc_email': message.bcc != null ? message.bcc!.map((e) => e.email).join(', ') : '',
-          'date': message.decodeDate()?.toIso8601String() ?? DateTime.now().toIso8601String(),
-          'size': message.size ?? 0,
-          'is_seen': message.isSeen ? 1 : 0,
-          'is_flagged': message.isFlagged ? 1 : 0,
-          'is_answered': message.isAnswered ? 1 : 0,
-          'is_forwarded': message.isForwarded ? 1 : 0,
-          'has_attachments': message.hasAttachments() ? 1 : 0,
-          'mime_source': mimeSource,
-          'created_at': DateTime.now().toIso8601String(),
-        };
-
-        await txn.insert(
-          'messages',
-          messageMap,
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-    });
-
-    // Update contacts after transaction
-    for (final message in messages) {
-      await _updateContactsFromMessage(message);
-    }
   }
 }

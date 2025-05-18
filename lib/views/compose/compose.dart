@@ -1,10 +1,10 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/compose_view.dart';
+import 'package:intl/intl.dart';
 
 import '../../utills/funtions.dart';
 
@@ -33,14 +33,21 @@ class _ComposeScreenState extends State<ComposeScreen> {
       canPop: controller.canPop(),
       onPopInvoked: (didPop) async {
         if (!didPop) {
-          var isConfirmed = await confirmDraft(context);
-          printInfo(info: isConfirmed.toString());
-          if (isConfirmed) {
-            await controller.saveAsDraft();
-          }
-          controller.canPop(true);
-          if (mounted) {
-            Navigator.pop(context);
+          // If there are unsaved changes, show confirmation dialog
+          if (controller.hasUnsavedChanges) {
+            var isConfirmed = await confirmDraft(context);
+            if (isConfirmed) {
+              await controller.saveAsDraft();
+            }
+            controller.canPop(true);
+            if (mounted) {
+              Navigator.pop(context);
+            }
+          } else {
+            controller.canPop(true);
+            if (mounted) {
+              Navigator.pop(context);
+            }
           }
         }
       },
@@ -62,6 +69,27 @@ class _ComposeScreenState extends State<ComposeScreen> {
             ),
           ),
           actions: [
+            // Draft status indicator
+            Obx(() => controller.draftStatus.isNotEmpty
+                ? Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Text(
+                  controller.draftStatus,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: controller.draftStatus == 'draft_saved'.tr
+                        ? Colors.green
+                        : controller.draftStatus == 'saving_draft'.tr
+                        ? Colors.orange
+                        : controller.draftStatus == 'unsaved_changes'.tr
+                        ? Colors.red
+                        : Colors.grey,
+                  ),
+                ),
+              ),
+            )
+                : const SizedBox.shrink()),
             IconButton(
               onPressed: controller.sendEmail,
               icon: Icon(
@@ -158,117 +186,386 @@ class _ComposeScreenState extends State<ComposeScreen> {
                 showModalBottomSheet(
                   context: context,
                   backgroundColor: Colors.white,
+                  isScrollControlled: true,
                   shape: const RoundedRectangleBorder(
                     borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                   ),
-                  builder: (context) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 4,
-                          margin: const EdgeInsets.only(bottom: 20),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(2),
-                            color: Colors.grey.shade300,
-                          ),
-                        ),
-                        Text(
-                          'more_options'.tr,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        ListTile(
-                          leading: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.save_outlined, color: Colors.amber),
-                          ),
-                          title: Text('save_as_draft'.tr),
-                          onTap: () {
-                            Get.back();
-                            controller.saveAsDraft();
-                          },
-                        ),
-                        ListTile(
-                          leading: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.purple.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.receipt_long_outlined, color: Colors.purple),
-                          ),
-                          title: Text('request_read_receipt'.tr),
-                          trailing: Obx(() => Switch(
-                            value: Get.find<SettingController>().readReceipts.value,
-                            onChanged: (value) {
-                              Get.find<SettingController>().readReceipts.value = value;
-                            },
-                            activeColor: AppTheme.primaryColor,
-                          )),
-                          onTap: () {
-                            Get.find<SettingController>().readReceipts.toggle();
-                          },
-                        ),
-                        ListTile(
-                          leading: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.teal.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.text_format, color: Colors.teal),
-                          ),
-                          title: Text('convert_to_plain_text'.tr),
-                          onTap: () {
-                            Get.back();
-                            controller.togglePlainHtml();
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: ElevatedButton(
-                            onPressed: () => Get.back(),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey.shade200,
-                              foregroundColor: Colors.black,
-                              minimumSize: const Size(double.infinity, 50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Text('cancel'.tr),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  builder: (context) => DraftOptionsSheet(),
                 );
               },
               icon: const Icon(Icons.more_vert_outlined),
             ),
           ],
         ),
-        body: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Form(
-            key: composeFormKey,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: WComposeView(),
+        body: Stack(
+          children: [
+            SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Form(
+                key: composeFormKey,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Column(
+                    children: [
+                      // Last saved time indicator
+                      Obx(() => controller.lastSavedTime.isNotEmpty
+                          ? Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Text(
+                            '${'last_saved'.tr}: ${controller.lastSavedTime}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                      )
+                          : const SizedBox.shrink()),
+
+                      // Compose view
+                      WComposeView(),
+
+                      // Auto-save indicator
+                      Obx(() => controller.isAutosaving
+                          ? Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'autosaving'.tr,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                          : const SizedBox.shrink()),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Draft options floating button
+            Obx(() => controller.showDraftOptions
+                ? Positioned(
+              bottom: 16,
+              right: 16,
+              child: FloatingActionButton(
+                backgroundColor: AppTheme.primaryColor,
+                child: const Icon(Icons.save_outlined),
+                onPressed: () {
+                  controller.saveAsDraft();
+                },
+              ),
+            )
+                : const SizedBox.shrink()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class DraftOptionsSheet extends StatelessWidget {
+  DraftOptionsSheet({Key? key}) : super(key: key);
+
+  final controller = Get.find<ComposeController>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(2),
+              color: Colors.grey.shade300,
             ),
           ),
-        ),
+          Text(
+            'more_options'.tr,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 20),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.save_outlined, color: Colors.amber),
+            ),
+            title: Text('save_as_draft'.tr),
+            onTap: () {
+              Get.back();
+              controller.saveAsDraft();
+            },
+          ),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.indigo.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.schedule_outlined, color: Colors.indigo),
+            ),
+            title: Text('schedule_send'.tr),
+            onTap: () {
+              Get.back();
+              _showScheduleDialog(context);
+            },
+          ),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.category_outlined, color: Colors.deepPurple),
+            ),
+            title: Text('categorize_draft'.tr),
+            onTap: () {
+              Get.back();
+              _showCategoryDialog(context);
+            },
+          ),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.purple.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.receipt_long_outlined, color: Colors.purple),
+            ),
+            title: Text('request_read_receipt'.tr),
+            trailing: Obx(() => Switch(
+              value: Get.find<SettingController>().readReceipts.value,
+              onChanged: (value) {
+                Get.find<SettingController>().readReceipts.value = value;
+              },
+              activeColor: AppTheme.primaryColor,
+            )),
+            onTap: () {
+              Get.find<SettingController>().readReceipts.toggle();
+            },
+          ),
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.teal.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.text_format, color: Colors.teal),
+            ),
+            title: Text('convert_to_plain_text'.tr),
+            onTap: () {
+              Get.back();
+              controller.togglePlainHtml();
+            },
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: ElevatedButton(
+              onPressed: () => Get.back(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey.shade200,
+                foregroundColor: Colors.black,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text('cancel'.tr),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showScheduleDialog(BuildContext context) {
+    final now = DateTime.now();
+    DateTime selectedDate = now.add(const Duration(days: 1));
+    TimeOfDay selectedTime = TimeOfDay.now();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text('schedule_send'.tr),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('select_date_time'.tr),
+                const SizedBox(height: 16),
+                ListTile(
+                  title: Text('date'.tr),
+                  subtitle: Text(DateFormat('EEE, MMM d, yyyy').format(selectedDate)),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: now,
+                      lastDate: now.add(const Duration(days: 365)),
+                    );
+                    if (date != null) {
+                      setState(() {
+                        selectedDate = date;
+                      });
+                    }
+                  },
+                ),
+                ListTile(
+                  title: Text('time'.tr),
+                  subtitle: Text(selectedTime.format(context)),
+                  trailing: const Icon(Icons.access_time),
+                  onTap: () async {
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: selectedTime,
+                    );
+                    if (time != null) {
+                      setState(() {
+                        selectedTime = time;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Get.back(),
+                child: Text('cancel'.tr),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final scheduledDateTime = DateTime(
+                    selectedDate.year,
+                    selectedDate.month,
+                    selectedDate.day,
+                    selectedTime.hour,
+                    selectedTime.minute,
+                  );
+
+                  if (scheduledDateTime.isBefore(now)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('schedule_time_past'.tr),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+
+                  Get.back();
+                  controller.scheduleDraft(scheduledDateTime);
+                },
+                child: Text('schedule'.tr),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showCategoryDialog(BuildContext context) {
+    final categories = [
+      'work',
+      'personal',
+      'important',
+      'follow_up',
+      'later',
+      'custom',
+    ];
+
+    String selectedCategory = 'default';
+    String customCategory = '';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text('categorize_draft'.tr),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('select_category'.tr),
+                const SizedBox(height: 16),
+                ...categories.map((category) => RadioListTile<String>(
+                  title: Text(category.tr),
+                  value: category,
+                  groupValue: selectedCategory,
+                  onChanged: (value) {
+                    setState(() {
+                      selectedCategory = value!;
+                    });
+                  },
+                )),
+                if (selectedCategory == 'custom')
+                  TextField(
+                    decoration: InputDecoration(
+                      labelText: 'custom_category'.tr,
+                      hintText: 'enter_category_name'.tr,
+                    ),
+                    onChanged: (value) {
+                      customCategory = value;
+                    },
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Get.back(),
+                child: Text('cancel'.tr),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final category = selectedCategory == 'custom' ? customCategory : selectedCategory;
+                  if (category.isNotEmpty) {
+                    Get.back();
+                    controller.categorizeDraft(category);
+                  }
+                },
+                child: Text('save'.tr),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
