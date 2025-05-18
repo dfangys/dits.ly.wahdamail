@@ -5,66 +5,59 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 class InternetService {
-  static InternetService? _instance;
-  static InternetService get instance {
-    return _instance ??= InternetService._();
-  }
-
   InternetService._();
-  GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  static final InternetService instance = InternetService._();
 
-  late StreamSubscription<ConnectivityResult> streamSubscription;
+  /// Use this in your `MaterialApp(navigatorKey: …)` so the snackbar can show.
+  final navigatorKey = GlobalKey<NavigatorState>();
 
-  late bool connected;
+  /// 👇  v6 emits *lists* of results, not a single enum
+  late StreamSubscription<List<ConnectivityResult>> _subscription;
 
-  Future init() async {
-    final connectivityResult = await (Connectivity().checkConnectivity());
-    if (connectivityResult == ConnectivityResult.none) {
-      showInternetSnakBar();
-      connected = false;
-    } else {
-      connected = true;
-    }
-    streamSubscription = Connectivity().onConnectivityChanged.listen((event) {
-      log("internet: ${event.name}");
-      if (event == ConnectivityResult.none) {
-        connected = false;
-        showInternetSnakBar();
-      } else {
-        connected = true;
-        hidInternetSnakBar();
+  bool connected = true;
+
+  Future<void> init() async {
+    // ----- first, check the current state -----------------------------------
+    final initial = await Connectivity().checkConnectivity();
+    connected = !initial.contains(ConnectivityResult.none);
+    if (!connected) _showNoInternetSnackBar();
+
+    // ----- then, listen for changes -----------------------------------------
+    _subscription = Connectivity()
+        .onConnectivityChanged
+        .listen((List<ConnectivityResult> results) {
+      log('internet: ${results.map((e) => e.name).join(", ")}');
+
+      final nowConnected = !results.contains(ConnectivityResult.none);
+      if (nowConnected != connected) {
+        connected = nowConnected;
+        connected ? _hideSnackBar() : _showNoInternetSnackBar();
       }
     });
   }
 
-  dispose() {
-    streamSubscription.cancel();
-  }
+  void dispose() => _subscription.cancel();
 
-  void showInternetSnakBar() {
-    SnackBar snackBar = const SnackBar(
+  // --------------------------------------------------------------------------
+  // UI helpers
+  // --------------------------------------------------------------------------
+  void _showNoInternetSnackBar() {
+    const snackBar = SnackBar(
+      duration: Duration(days: 1), // stays until we hide it
       content: Row(
         children: [
-          Icon(
-            Icons.wifi_off,
-            color: Colors.white,
-          ),
+          Icon(Icons.wifi_off, color: Colors.white),
           SizedBox(width: 10),
-          Text(
-            "No internet connected",
-          ),
+          Text('No internet connection'),
         ],
       ),
-      duration: Duration(days: 1),
     );
-    if (navigatorKey.currentContext != null) {
-      ScaffoldMessenger.of(navigatorKey.currentContext!).showSnackBar(snackBar);
-    }
+    final ctx = navigatorKey.currentContext;
+    if (ctx != null) ScaffoldMessenger.of(ctx).showSnackBar(snackBar);
   }
 
-  void hidInternetSnakBar() {
-    if (navigatorKey.currentContext != null) {
-      ScaffoldMessenger.of(navigatorKey.currentContext!).hideCurrentSnackBar();
-    }
+  void _hideSnackBar() {
+    final ctx = navigatorKey.currentContext;
+    if (ctx != null) ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
   }
 }

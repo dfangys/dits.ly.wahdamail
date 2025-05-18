@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:wahda_bank/views/view/controllers/inbox_controller.dart';
 import 'package:wahda_bank/views/view/new_message/widgets/to_text_field.dart';
-import 'package:wahda_bank/utills/constants/image_strings.dart';
 
 class NewMessageScreen extends StatelessWidget {
   NewMessageScreen({super.key});

@@ -4,7 +4,6 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import 'package:wahda_bank/services/email_notification_service.dart';
 
 class MailService {
   static MailService? _instance;
@@ -60,7 +59,7 @@ class MailService {
     client = MailClient(
       account,
       isLogEnabled: true,
-      onBadCertificate: (X509Certificate) {
+      onBadCertificate: (x509Certificate) {
         return true;
       },
     );

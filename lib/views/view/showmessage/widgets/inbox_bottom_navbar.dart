@@ -3,7 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
-import 'package:wahda_bank/utills/constants/image_strings.dart';
 
 import '../../../../app/controllers/mailbox_controller.dart';
 

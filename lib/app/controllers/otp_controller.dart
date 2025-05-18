@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:otp_autofill/otp_autofill.dart';
@@ -12,7 +13,6 @@ import 'package:wahda_bank/app/apis/app_api.dart';
 import 'package:wahda_bank/views/authantication/screens/login/login.dart';
 import 'package:wahda_bank/views/authantication/screens/otp/enter_otp/enter_otp.dart';
 import 'package:wahda_bank/views/view/screens/first_loading_view.dart';
-import 'package:wahda_bank/views/view/screens/home/home.dart';
 
 class OtpController extends GetxController {
   final appApi = Get.find<AppApi>();
@@ -86,7 +86,13 @@ class OtpController extends GetxController {
       isError(true);
     }
   }
-
+  Future<void> handleIosClipboardPaste() async {
+    final data = await Clipboard.getData('text/plain');
+    if (data?.text != null && data!.text!.length == 5) {
+      otpPin = data.text!;
+      verifyPhoneOtp(otp: otpPin);
+    }
+  }
   Future listenForSms() async {
     bool? permissionsGranted = await telephony.requestSmsPermissions;
     if (permissionsGranted != null && permissionsGranted) {
