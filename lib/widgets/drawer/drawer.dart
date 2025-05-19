@@ -3,7 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:iconsax/iconsax.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/controllers/mailbox_list_controller.dart';
 import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
 import 'package:wahda_bank/views/view/screens/drawer/terms_and_conditions.dart';
 import 'package:wahda_bank/views/view/screens/drawer/contact_us/Contact_us.dart';
@@ -17,7 +17,7 @@ class Drawer1 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<MailBoxController>();
+    final mailboxController = Get.find<MailboxListController>();
     final countController = Get.find<MailCountController>();
     final theme = Theme.of(context);
 
@@ -100,14 +100,14 @@ class Drawer1 extends StatelessWidget {
                       ),
 
                       // Mailbox list
-                      for (Mailbox box in controller.sortedMailBoxes)
+                      for (Mailbox box in mailboxController.sortedMailBoxes)
                         WDrawerTile(
                           icon: boxIcon(box.name),
                           text: box.encodedName.toLowerCase().tr,
                           onTap: () {
                             Get.back();
                             if (!box.isInbox) {
-                              controller.navigatToMailBox(box);
+                              mailboxController.navigateToMailBox(box);
                             }
                           },
                           count: countController.counts["${box.name.toLowerCase()}_count"] ?? 0,

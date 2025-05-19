@@ -31,7 +31,7 @@ class WComposeView extends StatelessWidget {
               style: const TextStyle(fontSize: 14),
             ),
             Obx(
-              () => ToEmailsChipsField(
+                  () => ToEmailsChipsField(
                 title: "to".tr,
                 emails: controller.toList.toList(),
                 onDelete: (int i) {
@@ -58,7 +58,7 @@ class WComposeView extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Obx(
-          () => AnimatedCrossFade(
+              () => AnimatedCrossFade(
             crossFadeState: controller.isCcAndBccVisible()
                 ? CrossFadeState.showFirst
                 : CrossFadeState.showSecond,
@@ -101,7 +101,7 @@ class WComposeView extends StatelessWidget {
         ),
         const Divider(color: Colors.grey, thickness: 0.5, height: 0.5),
         Obx(
-          () => ListView.builder(
+              () => ListView.builder(
             shrinkWrap: true,
             itemCount: controller.attachments.length,
             itemBuilder: (context, index) {
@@ -119,7 +119,7 @@ class WComposeView extends StatelessWidget {
           ),
         ),
         Obx(
-          () => AnimatedCrossFade(
+              () => AnimatedCrossFade(
             firstChild: HtmlEditor(
               controller: controller.htmlController,
               htmlToolbarOptions: const HtmlToolbarOptions(

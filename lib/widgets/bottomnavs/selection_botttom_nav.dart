@@ -3,7 +3,8 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/controllers/email_operation_controller.dart';
+import 'package:wahda_bank/app/controllers/mailbox_list_controller.dart';
 import 'package:wahda_bank/utills/extensions.dart';
 
 import '../../app/controllers/selection_controller.dart';
@@ -17,7 +18,8 @@ class SelectionBottomNav extends StatelessWidget {
   final Mailbox box;
 
   final selectionController = Get.find<SelectionController>();
-  final mailController = Get.find<MailBoxController>();
+  final operationController = Get.find<EmailOperationController>();
+  final mailboxController = Get.find<MailboxListController>();
 
   @override
   Widget build(BuildContext context) {
@@ -39,7 +41,7 @@ class SelectionBottomNav extends StatelessWidget {
                     CupertinoActionSheetAction(
                       onPressed: () async {
                         Get.back();
-                        await mailController.deleteMails(
+                        await operationController.deleteMails(
                           selectionController.selected,
                           box,
                         );
@@ -63,7 +65,7 @@ class SelectionBottomNav extends StatelessWidget {
             icon: CupertinoIcons.mail_solid,
             isImage: false,
             onTap: () async {
-              mailController.markAsReadUnread(
+              operationController.markAsReadUnread(
                 selectionController.selected,
                 box,
                 false,
@@ -75,7 +77,7 @@ class SelectionBottomNav extends StatelessWidget {
             icon: CupertinoIcons.envelope_open,
             isImage: false,
             onTap: () async {
-              await mailController.markAsReadUnread(
+              await operationController.markAsReadUnread(
                 selectionController.selected,
                 box,
               );
@@ -91,13 +93,13 @@ class SelectionBottomNav extends StatelessWidget {
                 builder: (context) => CupertinoActionSheet(
                   title: Text('move_to'.tr),
                   actions: [
-                    for (var item in mailController.mailboxes
+                    for (var item in mailboxController.mailboxes
                         .whereNot((e) => e == box)
                         .toList())
                       CupertinoActionSheetAction(
                         onPressed: () async {
                           Get.back();
-                          await mailController.moveMails(
+                          await operationController.moveMails(
                             selectionController.selected,
                             box,
                             item,
@@ -166,13 +168,13 @@ class IconButtons extends StatelessWidget {
         height: 25,
         child: isImage
             ? Image.asset(
-                image!,
-                color: Colors.blue,
-              )
+          image!,
+          color: Colors.blue,
+        )
             : Icon(
-                icon,
-                color: Colors.blue,
-              ),
+          icon,
+          color: Colors.blue,
+        ),
       ),
     );
   }

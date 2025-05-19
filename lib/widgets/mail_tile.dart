@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/controllers/email_operation_controller.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import '../app/controllers/selection_controller.dart';
 import '../app/controllers/settings_controller.dart';
@@ -16,15 +16,17 @@ class MailTile extends StatelessWidget {
     required this.onTap,
     required this.message,
     required this.mailBox,
+    this.onLongPress, // Added onLongPress parameter
   });
 
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress; // Added onLongPress callback
   final MimeMessage message;
   final Mailbox mailBox;
 
   final settingController = Get.find<SettingController>();
   final selectionController = Get.find<SelectionController>();
-  final mailboxController = Get.find<MailBoxController>();
+  final operationController = Get.find<EmailOperationController>(); // Updated to use EmailOperationController
 
   String get name {
     if ((["sent", "drafts"].contains(mailBox.name.toLowerCase())) &&
@@ -57,7 +59,7 @@ class MailTile extends StatelessWidget {
               Obx(
                     () => SlidableAction(
                   onPressed: (context) {
-                    mailboxController.ltrTap(message, mailBox);
+                    operationController.ltrTap(message, mailBox); // Updated to use operationController
                   },
                   backgroundColor:
                   settingController.swipeGesturesLTRModel.backgroundColor,
@@ -74,7 +76,7 @@ class MailTile extends StatelessWidget {
             Obx(
                   () => SlidableAction(
                 onPressed: (context) {
-                  mailboxController.rtlTap(message, mailBox);
+                  operationController.rtlTap(message, mailBox); // Updated to use operationController
                 },
                 backgroundColor:
                 settingController.swipeGesturesRTLModel.backgroundColor,
@@ -108,10 +110,10 @@ class MailTile extends StatelessWidget {
                     selectionController.toggle(message);
                   } else if (mailBox.name.toLowerCase() == 'drafts') {
                     EasyLoading.showInfo('Loading...');
-                    MimeMessage? msg = await mailboxController
-                        .mailboxStorage[mailBox]!
+                    MimeMessage? msg = await operationController
+                        .getMailboxStorage(mailBox)
                         .fetchMessageContents(message);
-                    msg ??= await mailboxController.mailService.client
+                    msg ??= await operationController.getMailService().client
                         .fetchMessageContents(message);
                     Get.to(
                           () => const ComposeScreen(),
@@ -127,7 +129,11 @@ class MailTile extends StatelessWidget {
                 }
               },
               onLongPress: () {
-                selectionController.toggle(message);
+                if (onLongPress != null) {
+                  onLongPress!.call(); // Use the provided onLongPress callback if available
+                } else {
+                  selectionController.toggle(message); // Default behavior
+                }
               },
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),

@@ -5,10 +5,11 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:wahda_bank/app/controllers/email_fetch_controller.dart';
+import 'package:wahda_bank/app/controllers/email_operation_controller.dart';
+import 'package:wahda_bank/app/controllers/mailbox_list_controller.dart';
 import 'package:wahda_bank/services/email_notification_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
-
-import '../app/controllers/mailbox_controller.dart';
 
 class MailService {
   static MailService? _instance;
@@ -153,8 +154,8 @@ class MailService {
         client.eventBus.on<MailLoadEvent>().listen((event) {
           if (event.mailClient == client) {
             printError(info: 'MailLoadEvent');
-            if (Get.isRegistered<MailBoxController>()) {
-              Get.find<MailBoxController>().handleIncomingMail(event.message);
+            if (Get.isRegistered<EmailFetchController>()) {
+              Get.find<EmailFetchController>().handleIncomingMail(event.message);
             }
           }
         });
@@ -163,11 +164,15 @@ class MailService {
           printError(info: "MailVanishedEvent");
           final sequence = event.sequence;
           if (sequence != null) {
-            List<MimeMessage> msgs = await client.fetchMessageSequence(
-              sequence,
-            );
-            if (Get.isRegistered<MailBoxController>()) {
-              Get.find<MailBoxController>().vanishMails(msgs);
+            List<MimeMessage> msgs = await client.fetchMessageSequence(sequence);
+
+            if (Get.isRegistered<EmailOperationController>()) {
+              final controller = Get.find<EmailOperationController>();
+              final mailbox = client.selectedMailbox;
+
+              if (mailbox != null) {
+                controller.vanishMails(msgs, mailbox);
+              }
             }
           }
         });
@@ -175,8 +180,8 @@ class MailService {
         client.eventBus.on<MailUpdateEvent>().listen((event) {
           if (event.mailClient == client) {
             printError(info: 'MailUpdateEvent');
-            if (Get.isRegistered<MailBoxController>()) {
-              Get.find<MailBoxController>().handleIncomingMail(event.message);
+            if (Get.isRegistered<EmailFetchController>()) {
+              Get.find<EmailFetchController>().handleIncomingMail(event.message);
             }
           }
         });

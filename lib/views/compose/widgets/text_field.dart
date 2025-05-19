@@ -41,7 +41,7 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
             runSpacing: -3,
             children: <Widget>[
               ...widget.emails.map(
-                (email) => Chip(
+                    (email) => Chip(
                   padding: EdgeInsets.zero,
                   label: Text(
                     "${email.personalName ?? ''} <${email.email}>",
@@ -93,7 +93,7 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
                         if (await FlutterContacts.requestPermission(
                             readonly: true)) {
                           final Contact? contact =
-                              await FlutterContacts.openExternalPick();
+                          await FlutterContacts.openExternalPick();
                           if (contact != null) {
                             widget.onInsert(
                               MailAddress(

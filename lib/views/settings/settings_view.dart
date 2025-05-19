@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import '../../app/controllers/settings_controller.dart';
+import '../../app/controllers/auth_controller.dart';
 import 'pages/language_page.dart';
 import 'pages/signature_page.dart';
 import 'pages/swipe_gesture.dart';
@@ -286,7 +286,7 @@ class SettingsView extends GetView<SettingController> {
 
                   Divider(height: 1, indent: 70, color: theme.dividerColor.withOpacity(0.1)),
 
-                  // Logout
+                  // Logout - Updated to use AuthController
                   ListTile(
                     leading: Container(
                       padding: const EdgeInsets.all(8),
@@ -297,7 +297,7 @@ class SettingsView extends GetView<SettingController> {
                       child: const Icon(Icons.logout, color: Colors.grey),
                     ),
                     title: Text('logout'.tr),
-                    onTap: () => Get.find<MailBoxController>().logout(),
+                    onTap: () => Get.find<AuthController>().logout(),
                   ),
                 ],
               ),

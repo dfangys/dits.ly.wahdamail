@@ -11,7 +11,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+// import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/controllers/email_operation_controller.dart';
+import 'package:wahda_bank/app/controllers/mailbox_list_controller.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:get_storage/get_storage.dart';
@@ -963,8 +965,9 @@ class ComposeController extends GetxController {
       final message = messageBuilder.buildMimeMessage();
 
       // Send message
-      final boxController = Get.find<MailBoxController>();
-      await boxController.sendMail(message, msg);
+      final mailboxes = Get.find<MailboxListController>().mailboxes;
+      final sentMailbox = mailboxes.firstWhereOrNull((m) => m.isSent);
+      await Get.find<EmailOperationController>().sendMail(message, sentMailbox: sentMailbox); // for normal
 
       // Delete draft if editing
       if (msg != null && type == 'draft' && _currentDraft != null) {

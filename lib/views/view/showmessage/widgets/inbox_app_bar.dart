@@ -3,7 +3,8 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/controllers/email_operation_controller.dart';
+import 'package:wahda_bank/app/controllers/mailbox_list_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 
 class InbocAppBar extends StatefulWidget {
@@ -54,7 +55,8 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
     super.dispose();
   }
 
-  final controller = Get.find<MailBoxController>();
+  final operationController = Get.find<EmailOperationController>();
+  final mailboxController = Get.find<MailboxListController>();
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +117,7 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
     });
 
     // Update flag in backend
-    controller.updateFlag([widget.message], controller.mailBoxInbox);
+    operationController.updateFlag([widget.message], mailboxController.mailBoxInbox);
   }
 
   Widget _buildMoreOptionsButton() {
@@ -194,12 +196,12 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
         title: Text('Move message', style: TextStyle(color: AppTheme.textPrimaryColor)),
         message: Text('Select a folder to move this message to', style: TextStyle(color: AppTheme.textSecondaryColor)),
         actions: [
-          for (var box in controller.mailboxes
+          for (var box in mailboxController.mailboxes
               .whereNot((e) => e == widget.mailbox)
               .toList())
             CupertinoActionSheetAction(
               onPressed: () {
-                controller.moveMails(
+                operationController.moveMails(
                   [widget.message],
                   widget.mailbox,
                   box,
@@ -232,7 +234,7 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
         actions: [
           CupertinoActionSheetAction(
             onPressed: () {
-              controller.deleteMails([widget.message], widget.mailbox);
+              operationController.deleteMails([widget.message], widget.mailbox);
               Get.back(); // Close dialog
               Get.back(); // Go back to inbox
             },

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
-import '../../../../app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/controllers/email_operation_controller.dart';
 
 class ViewMessageBottomNav extends StatelessWidget {
   ViewMessageBottomNav({
@@ -15,7 +15,7 @@ class ViewMessageBottomNav extends StatelessWidget {
 
   final MimeMessage message;
   final Mailbox mailbox;
-  final mailController = Get.find<MailBoxController>();
+  final operationController = Get.find<EmailOperationController>();
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +153,7 @@ class ViewMessageBottomNav extends StatelessWidget {
         actions: [
           CupertinoActionSheetAction(
             onPressed: () {
-              mailController.deleteMails([message], mailbox);
+              operationController.deleteMails([message], mailbox);
               Get.back(); // Close dialog
               Get.back(); // Return to inbox
             },

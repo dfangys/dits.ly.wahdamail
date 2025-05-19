@@ -8,7 +8,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:rounded_loading_button/rounded_loading_button.dart';
 import 'package:wahda_bank/app/apis/app_api.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+// import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/views/authantication/screens/reset_password_screen/reset_password_screen.dart';
 import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
