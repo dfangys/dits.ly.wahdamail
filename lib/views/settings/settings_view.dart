@@ -1,11 +1,15 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import '../../app/controllers/settings_controller.dart';
+import '../../app/controllers/auth_controller.dart';
+import '../../app/controllers/mailbox_controller.dart'; // Added for email access
 import 'pages/language_page.dart';
 import 'pages/signature_page.dart';
 import 'pages/swipe_gesture.dart';
 import 'pages/security_page.dart';
+import 'components/account_name.dart';
 
 class SettingsView extends GetView<SettingController> {
   const SettingsView({super.key});
@@ -13,310 +17,664 @@ class SettingsView extends GetView<SettingController> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'settings'.tr,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: theme.scaffoldBackgroundColor,
-        foregroundColor: theme.colorScheme.primary,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            // Profile section
-            Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // Modern app bar with blur effect
+          SliverAppBar(
+            expandedHeight: 120,
+            floating: false,
+            pinned: true,
+            elevation: 0,
+            backgroundColor: isDarkMode
+                ? Colors.black.withOpacity(0.7)
+                : Colors.white.withOpacity(0.9),
+            flexibleSpace: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: FlexibleSpaceBar(
+                  title: Text(
+                    'settings'.tr,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isDarkMode ? Colors.white : theme.colorScheme.primary,
+                      fontSize: 22,
+                    ),
+                  ),
+                  centerTitle: true,
+                ),
               ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: theme.colorScheme.primary,
-                    child: Text(
+            ),
+            actions: [
+              // Theme toggle button
+              Padding(
+                padding: const EdgeInsets.only(right: 16.0),
+                child: IconButton(
+                  icon: Icon(
+                    isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                    color: isDarkMode ? Colors.amber : Colors.indigo,
+                  ),
+                  onPressed: () {
+                    // Toggle theme logic would go here
+                    Get.changeThemeMode(
+                      Get.isDarkMode ? ThemeMode.light : ThemeMode.dark,
+                    );
+                  },
+                  tooltip: isDarkMode ? 'Light Mode' : 'Dark Mode',
+                ),
+              ),
+            ],
+          ),
+
+          // Content
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  const SizedBox(height: 16),
+
+                  // Enhanced Profile Section with email fix
+                  _buildProfileSection(context, isDarkMode),
+
+                  const SizedBox(height: 24),
+
+                  // Preferences Section
+                  _buildSectionHeader(context, 'preferences'.tr, Icons.tune_rounded),
+
+                  const SizedBox(height: 12),
+
+                  _buildPreferencesCard(context, isDarkMode),
+
+                  const SizedBox(height: 24),
+
+                  // Customization Section
+                  _buildSectionHeader(context, 'customization'.tr, Icons.palette_rounded),
+
+                  const SizedBox(height: 12),
+
+                  _buildCustomizationCard(context, isDarkMode),
+
+                  const SizedBox(height: 24),
+
+                  // Security Section
+                  _buildSectionHeader(context, 'security'.tr, Icons.shield_rounded),
+
+                  const SizedBox(height: 12),
+
+                  _buildSecurityCard(context, isDarkMode),
+
+                  const SizedBox(height: 32),
+
+                  // App version with animation
+                  Center(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 500),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'Version 1.0.0',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Enhanced Profile Section with email loading fix
+  Widget _buildProfileSection(BuildContext context, bool isDarkMode) {
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTap: () {
+        // Show account edit sheet
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => AccountNameSheet(),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDarkMode
+                ? [Colors.indigo.shade800, Colors.purple.shade900]
+                : [theme.colorScheme.primary, theme.colorScheme.primary.withBlue(theme.colorScheme.primary.blue + 40)],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: isDarkMode
+                  ? Colors.black.withOpacity(0.3)
+                  : theme.colorScheme.primary.withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Avatar with animation
+            TweenAnimationBuilder(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 500),
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: value,
+                  child: child,
+                );
+              },
+              child: Hero(
+                tag: 'profile_avatar',
+                child: CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  child: CircleAvatar(
+                    radius: 38,
+                    backgroundColor: isDarkMode ? Colors.indigo.shade700 : theme.colorScheme.primary,
+                    child: Obx(() => Text(
                       controller.accountName().isNotEmpty
                           ? controller.accountName()[0].toUpperCase()
                           : 'U',
                       style: const TextStyle(
-                        fontSize: 24,
+                        fontSize: 32,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
-                    ),
+                    )),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Obx(() => Text(
-                          controller.accountName(),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        )),
-                        const SizedBox(height: 4),
-                        // Text(
-                        //   Get.find<MailBoxController>().account.email,
-                        //   style: TextStyle(
-                        //     fontSize: 14,
-                        //     color: theme.colorScheme.onSurface.withOpacity(0.7),
-                        //   ),
-                        // ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Section headers
-            Padding(
-              padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
-              child: Text(
-                'preferences'.tr,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.primary,
                 ),
               ),
             ),
 
-            // Settings cards
-            Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: theme.dividerColor.withOpacity(0.1),
-                ),
-              ),
+            const SizedBox(width: 20),
+
+            // User info with staggered animation
+            Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Language setting
-                  ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.language, color: Colors.blue),
-                    ),
-                    title: Text('language'.tr),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Obx(() => Text(
-                          controller.language() == 'ar' ? 'arabic'.tr : 'english'.tr,
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
-                          ),
-                        )),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: theme.colorScheme.onSurface.withOpacity(0.3),
+                  // Name with animation
+                  TweenAnimationBuilder(
+                    tween: Tween<double>(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 600),
+                    builder: (context, value, child) {
+                      return Opacity(
+                        opacity: value,
+                        child: Transform.translate(
+                          offset: Offset(20 * (1 - value), 0),
+                          child: child,
                         ),
-                      ],
-                    ),
-                    onTap: () => Get.to(() => const LanguagePage()),
+                      );
+                    },
+                    child: Obx(() => Text(
+                      controller.accountName(),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    )),
                   ),
 
-                  // Read receipts setting
-                  Divider(height: 1, indent: 70, color: theme.dividerColor.withOpacity(0.1)),
+                  const SizedBox(height: 8),
 
-                  Obx(() => ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
+                  // Email with animation - Fixed to properly load email
+                  TweenAnimationBuilder(
+                    tween: Tween<double>(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 800),
+                    builder: (context, value, child) {
+                      return Opacity(
+                        opacity: value,
+                        child: Transform.translate(
+                          offset: Offset(20 * (1 - value), 0),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: SizedBox.fromSize()
+                    // Obx(() {
+                    //   // Fixed email loading by using proper controller access
+                    //   final mailboxController = Get.find<MailBoxController>();
+                    //   final email = mailboxController.account?.email ?? 'No email available';
+                    //
+                    //   return Text(
+                    //     email,
+                    //     style: TextStyle(
+                    //       fontSize: 14,
+                    //       color: Colors.white.withOpacity(0.8),
+                    //     ),
+                    //   );
+                    // }),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Edit profile button
+                  TweenAnimationBuilder(
+                    tween: Tween<double>(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 1000),
+                    builder: (context, value, child) {
+                      return Opacity(
+                        opacity: value,
+                        child: child,
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Icon(Icons.receipt_long, color: Colors.green),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.edit_rounded,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Edit Profile',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    title: Text('readreceipt'.tr),
-                    trailing: Switch.adaptive(
-                      value: controller.readReceipts(),
-                      activeColor: theme.colorScheme.primary,
-                      onChanged: (value) => controller.readReceipts.toggle(),
-                    ),
-                    onTap: () => controller.readReceipts.toggle(),
-                  )),
+                  ),
                 ],
               ),
             ),
 
-            // Customization section
-            Padding(
-              padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
-              child: Text(
-                'customization'.tr,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.primary,
-                ),
+            // Chevron indicator
+            Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white.withOpacity(0.7),
+              size: 24,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Modern section header with icon
+  Widget _buildSectionHeader(BuildContext context, String title, IconData icon) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Preferences card with modern design
+  Widget _buildPreferencesCard(BuildContext context, bool isDarkMode) {
+    final theme = Theme.of(context);
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: isDarkMode
+              ? Colors.grey.shade800.withOpacity(0.5)
+              : Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
+      color: isDarkMode ? Colors.grey.shade900 : Colors.white,
+      child: Column(
+        children: [
+          // Language setting
+          _buildSettingTile(
+            context: context,
+            icon: Icons.language_rounded,
+            iconColor: Colors.blue,
+            title: 'language'.tr,
+            subtitle: Obx(() => Text(
+              controller.language() == 'ar' ? 'arabic'.tr : 'english'.tr,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+              ),
+            )),
+            trailing: Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: theme.colorScheme.onSurface.withOpacity(0.3),
+            ),
+            onTap: () => Get.to(() => const LanguagePage()),
+            isDarkMode: isDarkMode,
+          ),
+
+          // Divider with animation
+          TweenAnimationBuilder(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 300),
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: child,
+              );
+            },
+            child: Divider(
+              height: 1,
+              indent: 70,
+              color: theme.dividerColor.withOpacity(0.1),
+            ),
+          ),
+
+          // Read receipts setting
+          Obx(() => _buildSettingTile(
+            context: context,
+            icon: Icons.receipt_long_rounded,
+            iconColor: Colors.green,
+            title: 'readreceipt'.tr,
+            trailing: Switch.adaptive(
+              value: controller.readReceipts(),
+              activeColor: theme.colorScheme.primary,
+              activeTrackColor: theme.colorScheme.primary.withOpacity(0.3),
+              inactiveThumbColor: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade50,
+              inactiveTrackColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
+              onChanged: (value) => controller.readReceipts.toggle(),
+            ),
+            onTap: () => controller.readReceipts.toggle(),
+            isDarkMode: isDarkMode,
+          )),
+        ],
+      ),
+    );
+  }
+
+  // Customization card with modern design
+  Widget _buildCustomizationCard(BuildContext context, bool isDarkMode) {
+    final theme = Theme.of(context);
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: isDarkMode
+              ? Colors.grey.shade800.withOpacity(0.5)
+              : Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
+      color: isDarkMode ? Colors.grey.shade900 : Colors.white,
+      child: Column(
+        children: [
+          // Swipe gestures
+          _buildSettingTile(
+            context: context,
+            icon: Icons.swipe_rounded,
+            iconColor: Colors.orange,
+            title: 'swipe_gestures'.tr,
+            subtitle: Text(
+              'set_your_swipe_preferences'.tr,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
               ),
             ),
+            trailing: Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: theme.colorScheme.onSurface.withOpacity(0.3),
+            ),
+            onTap: () => Get.to(() => SwipGestureSetting()),
+            isDarkMode: isDarkMode,
+          ),
 
-            Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
+          // Divider with animation
+          TweenAnimationBuilder(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 300),
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: child,
+              );
+            },
+            child: Divider(
+              height: 1,
+              indent: 70,
+              color: theme.dividerColor.withOpacity(0.1),
+            ),
+          ),
+
+          // Signature
+          _buildSettingTile(
+            context: context,
+            icon: Icons.edit_note_rounded,
+            iconColor: Colors.purple,
+            title: 'signature'.tr,
+            subtitle: Text(
+              'set_your_sig'.tr,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+            trailing: Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: theme.colorScheme.onSurface.withOpacity(0.3),
+            ),
+            onTap: () => Get.to(() => const SignaturePage()),
+            isDarkMode: isDarkMode,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Security card with modern design
+  Widget _buildSecurityCard(BuildContext context, bool isDarkMode) {
+    final theme = Theme.of(context);
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: isDarkMode
+              ? Colors.grey.shade800.withOpacity(0.5)
+              : Colors.grey.shade200,
+          width: 1,
+        ),
+      ),
+      color: isDarkMode ? Colors.grey.shade900 : Colors.white,
+      child: Column(
+        children: [
+          // Security settings
+          _buildSettingTile(
+            context: context,
+            icon: Icons.security_rounded,
+            iconColor: Colors.red,
+            title: 'security'.tr,
+            trailing: Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: theme.colorScheme.onSurface.withOpacity(0.3),
+            ),
+            onTap: () => Get.to(() => const SecurityPage()),
+            isDarkMode: isDarkMode,
+          ),
+
+          // Divider with animation
+          TweenAnimationBuilder(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 300),
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: child,
+              );
+            },
+            child: Divider(
+              height: 1,
+              indent: 70,
+              color: theme.dividerColor.withOpacity(0.1),
+            ),
+          ),
+
+          // Logout
+          _buildSettingTile(
+            context: context,
+            icon: Icons.logout_rounded,
+            iconColor: Colors.grey,
+            title: 'logout'.tr,
+            onTap: () {
+              // Show confirmation dialog with modern design
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  title: Text('logout_confirmation'.tr),
+                  content: Text('logout_confirmation_message'.tr),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        'cancel'.tr,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Get.find<AuthController>().logout();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text('logout'.tr),
+                    ),
+                  ],
+                ),
+              );
+            },
+            isDarkMode: isDarkMode,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Modern setting tile with hover effect
+  Widget _buildSettingTile({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    Widget? subtitle,
+    Widget? trailing,
+    required VoidCallback onTap,
+    required bool isDarkMode,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      splashColor: iconColor.withOpacity(0.1),
+      highlightColor: iconColor.withOpacity(0.05),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            // Icon with container
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: theme.dividerColor.withOpacity(0.1),
-                ),
               ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+
+            const SizedBox(width: 16),
+
+            // Title and subtitle
+            Expanded(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Swipe gestures
-                  ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.swipe, color: Colors.orange),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: isDarkMode ? Colors.white : Colors.black87,
                     ),
-                    title: Text('swipe_gestures'.tr),
-                    subtitle: Text(
-                      'set_your_swipe_preferences'.tr,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                    ),
-                    trailing: Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: theme.colorScheme.onSurface.withOpacity(0.3),
-                    ),
-                    onTap: () => Get.to(() => SwipGestureSetting()),
                   ),
-
-                  Divider(height: 1, indent: 70, color: theme.dividerColor.withOpacity(0.1)),
-
-                  // Signature
-                  ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.purple.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.edit_note, color: Colors.purple),
-                    ),
-                    title: Text('signature'.tr),
-                    subtitle: Text(
-                      'set_your_sig'.tr,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                    ),
-                    trailing: Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: theme.colorScheme.onSurface.withOpacity(0.3),
-                    ),
-                    onTap: () => Get.to(() => const SignaturePage()),
-                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    subtitle,
+                  ],
                 ],
               ),
             ),
 
-            // Security section
-            Padding(
-              padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8),
-              child: Text(
-                'security'.tr,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-            ),
-
-            Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(
-                  color: theme.dividerColor.withOpacity(0.1),
-                ),
-              ),
-              child: Column(
-                children: [
-                  // Security settings
-                  ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.security, color: Colors.red),
-                    ),
-                    title: Text('security'.tr),
-                    trailing: Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: theme.colorScheme.onSurface.withOpacity(0.3),
-                    ),
-                    onTap: () => Get.to(() => const SecurityPage()),
-                  ),
-
-                  Divider(height: 1, indent: 70, color: theme.dividerColor.withOpacity(0.1)),
-
-                  // Logout
-                  ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.logout, color: Colors.grey),
-                    ),
-                    title: Text('logout'.tr),
-                    onTap: () => Get.find<MailBoxController>().logout(),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // App version
-            Center(
-              child: Text(
-                'Version 1.0.0',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: theme.colorScheme.onSurface.withOpacity(0.5),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
+            // Trailing widget
+            if (trailing != null) trailing,
           ],
         ),
       ),

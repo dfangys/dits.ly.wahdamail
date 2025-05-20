@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
 import '../../views/settings/data/swap_data.dart';
+import '../../services/security_service.dart';
 
 class SettingController extends GetxController {
   final language = 'en'.obs;
@@ -16,6 +17,15 @@ class SettingController extends GetxController {
   final accountName = ''.obs;
 
   final signatureCodeView = false.obs;
+
+  // Security section properties
+  final appLock = false.obs;
+  final lockMethod = 'pin'.obs;
+  final autoLockTiming = 'immediate'.obs;
+  final hideNotificationContent = false.obs;
+  final blockRemoteImages = false.obs;
+  final enhancedSpamFilter = false.obs;
+  final isAuthenticated = true.obs; // Track if user has passed authentication
 
   SwapActionModel get swipeGesturesLTRModel => SwapSettingData()
       .swapActionModel[getSwapActionFromString(swipeGesturesLTR.value)]!;
@@ -36,6 +46,15 @@ class SettingController extends GetxController {
     ever(signatureForward, (v) => box.write('signatureForward', v));
     ever(signatureNewMessage, (v) => box.write('signatureNewMessage', v));
     ever(accountName, (v) => box.write('accountName', v));
+
+    // Security section ever() calls
+    ever(appLock, (v) => box.write('appLock', v));
+    ever(lockMethod, (v) => box.write('lockMethod', v));
+    ever(autoLockTiming, (v) => box.write('autoLockTiming', v));
+    ever(hideNotificationContent, (v) => box.write('hideNotificationContent', v));
+    ever(blockRemoteImages, (v) => box.write('blockRemoteImages', v));
+    ever(enhancedSpamFilter, (v) => box.write('enhancedSpamFilter', v));
+
     super.onInit();
   }
 
@@ -53,5 +72,34 @@ class SettingController extends GetxController {
     signatureForward.value = box.read('signatureForward') ?? true;
     signatureNewMessage.value = box.read('signatureNewMessage') ?? true;
     accountName.value = box.read('accountName') ?? '';
+
+    // Security section settings
+    appLock.value = box.read('appLock') ?? false;
+    lockMethod.value = box.read('lockMethod') ?? 'pin';
+    autoLockTiming.value = box.read('autoLockTiming') ?? 'immediate';
+    hideNotificationContent.value = box.read('hideNotificationContent') ?? false;
+    blockRemoteImages.value = box.read('blockRemoteImages') ?? false;
+    enhancedSpamFilter.value = box.read('enhancedSpamFilter') ?? false;
+  }
+
+  // Authentication methods
+  Future<bool> authenticateWithBiometrics() async {
+    final securityService = Get.find<SecurityService>();
+    return await securityService.authenticateWithBiometrics();
+  }
+
+  Future<bool> authenticateWithSystem() async {
+    final securityService = Get.find<SecurityService>();
+    return await securityService.authenticateWithSystem();
+  }
+
+  void lockApp() {
+    final securityService = Get.find<SecurityService>();
+    securityService.lockApp();
+  }
+
+  Future<bool> unlockApp() async {
+    final securityService = Get.find<SecurityService>();
+    return await securityService.unlockApp();
   }
 }
