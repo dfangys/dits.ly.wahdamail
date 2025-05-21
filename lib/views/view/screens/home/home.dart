@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/email_fetch_controller.dart';
 import 'package:wahda_bank/app/controllers/email_operation_controller.dart';
+import 'package:wahda_bank/app/controllers/email_storage_controller.dart';
 import 'package:wahda_bank/app/controllers/email_ui_state_controller.dart';
 import 'package:wahda_bank/app/controllers/mailbox_list_controller.dart';
+import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/utills/funtions.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
@@ -20,18 +22,104 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../../../../widgets/empty_box.dart';
 import 'package:enough_mail/enough_mail.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Get all required controllers
-    final fetchController = Get.find<EmailFetchController>();
-    final operationController = Get.find<EmailOperationController>();
-    final mailboxController = Get.find<MailboxListController>();
-    final uiStateController = Get.find<EmailUIStateController>();
-    final selectionController = Get.find<SelectionController>();
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  // Get all required controllers
+  final EmailFetchController fetchController = Get.find<EmailFetchController>();
+  final EmailOperationController operationController = Get.find<EmailOperationController>();
+  final MailboxListController mailboxController = Get.find<MailboxListController>();
+  final EmailUiStateController uiStateController = Get.find<EmailUiStateController>();
+  final SelectionController selectionController = Get.find<SelectionController>();
+  final MailService mailService = MailService.instance;
+
+  final ScrollController _scrollController = ScrollController();
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    // Initialize UI state
+    uiStateController.setCurrentView(ViewType.inbox);
+
+    // Initialize inbox
+    _initializeInbox();
+
+    // Add scroll listener for pagination
+    _scrollController.addListener(_scrollListener);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      _isInitialized = true;
+      // Fetch emails after first build
+      _fetchEmails();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Reconnect and refresh when app comes to foreground
+    if (state == AppLifecycleState.resumed) {
+      if (!mailService.isConnected) {
+        mailService.connect().then((connected) {
+          if (connected) {
+            _fetchEmails();
+          }
+        });
+      } else {
+        _fetchEmails();
+      }
+    }
+  }
+
+  // Initialize inbox
+  Future<void> _initializeInbox() async {
+    try {
+      if (mailboxController.mailBoxInbox == null) {
+        await mailboxController.loadMailBoxes();
+      }
+      final inbox = mailboxController.mailBoxInbox;
+      if (inbox != null) {
+        // this will do initializeMailboxStorage + pull from server
+        await fetchController.loadEmailsForBox(inbox);
+      }
+    } catch (e) {
+      debugPrint('Error initializing inbox: $e');
+    }
+  }
+
+  // Fetch emails
+  Future<void> _fetchEmails() async {
+    if (mailboxController.mailBoxInbox != null) {
+      await fetchController.fetchNewEmails(mailboxController.mailBoxInbox!);
+    }
+  }
+
+  // Scroll listener for pagination
+  void _scrollListener() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9 &&
+        !uiStateController.isBoxBusy.value &&
+        !uiStateController.isLoadingMore.value &&
+        mailboxController.mailBoxInbox != null) {
+      // Load more emails when user scrolls to bottom 90%
+      fetchController.loadMoreEmails(mailboxController.mailBoxInbox!);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: PreferredSize(
@@ -39,264 +127,443 @@ class HomeScreen extends StatelessWidget {
         child: appBar(),
       ),
       drawer: const Drawer1(),
-      body: Obx(
-            () {
-          if (uiStateController.isBusy()) {
-            return TAnimationLoaderWidget(
-              text: 'Searching for emails',
-              animation: 'assets/lottie/search.json',
-              showAction: false,
-              actionText: 'try_again'.tr,
-              onActionPressed: () {},
-            );
-          }
+      body: Obx(() {
+        // Show loading state
+        if (uiStateController.isBoxBusy.value && fetchController.emails.isEmpty) {
+          return TAnimationLoaderWidget(
+            text: 'Loading your emails',
+            animation: 'assets/lottie/search.json',
+            showAction: false,
+            actionText: 'try_again'.tr,
+            onActionPressed: () {},
+          );
+        }
 
-          // Use StreamBuilder with controller's emailsStream for real-time updates
-          return StreamBuilder<Map<Mailbox, List<MimeMessage>>>(
-            stream: fetchController.emailsStream,
-            initialData: fetchController.emails,
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              final mailboxEmails = snapshot.data![mailboxController.mailBoxInbox];
-              if (mailboxEmails == null || mailboxEmails.isEmpty) {
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    // Use fetchNewEmails instead of loadEmailsForBox for incremental updates
-                    await fetchController.fetchNewEmails(mailboxController.mailBoxInbox);
-                  },
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: [
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height - 100,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.inbox_outlined,
-                                size: 80,
-                                color: Colors.grey.shade400,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Your inbox is empty',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Pull down to refresh',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade500,
-                                ),
-                              ),
-                            ],
+        // Show connection error if not connected
+        if (!uiStateController.isConnected.value && !uiStateController.isBoxBusy.value) {
+          return RefreshIndicator(
+            onRefresh: _fetchEmails,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height - 100,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.cloud_off,
+                          size: 80,
+                          color: Colors.grey.shade400,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No connection to mail server',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade600,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Showing cached emails',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            mailService.connect().then((connected) {
+                              if (connected && mailboxController.mailBoxInbox != null) {
+                                fetchController.loadEmailsForBox(mailboxController.mailBoxInbox!);
+                              }
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: Text('Try Again'.tr),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Use StreamBuilder with controller's emailsMapStream for reactive updates
+        return StreamBuilder<Map<Mailbox, List<MimeMessage>>>(
+          stream: fetchController.emailsMapStream,
+          initialData: fetchController.emails,
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final mailboxEmails = mailboxController.mailBoxInbox != null
+                ? snapshot.data![mailboxController.mailBoxInbox]
+                : null;
+
+            if (mailboxEmails == null || mailboxEmails.isEmpty) {
+              return RefreshIndicator(
+                onRefresh: _fetchEmails,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height - 100,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.inbox_outlined,
+                              size: 80,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Your inbox is empty',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Pull down to refresh',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Apply filters if active
+            List<MimeMessage> filteredEmails = mailboxEmails;
+            if (uiStateController.isFilterActive) {
+              final filter = uiStateController.currentFilter.value;
+
+              if (filter.onlyUnread) {
+                filteredEmails = filteredEmails.where((msg) => !msg.isSeen).toList();
+              }
+
+              if (filter.onlyFlagged) {
+                filteredEmails = filteredEmails.where((msg) => msg.isFlagged).toList();
+              }
+
+              if (filter.onlyWithAttachments) {
+                filteredEmails = filteredEmails.where((msg) => msg.hasAttachments()).toList();
+              }
+
+              if (filter.fromDate != null) {
+                filteredEmails = filteredEmails.where((msg) {
+                  final date = msg.decodeDate();
+                  return date != null && date.isAfter(filter.fromDate!);
+                }).toList();
+              }
+
+              if (filter.toDate != null) {
+                filteredEmails = filteredEmails.where((msg) {
+                  final date = msg.decodeDate();
+                  return date != null && date.isBefore(filter.toDate!);
+                }).toList();
+              }
+
+              if (filter.searchTerm.isNotEmpty) {
+                final term = filter.searchTerm.toLowerCase();
+                filteredEmails = filteredEmails.where((msg) {
+                  final subject = msg.decodeSubject()?.toLowerCase() ?? '';
+                  final from = msg.fromEmail?.toLowerCase() ?? '';
+                  return subject.contains(term) || from.contains(term);
+                }).toList();
+              }
+
+              // Show empty state if filtered list is empty
+              if (filteredEmails.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.filter_list,
+                        color: Colors.grey,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No messages match your filters',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          uiStateController.clearFilter();
+                        },
+                        child: Text('Clear Filters'.tr),
                       ),
                     ],
                   ),
                 );
               }
+            }
 
-              // Group messages by date
-              Map<DateTime, List<MimeMessage>> group = groupBy(
-                mailboxEmails,
-                    (MimeMessage m) => filterDate(m.decodeDate() ?? DateTime.now()),
-              );
+            // Group messages by date
+            Map<DateTime, List<MimeMessage>> group = groupBy(
+              filteredEmails,
+                  (MimeMessage m) => filterDate(m.decodeDate() ?? DateTime.now()),
+            );
 
-              return RefreshIndicator(
-                onRefresh: () async {
-                  // Use fetchNewEmails instead of loadEmailsForBox for incremental updates
-                  await fetchController.fetchNewEmails(mailboxController.mailBoxInbox);
-                },
-                child: NotificationListener<ScrollNotification>(
-                  // Add scroll listener to detect when user reaches bottom
-                  onNotification: (ScrollNotification scrollInfo) {
-                    if (scrollInfo is ScrollEndNotification &&
-                        scrollInfo.metrics.pixels >= scrollInfo.metrics.maxScrollExtent * 0.9 &&
-                        !uiStateController.isBoxBusy() &&
-                        !uiStateController.isLoadingMore()) {
-                      // Load more emails when user scrolls to bottom 90%
-                      fetchController.loadMoreEmails(mailboxController.mailBoxInbox);
-                    }
-                    return false;
-                  },
-                  child: Stack(
-                    children: [
-                      ListView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(top: 8, bottom: 16),
-                        itemCount: group.length + 1, // +1 for loading indicator
-                        itemBuilder: (context, index) {
-                          // Show loading indicator at the bottom when loading more
-                          if (index == group.length) {
-                            return Obx(() => uiStateController.isLoadingMore()
-                                ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16.0),
-                              child: Center(child: CircularProgressIndicator()),
-                            )
-                                : const SizedBox.shrink());
-                          }
+            return RefreshIndicator(
+              onRefresh: _fetchEmails,
+              child: Stack(
+                children: [
+                  ListView.builder(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.only(top: 8, bottom: 16),
+                    itemCount: group.length + 1, // +1 for loading indicator
+                    itemBuilder: (context, index) {
+                      // Show loading indicator at the bottom when loading more
+                      if (index == group.length) {
+                        return Obx(() => uiStateController.isLoadingMore.value
+                            ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16.0),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                            : const SizedBox.shrink());
+                      }
 
-                          var item = group.entries.elementAt(index);
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryColor.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: Text(
-                                    timeago.format(
-                                      item.value.isNotEmpty
-                                          ? item.value.first.decodeDate() ?? DateTime.now()
-                                          : DateTime.now(),
-                                    ),
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: AppTheme.primaryColor,
-                                    ),
-                                  ),
+                      var item = group.entries.elementAt(index);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Text(
+                                timeago.format(
+                                  item.value.isNotEmpty
+                                      ? item.value.first.decodeDate() ?? DateTime.now()
+                                      : DateTime.now(),
+                                ),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.primaryColor,
                                 ),
                               ),
-                              ListView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemBuilder: (context, i) {
-                                  var mail = item.value.elementAt(i);
-                                  return Dismissible(
-                                    key: ValueKey('mail_${mail.uid}'),
-                                    background: Container(
-                                      color: Colors.red,
-                                      alignment: Alignment.centerRight,
-                                      padding: const EdgeInsets.only(right: 20),
-                                      child: const Icon(
-                                        Icons.delete,
-                                        color: Colors.white,
-                                      ),
+                            ),
+                          ),
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: item.value.length,
+                            itemBuilder: (context, i) {
+                              final mail = item.value[i];
+                              return Dismissible(
+                                key: ValueKey('mail_${mail.uid ?? mail.sequenceId ?? i}'),
+                                background: Container(
+                                  color: Colors.red,
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 20),
+                                  child: const Icon(
+                                    Icons.delete,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                direction: DismissDirection.endToStart,
+                                confirmDismiss: (direction) async {
+                                  return await Get.dialog<bool>(
+                                    AlertDialog(
+                                      title: Text('delete_email'.tr),
+                                      content: Text('confirm_delete_email'.tr),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Get.back(result: false),
+                                          child: Text('cancel'.tr),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () => Get.back(result: true),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppTheme.errorColor,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          child: Text('delete'.tr),
+                                        ),
+                                      ],
                                     ),
-                                    direction: DismissDirection.endToStart,
-                                    confirmDismiss: (direction) async {
-                                      return await showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            title: const Text("Confirm"),
-                                            content: const Text("Are you sure you want to delete this email?"),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.of(context).pop(false),
-                                                child: const Text("CANCEL"),
-                                              ),
-                                              TextButton(
-                                                onPressed: () => Navigator.of(context).pop(true),
-                                                child: const Text("DELETE"),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                    },
-                                    onDismissed: (direction) {
-                                      // Use optimistic UI update for deletion
-                                      operationController.deleteMails([mail], mailboxController.mailBoxInbox);
-                                    },
-                                    child: Builder(builder: (context) {
-                                      return MailTile(
-                                        onTap: () {
-                                          // Mark as seen with optimistic UI update when opening
-                                          if (!mail.isSeen) {
-                                            operationController.markAsReadUnread(
-                                                [mail],
-                                                mailboxController.mailBoxInbox,
-                                                true
-                                            );
-                                          }
-
-                                          Get.to(
-                                                () => ShowMessage(
-                                              message: mail,
-                                              mailbox: mailboxController.mailBoxInbox,
-                                            ),
-                                          );
-                                        },
-                                        message: mail,
-                                        mailBox: mailboxController.mailBoxInbox,
-                                        // Add long press handler for flagging
-                                        onLongPress: () {
-                                          operationController.updateFlag(
-                                              [mail],
-                                              mailboxController.mailBoxInbox
-                                          );
-                                        },
-                                      );
-                                    }),
-                                  );
+                                  ) ??
+                                      false;
                                 },
-                                itemCount: item.value.length,
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                      // Overlay a progress indicator when refreshing
-                      Obx(() => uiStateController.isRefreshing() && !uiStateController.isBoxBusy()
-                          ? Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: Container(
-                          height: 2,
-                          child: const LinearProgressIndicator(),
-                        ),
-                      )
-                          : const SizedBox.shrink()),
-                    ],
+                                onDismissed: (direction) {
+                                  if (mailboxController.mailBoxInbox != null) {
+                                    operationController.moveToTrash(
+                                      [mail],
+                                      mailboxController.mailBoxInbox!,
+                                    );
+                                  }
+                                },
+                                child: MailTile(
+                                  message: mail,
+                                  mailBox: mailboxController.mailBoxInbox!,
+                                  onTap: () {
+                                    Get.to(
+                                          () => ShowMessage(
+                                        message: mail,
+                                        mailbox: mailboxController.mailBoxInbox!,
+                                      ),
+                                    );
+                                  },
+                                  onLongPress: () {
+                                    selectionController.toggleSelection(mail);
+                                  },
+                                ),
+                              );
+                            },
+                            separatorBuilder: (context, index) => const Divider(
+                              height: 1,
+                              indent: 72,
+                              color: AppTheme.dividerColor,
+                            ),
+                          ),                          if (index < group.length - 1)
+                            const Divider(
+                              height: 1,
+                              color: AppTheme.dividerColor,
+                            ),
+                        ],
+                      );
+                    },
                   ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-      floatingActionButton: Obx(
-            () => selectionController.isSelecting
-            ? const SizedBox.shrink()
-            : FloatingActionButton(
-          onPressed: () {
-            Get.to(() => const ComposeScreen());
+
+                  // Show selection bottom bar when items are selected
+                  Obx(() => selectionController.selectedItems.isNotEmpty
+                      ? Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child:
+                    SelectionBottomNav(
+                      box: mailboxController.mailBoxInbox!,
+                    ),
+                  )
+                      : const SizedBox.shrink()),
+                ],
+              ),
+            );
           },
-          backgroundColor: AppTheme.primaryColor,
-          child: const Icon(Icons.edit_outlined, color: Colors.white),
+        );
+      }),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: AppTheme.primaryColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
         ),
-      ),
-      bottomNavigationBar: Obx(
-            () => AnimatedCrossFade(
-          firstChild: const SizedBox(height: 0),
-          secondChild: SelectionBottomNav(
-            box: mailboxController.mailBoxInbox,
-          ),
-          crossFadeState: selectionController.isSelecting
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 300),
+        elevation: 2,
+        onPressed: () {
+          Get.to(() => const ComposeScreen());
+        },
+        child: const Icon(
+          Icons.edit_outlined,
+          color: Colors.white,
         ),
+        tooltip: 'compose_new'.tr,
       ),
     );
+  }
+
+  // Confirm delete selected messages
+  void _confirmDeleteSelected() {
+    Get.dialog(
+      AlertDialog(
+        title: Text('delete_selected'.tr),
+        content: Text(
+          'confirm_delete_selected'.trParams({
+            'count': selectionController.selectedItems.length.toString(),
+          }),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: Text('cancel'.tr),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Get.back();
+              _deleteSelected();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+              foregroundColor: Colors.white,
+            ),
+            child: Text('delete'.tr),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Delete selected messages
+  void _deleteSelected() {
+    if (mailboxController.mailBoxInbox != null) {
+      operationController.moveMessagesToTrash(
+        selectionController.selectedItems,
+        mailboxController.mailBoxInbox!,
+      );
+      selectionController.clearSelection();
+    }
+  }
+
+  // Mark selected messages as read/unread
+  void _markSelectedAsRead(bool asRead) {
+    if (mailboxController.mailBoxInbox != null) {
+      operationController.markAsReadUnread(
+        selectionController.selectedItems,
+        mailboxController.mailBoxInbox!,
+        asRead,
+
+      );
+      selectionController.clearSelection();
+    }
+  }
+
+  // Flag/unflag selected messages
+  void _flagSelected(bool asFlagged) {
+    if (mailboxController.mailBoxInbox != null) {
+      operationController.updateFlag(
+        selectionController.selectedItems,
+        mailboxController.mailBoxInbox!,
+      );
+      selectionController.clearSelection();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 }
 
@@ -345,18 +612,6 @@ class WSearchBar extends StatelessWidget {
                   color: Colors.grey.shade600,
                   fontSize: 15,
                 ),
-              ),
-              const Spacer(),
-              Container(
-                width: 1,
-                height: 24,
-                color: Colors.grey.shade300,
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-              Icon(
-                Icons.mic_none_rounded,
-                color: Colors.grey.shade600,
-                size: 20,
               ),
             ],
           ),

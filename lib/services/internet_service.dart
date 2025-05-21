@@ -3,6 +3,7 @@ import 'dart:developer';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class InternetService {
   InternetService._();
@@ -14,13 +15,22 @@ class InternetService {
   /// 👇  v6 emits *lists* of results, not a single enum
   late StreamSubscription<List<ConnectivityResult>> _subscription;
 
-  bool connected = true;
+  // Observable connectivity state
+  final RxBool _isConnected = true.obs;
+  bool get connected => _isConnected.value;
+
+  // Stream controller for connectivity changes
+  final _connectivityController = StreamController<bool>.broadcast();
+  Stream<bool> get connectivityStream => _connectivityController.stream;
 
   Future<void> init() async {
     // ----- first, check the current state -----------------------------------
     final initial = await Connectivity().checkConnectivity();
-    connected = !initial.contains(ConnectivityResult.none);
-    if (!connected) _showNoInternetSnackBar();
+    _isConnected.value = !initial.contains(ConnectivityResult.none);
+    if (!_isConnected.value) _showNoInternetSnackBar();
+
+    // Emit initial state to stream
+    _connectivityController.add(_isConnected.value);
 
     // ----- then, listen for changes -----------------------------------------
     _subscription = Connectivity()
@@ -29,14 +39,41 @@ class InternetService {
       log('internet: ${results.map((e) => e.name).join(", ")}');
 
       final nowConnected = !results.contains(ConnectivityResult.none);
-      if (nowConnected != connected) {
-        connected = nowConnected;
-        connected ? _hideSnackBar() : _showNoInternetSnackBar();
+      if (nowConnected != _isConnected.value) {
+        _isConnected.value = nowConnected;
+
+        // Emit to stream
+        _connectivityController.add(_isConnected.value);
+
+        // Update UI
+        _isConnected.value ? _hideSnackBar() : _showNoInternetSnackBar();
       }
     });
   }
 
-  void dispose() => _subscription.cancel();
+  void dispose() {
+    _subscription.cancel();
+    _connectivityController.close();
+  }
+
+  /// Check current connectivity status
+  Future<bool> checkConnectivity() async {
+    try {
+      final results = await Connectivity().checkConnectivity();
+      final isConnected = !results.contains(ConnectivityResult.none);
+
+      // Update state if different
+      if (isConnected != _isConnected.value) {
+        _isConnected.value = isConnected;
+        _connectivityController.add(isConnected);
+      }
+
+      return isConnected;
+    } catch (e) {
+      log('Error checking connectivity: $e');
+      return _isConnected.value; // Return last known state
+    }
+  }
 
   // --------------------------------------------------------------------------
   // UI helpers
@@ -52,12 +89,15 @@ class InternetService {
         ],
       ),
     );
-    final ctx = navigatorKey.currentContext;
+
+    // Try using Get.context first for GetX compatibility
+    final ctx = Get.context ?? navigatorKey.currentContext;
     if (ctx != null) ScaffoldMessenger.of(ctx).showSnackBar(snackBar);
   }
 
   void _hideSnackBar() {
-    final ctx = navigatorKey.currentContext;
+    // Try using Get.context first for GetX compatibility
+    final ctx = Get.context ?? navigatorKey.currentContext;
     if (ctx != null) ScaffoldMessenger.of(ctx).hideCurrentSnackBar();
   }
 }

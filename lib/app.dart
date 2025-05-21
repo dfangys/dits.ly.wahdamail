@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/view/screens/home/home.dart';
 import 'package:wahda_bank/views/view/screens/splash.dart';
+import 'package:wahda_bank/views/authantication/screens/auth_screen.dart';
+import 'package:wahda_bank/middleware/auth_middleware.dart';
+import 'package:wahda_bank/services/security_service.dart';
 import 'app/bindings/home_binding.dart';
 import 'services/internet_service.dart';
 import 'utills/constants/language.dart';
@@ -24,6 +27,8 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     InternetService.instance.init();
+    _initSecurityService();
+
     if (locale == 'ar') {
       timeago.setLocaleMessages('ar', timeago.ArMessages());
       timeago.setDefaultLocale(locale);
@@ -35,6 +40,10 @@ class _MyAppState extends State<MyApp> {
       initializeDateFormatting('en');
     }
     super.initState();
+  }
+
+  Future<void> _initSecurityService() async {
+    await Get.putAsync(() => SecurityService().init());
   }
 
   @override
@@ -73,6 +82,11 @@ class _MyAppState extends State<MyApp> {
           name: '/home',
           page: () => const HomeScreen(),
           binding: HomeBinding(),
+          middlewares: [AuthMiddleware()],
+        ),
+        GetPage(
+          name: '/auth',
+          page: () => AuthScreen(),
         ),
       ],
     );

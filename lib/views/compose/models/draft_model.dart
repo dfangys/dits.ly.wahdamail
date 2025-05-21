@@ -20,11 +20,20 @@ class DraftModel {
   /// List of recipient email addresses in "Name <email>" format
   final List<String> to;
 
+  /// Alias for to for compatibility
+  List<String> get toRecipients => to;
+
   /// List of CC recipient email addresses in "Name <email>" format
   final List<String> cc;
 
+  /// Alias for cc for compatibility
+  List<String> get ccRecipients => cc;
+
   /// List of BCC recipient email addresses in "Name <email>" format
   final List<String> bcc;
+
+  /// Alias for bcc for compatibility
+  List<String> get bccRecipients => bcc;
 
   /// List of file paths for attachments
   final List<String> attachmentPaths;

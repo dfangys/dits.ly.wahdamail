@@ -43,8 +43,16 @@ class SqliteMailboxStorage {
   // Track last fetched UID for incremental updates
   int _lastFetchedUid = 0;
 
+  // Track last refresh time for cache invalidation
+  DateTime _lastRefreshed = DateTime.now();
+  DateTime get lastRefreshed => _lastRefreshed;
+
   // Batch operation lock
   final _batchLock = Object();
+
+  // Transaction lock to prevent concurrent database operations
+  late var _transactionLock = Completer<void>();
+  bool _isTransactionLockAcquired = false;
 
   // Debounce timer for UI updates
   Timer? _debounceTimer;
@@ -55,6 +63,12 @@ class SqliteMailboxStorage {
   Future<void> init() async {
     // Initialize the SQLite storage if needed
     await _sqliteStorage.database;
+
+    // Release transaction lock to allow operations
+    if (!_isTransactionLockAcquired) {
+      _transactionLock.complete();
+      _isTransactionLockAcquired = true;
+    }
 
     // Set up the listenable for compatibility
     dataStream = _MessageListenable(_messages);
@@ -95,11 +109,35 @@ class SqliteMailboxStorage {
     _loadMessageIdsAsync();
   }
 
+  /// Acquire transaction lock to prevent concurrent database operations
+  Future<void> _acquireTransactionLock() async {
+    if (_isTransactionLockAcquired) {
+      // Lock is already acquired and completed, create a new one
+      _transactionLock = Completer<void>();
+      _isTransactionLockAcquired = false;
+    }
+
+    if (!_isTransactionLockAcquired) {
+      await _transactionLock.future;
+      _isTransactionLockAcquired = true;
+    }
+  }
+
+  /// Release transaction lock
+  void _releaseTransactionLock() {
+    if (!_isTransactionLockAcquired) {
+      _transactionLock.complete();
+      _isTransactionLockAcquired = true;
+    }
+  }
+
   /// Load message IDs asynchronously to prevent UI blocking
   Future<void> _loadMessageIdsAsync() async {
     _isLoading.value = true;
 
     try {
+      await _acquireTransactionLock();
+
       final db = await _sqliteStorage.database;
 
       // Use a transaction for better performance
@@ -131,6 +169,9 @@ class SqliteMailboxStorage {
         }
       });
 
+      // Update last refresh time
+      _lastRefreshed = DateTime.now();
+
       // Pre-load first page of messages to improve perceived performance
       if (_allMessageIds.isNotEmpty) {
         final firstPageIds = _allMessageIds.take(20).toList();
@@ -145,6 +186,7 @@ class SqliteMailboxStorage {
     } catch (e) {
       logger.e('Error loading message IDs: $e');
     } finally {
+      _releaseTransactionLock();
       _isLoading.value = false;
     }
   }
@@ -160,35 +202,44 @@ class SqliteMailboxStorage {
     if (ids.isEmpty) return [];
 
     final messages = <MimeMessage>[];
-    final db = await _sqliteStorage.database;
 
-    // Process in smaller batches to prevent UI blocking
-    const batchSize = 20;
-    for (var i = 0; i < ids.length; i += batchSize) {
-      final end = (i + batchSize < ids.length) ? i + batchSize : ids.length;
-      final batch = ids.sublist(i, end);
+    try {
+      await _acquireTransactionLock();
 
-      // Build query with IN clause for better performance
-      final placeholders = List.filled(batch.length, '?').join(',');
-      final uids = batch.map((id) => id.uid).toList();
+      final db = await _sqliteStorage.database;
 
-      final List<Map<String, dynamic>> maps = await db.query(
-        'messages',
-        where: 'account_id = ? AND mailbox_path = ? AND uid IN ($placeholders)',
-        whereArgs: [_mailAccount.email, _mailbox.encodedPath, ...uids],
-      );
+      // Process in smaller batches to prevent UI blocking
+      const batchSize = 20;
+      for (var i = 0; i < ids.length; i += batchSize) {
+        final end = (i + batchSize < ids.length) ? i + batchSize : ids.length;
+        final batch = ids.sublist(i, end);
 
-      for (final map in maps) {
-        final message = _mapToMimeMessage(map);
-        if (message != null) {
-          // Add to cache for faster retrieval
-          _messageCache.put(message.uid!, message);
-          messages.add(message);
+        // Build query with IN clause for better performance
+        final placeholders = List.filled(batch.length, '?').join(',');
+        final uids = batch.map((id) => id.uid).toList();
+
+        final List<Map<String, dynamic>> maps = await db.query(
+          'messages',
+          where: 'account_id = ? AND mailbox_path = ? AND uid IN ($placeholders)',
+          whereArgs: [_mailAccount.email, _mailbox.encodedPath, ...uids],
+        );
+
+        for (final map in maps) {
+          final message = _mapToMimeMessage(map);
+          if (message != null) {
+            // Add to cache for faster retrieval
+            _messageCache.put(message.uid!, message);
+            messages.add(message);
+          }
         }
-      }
 
-      // Yield to UI thread to prevent blocking
-      await Future.delayed(Duration.zero);
+        // Yield to UI thread to prevent blocking
+        await Future.delayed(Duration.zero);
+      }
+    } catch (e) {
+      logger.e('Error loading messages from IDs: $e');
+    } finally {
+      _releaseTransactionLock();
     }
 
     return messages;
@@ -205,6 +256,8 @@ class SqliteMailboxStorage {
     _isLoading.value = true;
 
     try {
+      await _acquireTransactionLock();
+
       final db = await _sqliteStorage.database;
 
       final List<Map<String, dynamic>> maps = await db.query(
@@ -242,6 +295,9 @@ class SqliteMailboxStorage {
         }
       }
 
+      // Update last refresh time
+      _lastRefreshed = DateTime.now();
+
       if (newMessages.isNotEmpty) {
         // Merge with existing messages
         final updatedMessages = List<MimeMessage>.from(_messages);
@@ -265,6 +321,7 @@ class SqliteMailboxStorage {
       logger.e('Error loading new messages: $e');
       return null;
     } finally {
+      _releaseTransactionLock();
       _isLoading.value = false;
     }
   }
@@ -283,6 +340,8 @@ class SqliteMailboxStorage {
     _isLoading.value = true;
 
     try {
+      await _acquireTransactionLock();
+
       final ids = sequence.toList(_mailbox.messagesExists);
       if (_allMessageIds.length < ids.length) {
         logger.d('${_mailAccount.name}: not enough ids (${_allMessageIds.length})');
@@ -347,7 +406,17 @@ class SqliteMailboxStorage {
         await Future.delayed(Duration.zero);
       }
 
+      // Update last refresh time
+      _lastRefreshed = DateTime.now();
+
       if (envelopes.isNotEmpty) {
+        // Sort by date
+        envelopes.sort((a, b) {
+          final dateA = a.decodeDate() ?? DateTime.now();
+          final dateB = b.decodeDate() ?? DateTime.now();
+          return dateB.compareTo(dateA);
+        });
+
         // Update the messages list
         _messages.assignAll(envelopes);
 
@@ -361,6 +430,7 @@ class SqliteMailboxStorage {
       logger.e('Error loading message envelopes: $e');
       return null;
     } finally {
+      _releaseTransactionLock();
       _isLoading.value = false;
     }
   }
@@ -398,6 +468,14 @@ class SqliteMailboxStorage {
         message.isAnswered = map['is_answered'] == 1;
         message.isForwarded = map['is_forwarded'] == 1;
 
+        // Set flags list
+        message.flags = [];
+        if (message.isSeen) message.flags!.add(r'\Seen');
+        if (message.isFlagged) message.flags!.add(r'\Flagged');
+        if (message.isAnswered) message.flags!.add(r'\Answered');
+        if (map['is_draft'] == 1) message.flags!.add(r'\Draft');
+        if (map['is_recent'] == 1) message.flags!.add(r'\Recent');
+
         // Set subject
         final subject = map['subject'] as String?;
         if (subject != null) {
@@ -417,32 +495,87 @@ class SqliteMailboxStorage {
 
         // Set from
         final fromEmail = map['from_email'] as String?;
+        final fromName = map['from_name'] as String?;
         if (fromEmail != null && fromEmail.isNotEmpty) {
-          message.from = [MailAddress(null, fromEmail)];
+          message.from = [MailAddress(fromName, fromEmail)];
         }
 
         // Set to
         final toEmail = map['to_email'] as String?;
+        final toName = map['to_name'] as String?;
         if (toEmail != null && toEmail.isNotEmpty) {
-          message.to = toEmail.split(', ')
-              .map((email) => MailAddress(null, email.trim()))
-              .toList();
+          if (toName != null && toName.isNotEmpty) {
+            // Try to match names with emails
+            final emails = toEmail.split(', ');
+            final names = toName.split(', ');
+
+            if (emails.length == names.length) {
+              message.to = List.generate(
+                emails.length,
+                    (i) => MailAddress(names[i], emails[i]),
+              );
+            } else {
+              message.to = emails
+                  .map((email) => MailAddress(null, email.trim()))
+                  .toList();
+            }
+          } else {
+            message.to = toEmail.split(', ')
+                .map((email) => MailAddress(null, email.trim()))
+                .toList();
+          }
         }
 
         // Set cc
         final ccEmail = map['cc_email'] as String?;
+        final ccName = map['cc_name'] as String?;
         if (ccEmail != null && ccEmail.isNotEmpty) {
-          message.cc = ccEmail.split(', ')
-              .map((email) => MailAddress(null, email.trim()))
-              .toList();
+          if (ccName != null && ccName.isNotEmpty) {
+            // Try to match names with emails
+            final emails = ccEmail.split(', ');
+            final names = ccName.split(', ');
+
+            if (emails.length == names.length) {
+              message.cc = List.generate(
+                emails.length,
+                    (i) => MailAddress(names[i], emails[i]),
+              );
+            } else {
+              message.cc = emails
+                  .map((email) => MailAddress(null, email.trim()))
+                  .toList();
+            }
+          } else {
+            message.cc = ccEmail.split(', ')
+                .map((email) => MailAddress(null, email.trim()))
+                .toList();
+          }
         }
 
         // Set bcc
         final bccEmail = map['bcc_email'] as String?;
+        final bccName = map['bcc_name'] as String?;
         if (bccEmail != null && bccEmail.isNotEmpty) {
-          message.bcc = bccEmail.split(', ')
-              .map((email) => MailAddress(null, email.trim()))
-              .toList();
+          if (bccName != null && bccName.isNotEmpty) {
+            // Try to match names with emails
+            final emails = bccEmail.split(', ');
+            final names = bccName.split(', ');
+
+            if (emails.length == names.length) {
+              message.bcc = List.generate(
+                emails.length,
+                    (i) => MailAddress(names[i], emails[i]),
+              );
+            } else {
+              message.bcc = emails
+                  .map((email) => MailAddress(null, email.trim()))
+                  .toList();
+            }
+          } else {
+            message.bcc = bccEmail.split(', ')
+                .map((email) => MailAddress(null, email.trim()))
+                .toList();
+          }
         }
 
         return message;
@@ -460,6 +593,8 @@ class SqliteMailboxStorage {
 
     if (guid != null && uid != null) {
       try {
+        await _acquireTransactionLock();
+
         // Save the message to SQLite
         await _sqliteStorage.insertMessage(
           mimeMessage,
@@ -479,8 +614,13 @@ class SqliteMailboxStorage {
           // Update the message subject
           _notifyListeners();
         }
+
+        // Update last refresh time
+        _lastRefreshed = DateTime.now();
       } catch (e) {
         logger.e('Error saving message contents: $e');
+      } finally {
+        _releaseTransactionLock();
       }
     }
   }
@@ -493,75 +633,77 @@ class SqliteMailboxStorage {
     final allMessageIds = _allMessageIds;
 
     try {
-      // Pre-process messages to prepare for batch insert
-      final processedMessages = <MimeMessage>[];
+      await _acquireTransactionLock();
 
-      for (final message in messages) {
-        final uid = message.uid;
-        if (uid == null) continue;
+      // Use a transaction for better performance
+      final db = await _sqliteStorage.database;
+      await db.transaction((txn) async {
+        for (final message in messages) {
+          final uid = message.uid;
+          if (uid == null) continue;
 
-        final guid = _generateGuid(uid);
-        message.guid = guid;
+          // Check if message already exists
+          final existingIndex = allMessageIds.indexWhere((id) => id.uid == uid);
+          if (existingIndex >= 0) {
+            // Update existing message
+            await _sqliteStorage.insertMessage(
+              message,
+              _mailAccount.email,
+              _mailbox.encodedPath,
+              transaction: txn,
+            );
+          } else {
+            // Add new message
+            await _sqliteStorage.insertMessage(
+              message,
+              _mailAccount.email,
+              _mailbox.encodedPath,
+              transaction: txn,
+            );
 
-        final existingMessageId = allMessageIds.firstWhereOrNull(
-                (id) => id.guid == guid
-        );
+            // Add to _allMessageIds
+            final guid = _generateGuid(uid);
+            allMessageIds.add(StorageMessageId(
+              sequenceId: message.sequenceId ?? 0,
+              uid: uid,
+              guid: guid,
+            ));
 
-        final sequenceId = message.sequenceId ?? 0;
+            addedMessageIds++;
 
-        if (existingMessageId == null) {
-          addedMessageIds++;
-          final messageId = StorageMessageId(
-            sequenceId: sequenceId,
-            uid: uid,
-            guid: guid,
-          );
-          allMessageIds.add(messageId);
-
-          // Update last fetched UID
-          if (uid > _lastFetchedUid) {
-            _lastFetchedUid = uid;
+            // Update last fetched UID
+            if (uid > _lastFetchedUid) {
+              _lastFetchedUid = uid;
+            }
           }
+
+          // Update cache
+          _messageCache.put(uid, message);
         }
+      });
 
-        // Add to processed messages
-        processedMessages.add(message);
-
-        // Update cache
-        _messageCache.put(uid, message);
-      }
-
-      // Use batch save for better performance
-      await _sqliteStorage.saveMessageEnvelopes(
-        processedMessages,
-        _mailAccount.email,
-        _mailbox.encodedPath,
-      );
-
-      logger.d(
-        '${_mailAccount.name}: saved message envelopes :-)  '
-            '(ids: $addedMessageIds (total: ${allMessageIds.length}) / '
-            'envelopes: ${messages.length})',
-      );
+      // Update last refresh time
+      _lastRefreshed = DateTime.now();
 
       // Update the messages list
-      if (messages.isNotEmpty) {
-        // Merge with existing messages to avoid replacing the entire list
-        final existingUids = _messages.map((m) => m.uid).toSet();
-        final newMessages = messages.where((m) => !existingUids.contains(m.uid)).toList();
+      if (addedMessageIds > 0) {
+        // Merge with existing messages
         final updatedMessages = List<MimeMessage>.from(_messages);
 
-        // Update existing messages
+        // Add new messages that aren't already in the list
         for (final message in messages) {
-          final index = updatedMessages.indexWhere((m) => m.uid == message.uid);
-          if (index >= 0) {
-            updatedMessages[index] = message;
-          }
-        }
+          final uid = message.uid;
+          if (uid == null) continue;
 
-        // Add new messages
-        if (newMessages.isNotEmpty) {
-          updatedMessages.addAll(newMessages);
+          if (!updatedMessages.any((m) => m.uid == uid)) {
+            updatedMessages.add(message);
+          } else {
+            // Update existing message
+            final index = updatedMessages.indexWhere((m) => m.uid == uid);
+            if (index >= 0) {
+              updatedMessages[index] = message;
+            }
+          }
         }
 
         // Sort by date
@@ -576,25 +718,26 @@ class SqliteMailboxStorage {
         // Update the message subject
         _notifyListeners();
       }
+
+      logger.d('Saved ${messages.length} message envelopes, added $addedMessageIds new messages');
     } catch (e) {
       logger.e('Error saving message envelopes: $e');
+    } finally {
+      _releaseTransactionLock();
     }
   }
 
   /// Fetch message contents from storage with optimized loading
   Future<MimeMessage?> fetchMessageContents(
-      MimeMessage mimeMessage, {
+      MimeMessage message, {
         bool markAsSeen = false,
-        List<MediaToptype>? includedInlineTypes,
       }) async {
-    final guid = mimeMessage.guid;
-    final uid = mimeMessage.uid;
-
-    if (guid == null || uid == null) {
-      return null;
-    }
+    final uid = message.uid;
+    if (uid == null) return null;
 
     try {
+      await _acquireTransactionLock();
+
       // Check cache first for better performance
       final cachedMessage = _messageCache.get(uid);
       if (cachedMessage != null && cachedMessage.mimeData != null) {
@@ -616,29 +759,34 @@ class SqliteMailboxStorage {
       );
 
       if (maps.isEmpty) {
-        logger.d('${_mailAccount.name}: message data not found for guid $guid');
+        logger.d('${_mailAccount.name}: message data not found for uid $uid');
         return null;
       }
 
       // Convert the map to a MimeMessage
-      final message = _mapToMimeMessage(maps.first);
-      if (message == null) {
+      final fullMessage = _mapToMimeMessage(maps.first);
+      if (fullMessage == null) {
         return null;
       }
 
       // Mark as seen if requested
-      if (markAsSeen && !message.isSeen) {
-        message.isSeen = true;
-        await updateMessageFlags(message);
+      if (markAsSeen && !fullMessage.isSeen) {
+        fullMessage.isSeen = true;
+        await updateMessageFlags(fullMessage);
       }
 
       // Update cache
-      _messageCache.put(uid, message);
+      _messageCache.put(uid, fullMessage);
 
-      return message;
+      // Update last refresh time
+      _lastRefreshed = DateTime.now();
+
+      return fullMessage;
     } catch (e) {
       logger.e('Error fetching message contents: $e');
       return null;
+    } finally {
+      _releaseTransactionLock();
     }
   }
 
@@ -648,6 +796,8 @@ class SqliteMailboxStorage {
     if (uid == null) return;
 
     try {
+      await _acquireTransactionLock();
+
       // Update the message in SQLite
       await _sqliteStorage.updateMessageFlags(
         message,
@@ -667,8 +817,13 @@ class SqliteMailboxStorage {
         // Update the message subject
         _notifyListeners();
       }
+
+      // Update last refresh time
+      _lastRefreshed = DateTime.now();
     } catch (e) {
       logger.e('Error updating message flags: $e');
+    } finally {
+      _releaseTransactionLock();
     }
   }
 
@@ -677,6 +832,8 @@ class SqliteMailboxStorage {
     if (messages.isEmpty) return;
 
     try {
+      await _acquireTransactionLock();
+
       // Use batch update for better performance
       await _sqliteStorage.batchUpdateMessageFlags(
         messages,
@@ -704,8 +861,13 @@ class SqliteMailboxStorage {
 
       // Update the message subject
       _notifyListeners();
+
+      // Update last refresh time
+      _lastRefreshed = DateTime.now();
     } catch (e) {
       logger.e('Error batch updating message flags: $e');
+    } finally {
+      _releaseTransactionLock();
     }
   }
 
@@ -715,6 +877,8 @@ class SqliteMailboxStorage {
     if (uid == null) return;
 
     try {
+      await _acquireTransactionLock();
+
       // Delete the message from SQLite
       await _sqliteStorage.deleteMessage(
         message,
@@ -737,16 +901,23 @@ class SqliteMailboxStorage {
         // Update the message subject
         _notifyListeners();
       }
+
+      // Update last refresh time
+      _lastRefreshed = DateTime.now();
     } catch (e) {
       logger.e('Error deleting message: $e');
+    } finally {
+      _releaseTransactionLock();
     }
   }
 
   /// Delete all messages for this account
   Future<void> onAccountRemoved() async {
     try {
+      await _acquireTransactionLock();
+
       // Delete all messages for this account from SQLite
-      await _sqliteStorage.deleteMessagesForMailbox(
+      await _sqliteStorage.clearMailbox(
         _mailAccount.email,
         _mailbox.encodedPath,
       );
@@ -763,14 +934,41 @@ class SqliteMailboxStorage {
 
       // Update the message subject
       _notifyListeners();
+
+      // Update last refresh time
+      _lastRefreshed = DateTime.now();
     } catch (e) {
       logger.e('Error removing account: $e');
+    } finally {
+      _releaseTransactionLock();
     }
   }
 
   /// Get the last fetched UID for incremental updates
   int getLastFetchedUid() {
     return _lastFetchedUid;
+  }
+
+  /// Force refresh the cache
+  Future<void> refreshCache() async {
+    try {
+      await _acquireTransactionLock();
+
+      // Clear cache
+      _messageCache.clear();
+
+      // Reload message IDs
+      await _loadMessageIdsAsync();
+
+      // Update last refresh time
+      _lastRefreshed = DateTime.now();
+
+      logger.d('Cache refreshed for mailbox: ${_mailbox.name}');
+    } catch (e) {
+      logger.e('Error refreshing cache: $e');
+    } finally {
+      _releaseTransactionLock();
+    }
   }
 
   /// Notify listeners with debouncing to prevent UI jank
@@ -820,6 +1018,9 @@ class SqliteMailboxStorage {
 
     // Update the message subject
     _notifyListeners();
+
+    // Update last refresh time
+    _lastRefreshed = DateTime.now();
   }
 
   /// Handle message deletions from SQLite storage
@@ -849,6 +1050,9 @@ class SqliteMailboxStorage {
 
     // Update the message subject
     _notifyListeners();
+
+    // Update last refresh time
+    _lastRefreshed = DateTime.now();
   }
 
   /// Handle message flag updates from SQLite storage
@@ -875,6 +1079,9 @@ class SqliteMailboxStorage {
 
     // Update the message subject
     _notifyListeners();
+
+    // Update last refresh time
+    _lastRefreshed = DateTime.now();
   }
 
   /// Handle mailbox clear from SQLite storage
@@ -891,6 +1098,9 @@ class SqliteMailboxStorage {
 
     // Update the message subject
     _notifyListeners();
+
+    // Update last refresh time
+    _lastRefreshed = DateTime.now();
   }
 
   /// Dispose resources

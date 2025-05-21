@@ -40,6 +40,9 @@
         <!-- ✨ Added for real‑time push notifications permission ✨ -->
         <key>NSUserNotificationsUsageDescription</key>
         <string>We send real‑time notifications so you never miss important emails.</string>
+        <!-- ✨ Added for Face ID authentication ✨ -->
+        <key>NSFaceIDUsageDescription</key>
+        <string>We use Face ID to securely authenticate you and protect your emails</string>
 
         <key>UIApplicationSupportsIndirectInputEvents</key>
         <true/>

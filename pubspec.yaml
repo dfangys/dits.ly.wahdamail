@@ -73,6 +73,7 @@ dependencies:
   otp_autofill: ^4.1.0
   workmanager: ^0.5.2
   flutter_app_lock: ^4.1.1+1
+  mime: ^2.0.0
   url_launcher: ^6.2.5
   open_app_file: ^4.0.2
   clipboard: ^0.1.3

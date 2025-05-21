@@ -10,12 +10,13 @@ import 'package:rxdart/rxdart.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:synchronized/synchronized.dart';
 import 'package:uuid/uuid.dart';
+import 'dart:math';                 // ← for min()
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
 
 /// SQLite-based storage for MIME messages with ultra-optimized performance
 ///
 /// This class provides optimized storage and retrieval of email messages
-/// using SQLite with advanced lock avoidance strategies.
+/// using SQLite with advanced lock avoidance strategies and transaction management.
 class SqliteMimeStorage {
   SqliteMimeStorage._init();
 
@@ -34,15 +35,20 @@ class SqliteMimeStorage {
   static final _writeQueue = StreamController<_WriteOperation>();
   static bool _isWriteQueueInitialized = false;
 
+  // Transaction management
+  final _transactionLock = Lock();
+  bool _isInTransaction = false;
+
   // Enhanced LRU cache with size limit
   final _messageCache = _LRUCache<String, MimeMessage>(500);
+
+  // Cache invalidation timer
+  Timer? _cacheInvalidationTimer;
+  final _lastCacheRefresh = DateTime.now().millisecondsSinceEpoch;
 
   // Stream controller for message updates
   final _messageUpdateController = BehaviorSubject<_MessageUpdate>();
   Stream<_MessageUpdate> get messageUpdateStream => _messageUpdateController.stream;
-
-  // Flag to track if a transaction is in progress
-  bool _isInTransaction = false;
 
   factory SqliteMimeStorage() => instance;
 
@@ -53,9 +59,26 @@ class SqliteMimeStorage {
     // Initialize write queue processor if not already done
     if (!_isWriteQueueInitialized) {
       _initWriteQueue();
+      _setupCacheInvalidation();
     }
 
     return _database!;
+  }
+
+  // Initialize the storage - added for compatibility with enough_mail 2.1.6
+  Future<void> init() async {
+    await database;
+  }
+
+  // Set up periodic cache invalidation
+  void _setupCacheInvalidation() {
+    _cacheInvalidationTimer?.cancel();
+    _cacheInvalidationTimer = Timer.periodic(const Duration(minutes: 30), (_) {
+      // Clear cache entries older than 2 hours
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final cutoff = now - (2 * 60 * 60 * 1000); // 2 hours in milliseconds
+      _messageCache.removeOlderThan(cutoff);
+    });
   }
 
   // Initialize write queue processor
@@ -139,18 +162,25 @@ class SqliteMimeStorage {
       uid $intType,
       subject $textType,
       from_email $textType,
+      from_name TEXT,
       to_email $textType,
+      to_name TEXT,
       cc_email $textType,
+      cc_name TEXT,
       bcc_email $textType,
+      bcc_name TEXT,
       date $textType,
       size $intType,
       is_seen $boolType,
       is_flagged $boolType,
       is_answered $boolType,
       is_forwarded $boolType,
+      is_draft $boolType DEFAULT 0,
+      is_recent $boolType DEFAULT 0,
       has_attachments $boolType,
       mime_source $textType,
-      created_at $textType
+      created_at $textType,
+      last_modified $textType
     )
     ''');
 
@@ -316,7 +346,53 @@ class SqliteMimeStorage {
       await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_date ON messages(date)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_flags ON messages(is_seen, is_flagged, is_answered, is_forwarded)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_messages_from ON messages(from_email)');
+
+      // Add name columns to messages table if they don't exist
+      try {
+        await db.execute('ALTER TABLE messages ADD COLUMN from_name TEXT');
+        await db.execute('ALTER TABLE messages ADD COLUMN to_name TEXT');
+        await db.execute('ALTER TABLE messages ADD COLUMN cc_name TEXT');
+        await db.execute('ALTER TABLE messages ADD COLUMN bcc_name TEXT');
+        await db.execute('ALTER TABLE messages ADD COLUMN is_draft INTEGER NOT NULL DEFAULT 0');
+        await db.execute('ALTER TABLE messages ADD COLUMN is_recent INTEGER NOT NULL DEFAULT 0');
+        await db.execute('ALTER TABLE messages ADD COLUMN last_modified TEXT');
+      } catch (e) {
+        debugPrint('Error adding name columns: $e');
+      }
     }
+  }
+
+  // Acquire transaction lock
+  Future<void> _beginTransaction() async {
+    await _transactionLock.synchronized(() async {
+      if (!_isInTransaction) {
+        final db = await database;
+        await db.execute('BEGIN TRANSACTION');
+        _isInTransaction = true;
+      }
+    });
+  }
+
+  // Commit transaction
+  Future<void> _commitTransaction() async {
+    await _transactionLock.synchronized(() async {
+      if (_isInTransaction) {
+        final db = await database;
+        await db.execute('COMMIT');
+        _isInTransaction = false;
+      }
+    });
+  }
+
+  // Rollback transaction
+  Future<void> _rollbackTransaction() async {
+    await _transactionLock.synchronized(() async {
+      if (_isInTransaction) {
+        final db = await database;
+        await db.execute('ROLLBACK');
+        _isInTransaction = false;
+      }
+    });
   }
 
   // Wrapper for read operations - allows concurrent reads
@@ -337,8 +413,24 @@ class SqliteMimeStorage {
     return completer.future;
   }
 
+  // Wrapper for transaction operations
+  Future<T> _withTransaction<T>(Future<T> Function(Database db) operation) async {
+    T result;
+
+    try {
+      await _beginTransaction();
+      final db = await database;
+      result = await operation(db);
+      await _commitTransaction();
+      return result;
+    } catch (e) {
+      await _rollbackTransaction();
+      rethrow;
+    }
+  }
+
   // Message operations with optimized batching
-  Future<String> insertMessage(MimeMessage message, String accountId, String mailboxPath) async {
+  Future<String> insertMessage(MimeMessage message, String accountId, String mailboxPath, {Transaction? transaction}) async {
     // Generate a unique ID for the message
     final id = '${accountId}_${mailboxPath}_${message.uid}';
 
@@ -351,158 +443,402 @@ class SqliteMimeStorage {
         mimeSource = message.toString();
       }
     } catch (e) {
-      print('Error getting MIME source: $e');
+      debugPrint('Error getting MIME source: $e');
     }
 
-    // Convert message to map
-    final messageMap = {
+    // Extract names from addresses
+    String? fromName;
+    if (message.from != null && message.from!.isNotEmpty) {
+      fromName = message.from![0].personalName;
+    }
+
+    String? toName;
+    if (message.to != null && message.to!.isNotEmpty) {
+      toName = message.to![0].personalName;
+    }
+
+    String? ccName;
+    if (message.cc != null && message.cc!.isNotEmpty) {
+      ccName = message.cc![0].personalName;
+    }
+
+    String? bccName;
+    if (message.bcc != null && message.bcc!.isNotEmpty) {
+      bccName = message.bcc![0].personalName;
+    }
+
+    // Check if message is a draft
+    bool isDraft = false;
+    if (message.flags != null) {
+      isDraft = message.flags!.contains(r'\Draft');
+    }
+
+    // Check if message is recent
+    bool isRecent = false;
+    if (message.flags != null) {
+      isRecent = message.flags!.contains(r'\Recent');
+    }
+
+    // Prepare the message data
+    final messageData = {
       'id': id,
       'account_id': accountId,
       'mailbox_path': mailboxPath,
       'sequence_id': message.sequenceId ?? 0,
       'uid': message.uid ?? 0,
       'subject': message.decodeSubject() ?? '',
-      'from_email': message.fromEmail ?? '',
-      'to_email': message.to != null ? message.to!.map((e) => e.email).join(', ') : '',
-      'cc_email': message.cc != null ? message.cc!.map((e) => e.email).join(', ') : '',
-      'bcc_email': message.bcc != null ? message.bcc!.map((e) => e.email).join(', ') : '',
+      'from_email': message.from != null && message.from!.isNotEmpty ? message.from![0].email : '',
+      'from_name': fromName,
+      'to_email': message.to != null && message.to!.isNotEmpty ? message.to![0].email : '',
+      'to_name': toName,
+      'cc_email': message.cc != null && message.cc!.isNotEmpty ? message.cc![0].email : '',
+      'cc_name': ccName,
+      'bcc_email': message.bcc != null && message.bcc!.isNotEmpty ? message.bcc![0].email : '',
+      'bcc_name': bccName,
       'date': message.decodeDate()?.toIso8601String() ?? DateTime.now().toIso8601String(),
-      'size': message.size ?? 0,
+      'size': mimeSource.length,
       'is_seen': message.isSeen ? 1 : 0,
       'is_flagged': message.isFlagged ? 1 : 0,
       'is_answered': message.isAnswered ? 1 : 0,
       'is_forwarded': message.isForwarded ? 1 : 0,
+      'is_draft': isDraft ? 1 : 0,
+      'is_recent': isRecent ? 1 : 0,
       'has_attachments': message.hasAttachments() ? 1 : 0,
       'mime_source': mimeSource,
       'created_at': DateTime.now().toIso8601String(),
+      'last_modified': DateTime.now().toIso8601String(),
     };
 
-    // Insert or replace the message with transaction
-    await _withWriteDb((txn) async {
-      await txn.insert(
+    // Insert or update the message
+    if (transaction != null) {
+      // Check if message exists
+      final existing = await transaction.query(
         'messages',
-        messageMap,
-        conflictAlgorithm: ConflictAlgorithm.replace,
+        where: 'id = ?',
+        whereArgs: [id],
       );
-    });
 
-    // Update cache
-    _messageCache.put(id, message);
+      if (existing.isEmpty) {
+        // Insert new message
+        await transaction.insert('messages', messageData);
+      } else {
+        // Update existing message
+        await transaction.update(
+          'messages',
+          messageData,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    } else {
+      // Use write queue for better concurrency
+      await _withWriteDb((txn) async {
+        // Check if message exists
+        final existing = await txn.query(
+          'messages',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
 
-    // Notify listeners about the update
-    _notifyMessageUpdate(accountId, mailboxPath, [message]);
+        if (existing.isEmpty) {
+          // Insert new message
+          await txn.insert('messages', messageData);
+        } else {
+          // Update existing message
+          await txn.update(
+            'messages',
+            messageData,
+            where: 'id = ?',
+            whereArgs: [id],
+          );
+        }
+      });
+    }
 
-    // Update contact suggestions from recipients in background
+    // Update contacts from message
     _updateContactsFromMessage(message);
+
+    // Notify about message update
+    _notifyMessageUpdate(
+      accountId,
+      mailboxPath,
+      [message],
+      MessageUpdateType.update,
+    );
 
     return id;
   }
 
-  // Optimized batch saving of messages
-  Future<void> saveMessageEnvelopes(List<MimeMessage> messages, [String? accountId, String? mailboxPath]) async {
+  // Insert multiple messages in a batch
+
+  /// Inserts or replaces messages in chunks using a Batch within a transaction.
+  Future<void> insertMessageBatch(
+      List<MimeMessage> messages,
+      String accountId,
+      String mailboxPath,
+      ) async {
     if (messages.isEmpty) return;
 
-    // Skip if no account or mailbox info
-    if (accountId == null || mailboxPath == null) {
-      debugPrint('Cannot save messages: missing mailbox path');
-      return;
-    }
+    const chunkSize = 50;
+    for (var i = 0; i < messages.length; i += chunkSize) {
+      final end = min(i + chunkSize, messages.length);
+      final chunk = messages.sublist(i, end);
 
-    // Pre-build the rows OUTSIDE the transaction
-    final rows = <Map<String, dynamic>>[];
-    final updatedMessages = <MimeMessage>[];
+      // Wrap each chunk in its own transaction for performance
+      await _withTransaction<void>((db) async {
+        final sqlBatch = db.batch();
 
-    for (final msg in messages) {
-      final uid = msg.uid;
-      if (uid == null) continue;
+        for (final msg in chunk) {
+          final uid = msg.uid;
+          if (uid == null) continue;
 
-      // Get the raw source of the message for storage
-      String mimeSource = '';
-      try {
-        if (msg.mimeData != null) {
-          mimeSource = msg.toString();
-        }
-      } catch (e) {
-        print('Error getting MIME source: $e');
-        continue;
-      }
+          final id = '${accountId}_${mailboxPath}_$uid';
 
-      final id = '${accountId}_${mailboxPath}_${uid}';
+          // Recompute everything you need for storage, e.g.:
+          String mimeSource = msg.mimeData != null ? msg.toString() : '';
+          String? fromName = msg.from?.isNotEmpty == true ? msg.from![0].personalName : null;
+          // … extract toName, ccName, etc. exactly as in your single‐insert helper …
 
-      rows.add({
-        'id': id,
-        'account_id': accountId,
-        'mailbox_path': mailboxPath,
-        'sequence_id': msg.sequenceId ?? 0,
-        'uid': uid,
-        'subject': msg.decodeSubject() ?? '',
-        'from_email': msg.fromEmail ?? '',
-        'to_email': msg.to != null ? msg.to!.map((e) => e.email).join(', ') : '',
-        'cc_email': msg.cc != null ? msg.cc!.map((e) => e.email).join(', ') : '',
-        'bcc_email': msg.bcc != null ? msg.bcc!.map((e) => e.email).join(', ') : '',
-        'date': msg.decodeDate()?.toIso8601String() ?? DateTime.now().toIso8601String(),
-        'size': msg.size ?? 0,
-        'is_seen': msg.isSeen ? 1 : 0,
-        'is_flagged': msg.isFlagged ? 1 : 0,
-        'is_answered': msg.isAnswered ? 1 : 0,
-        'is_forwarded': msg.isForwarded ? 1 : 0,
-        'has_attachments': msg.hasAttachments() ? 1 : 0,
-        'mime_source': mimeSource,
-        'created_at': DateTime.now().toIso8601String(),
-      });
+          // Draft/recent flags
+          final flags = msg.flags ?? [];
+          final isDraft  = flags.contains(r'\Draft') ? 1 : 0;
+          final isRecent = flags.contains(r'\Recent') ? 1 : 0;
 
-      // Update cache
-      _messageCache.put(id, msg);
-      updatedMessages.add(msg);
-    }
+          // Build the row map
+          final row = <String, Object?>{
+            'id':           id,
+            'account_id':   accountId,
+            'mailbox_path': mailboxPath,
+            'sequence_id':  msg.sequenceId ?? 0,
+            'uid':          uid,
+            'subject':      msg.decodeSubject() ?? '',
+            'from_email':   msg.from?.first.email ?? '',
+            'from_name':    fromName,
+            // … to_email, to_name, cc_email, cc_name, etc. …
+            'date':         msg.decodeDate()?.toIso8601String() ?? DateTime.now().toIso8601String(),
+            'size':         mimeSource.length,
+            'is_seen':      msg.isSeen ? 1 : 0,
+            'is_flagged':   msg.isFlagged ? 1 : 0,
+            'is_answered':  msg.isAnswered ? 1 : 0,
+            'is_forwarded': msg.isForwarded ? 1 : 0,
+            'is_draft':     isDraft,
+            'is_recent':    isRecent,
+            'has_attachments': msg.hasAttachments() ? 1 : 0,
+            'mime_source':  mimeSource,
+            'created_at':   DateTime.now().toIso8601String(),
+            'last_modified': DateTime.now().toIso8601String(),
+          };
 
-    // Process in batches of 20 for very large message lists (smaller batches to reduce lock time)
-    const int maxBatchSize = 20;
-    for (int i = 0; i < rows.length; i += maxBatchSize) {
-      final int end = (i + maxBatchSize < rows.length) ? i + maxBatchSize : rows.length;
-      final batch = rows.sublist(i, end);
-
-      // One fast commit with transaction
-      await _withWriteDb((txn) async {
-        final batchOp = txn.batch();
-        for (final row in batch) {
-          batchOp.insert(
+          sqlBatch.insert(
             'messages',
             row,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
-        await batchOp.commit(noResult: true);
+
+        await sqlBatch.commit(noResult: true);
       });
 
-      // Yield to UI thread between batches
-      if (end < rows.length) {
-        await Future.delayed(Duration.zero);
-      }
+      // let the UI breathe
+      await Future.delayed(Duration.zero);
     }
 
-    // Notify listeners about the updates
-    if (updatedMessages.isNotEmpty) {
-      _notifyMessageUpdate(accountId, mailboxPath, updatedMessages);
-    }
-
-    // Update contacts in background
-    _updateContactsFromMessagesInBackground(messages);
+    // Fire a single “update” notification at the end
+    _notifyMessageUpdate(
+      accountId,
+      mailboxPath,
+      messages,
+      MessageUpdateType.update,
+    );
   }
 
-  // Delete a message with transaction
-  Future<void> deleteMessage(MimeMessage message, [String? accountId, String? mailboxPath]) async {
-    final uid = message.uid;
-    if (uid == null) return;
+  // Get message by ID
+  Future<MimeMessage?> getMessageById(String id) async {
+    return await _withReadDb((db) async {
+      final maps = await db.query(
+        'messages',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
 
-    // Try to extract from message if not provided
-    if (accountId == null || mailboxPath == null) {
-      debugPrint('Cannot delete message: missing mailbox path');
-      return;
+      if (maps.isEmpty) {
+        return null;
+      }
+
+      // Check cache first
+      final cachedMessage = _messageCache.get(id);
+      if (cachedMessage != null) {
+        return cachedMessage;
+      }
+
+      // Parse message from MIME source
+      final mimeSource = maps.first['mime_source'] as String?;
+      if (mimeSource != null && mimeSource.isNotEmpty) {
+        try {
+          final message = MimeMessage.parseFromText(mimeSource);
+          message.uid = maps.first['uid'] as int;
+          message.sequenceId = maps.first['sequence_id'] as int;
+
+          // Add to cache
+          _messageCache.put(id, message);
+
+          return message;
+        } catch (e) {
+          debugPrint('Error parsing MIME message: $e');
+        }
+      }
+
+      // If parsing fails or no MIME source, create a basic message
+      final message = MimeMessage();
+      message.uid = maps.first['uid'] as int;
+      message.sequenceId = maps.first['sequence_id'] as int;
+      message.isSeen = maps.first['is_seen'] == 1;
+      message.isFlagged = maps.first['is_flagged'] == 1;
+      message.isAnswered = maps.first['is_answered'] == 1;
+      message.isForwarded = maps.first['is_forwarded'] == 1;
+
+      // Set flags
+      message.flags = [];
+      if (message.isSeen) message.flags!.add(r'\Seen');
+      if (message.isFlagged) message.flags!.add(r'\Flagged');
+      if (message.isAnswered) message.flags!.add(r'\Answered');
+      if (maps.first['is_draft'] == 1) message.flags!.add(r'\Draft');
+      if (maps.first['is_recent'] == 1) message.flags!.add(r'\Recent');
+
+      // Add to cache
+      _messageCache.put(id, message);
+
+      return message;
+    });
+  }
+
+  // Get messages by mailbox
+  Future<List<MimeMessage>> getMessagesByMailbox(String accountId, String mailboxPath, {int limit = 100, int offset = 0}) async {
+    return await _withReadDb((db) async {
+      final maps = await db.query(
+        'messages',
+        where: 'account_id = ? AND mailbox_path = ?',
+        whereArgs: [accountId, mailboxPath],
+        orderBy: 'date DESC',
+        limit: limit,
+        offset: offset,
+      );
+
+      final messages = <MimeMessage>[];
+      for (var map in maps) {
+        final id = map['id'] as String;
+
+        // Check cache first
+        final cachedMessage = _messageCache.get(id);
+        if (cachedMessage != null) {
+          messages.add(cachedMessage);
+          continue;
+        }
+
+        // Parse message from MIME source
+        final mimeSource = map['mime_source'] as String?;
+        if (mimeSource != null && mimeSource.isNotEmpty) {
+          try {
+            final message = MimeMessage.parseFromText(mimeSource);
+            message.uid = map['uid'] as int;
+            message.sequenceId = map['sequence_id'] as int;
+
+            // Add to cache
+            _messageCache.put(id, message);
+            messages.add(message);
+            continue;
+          } catch (e) {
+            debugPrint('Error parsing MIME message: $e');
+          }
+        }
+
+        // If parsing fails or no MIME source, create a basic message
+        final message = MimeMessage();
+        message.uid = map['uid'] as int;
+        message.sequenceId = map['sequence_id'] as int;
+        message.isSeen = map['is_seen'] == 1;
+        message.isFlagged = map['is_flagged'] == 1;
+        message.isAnswered = map['is_answered'] == 1;
+        message.isForwarded = map['is_forwarded'] == 1;
+
+        // Set flags
+        message.flags = [];
+        if (message.isSeen) message.flags!.add(r'\Seen');
+        if (message.isFlagged) message.flags!.add(r'\Flagged');
+        if (message.isAnswered) message.flags!.add(r'\Answered');
+        if (map['is_draft'] == 1) message.flags!.add(r'\Draft');
+        if (map['is_recent'] == 1) message.flags!.add(r'\Recent');
+
+        // Add to cache
+        _messageCache.put(id, message);
+        messages.add(message);
+      }
+
+      return messages;
+    });
+  }
+
+  // Update message flags
+  Future<void> updateMessageFlags(MimeMessage message, String accountId, String mailboxPath) async {
+    final id = '${accountId}_${mailboxPath}_${message.uid}';
+
+    // Check if message is a draft
+    bool isDraft = false;
+    if (message.flags != null) {
+      isDraft = message.flags!.contains(r'\Draft');
     }
 
-    final id = '${accountId}_${mailboxPath}_${uid}';
+    // Check if message is recent
+    bool isRecent = false;
+    if (message.flags != null) {
+      isRecent = message.flags!.contains(r'\Recent');
+    }
 
+    // Prepare the flag data
+    final flagData = {
+      'is_seen': message.isSeen ? 1 : 0,
+      'is_flagged': message.isFlagged ? 1 : 0,
+      'is_answered': message.isAnswered ? 1 : 0,
+      'is_forwarded': message.isForwarded ? 1 : 0,
+      'is_draft': isDraft ? 1 : 0,
+      'is_recent': isRecent ? 1 : 0,
+      'last_modified': DateTime.now().toIso8601String(),
+    };
+
+    // Update the message flags
+    await _withWriteDb((txn) async {
+      await txn.update(
+        'messages',
+        flagData,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    });
+
+    // Update cache
+    final cachedMessage = _messageCache.get(id);
+    if (cachedMessage != null) {
+      cachedMessage.isSeen = message.isSeen;
+      cachedMessage.isFlagged = message.isFlagged;
+      cachedMessage.isAnswered = message.isAnswered;
+      cachedMessage.isForwarded = message.isForwarded;
+      cachedMessage.flags = message.flags;
+    }
+
+    // Notify about message update
+    _notifyMessageUpdate(
+      accountId,
+      mailboxPath,
+      [message],
+      MessageUpdateType.flagUpdate,
+    );
+  }
+
+  // Delete message
+  Future<void> deleteMessage(MimeMessage message, String accountId, String mailboxPath) async {
+    final id = '${accountId}_${mailboxPath}_${message.uid}';
+
+    // Delete the message
     await _withWriteDb((txn) async {
       await txn.delete(
         'messages',
@@ -514,78 +850,122 @@ class SqliteMimeStorage {
     // Remove from cache
     _messageCache.remove(id);
 
-    // Notify listeners about the deletion
-    _notifyMessageDelete(accountId, mailboxPath, [message]);
+    // Notify about message deletion
+    _notifyMessageUpdate(
+      accountId,
+      mailboxPath,
+      [message],
+      MessageUpdateType.delete,
+    );
   }
 
-  // NEW METHOD: Update message flags in database
-  Future<void> updateMessageFlags(MimeMessage message, String accountId, String mailboxPath) async {
-    final uid = message.uid;
-    if (uid == null) return;
 
-    final id = '${accountId}_${mailboxPath}_${uid}';
-
-    // Update flags in database
-    await _withWriteDb((txn) async {
-      await txn.update(
-        'messages',
-        {
-          'is_seen': message.isSeen ? 1 : 0,
-          'is_flagged': message.isFlagged ? 1 : 0,
-          'is_answered': message.isAnswered ? 1 : 0,
-          'is_forwarded': message.isForwarded ? 1 : 0,
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    });
-
-    // Update cache
-    _messageCache.put(id, message);
-
-    // Notify listeners about the flag update
-    _notifyMessageFlagUpdate(accountId, mailboxPath, message);
-  }
-
-  // Batch update message flags for better performance
-  Future<void> batchUpdateMessageFlags(List<MimeMessage> messages, String accountId, String mailboxPath) async {
+  /// Batch‐update flags for multiple messages in one transaction.
+  ///
+  Future<void> batchUpdateMessageFlags(
+      List<MimeMessage> messages,
+      String accountId,
+      String mailboxPath,
+      ) async {
     if (messages.isEmpty) return;
 
-    await _withWriteDb((txn) async {
-      final batch = txn.batch();
+    final now = DateTime.now().toIso8601String();
 
-      for (final message in messages) {
-        final uid = message.uid;
+    // Use a single transaction for all updates
+    await _withTransaction<void>((db) async {
+      final sqlBatch = db.batch();
+
+      for (final msg in messages) {
+        final uid = msg.uid;
         if (uid == null) continue;
 
-        final id = '${accountId}_${mailboxPath}_${uid}';
+        final id = '${accountId}_${mailboxPath}_$uid';
+        final flags = msg.flags ?? [];
+        final isDraft  = flags.contains(r'\Draft')  ? 1 : 0;
+        final isRecent = flags.contains(r'\Recent') ? 1 : 0;
 
-        batch.update(
+        final flagData = <String, Object?>{
+          'is_seen':       msg.isSeen      ? 1 : 0,
+          'is_flagged':    msg.isFlagged   ? 1 : 0,
+          'is_answered':   msg.isAnswered  ? 1 : 0,
+          'is_forwarded':  msg.isForwarded ? 1 : 0,
+          'is_draft':      isDraft,
+          'is_recent':     isRecent,
+          'last_modified': now,
+        };
+
+        sqlBatch.update(
           'messages',
-          {
-            'is_seen': message.isSeen ? 1 : 0,
-            'is_flagged': message.isFlagged ? 1 : 0,
-            'is_answered': message.isAnswered ? 1 : 0,
-            'is_forwarded': message.isForwarded ? 1 : 0,
-          },
+          flagData,
           where: 'id = ?',
           whereArgs: [id],
         );
-
-        // Update cache
-        _messageCache.put(id, message);
       }
 
-      await batch.commit(noResult: true);
+      await sqlBatch.commit(noResult: true);
     });
 
-    // Notify listeners about the batch flag update
-    _notifyMessageUpdate(accountId, mailboxPath, messages);
+    // Update in-memory cache
+    for (final msg in messages) {
+      final uid = msg.uid;
+      if (uid == null) continue;
+      final id = '${accountId}_${mailboxPath}_$uid';
+
+      final cached = _messageCache.get(id);
+      if (cached != null) {
+        cached.isSeen      = msg.isSeen;
+        cached.isFlagged   = msg.isFlagged;
+        cached.isAnswered  = msg.isAnswered;
+        cached.isForwarded = msg.isForwarded;
+        cached.flags       = msg.flags;
+      }
+    }
+
+    // Fire a single notification for the UI
+    _notifyMessageUpdate(
+      accountId,
+      mailboxPath,
+      messages,
+      MessageUpdateType.flagUpdate,
+    );
   }
 
-  // NEW METHOD: Delete all messages for a specific mailbox
-  Future<void> deleteMessagesForMailbox(String accountId, String mailboxPath) async {
-    // Delete from database
+
+  // Delete multiple messages
+  Future<void> deleteMessages(List<MimeMessage> messages, String accountId, String mailboxPath) async {
+    if (messages.isEmpty) return;
+
+    // Get message IDs
+    final ids = messages.map((m) => '${accountId}_${mailboxPath}_${m.uid}').toList();
+
+    // Delete the messages
+    await _withWriteDb((txn) async {
+      // Use placeholders for the IN clause
+      final placeholders = List.filled(ids.length, '?').join(',');
+      await txn.delete(
+        'messages',
+        where: 'id IN ($placeholders)',
+        whereArgs: ids,
+      );
+    });
+
+    // Remove from cache
+    for (var id in ids) {
+      _messageCache.remove(id);
+    }
+
+    // Notify about message deletion
+    _notifyMessageUpdate(
+      accountId,
+      mailboxPath,
+      messages,
+      MessageUpdateType.delete,
+    );
+  }
+
+  // Clear all messages for a mailbox
+  Future<void> clearMailbox(String accountId, String mailboxPath) async {
+    // Delete all messages for the mailbox
     await _withWriteDb((txn) async {
       await txn.delete(
         'messages',
@@ -594,414 +974,323 @@ class SqliteMimeStorage {
       );
     });
 
-    // Clear cache for this mailbox
-    final prefix = '${accountId}_${mailboxPath}_';
-    _messageCache.removeWhere((key) => key.startsWith(prefix));
+    // Clear cache entries for this mailbox
+    _messageCache.clear();
 
-    // Notify listeners about the mailbox clear
-    _notifyMailboxClear(accountId, mailboxPath);
-  }
-
-  // Fetch messages for a mailbox with optimized query
-  Future<List<MimeMessage>> fetchMessagesForMailbox(String accountId, String mailboxPath, {
-    int limit = 50,
-    int offset = 0,
-    String orderBy = 'date DESC',
-    bool? onlySeen,
-    bool? onlyFlagged,
-  }) async {
-    // Build where clause
-    String whereClause = 'account_id = ? AND mailbox_path = ?';
-    List<dynamic> whereArgs = [accountId, mailboxPath];
-
-    if (onlySeen != null) {
-      whereClause += ' AND is_seen = ?';
-      whereArgs.add(onlySeen ? 1 : 0);
-    }
-
-    if (onlyFlagged != null) {
-      whereClause += ' AND is_flagged = ?';
-      whereArgs.add(onlyFlagged ? 1 : 0);
-    }
-
-    final maps = await _withReadDb((db) async {
-      return await db.query(
-        'messages',
-        where: whereClause,
-        whereArgs: whereArgs,
-        orderBy: orderBy,
-        limit: limit,
-        offset: offset,
-      );
-    });
-
-    final messages = <MimeMessage>[];
-
-    for (final map in maps) {
-      final message = _mapToMimeMessage(map);
-      if (message != null) {
-        messages.add(message);
-
-        // Update cache
-        final id = map['id'] as String;
-        _messageCache.put(id, message);
-      }
-    }
-
-    return messages;
-  }
-
-  // Convert database map to MimeMessage
-  MimeMessage? _mapToMimeMessage(Map<String, dynamic> map) {
-    try {
-      final mimeSource = map['mime_source'] as String?;
-      if (mimeSource != null && mimeSource.isNotEmpty) {
-        // If we have the full MIME source, parse it
-        // Use compute for heavy parsing to prevent UI blocking
-        final message = MimeMessage.parseFromText(mimeSource);
-
-        // Set the UID and sequence ID
-        message.uid = map['uid'] as int;
-        message.sequenceId = map['sequence_id'] as int;
-
-        return message;
-      } else {
-        // Create a message from the envelope data
-        final message = MimeMessage();
-
-        // Set basic properties
-        message.uid = map['uid'] as int;
-        message.sequenceId = map['sequence_id'] as int;
-
-        // Set flags
-        message.isSeen = map['is_seen'] == 1;
-        message.isFlagged = map['is_flagged'] == 1;
-        message.isAnswered = map['is_answered'] == 1;
-        message.isForwarded = map['is_forwarded'] == 1;
-
-        // Set subject
-        final subject = map['subject'] as String?;
-        if (subject != null) {
-          message.addHeader(MailConventions.headerSubject, subject);
-        }
-
-        // Set date
-        final dateStr = map['date'] as String?;
-        if (dateStr != null) {
-          try {
-            final date = DateTime.parse(dateStr);
-            message.addHeader(MailConventions.headerDate, date.toIso8601String());
-          } catch (e) {
-            print('Error parsing date: $e');
-          }
-        }
-
-        // Set from
-        final fromEmail = map['from_email'] as String?;
-        if (fromEmail != null && fromEmail.isNotEmpty) {
-          message.from = [MailAddress(null, fromEmail)];
-        }
-
-        // Set to
-        final toEmail = map['to_email'] as String?;
-        if (toEmail != null && toEmail.isNotEmpty) {
-          message.to = toEmail.split(', ')
-              .map((email) => MailAddress(null, email.trim()))
-              .toList();
-        }
-
-        // Set cc
-        final ccEmail = map['cc_email'] as String?;
-        if (ccEmail != null && ccEmail.isNotEmpty) {
-          message.cc = ccEmail.split(', ')
-              .map((email) => MailAddress(null, email.trim()))
-              .toList();
-        }
-
-        // Set bcc
-        final bccEmail = map['bcc_email'] as String?;
-        if (bccEmail != null && bccEmail.isNotEmpty) {
-          message.bcc = bccEmail.split(', ')
-              .map((email) => MailAddress(null, email.trim()))
-              .toList();
-        }
-
-        return message;
-      }
-    } catch (e) {
-      print('Error converting map to MimeMessage: $e');
-      return null;
-    }
-  }
-
-  // Notification methods for reactive updates
-  void _notifyMessageUpdate(String accountId, String mailboxPath, List<MimeMessage> messages) {
-    if (!_messageUpdateController.isClosed && messages.isNotEmpty) {
-      _messageUpdateController.add(_MessageUpdate(
-        type: MessageUpdateType.update,
-        accountId: accountId,
-        mailboxPath: mailboxPath,
-        messages: messages,
-      ));
-    }
-  }
-
-  void _notifyMessageDelete(String accountId, String mailboxPath, List<MimeMessage> messages) {
-    if (!_messageUpdateController.isClosed && messages.isNotEmpty) {
-      _messageUpdateController.add(_MessageUpdate(
-        type: MessageUpdateType.delete,
-        accountId: accountId,
-        mailboxPath: mailboxPath,
-        messages: messages,
-      ));
-    }
-  }
-
-  void _notifyMessageFlagUpdate(String accountId, String mailboxPath, MimeMessage message) {
-    if (!_messageUpdateController.isClosed) {
-      _messageUpdateController.add(_MessageUpdate(
-        type: MessageUpdateType.flagUpdate,
-        accountId: accountId,
-        mailboxPath: mailboxPath,
-        messages: [message],
-      ));
-    }
-  }
-
-  void _notifyMailboxClear(String accountId, String mailboxPath) {
-    if (!_messageUpdateController.isClosed) {
-      _messageUpdateController.add(_MessageUpdate(
-        type: MessageUpdateType.clear,
-        accountId: accountId,
-        mailboxPath: mailboxPath,
-        messages: [],
-      ));
-    }
-  }
-
-  // Draft operations with optimized batching
-  Future<DraftModel> saveDraft(DraftModel draft) async {
-    final now = DateTime.now();
-
-    // Create a copy with updated timestamp and clean state
-    final updatedDraft = draft.copyWith(
-      updatedAt: now,
-      isDirty: false,
+    // Notify about mailbox clear
+    _notifyMessageUpdate(
+      accountId,
+      mailboxPath,
+      [],
+      MessageUpdateType.clear,
     );
-
-    final draftMap = updatedDraft.toMap();
-
-    // Initialize id with a default value
-    int id = draft.id ?? -1;
-
-    await _withWriteDb((txn) async {
-      if (draft.id != null) {
-        // Update existing draft
-        await txn.update(
-          'drafts',
-          draftMap,
-          where: 'id = ?',
-          whereArgs: [draft.id],
-        );
-        id = draft.id!;
-
-        // Save version history if version changed
-        if (draft.version > 1) {
-          await _saveDraftVersionWithTxn(txn, draft);
-        }
-      } else {
-        // Insert new draft
-        id = await txn.insert('drafts', draftMap);
-      }
-    });
-
-    // Return updated draft with ID
-    return updatedDraft.copyWith(id: id);
   }
 
-  // Save draft version for history tracking - transaction version
-  Future<void> _saveDraftVersionWithTxn(Transaction txn, DraftModel draft) async {
-    if (draft.id == null) return;
+  // Clear all storage
+  Future<void> clearStorage() async {
+    // Delete all data
+    await _withWriteDb((txn) async {
+      await txn.delete('messages');
+      await txn.delete('attachments');
+      await txn.delete('drafts');
+      await txn.delete('draft_versions');
+    });
 
-    await txn.insert('draft_versions', {
-      'draft_id': draft.id,
-      'version': draft.version,
+    // Clear cache
+    _messageCache.clear();
+  }
+
+  // Notify about message updates
+  void _notifyMessageUpdate(
+      String accountId,
+      String mailboxPath,
+      List<MimeMessage> messages,
+      MessageUpdateType type,
+      ) {
+    _messageUpdateController.add(_MessageUpdate(
+      accountId: accountId,
+      mailboxPath: mailboxPath,
+      messages: messages,
+      type: type,
+    ));
+  }
+
+  // Draft operations
+  Future<int> saveDraft(DraftModel draft) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    // Prepare the draft data
+    final draftData = {
+      'message_id': draft.messageId,
       'subject': draft.subject,
       'body': draft.body,
       'is_html': draft.isHtml ? 1 : 0,
-      'to_recipients': draft.to.join('||'),
-      'cc_recipients': draft.cc.join('||'),
-      'bcc_recipients': draft.bcc.join('||'),
-      'attachment_paths': draft.attachmentPaths.join('||'),
-      'created_at': DateTime.now().millisecondsSinceEpoch,
-    });
-  }
+      'to_recipients': draft.toRecipients.join(','),
+      'cc_recipients': draft.ccRecipients.join(','),
+      'bcc_recipients': draft.bccRecipients.join(','),
+      'attachment_paths': draft.attachmentPaths.join(','),
+      'created_at': draft.id == null ? now : null, // Only set created_at for new drafts
+      'updated_at': now,
+      'is_scheduled': draft.isScheduled ? 1 : 0,
+      'scheduled_for': draft.scheduledFor?.millisecondsSinceEpoch,
+      'version': draft.version,
+      'category': draft.category,
+      'priority': draft.priority,
+      'is_synced': draft.isSynced ? 1 : 0,
+      'server_uid': draft.serverUid,
+      'is_dirty': draft.isDirty ? 1 : 0,
+      'tags': draft.tags?.join(','),
+      'last_error': draft.lastError,
+    };
 
-  // Original method for backward compatibility
-  Future<void> _saveDraftVersion(Transaction txn, DraftModel draft) async {
-    await _saveDraftVersionWithTxn(txn, draft);
-  }
+    // Remove null values
+    draftData.removeWhere((key, value) => value == null);
 
-  Future<DraftModel?> getDraft(int id) async {
-    final maps = await _withReadDb((db) async {
-      return await db.query(
-        'drafts',
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    });
+    // int draftId;
+    late int draftId;
+    await _withTransaction<void>((db) async {
+      if (draft.id == null) {
+        // Insert new draft
+        draftId = await db.insert('drafts', draftData);
+      } else {
+        // Update existing draft
+        draftId = draft.id!;
+        await db.update(
+          'drafts',
+          draftData,
+          where: 'id = ?',
+          whereArgs: [draftId],
+        );
+      }
 
-    if (maps.isEmpty) {
-      return null;
-    }
-
-    return DraftModel.fromMap(maps.first);
-  }
-
-  Future<DraftModel?> getDraftByMessageId(String messageId) async {
-    final maps = await _withReadDb((db) async {
-      return await db.query(
-        'drafts',
-        where: 'message_id = ?',
-        whereArgs: [messageId],
-      );
-    });
-
-    if (maps.isEmpty) {
-      return null;
-    }
-
-    return DraftModel.fromMap(maps.first);
-  }
-
-  Future<List<DraftModel>> getAllDrafts({
-    int limit = 50,
-    int offset = 0,
-    String? category,
-    bool? isScheduled,
-    bool? isDirty,
-  }) async {
-    // Build where clause based on filters
-    String whereClause = '';
-    List<dynamic> whereArgs = [];
-
-    if (category != null) {
-      whereClause += 'category = ?';
-      whereArgs.add(category);
-    }
-
-    if (isScheduled != null) {
-      if (whereClause.isNotEmpty) whereClause += ' AND ';
-      whereClause += 'is_scheduled = ?';
-      whereArgs.add(isScheduled ? 1 : 0);
-    }
-
-    if (isDirty != null) {
-      if (whereClause.isNotEmpty) whereClause += ' AND ';
-      whereClause += 'is_dirty = ?';
-      whereArgs.add(isDirty ? 1 : 0);
-    }
-
-    final maps = await _withReadDb((db) async {
-      return await db.query(
-        'drafts',
-        where: whereClause.isNotEmpty ? whereClause : null,
-        whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-        orderBy: 'updated_at DESC',
-        limit: limit,
-        offset: offset,
-      );
+      // Save draft version history
+      await db.insert('draft_versions', {
+        'draft_id': draftId,
+        'version': draft.version,
+        'subject': draft.subject,
+        'body': draft.body,
+        'is_html': draft.isHtml ? 1 : 0,
+        'to_recipients': draft.toRecipients.join(','),
+        'cc_recipients': draft.ccRecipients.join(','),
+        'bcc_recipients': draft.bccRecipients.join(','),
+        'attachment_paths': draft.attachmentPaths.join(','),
+        'created_at': now,
+      });
     });
 
-    return maps.map((map) => DraftModel.fromMap(map)).toList();
+    return draftId;
   }
 
-  Future<List<DraftModel>> getScheduledDrafts() async {
-    final now = DateTime.now().millisecondsSinceEpoch;
 
-    final maps = await _withReadDb((db) async {
-      return await db.query(
-        'drafts',
-        where: 'is_scheduled = 1 AND scheduled_for <= ?',
-        whereArgs: [now],
-        orderBy: 'scheduled_for ASC',
-      );
-    });
-
-    return maps.map((map) => DraftModel.fromMap(map)).toList();
-  }
-
-  Future<List<DraftModel>> getDraftsByCategory(String category) async {
-    final maps = await _withReadDb((db) async {
-      return await db.query(
-        'drafts',
-        where: 'category = ?',
-        whereArgs: [category],
-        orderBy: 'updated_at DESC',
-      );
-    });
-
-    return maps.map((map) => DraftModel.fromMap(map)).toList();
-  }
-
-  Future<List<DraftModel>> searchDrafts(String query) async {
-    final maps = await _withReadDb((db) async {
-      return await db.query(
-        'drafts',
-        where: 'subject LIKE ? OR body LIKE ?',
-        whereArgs: ['%$query%', '%$query%'],
-        orderBy: 'updated_at DESC',
-      );
-    });
-
-    return maps.map((map) => DraftModel.fromMap(map)).toList();
-  }
-
-  Future<List<DraftModel>> getDirtyDrafts() async {
-    final maps = await _withReadDb((db) async {
-      return await db.query(
-        'drafts',
-        where: 'is_dirty = 1',
-        orderBy: 'updated_at DESC',
-      );
-    });
-
-    return maps.map((map) => DraftModel.fromMap(map)).toList();
-  }
-
-  Future<int> deleteDraft(int id) async {
-    int result = 0;
+  /// Deletes multiple drafts (and their version‐history) in one shot.
+  Future<void> batchDeleteDrafts(List<int> draftIds) async {
+    if (draftIds.isEmpty) return;
 
     await _withWriteDb((txn) async {
-      // Delete draft versions first
+      final placeholders = List.filled(draftIds.length, '?').join(',');
+      // first remove any history entries
       await txn.delete(
         'draft_versions',
-        where: 'draft_id = ?',
+        where: 'draft_id IN ($placeholders)',
+        whereArgs: draftIds,
+      );
+      // then remove the drafts themselves
+      await txn.delete(
+        'drafts',
+        where: 'id IN ($placeholders)',
+        whereArgs: draftIds,
+      );
+    });
+  }
+
+
+
+  /// Search drafts by matching subject, body or recipients (to/cc/bcc).
+  Future<List<DraftModel>> searchDrafts(String query) async {
+    final likeQuery = '%${query.toLowerCase()}%';
+    return await _withReadDb((db) async {
+      final maps = await db.query(
+        'drafts',
+        where: '''
+        LOWER(subject)   LIKE ? OR
+        LOWER(body)      LIKE ? OR
+        LOWER(to_recipients)   LIKE ? OR
+        LOWER(cc_recipients)   LIKE ? OR
+        LOWER(bcc_recipients)  LIKE ?
+      ''',
+        whereArgs: [likeQuery, likeQuery, likeQuery, likeQuery, likeQuery],
+        orderBy: 'updated_at DESC',
+      );
+
+      return maps.map((map) {
+        // parse tags into a List<String>
+        final rawTags = map['tags'] as String?;
+        final tags = rawTags != null
+            ? rawTags.split(',').where((s) => s.isNotEmpty).toList()
+            : <String>[];
+        return DraftModel(
+          id: map['id'] as int,
+          messageId: map['message_id'] as String?,
+          subject: map['subject'] as String,
+          body: map['body'] as String,
+          isHtml: map['is_html'] == 1,
+          to: (map['to_recipients'] as String).split(',').where((s) => s.isNotEmpty).toList(),
+          cc: (map['cc_recipients'] as String).split(',').where((s) => s.isNotEmpty).toList(),
+          bcc: (map['bcc_recipients'] as String).split(',').where((s) => s.isNotEmpty).toList(),
+          attachmentPaths: (map['attachment_paths'] as String).split(',').where((s) => s.isNotEmpty).toList(),
+          createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
+          updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int),
+          isScheduled: map['is_scheduled'] == 1,
+          scheduledFor: map['scheduled_for'] != null
+              ? DateTime.fromMillisecondsSinceEpoch(map['scheduled_for'] as int)
+              : null,
+          version: map['version'] as int,
+          category: map['category'] as String,
+          priority: map['priority'] as int,
+          isSynced: map['is_synced'] == 1,
+          serverUid: map['server_uid'] as int?,
+          isDirty: map['is_dirty'] == 1,
+          tags: tags,
+          lastError: map['last_error'] as String?,
+        );
+      }).toList();
+    });
+  }
+  Future<List<DraftModel>> getDrafts({String? category}) async {
+    return await _withReadDb((db) async {
+      String? whereClause;
+      List<dynamic>? whereArgs;
+
+      if (category != null) {
+        whereClause = 'category = ?';
+        whereArgs = [category];
+      }
+
+      final maps = await db.query(
+        'drafts',
+        where: whereClause,
+        whereArgs: whereArgs,
+        orderBy: 'updated_at DESC',
+      );
+
+      return maps.map((map) {
+        // split tags or give an empty list if null
+        final rawTags = map['tags'] as String?;
+        final tags = rawTags != null
+            ? rawTags.split(',').where((s) => s.isNotEmpty).toList()
+            : <String>[];
+
+        return DraftModel(
+          id: map['id'] as int,
+          messageId: map['message_id'] as String?,
+          subject: map['subject'] as String,
+          body: map['body'] as String,
+          isHtml: map['is_html'] == 1,
+          to: (map['to_recipients'] as String)
+              .split(',')
+              .where((s) => s.isNotEmpty)
+              .toList(),
+          cc: (map['cc_recipients'] as String)
+              .split(',')
+              .where((s) => s.isNotEmpty)
+              .toList(),
+          bcc: (map['bcc_recipients'] as String)
+              .split(',')
+              .where((s) => s.isNotEmpty)
+              .toList(),
+          attachmentPaths: (map['attachment_paths'] as String)
+              .split(',')
+              .where((s) => s.isNotEmpty)
+              .toList(),
+          createdAt:
+          DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
+          updatedAt:
+          DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int),
+          isScheduled: map['is_scheduled'] == 1,
+          scheduledFor: map['scheduled_for'] != null
+              ? DateTime.fromMillisecondsSinceEpoch(
+              map['scheduled_for'] as int)
+              : null,
+          version: map['version'] as int,
+          category: map['category'] as String,
+          priority: map['priority'] as int,
+          isSynced: map['is_synced'] == 1,
+          serverUid: map['server_uid'] as int?,
+          isDirty: map['is_dirty'] == 1,
+          tags: tags,      // <-- now always a List<String>
+          lastError: map['last_error'] as String?,
+        );
+      }).toList();
+    });
+  }
+
+  Future<DraftModel?> getDraftById(int id) async {
+    return await _withReadDb((db) async {
+      final maps = await db.query(
+        'drafts',
+        where: 'id = ?',
         whereArgs: [id],
       );
 
-      // Then delete the draft
-      result = await txn.delete(
+      if (maps.isEmpty) return null;
+      final map = maps.first;
+
+      // Always produce a non-null List<String>
+      final rawTags = map['tags'] as String?;
+      final tags = rawTags != null
+          ? rawTags.split(',').where((s) => s.isNotEmpty).toList()
+          : <String>[];
+
+      return DraftModel(
+        id: map['id'] as int,
+        messageId: map['message_id'] as String?,
+        subject: map['subject'] as String,
+        body: map['body'] as String,
+        isHtml: map['is_html'] == 1,
+        to: (map['to_recipients'] as String)
+            .split(',')
+            .where((s) => s.isNotEmpty)
+            .toList(),
+        cc: (map['cc_recipients'] as String)
+            .split(',')
+            .where((s) => s.isNotEmpty)
+            .toList(),
+        bcc: (map['bcc_recipients'] as String)
+            .split(',')
+            .where((s) => s.isNotEmpty)
+            .toList(),
+        attachmentPaths: (map['attachment_paths'] as String)
+            .split(',')
+            .where((s) => s.isNotEmpty)
+            .toList(),
+        createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int),
+        updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int),
+        isScheduled: map['is_scheduled'] == 1,
+        scheduledFor: map['scheduled_for'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(map['scheduled_for'] as int)
+            : null,
+        version: map['version'] as int,
+        category: map['category'] as String,
+        priority: map['priority'] as int,
+        isSynced: map['is_synced'] == 1,
+        serverUid: map['server_uid'] as int?,
+        isDirty: map['is_dirty'] == 1,
+        tags: tags,          // always non-null List<String>
+        lastError: map['last_error'] as String?,
+      );
+    });
+  }
+  Future<void> deleteDraft(int id) async {
+    await _withWriteDb((txn) async {
+      await txn.delete(
         'drafts',
         where: 'id = ?',
         whereArgs: [id],
       );
     });
-
-    return result;
   }
 
-  Future<int> deleteDraftByMessageId(String messageId) async {
-    // First get the draft to find its ID
-    final draft = await getDraftByMessageId(messageId);
-    if (draft == null || draft.id == null) {
-      return 0;
-    }
-
-    return await deleteDraft(draft.id!);
-  }
-
-  Future<List<Map<String, dynamic>>> getDraftVersionHistory(int draftId) async {
+  Future<List<Map<String, dynamic>>> getDraftVersions(int draftId) async {
     return await _withReadDb((db) async {
       return await db.query(
         'draft_versions',
@@ -1012,253 +1301,117 @@ class SqliteMimeStorage {
     });
   }
 
-  Future<DraftModel?> restoreDraftVersion(int draftId, int version) async {
-    final versionMaps = await _withReadDb((db) async {
-      return await db.query(
-        'draft_versions',
-        where: 'draft_id = ? AND version = ?',
-        whereArgs: [draftId, version],
-      );
-    });
-
-    if (versionMaps.isEmpty) {
-      return null;
-    }
-
-    final versionMap = versionMaps.first;
-
-    // Get current draft
-    final currentDraft = await getDraft(draftId);
-    if (currentDraft == null) {
-      return null;
-    }
-
-    // Create restored draft with version data but keep metadata
-    final restoredDraft = currentDraft.copyWith(
-      subject: versionMap['subject'] as String,
-      body: versionMap['body'] as String,
-      isHtml: versionMap['is_html'] == 1,
-      to: (versionMap['to_recipients'] as String).split('||'),
-      cc: (versionMap['cc_recipients'] as String).split('||'),
-      bcc: (versionMap['bcc_recipients'] as String).split('||'),
-      attachmentPaths: (versionMap['attachment_paths'] as String).split('||'),
-      version: currentDraft.version + 1, // Increment version
-      isDirty: true, // Mark as dirty
-      updatedAt: DateTime.now(),
-    );
-
-    // Save the restored draft
-    return await saveDraft(restoredDraft);
-  }
-
-  Future<int> markDraftSynced(int id, int serverUid) async {
-    int result = 0;
+  // Contact suggestions
+  Future<void> updateContactFromAddress(MailAddress address) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
 
     await _withWriteDb((txn) async {
-      result = await txn.update(
-        'drafts',
-        {
-          'is_synced': 1,
-          'server_uid': serverUid,
-          'is_dirty': 0,
-          'last_error': null,
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    });
-
-    return result;
-  }
-
-  Future<int> markDraftSyncError(int id, String error) async {
-    int result = 0;
-
-    await _withWriteDb((txn) async {
-      result = await txn.update(
-        'drafts',
-        {
-          'is_synced': 0,
-          'last_error': error,
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    });
-
-    return result;
-  }
-
-  Future<int> updateDraftCategory(int id, String category) async {
-    int result = 0;
-
-    await _withWriteDb((txn) async {
-      result = await txn.update(
-        'drafts',
-        {'category': category},
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    });
-
-    return result;
-  }
-
-  Future<int> updateDraftTags(int id, List<String> tags) async {
-    int result = 0;
-
-    await _withWriteDb((txn) async {
-      result = await txn.update(
-        'drafts',
-        {'tags': tags.join('||')},
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    });
-
-    return result;
-  }
-
-  Future<int> batchDeleteDrafts(List<int> ids) async {
-    int result = 0;
-
-    await _withWriteDb((txn) async {
-      // Delete draft versions first
-      await txn.delete(
-        'draft_versions',
-        where: 'draft_id IN (${ids.map((_) => '?').join(', ')})',
-        whereArgs: ids,
+      // Check if contact exists
+      final maps = await txn.query(
+        'contacts',
+        where: 'email = ?',
+        whereArgs: [address.email],
       );
 
-      // Then delete the drafts
-      result = await txn.delete(
-        'drafts',
-        where: 'id IN (${ids.map((_) => '?').join(', ')})',
-        whereArgs: ids,
-      );
-    });
-
-    return result;
-  }
-
-  Future<int> batchUpdateDraftCategory(List<int> ids, String category) async {
-    int result = 0;
-
-    await _withWriteDb((txn) async {
-      result = await txn.update(
-        'drafts',
-        {'category': category},
-        where: 'id IN (${ids.map((_) => '?').join(', ')})',
-        whereArgs: ids,
-      );
-    });
-
-    return result;
-  }
-
-  // Contact suggestion operations with background processing
-  Future<void> _updateContactsFromMessage(MimeMessage message) async {
-    // Process in background to avoid blocking UI
-    Future.microtask(() async {
-      final now = DateTime.now().millisecondsSinceEpoch;
-
-      // Process all recipients
-      final allRecipients = [
-        ...message.to ?? [],
-        ...message.cc ?? [],
-        ...message.bcc ?? [],
-        ...message.from ?? [],
-      ];
-
-      if (allRecipients.isEmpty) return;
-
-      await _withWriteDb((txn) async {
-        final batch = txn.batch();
-
-        for (final recipient in allRecipients) {
-          if (recipient.email.isNotEmpty) {
-            try {
-              // Use raw SQL for upsert-style operation
-              batch.rawInsert(
-                  'INSERT INTO contacts (name, email, frequency, last_used) VALUES (?, ?, 1, ?) '
-                      'ON CONFLICT(email) DO UPDATE SET '
-                      'frequency = frequency + 1, '
-                      'last_used = ?, '
-                      'name = CASE WHEN name IS NULL OR name = "" THEN ? ELSE name END',
-                  [
-                    recipient.personalName ?? '',
-                    recipient.email,
-                    now,
-                    now,
-                    recipient.personalName ?? ''
-                  ]
-              );
-            } catch (e) {
-              print('Error preparing contact batch: $e');
-            }
-          }
-        }
-
-        await batch.commit(noResult: true);
-      });
-    });
-  }
-
-  // Process multiple messages for contacts in background
-  Future<void> _updateContactsFromMessagesInBackground(List<MimeMessage> messages) async {
-    if (messages.isEmpty) return;
-
-    // Process in background to avoid blocking UI
-    Future.microtask(() async {
-      final now = DateTime.now().millisecondsSinceEpoch;
-
-      // Extract all unique recipients
-      final Set<MailAddress> allRecipients = {};
-      for (final message in messages) {
-        if (message.to != null) allRecipients.addAll(message.to!);
-        if (message.cc != null) allRecipients.addAll(message.cc!);
-        if (message.bcc != null) allRecipients.addAll(message.bcc!);
-        if (message.from != null) allRecipients.addAll(message.from!);
+      if (maps.isEmpty) {
+        // Insert new contact
+        await txn.insert('contacts', {
+          'name': address.personalName,
+          'email': address.email,
+          'frequency': 1,
+          'last_used': now,
+        });
+      } else {
+        // Update existing contact
+        final frequency = maps.first['frequency'] as int;
+        await txn.update(
+          'contacts',
+          {
+            'frequency': frequency + 1,
+            'last_used': now,
+            'name': address.personalName ?? maps.first['name'],
+          },
+          where: 'email = ?',
+          whereArgs: [address.email],
+        );
       }
-
-      if (allRecipients.isEmpty) return;
-
-      await _withWriteDb((txn) async {
-        final batch = txn.batch();
-
-        for (final recipient in allRecipients) {
-          if (recipient.email.isNotEmpty) {
-            try {
-              // Use raw SQL for upsert-style operation
-              batch.rawInsert(
-                  'INSERT INTO contacts (name, email, frequency, last_used) VALUES (?, ?, 1, ?) '
-                      'ON CONFLICT(email) DO UPDATE SET '
-                      'frequency = frequency + 1, '
-                      'last_used = ?, '
-                      'name = CASE WHEN name IS NULL OR name = "" THEN ? ELSE name END',
-                  [
-                    recipient.personalName ?? '',
-                    recipient.email,
-                    now,
-                    now,
-                    recipient.personalName ?? ''
-                  ]
-              );
-            } catch (e) {
-              print('Error preparing contact batch: $e');
-            }
-          }
-        }
-
-        await batch.commit(noResult: true);
-      });
     });
   }
 
-  // Dispose resources
-  void dispose() {
-    _writeQueue.close();
+  // Update contact suggestions from message
+  void _updateContactsFromMessage(MimeMessage message) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final addresses = <MailAddress>[];
+
+    // Collect all addresses
+    if (message.from != null) addresses.addAll(message.from!);
+    if (message.to != null) addresses.addAll(message.to!);
+    if (message.cc != null) addresses.addAll(message.cc!);
+    if (message.replyTo != null) addresses.addAll(message.replyTo!);
+
+    // Process each address
+    for (final address in addresses) {
+      if (address.email.isEmpty) continue;
+
+      await _withWriteDb((txn) async {
+        // Check if contact exists
+        final maps = await txn.query(
+          'contacts',
+          where: 'email = ?',
+          whereArgs: [address.email],
+        );
+
+        if (maps.isEmpty) {
+          // Insert new contact
+          await txn.insert('contacts', {
+            'name': address.personalName,
+            'email': address.email,
+            'frequency': 1,
+            'last_used': now,
+          });
+        } else {
+          // Update existing contact
+          final frequency = maps.first['frequency'] as int;
+          await txn.update(
+            'contacts',
+            {
+              'frequency': frequency + 1,
+              'last_used': now,
+              'name': address.personalName ?? maps.first['name'],
+            },
+            where: 'email = ?',
+            whereArgs: [address.email],
+          );
+        }
+      });
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getContactSuggestions(String query, {int limit = 10}) async {
+    String whereClause = '';
+    List<dynamic> whereArgs = [];
+
+    if (query.isNotEmpty) {
+      whereClause = 'email LIKE ? OR name LIKE ?';
+      whereArgs = ['%$query%', '%$query%'];
+    }
+
+    return await _withReadDb((db) async {
+      return await db.query(
+        'contacts',
+        where: whereClause.isNotEmpty ? whereClause : null,
+        whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
+        orderBy: 'frequency DESC, last_used DESC',
+        limit: limit,
+      );
+    });
+  }
+
+  // Cleanup and disposal
+  Future<void> dispose() async {
+    _cacheInvalidationTimer?.cancel();
     _messageUpdateController.close();
+    _writeQueue.close();
   }
 }
 
@@ -1270,53 +1423,22 @@ class _WriteOperation {
   _WriteOperation(this.execute, this.completer);
 }
 
-// Enhanced LRU cache implementation
-class _LRUCache<K, V> {
-  final int maxSize;
-  final LinkedHashMap<K, V> _cache = LinkedHashMap<K, V>();
+// Helper class for message updates
+class _MessageUpdate {
+  final String accountId;
+  final String mailboxPath;
+  final List<MimeMessage> messages;
+  final MessageUpdateType type;
 
-  _LRUCache(this.maxSize);
-
-  V? get(K key) {
-    final value = _cache[key];
-    if (value != null) {
-      // Move to end (most recently used)
-      _cache.remove(key);
-      _cache[key] = value;
-    }
-    return value;
-  }
-
-  void put(K key, V value) {
-    // Evict oldest if at capacity
-    if (_cache.length >= maxSize && !_cache.containsKey(key)) {
-      _cache.remove(_cache.keys.first);
-    }
-
-    // Add or update value
-    _cache[key] = value;
-  }
-
-  void remove(K key) {
-    _cache.remove(key);
-  }
-
-  void removeWhere(bool Function(K key) test) {
-    _cache.removeWhere((key, _) => test(key));
-  }
-
-  void clear() {
-    _cache.clear();
-  }
-
-  bool containsKey(K key) {
-    return _cache.containsKey(key);
-  }
-
-  int get length => _cache.length;
+  _MessageUpdate({
+    required this.accountId,
+    required this.mailboxPath,
+    required this.messages,
+    required this.type,
+  });
 }
 
-// Message update types
+// Update type for message notifications
 enum MessageUpdateType {
   update,
   delete,
@@ -1324,17 +1446,65 @@ enum MessageUpdateType {
   clear,
 }
 
-// Message update class for stream
-class _MessageUpdate {
-  final MessageUpdateType type;
-  final String accountId;
-  final String mailboxPath;
-  final List<MimeMessage> messages;
+// LRU Cache implementation
+class _LRUCache<K, V> {
+  final int capacity;
+  final LinkedHashMap<K, _CacheEntry<V>> _cache = LinkedHashMap<K, _CacheEntry<V>>();
 
-  _MessageUpdate({
-    required this.type,
-    required this.accountId,
-    required this.mailboxPath,
-    required this.messages,
-  });
+  _LRUCache(this.capacity);
+
+  V? get(K key) {
+    final entry = _cache[key];
+    if (entry == null) return null;
+
+    // Move to front (most recently used)
+    _cache.remove(key);
+    _cache[key] = entry;
+
+    return entry.value;
+  }
+
+  void put(K key, V value) {
+    // Remove if already exists
+    _cache.remove(key);
+
+    // Check if cache is full
+    if (_cache.length >= capacity) {
+      // Remove least recently used item (first item)
+      _cache.remove(_cache.keys.first);
+    }
+
+    // Add new item
+    _cache[key] = _CacheEntry<V>(value, DateTime.now().millisecondsSinceEpoch);
+  }
+
+  void remove(K key) {
+    _cache.remove(key);
+  }
+
+  void clear() {
+    _cache.clear();
+  }
+
+  void removeOlderThan(int timestamp) {
+    final keysToRemove = <K>[];
+    for (final entry in _cache.entries) {
+      if (entry.value.timestamp < timestamp) {
+        keysToRemove.add(entry.key);
+      }
+    }
+    for (final key in keysToRemove) {
+      _cache.remove(key);
+    }
+  }
+}
+
+
+
+// Cache entry with timestamp
+class _CacheEntry<V> {
+  final V value;
+  final int timestamp;
+
+  _CacheEntry(this.value, this.timestamp);
 }

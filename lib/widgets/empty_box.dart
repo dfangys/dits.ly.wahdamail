@@ -62,7 +62,7 @@ class TAnimationLoaderWidget extends StatelessWidget {
                   text,
                   style: theme.textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onBackground,
+                    color: theme.colorScheme.primary, // ✅ updated color here
                     height: 1.3,
                   ),
                   textAlign: TextAlign.center,

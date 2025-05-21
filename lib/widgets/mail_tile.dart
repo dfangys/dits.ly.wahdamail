@@ -4,6 +4,8 @@ import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/email_operation_controller.dart';
+import 'package:wahda_bank/app/controllers/email_storage_controller.dart';
+import 'package:wahda_bank/models/sqlite_mailbox_storage.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import '../app/controllers/selection_controller.dart';
 import '../app/controllers/settings_controller.dart';
@@ -16,27 +18,33 @@ class MailTile extends StatelessWidget {
     required this.onTap,
     required this.message,
     required this.mailBox,
-    this.onLongPress, // Added onLongPress parameter
+    this.onLongPress,
   });
 
   final VoidCallback? onTap;
-  final VoidCallback? onLongPress; // Added onLongPress callback
+  final VoidCallback? onLongPress;
   final MimeMessage message;
   final Mailbox mailBox;
 
   final settingController = Get.find<SettingController>();
   final selectionController = Get.find<SelectionController>();
-  final operationController = Get.find<EmailOperationController>(); // Updated to use EmailOperationController
+  final operationController = Get.find<EmailOperationController>();
+  final storageController = Get.find<EmailStorageController>();
 
   String get name {
-    if ((["sent", "drafts"].contains(mailBox.name.toLowerCase())) &&
-        message.to != null &&
-        message.to!.isNotEmpty) {
-      return message.to!.first.personalName ?? message.to!.first.email;
+    // Improved handling for sent and draft folders
+    if ((["sent", "drafts"].contains(mailBox.name.toLowerCase()))) {
+      // For sent and drafts, show recipient instead of sender
+      if (message.to != null && message.to!.isNotEmpty) {
+        return message.to!.first.personalName ?? message.to!.first.email;
+      }
     }
+
+    // For other folders, show sender
     if (message.from != null && message.from!.isNotEmpty) {
       return message.from!.first.personalName ?? message.from!.first.email;
     }
+
     return "Unknown";
   }
 
@@ -59,7 +67,7 @@ class MailTile extends StatelessWidget {
               Obx(
                     () => SlidableAction(
                   onPressed: (context) {
-                    operationController.ltrTap(message, mailBox); // Updated to use operationController
+                    operationController.ltrTap(message, mailBox);
                   },
                   backgroundColor:
                   settingController.swipeGesturesLTRModel.backgroundColor,
@@ -76,7 +84,7 @@ class MailTile extends StatelessWidget {
             Obx(
                   () => SlidableAction(
                 onPressed: (context) {
-                  operationController.rtlTap(message, mailBox); // Updated to use operationController
+                  operationController.rtlTap(message, mailBox);
                 },
                 backgroundColor:
                 settingController.swipeGesturesRTLModel.backgroundColor,
@@ -109,30 +117,42 @@ class MailTile extends StatelessWidget {
                   if (selectionController.isSelecting) {
                     selectionController.toggle(message);
                   } else if (mailBox.name.toLowerCase() == 'drafts') {
-                    EasyLoading.showInfo('Loading...');
-                    MimeMessage? msg = await operationController
-                        .getMailboxStorage(mailBox)
-                        .fetchMessageContents(message);
-                    msg ??= await operationController.getMailService().client
-                        .fetchMessageContents(message);
-                    Get.to(
-                          () => const ComposeScreen(),
-                      arguments: {'type': 'draft', 'message': msg},
-                    );
+                    EasyLoading.showInfo('Loading…');
+
+                    // Improved draft handling with better error recovery
+                    try {
+                      // Try to fetch the full message with improved error handling
+                      MimeMessage? msg = await storageController.fetchMessageContents(
+                        message,
+                        mailBox,
+                      );
+
+                      if (msg != null) {
+                        Get.to(
+                              () => const ComposeScreen(),
+                          arguments: {'type': 'draft', 'message': msg},
+                        );
+                      } else {
+                        // Show error if message couldn't be loaded
+                        EasyLoading.showError('Could not load draft. Please try again.');
+                      }
+                    } catch (e) {
+                      EasyLoading.showError('Error loading draft: ${e.toString()}');
+                    }
                   } else if (onTap != null) {
                     onTap!.call();
                   }
                 } catch (e) {
-                  EasyLoading.showError(e.toString());
+                  EasyLoading.showError('Error: ${e.toString()}');
                 } finally {
                   EasyLoading.dismiss();
                 }
               },
               onLongPress: () {
                 if (onLongPress != null) {
-                  onLongPress!.call(); // Use the provided onLongPress callback if available
+                  onLongPress!.call();
                 } else {
-                  selectionController.toggle(message); // Default behavior
+                  selectionController.toggle(message);
                 }
               },
               child: Padding(
