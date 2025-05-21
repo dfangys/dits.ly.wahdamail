@@ -5,12 +5,12 @@ import 'package:get_storage/get_storage.dart';
 import 'package:logger/logger.dart';
 import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
+import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import 'package:workmanager/workmanager.dart';
-import '../../models/hive_mime_storage.dart';
 import '../../services/mail_service.dart';
 import '../../views/authantication/screens/login/login.dart';
 import '../../views/view/models/box_model.dart';
@@ -21,13 +21,19 @@ class MailBoxController extends GetxController {
   final RxBool isBoxBusy = true.obs;
   final getStoarage = GetStorage();
 
-  final RxMap<Mailbox, HiveMailboxMimeStorage> mailboxStorage =
-      <Mailbox, HiveMailboxMimeStorage>{}.obs;
+  // Replace Hive storage with SQLite storage
+  final RxMap<Mailbox, SQLiteMailboxMimeStorage> mailboxStorage =
+      <Mailbox, SQLiteMailboxMimeStorage>{}.obs;
   final RxMap<Mailbox, List<MimeMessage>> emails =
       <Mailbox, List<MimeMessage>>{}.obs;
 
+  // Track current mailbox to fix fetch error when switching
+  final Rx<Mailbox?> _currentMailbox = Rx<Mailbox?>(null);
+  Mailbox? get currentMailbox => _currentMailbox.value;
+  set currentMailbox(Mailbox? value) => _currentMailbox.value = value;
+
   List<MimeMessage> get boxMails =>
-      emails[mailService.client.selectedMailbox] ?? [];
+      emails[currentMailbox ?? mailService.client.selectedMailbox] ?? [];
 
   SettingController settingController = Get.find<SettingController>();
 
@@ -78,7 +84,7 @@ class MailBoxController extends GetxController {
 
   Future<void> initInbox() async {
     mailBoxInbox = mailboxes.firstWhere(
-      (element) => element.isInbox,
+          (element) => element.isInbox,
       orElse: () => mailboxes.first,
     );
     loadEmailsForBox(mailBoxInbox);
@@ -96,7 +102,7 @@ class MailBoxController extends GetxController {
     }
     for (var mailbox in mailboxes) {
       if (mailboxStorage[mailbox] != null) continue;
-      mailboxStorage[mailbox] = HiveMailboxMimeStorage(
+      mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
         mailAccount: mailService.account,
         mailbox: mailbox,
       );
@@ -108,11 +114,27 @@ class MailBoxController extends GetxController {
   }
 
   Future loadEmailsForBox(Mailbox mailbox) async {
+    // Set current mailbox to fix fetch error when switching
+    currentMailbox = mailbox;
+
     if (!mailService.client.isConnected) {
       await mailService.connect();
     }
-    await mailService.client.selectMailbox(mailbox);
-    await fetchMailbox(mailbox);
+
+    try {
+      await mailService.client.selectMailbox(mailbox);
+      await fetchMailbox(mailbox);
+    } catch (e) {
+      logger.e("Error selecting mailbox: $e");
+      // Try to reconnect and retry
+      try {
+        await mailService.connect();
+        await mailService.client.selectMailbox(mailbox);
+        await fetchMailbox(mailbox);
+      } catch (e) {
+        logger.e("Failed to reconnect and select mailbox: $e");
+      }
+    }
   }
 
   // Pagination for emails
@@ -120,6 +142,11 @@ class MailBoxController extends GetxController {
   int pageSize = 20;
 
   Future<void> fetchMailbox(Mailbox mailbox) async {
+    // Ensure we're working with the correct mailbox
+    if (currentMailbox != mailbox) {
+      currentMailbox = mailbox;
+    }
+
     int max = mailbox.messagesExists;
     if (mailbox.uidNext != null && mailbox.isInbox) {
       await GetStorage().write(
@@ -133,10 +160,9 @@ class MailBoxController extends GetxController {
     }
     page = 1;
     emails[mailbox]!.clear();
-    //
 
     if (mailboxStorage[mailbox] == null) {
-      mailboxStorage[mailbox] = HiveMailboxMimeStorage(
+      mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
         mailAccount: mailService.account,
         mailbox: mailbox,
       );
@@ -150,8 +176,8 @@ class MailBoxController extends GetxController {
         max,
       );
       final messages =
-          await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
-      if (messages != null && messages.isNotEmpty) {
+      await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
+      if (messages.isNotEmpty) {
         emails[mailbox]!.addAll(messages);
       } else {
         List<MimeMessage> newMessages = await queue(sequence);
@@ -294,7 +320,7 @@ class MailBoxController extends GetxController {
 
   Future ltrTap(MimeMessage message, Mailbox mailbox) async {
     SwapAction action =
-        getSwapActionFromString(settingController.swipeGesturesLTR());
+    getSwapActionFromString(settingController.swipeGesturesLTR());
     _doSwapAction(
       action,
       message,
@@ -304,7 +330,7 @@ class MailBoxController extends GetxController {
 
   Future rtlTap(MimeMessage message, Mailbox mailbox) async {
     SwapAction action =
-        getSwapActionFromString(settingController.swipeGesturesRTL());
+    getSwapActionFromString(settingController.swipeGesturesRTL());
     _doSwapAction(
       action,
       message,
@@ -336,7 +362,7 @@ class MailBoxController extends GetxController {
   Future handleIncomingMail(MimeMessage message) async {
     // detect the mailbox from the message
     Mailbox? mailbox = mailboxes.firstWhereOrNull(
-      (element) => element.flags.any((e) => message.hasFlag(e.name)),
+          (element) => element.flags.any((e) => message.hasFlag(e.name)),
     );
     if (mailbox != null) {
       await mailboxStorage[mailbox]!.saveMessageEnvelopes([message]);
@@ -354,12 +380,11 @@ class MailBoxController extends GetxController {
   }
 
   Future navigatToMailBox(Mailbox mailbox) async {
-    // if (mailbox.name.toLowerCase() == 'drafts') {
-    //   Get.to(() => const DraftView());
-    // } else {
+    // Reset current mailbox before navigation to fix fetch error
+    currentMailbox = null;
+
     Get.to(() => MailBoxView(mailBox: mailbox));
     await loadEmailsForBox(mailbox);
-    // }
   }
 
   void storeContactMails(List<MimeMessage> messages) {
@@ -396,7 +421,6 @@ class MailBoxController extends GetxController {
       MailService.instance.client.disconnect();
       MailService.instance.dispose();
       await deleteAccount();
-      // await BackgroundFetch.stop();
       await Workmanager().cancelAll();
       Get.offAll(() => LoginScreen());
     } catch (e) {

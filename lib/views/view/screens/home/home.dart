@@ -1,7 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/utills/funtions.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
@@ -13,9 +12,9 @@ import 'package:wahda_bank/widgets/drawer/drawer.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/widgets/search/search.dart';
 import '../../../../app/controllers/selection_controller.dart';
-import '../../../../models/hive_mime_storage.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../../widgets/empty_box.dart';
+import 'package:enough_mail/enough_mail.dart';
 
 class HomeScreen extends GetView<MailBoxController> {
   const HomeScreen({super.key});
@@ -40,12 +39,17 @@ class HomeScreen extends GetView<MailBoxController> {
               onActionPressed: () {},
             );
           }
-          return ValueListenableBuilder<Box<StorageMessageEnvelope>>(
-            valueListenable:
-            controller.mailboxStorage[controller.mailBoxInbox]!.dataStream,
-            builder: (context, box, child) {
-              List<StorageMessageEnvelope> rows =
-              box.values.sorted((a, b) => b.date!.compareTo(a.date!));
+          return ValueListenableBuilder<List<MimeMessage>>(
+            valueListenable: controller.mailboxStorage[controller.mailBoxInbox]!.dataNotifier,
+            builder: (context, messages, child) {
+              List<MimeMessage> rows = messages.sorted((a, b) {
+                final dateA = a.decodeDate();
+                final dateB = b.decodeDate();
+                if (dateA == null && dateB == null) return 0;
+                if (dateA == null) return 1;
+                if (dateB == null) return -1;
+                return dateB.compareTo(dateA);
+              });
 
               if (rows.isEmpty) {
                 return Center(
@@ -79,9 +83,9 @@ class HomeScreen extends GetView<MailBoxController> {
                 );
               }
 
-              Map<DateTime, List<StorageMessageEnvelope>> group = groupBy(
+              Map<DateTime, List<MimeMessage>> group = groupBy(
                 rows,
-                    (p) => filterDate(p.date ?? DateTime.now()),
+                    (MimeMessage msg) => filterDate(msg.decodeDate() ?? DateTime.now()),
               );
 
               return RefreshIndicator(
@@ -108,7 +112,7 @@ class HomeScreen extends GetView<MailBoxController> {
                             child: Text(
                               timeago.format(
                                 item.value.isNotEmpty
-                                    ? item.value.first.date!
+                                    ? item.value.first.decodeDate() ?? DateTime.now()
                                     : DateTime.now(),
                               ),
                               style: TextStyle(
@@ -123,7 +127,7 @@ class HomeScreen extends GetView<MailBoxController> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemBuilder: (context, i) {
-                            var mail = item.value.elementAt(i).toMimeMessage();
+                            var mail = item.value.elementAt(i);
                             return Builder(builder: (context) {
                               return MailTile(
                                 onTap: () {

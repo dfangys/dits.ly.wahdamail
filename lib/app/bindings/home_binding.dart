@@ -15,11 +15,11 @@ class HomeBinding extends Bindings {
     Get.lazyPut<MailCountController>(() => MailCountController());
 
     // 👇 this line is the important change
-    Get.putAsync<SqliteMimeStorage>(() async {
-      final storage = SqliteMimeStorage.instance;
-      await storage.database;          // warm-up
-      return storage;
-    });
+    // Get.putAsync<SqliteMimeStorage>(() async {
+    //   final storage = SqliteMimeStorage.instance;
+    //   await storage.database;          // warm-up
+    //   return storage;
+    // });
   }
 
 }

@@ -108,11 +108,8 @@ class MailTile extends StatelessWidget {
                     selectionController.toggle(message);
                   } else if (mailBox.name.toLowerCase() == 'drafts') {
                     EasyLoading.showInfo('Loading...');
-                    MimeMessage? msg = await mailboxController
-                        .mailboxStorage[mailBox]!
-                        .fetchMessageContents(message);
-                    msg ??= await mailboxController.mailService.client
-                        .fetchMessageContents(message);
+                    // Use client.fetchMessageContents directly since we added the method to SQLiteMailboxMimeStorage
+                    MimeMessage? msg = await mailboxController.mailService.client.fetchMessageContents(message);
                     Get.to(
                           () => const ComposeScreen(),
                       arguments: {'type': 'draft', 'message': msg},

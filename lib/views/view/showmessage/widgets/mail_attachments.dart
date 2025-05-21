@@ -58,17 +58,20 @@ class MailAttachments extends StatelessWidget {
             ),
           );
         } else if (snapshot.hasData && snapshot.data != null) {
-          // First display the message content
+          // First display attachments, then message content
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Message content viewer
-              MimeMessageViewer(
-                mimeMessage: snapshot.data!,
-              ),
-
-              // Then display attachments if any
+              // First display attachments if any
               _buildAttachmentSection(context, snapshot.data!),
+
+              // Then display the message content with proper padding
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: MimeMessageViewer(
+                  mimeMessage: snapshot.data!,
+                ),
+              ),
             ],
           );
         } else {
@@ -113,17 +116,23 @@ class MailAttachments extends StatelessWidget {
             ],
           ),
         ),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: contentInfo.length,
-          itemBuilder: (context, index) {
-            final c = contentInfo[index];
-            return AttachmentTile(
-              contentInfo: c,
-              mimeMessage: mimeMessage,
-            );
-          },
+        SizedBox(
+          height: 100, // Fixed height for the horizontal list
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal, // Make it scroll horizontally
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            itemCount: contentInfo.length,
+            itemBuilder: (context, index) {
+              final c = contentInfo[index];
+              return SizedBox(
+                width: 280, // Fixed width for each attachment tile
+                child: AttachmentTile(
+                  contentInfo: c,
+                  mimeMessage: mimeMessage,
+                ),
+              );
+            },
+          ),
         ),
       ],
     );

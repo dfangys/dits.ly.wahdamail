@@ -4,76 +4,168 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:get/get.dart';
-import 'package:wahda_bank/services/background_service.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:wahda_bank/models/sqlite_database_helper.dart';
+import 'package:wahda_bank/services/email_notification_service.dart';
+import 'package:wahda_bank/services/notifications_service.dart';
 import 'package:workmanager/workmanager.dart';
 
-@pragma('vm:entry-point')
-void backgroundFetchHeadlessTask() {
-  WidgetsFlutterBinding.ensureInitialized();
-  DartPluginRegistrant.ensureInitialized();
-  Workmanager().executeTask((taskName, inputData) async {
-    try {
-      // Use the enhanced background service for email checking
-      await BackgroundService.checkForNewMail();
-      return true;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Background fetch error: $e');
-      }
-      return false;
-    }
-  });
-}
+/// Enhanced background service for email notifications with SQLite support
+///
+/// This service optimizes battery usage and resource consumption
+/// while ensuring reliable email notifications in background.
+class BackgroundService {
+  static const String keyInboxLastUid = 'inboxLastUid';
+  static const String keyBackgroundServiceEnabled = 'backgroundServiceEnabled';
+  static const String keyBackgroundServiceLastRun = 'backgroundServiceLastRun';
+  static const int notificationId = 888;
 
-/// Initialize background services and tasks
-Future<void> initializeBackgroundTasks() async {
-  if (Platform.isAndroid || Platform.isIOS) {
-    // Initialize Workmanager for periodic tasks
-    await Workmanager().initialize(
-      backgroundFetchHeadlessTask,
-      isInDebugMode: kDebugMode,
-    );
-    
-    // Initialize enhanced background service
-    await BackgroundService.initializeService();
-    
-    // Start background service if enabled
-    final isEnabled = await BackgroundService.isServiceEnabled();
-    if (!isEnabled) {
-      await BackgroundService.startService();
+  static bool get isSupported =>
+      defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS;
+
+  /// Initialize the background service
+  static Future<void> initializeService() async {
+    await GetStorage.init();
+
+    // Initialize SQLite database
+    await SQLiteDatabaseHelper.instance.database;
+
+    // Initialize Workmanager for background tasks
+    if (Platform.isAndroid || Platform.isIOS) {
+      await Workmanager().initialize(
+        backgroundTaskCallback,
+        isInDebugMode: kDebugMode,
+      );
     }
   }
-}
 
-/// Register for periodic background email checks
-Future<void> registerPeriodicEmailChecks() async {
-  if (Platform.isAndroid || Platform.isIOS) {
-    // Cancel any existing tasks
-    await Workmanager().cancelAll();
-    
+  /// Start the background service
+  static Future<bool> startService() async {
     // Register periodic task
-    await Workmanager().registerPeriodicTask(
-      'com.wahda_bank.emailCheck',
-      'emailBackgroundCheck',
-      frequency: const Duration(minutes: 15),
-      constraints: Constraints(
-        networkType: NetworkType.connected,
-      ),
-      existingWorkPolicy: ExistingWorkPolicy.replace,
-      backoffPolicy: BackoffPolicy.linear,
-      backoffPolicyDelay: const Duration(minutes: 5),
-    );
-    
-    if (kDebugMode) {
-      print('Registered periodic email checks');
+    if (Platform.isAndroid || Platform.isIOS) {
+      await Workmanager().registerPeriodicTask(
+        'com.wahda_bank.emailCheck',
+        'emailBackgroundCheck',
+        frequency: const Duration(minutes: 15),
+        constraints: Constraints(
+          networkType: NetworkType.connected,
+        ),
+        existingWorkPolicy: ExistingWorkPolicy.replace,
+        backoffPolicy: BackoffPolicy.linear,
+        backoffPolicyDelay: const Duration(minutes: 5),
+      );
+    }
+
+    // Store service state
+    final storage = GetStorage();
+    await storage.write(keyBackgroundServiceEnabled, true);
+    await storage.write(keyBackgroundServiceLastRun, DateTime.now().toIso8601String());
+
+    return true;
+  }
+
+  /// Stop the background service
+  static Future<bool> stopService() async {
+    // Cancel all tasks
+    if (Platform.isAndroid || Platform.isIOS) {
+      await Workmanager().cancelAll();
+    }
+
+    // Store service state
+    final storage = GetStorage();
+    await storage.write(keyBackgroundServiceEnabled, false);
+
+    return true;
+  }
+
+  /// Check if the background service is enabled
+  static Future<bool> isServiceEnabled() async {
+    final storage = GetStorage();
+    return storage.read<bool>(keyBackgroundServiceEnabled) ?? false;
+  }
+
+  /// Background task callback for Workmanager
+  @pragma('vm:entry-point')
+  static void backgroundTaskCallback() {
+    WidgetsFlutterBinding.ensureInitialized();
+    DartPluginRegistrant.ensureInitialized();
+
+    Workmanager().executeTask((taskName, inputData) async {
+      try {
+        // Initialize required services
+        await GetStorage.init();
+        await SQLiteDatabaseHelper.instance.database;
+        await NotificationService.instance.setup();
+
+        // Show notification that we're checking for emails
+        NotificationService.instance.showFlutterNotification(
+          "Wahda Bank",
+          "Checking for new mail...",
+          {},
+          notificationId,
+        );
+
+        // Check for new emails
+        await EmailNotificationService.instance.initialize();
+        await EmailNotificationService.instance.checkForNewMessages();
+
+        // Update last run timestamp
+        final storage = GetStorage();
+        await storage.write(keyBackgroundServiceLastRun, DateTime.now().toIso8601String());
+
+        // Remove the checking notification
+        await NotificationService.instance.plugin.cancel(notificationId);
+
+        return true;
+      } catch (e) {
+        if (kDebugMode) {
+          print('Background task error: $e');
+        }
+        return false;
+      }
+    });
+  }
+
+  /// Check for new emails (legacy method, kept for compatibility)
+  static Future<void> checkForNewMail([bool showNotifications = true]) async {
+    await NotificationService.instance.setup();
+    await GetStorage.init();
+    await SQLiteDatabaseHelper.instance.database;
+
+    if (showNotifications) {
+      NotificationService.instance.showFlutterNotification(
+        "Wahda Bank",
+        "Checking for new mail...",
+        {},
+        notificationId,
+      );
+    }
+
+    await EmailNotificationService.instance.initialize();
+    await EmailNotificationService.instance.checkForNewMessages();
+
+    if (showNotifications) {
+      await NotificationService.instance.plugin.cancel(notificationId);
     }
   }
-}
 
-/// Request necessary permissions for background operation
-Future<void> requestBackgroundPermissions() async {
-  // Request battery optimization exemption
-  await BackgroundService.optimizeBatteryUsage();
+  /// Optimize battery usage by requesting battery optimization exemption
+  static Future<void> optimizeBatteryUsage() async {
+    await EmailNotificationService.instance.requestBatteryOptimizationExemption();
+  }
+
+  /// Add next UID for inbox (legacy method, kept for compatibility)
+  Future<void> addNextUidFor() async {
+    try {
+      // This functionality is now handled by EmailNotificationService
+      await EmailNotificationService.instance.initialize();
+      await EmailNotificationService.instance.checkForNewMessages();
+    } catch (e, s) {
+      if (kDebugMode) {
+        print('Error while getting Inbox.nextUids for : $e $s');
+      }
+    }
+  }
 }

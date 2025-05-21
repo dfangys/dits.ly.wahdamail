@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:isolate';
 import 'dart:ui';
+import 'dart:io';
 
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
@@ -10,12 +10,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:wahda_bank/models/hive_mime_storage.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:wahda_bank/models/sqlite_database_helper.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
 import 'package:workmanager/workmanager.dart';
 
-/// Service responsible for handling email notifications using IMAP IDLE
+/// Service responsible for handling email notifications using IMAP IDLE with SQLite support
 ///
 /// This service implements real-time notifications for incoming emails
 /// using IMAP IDLE in foreground and periodic checks in background.
@@ -48,6 +49,9 @@ class EmailNotificationService {
 
     await NotificationService.instance.setup();
     await GetStorage.init();
+
+    // Initialize SQLite database
+    await SQLiteDatabaseHelper.instance.database;
 
     // Register port for background to UI communication
     final receivePort = ReceivePort();
@@ -239,6 +243,53 @@ class EmailNotificationService {
       await _storage.write(lastSeenUidKey, uid);
     }
 
+    // Save message to SQLite database
+    try {
+      // Get mailbox ID from database
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final List<Map<String, dynamic>> mailboxResult = await db.query(
+        SQLiteDatabaseHelper.tableMailboxes,
+        columns: [SQLiteDatabaseHelper.columnId],
+        where: '${SQLiteDatabaseHelper.columnPath} = ?',
+        whereArgs: [mailbox.path],
+      );
+
+      if (mailboxResult.isNotEmpty) {
+        final mailboxId = mailboxResult.first[SQLiteDatabaseHelper.columnId] as int;
+
+        // Convert message to map for database
+        final Map<String, dynamic> messageMap = {
+          SQLiteDatabaseHelper.columnMailboxId: mailboxId,
+          SQLiteDatabaseHelper.columnUid: message.uid,
+          SQLiteDatabaseHelper.columnMessageId: message.getHeaderValue('message-id')?.replaceAll('<', '').replaceAll('>', ''),
+          SQLiteDatabaseHelper.columnSubject: message.decodeSubject(),
+          SQLiteDatabaseHelper.columnFrom: from,
+          SQLiteDatabaseHelper.columnDate: message.decodeDate()?.millisecondsSinceEpoch,
+          SQLiteDatabaseHelper.columnContent: message.decodeTextPlainPart(),
+          SQLiteDatabaseHelper.columnHtmlContent: message.decodeTextHtmlPart(),
+          SQLiteDatabaseHelper.columnIsSeen: SQLiteDatabaseHelper.boolToInt(message.isSeen),
+          SQLiteDatabaseHelper.columnIsFlagged: SQLiteDatabaseHelper.boolToInt(message.isFlagged),
+          SQLiteDatabaseHelper.columnIsDeleted: SQLiteDatabaseHelper.boolToInt(message.isDeleted),
+          SQLiteDatabaseHelper.columnIsAnswered: SQLiteDatabaseHelper.boolToInt(message.isAnswered),
+          SQLiteDatabaseHelper.columnIsDraft: SQLiteDatabaseHelper.boolToInt(false),
+          SQLiteDatabaseHelper.columnIsRecent: SQLiteDatabaseHelper.boolToInt(false),
+          SQLiteDatabaseHelper.columnHasAttachments: SQLiteDatabaseHelper.boolToInt(message.hasAttachments()),
+          SQLiteDatabaseHelper.columnSize: message.size,
+        };
+
+        // Insert or update message in database
+        await db.insert(
+          SQLiteDatabaseHelper.tableEmails,
+          messageMap,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving message to SQLite: $e');
+      }
+    }
+
     // Show notification
     NotificationService.instance.showFlutterNotification(
       from,
@@ -386,6 +437,7 @@ void backgroundTaskCallback() {
     try {
       // Initialize required services
       await GetStorage.init();
+      await SQLiteDatabaseHelper.instance.database;
       await NotificationService.instance.setup();
 
       // Check for new emails
@@ -457,6 +509,53 @@ Future<void> _backgroundCheckForNewEmails() async {
           }
         } catch (e) {
           // Ignore errors in preview generation
+        }
+
+        // Save message to SQLite database
+        try {
+          // Get mailbox ID from database
+          final db = await SQLiteDatabaseHelper.instance.database;
+          final List<Map<String, dynamic>> mailboxResult = await db.query(
+            SQLiteDatabaseHelper.tableMailboxes,
+            columns: [SQLiteDatabaseHelper.columnId],
+            where: '${SQLiteDatabaseHelper.columnPath} = ?',
+            whereArgs: [inbox.path],
+          );
+
+          if (mailboxResult.isNotEmpty) {
+            final mailboxId = mailboxResult.first[SQLiteDatabaseHelper.columnId] as int;
+
+            // Convert message to map for database
+            final Map<String, dynamic> messageMap = {
+              SQLiteDatabaseHelper.columnMailboxId: mailboxId,
+              SQLiteDatabaseHelper.columnUid: message.uid,
+              SQLiteDatabaseHelper.columnMessageId: message.getHeaderValue('message-id')?.replaceAll('<', '').replaceAll('>', ''),
+              SQLiteDatabaseHelper.columnSubject: message.decodeSubject(),
+              SQLiteDatabaseHelper.columnFrom: from,
+              SQLiteDatabaseHelper.columnDate: message.decodeDate()?.millisecondsSinceEpoch,
+              SQLiteDatabaseHelper.columnContent: message.decodeTextPlainPart(),
+              SQLiteDatabaseHelper.columnHtmlContent: message.decodeTextHtmlPart(),
+              SQLiteDatabaseHelper.columnIsSeen: SQLiteDatabaseHelper.boolToInt(message.isSeen),
+              SQLiteDatabaseHelper.columnIsFlagged: SQLiteDatabaseHelper.boolToInt(message.isFlagged),
+              SQLiteDatabaseHelper.columnIsDeleted: SQLiteDatabaseHelper.boolToInt(message.isDeleted),
+              SQLiteDatabaseHelper.columnIsAnswered: SQLiteDatabaseHelper.boolToInt(message.isAnswered),
+              SQLiteDatabaseHelper.columnIsDraft: SQLiteDatabaseHelper.boolToInt(false),
+              SQLiteDatabaseHelper.columnIsRecent: SQLiteDatabaseHelper.boolToInt(false),
+              SQLiteDatabaseHelper.columnHasAttachments: SQLiteDatabaseHelper.boolToInt(message.hasAttachments()),
+              SQLiteDatabaseHelper.columnSize: message.size,
+            };
+
+            // Insert or update message in database
+            await db.insert(
+              SQLiteDatabaseHelper.tableEmails,
+              messageMap,
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error saving message to SQLite: $e');
+          }
         }
 
         // Show notification

@@ -5,11 +5,13 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:wahda_bank/models/sqlite_database_helper.dart';
 import 'package:wahda_bank/services/email_notification_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
 import 'package:workmanager/workmanager.dart';
 
-/// Enhanced background service for email notifications
+/// Enhanced background service for email notifications with SQLite support
 ///
 /// This service optimizes battery usage and resource consumption
 /// while ensuring reliable email notifications in background.
@@ -26,6 +28,9 @@ class BackgroundService {
   /// Initialize the background service
   static Future<void> initializeService() async {
     await GetStorage.init();
+
+    // Initialize SQLite database
+    await SQLiteDatabaseHelper.instance.database;
 
     // Initialize Workmanager for background tasks
     if (Platform.isAndroid || Platform.isIOS) {
@@ -91,6 +96,7 @@ class BackgroundService {
       try {
         // Initialize required services
         await GetStorage.init();
+        await SQLiteDatabaseHelper.instance.database;
         await NotificationService.instance.setup();
 
         // Show notification that we're checking for emails
@@ -126,6 +132,7 @@ class BackgroundService {
   static Future<void> checkForNewMail([bool showNotifications = true]) async {
     await NotificationService.instance.setup();
     await GetStorage.init();
+    await SQLiteDatabaseHelper.instance.database;
 
     if (showNotifications) {
       NotificationService.instance.showFlutterNotification(

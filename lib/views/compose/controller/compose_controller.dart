@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
@@ -15,6 +14,9 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:wahda_bank/models/sqlite_draft_repository.dart';
+import 'package:wahda_bank/models/sqlite_mime_storage.dart';
+
 
 extension EmailValidator on String {
   bool isValidEmail() {
@@ -28,6 +30,7 @@ class ComposeController extends GetxController {
   // Email client and account
   final MailAccount account = MailService.instance.account;
   final MailClient client = MailService.instance.client;
+  final Rx<SQLiteMailboxMimeStorage?> storage = Rx<SQLiteMailboxMimeStorage?>(null);
 
   // Recipients
   final RxList<MailAddress> toList = <MailAddress>[].obs;
@@ -288,7 +291,7 @@ class ComposeController extends GetxController {
       final draft = _createDraftModel(body);
 
       // Save to storage
-      final storage = Get.find<SqliteMimeStorage>();
+      final storage = Get.find<SQLiteDraftRepository>();
       final savedDraft = await storage.saveDraft(draft);
 
       // Update current draft reference
@@ -368,7 +371,7 @@ class ComposeController extends GetxController {
   // Check for any recoverable drafts
   Future<void> _checkForRecovery() async {
     try {
-      final storage = Get.find<SqliteMimeStorage>();
+      final storage = Get.find<SQLiteDraftRepository>();
       final dirtyDrafts = await storage.getDirtyDrafts();
 
       if (dirtyDrafts.isNotEmpty && type != 'draft') {
@@ -488,7 +491,7 @@ class ComposeController extends GetxController {
   // Load draft from message
   Future<void> _loadDraftFromMessage(MimeMessage message) async {
     try {
-      final storage = Get.find<SqliteMimeStorage>();
+      final storage = Get.find<SQLiteDraftRepository>();
 
       // Get message ID from headers for enough_mail 2.1.6
       String? messageId;
@@ -690,7 +693,7 @@ class ComposeController extends GetxController {
       final draft = _createDraftModel(body);
 
       // Save to local storage
-      final storage = Get.find<SqliteMimeStorage>();
+      final storage = Get.find<SQLiteDraftRepository>();
       _currentDraft = await storage.saveDraft(draft);
 
       // Create message builder for server save
@@ -775,7 +778,7 @@ class ComposeController extends GetxController {
 
       // Try to save locally even if server save failed
       if (_currentDraft != null) {
-        final storage = Get.find<SqliteMimeStorage>();
+        final storage = Get.find<SQLiteDraftRepository>();
         await storage.markDraftSyncError(_currentDraft!.id!, e.toString());
       }
     } finally {
@@ -823,7 +826,7 @@ class ComposeController extends GetxController {
       );
 
       // Save to local storage
-      final storage = Get.find<SqliteMimeStorage>();
+      final storage = Get.find<SQLiteDraftRepository>();
       _currentDraft = await storage.saveDraft(draft);
 
       // Update state
@@ -869,7 +872,7 @@ class ComposeController extends GetxController {
       isBusy.value = true;
 
       // Update category in storage
-      final storage = Get.find<SqliteMimeStorage>();
+      final storage = Get.find<SQLiteDraftRepository>();
       await storage.updateDraftCategory(_currentDraft!.id!, category);
 
       // Update current draft reference
@@ -969,7 +972,7 @@ class ComposeController extends GetxController {
       // Delete draft if editing
       if (msg != null && type == 'draft' && _currentDraft != null) {
         await client.deleteMessage(msg!);
-        final storage = Get.find<SqliteMimeStorage>();
+        final storage = Get.find<SQLiteDraftRepository>();
         await storage.deleteDraft(_currentDraft!.id!);
       }
 

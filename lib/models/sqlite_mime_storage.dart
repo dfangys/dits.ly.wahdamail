@@ -1,701 +1,588 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:enough_mail/enough_mail.dart';
+import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
-import 'package:wahda_bank/views/compose/models/draft_model.dart';
 
-class SqliteMimeStorage {
-  SqliteMimeStorage._init();
+import 'package:enough_mail/enough_mail.dart';
+import 'package:flutter/foundation.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:flutter/material.dart';
 
-  static final SqliteMimeStorage instance = SqliteMimeStorage._init();
-  static Database? _database;
+import 'sqlite_database_helper.dart';
 
-  factory SqliteMimeStorage() => instance;
-
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('mime_messages.db');
-    return _database!;
-  }
-
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getApplicationDocumentsDirectory();
-    final path = join(dbPath.path, filePath);
-
-    return await openDatabase(
-      path,
-      version: 3, // Increased version for enhanced draft schema
-      onCreate: _createDB,
-      onUpgrade: _upgradeDB,
-    );
-  }
-
-  Future _createDB(Database db, int version) async {
-    const idType = 'TEXT PRIMARY KEY';
-    const textType = 'TEXT NOT NULL';
-    const blobType = 'BLOB';
-    const intType = 'INTEGER NOT NULL';
-    const boolType = 'INTEGER NOT NULL'; // SQLite doesn't have boolean type
-
-    // Messages table
-    await db.execute('''
-    CREATE TABLE messages (
-      id $idType,
-      account_id $textType,
-      mailbox_path $textType,
-      sequence_id $intType,
-      uid $intType,
-      subject $textType,
-      from_email $textType,
-      to_email $textType,
-      cc_email $textType,
-      bcc_email $textType,
-      date $textType,
-      size $intType,
-      is_seen $boolType,
-      is_flagged $boolType,
-      is_answered $boolType,
-      is_forwarded $boolType,
-      has_attachments $boolType,
-      mime_source $textType,
-      created_at $textType
-    )
-    ''');
-
-    // Attachments table
-    await db.execute('''
-    CREATE TABLE attachments (
-      id $idType,
-      message_id $textType,
-      file_name $textType,
-      content_type $textType,
-      size $intType,
-      content $blobType,
-      fetch_id $textType,
-      created_at $textType,
-      FOREIGN KEY (message_id) REFERENCES messages (id) ON DELETE CASCADE
-    )
-    ''');
-
-    // Enhanced drafts table with additional fields
-    await db.execute('''
-    CREATE TABLE drafts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      message_id TEXT,
-      subject TEXT NOT NULL,
-      body TEXT NOT NULL,
-      is_html INTEGER NOT NULL,
-      to_recipients TEXT NOT NULL,
-      cc_recipients TEXT NOT NULL,
-      bcc_recipients TEXT NOT NULL,
-      attachment_paths TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL,
-      is_scheduled INTEGER NOT NULL DEFAULT 0,
-      scheduled_for INTEGER,
-      version INTEGER NOT NULL DEFAULT 1,
-      category TEXT NOT NULL DEFAULT 'default',
-      priority INTEGER NOT NULL DEFAULT 0,
-      is_synced INTEGER NOT NULL DEFAULT 0,
-      server_uid INTEGER,
-      is_dirty INTEGER NOT NULL DEFAULT 1,
-      tags TEXT,
-      last_error TEXT
-    )
-    ''');
-
-    // Draft versions table for history tracking
-    await db.execute('''
-    CREATE TABLE draft_versions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      draft_id INTEGER NOT NULL,
-      version INTEGER NOT NULL,
-      subject TEXT NOT NULL,
-      body TEXT NOT NULL,
-      is_html INTEGER NOT NULL,
-      to_recipients TEXT NOT NULL,
-      cc_recipients TEXT NOT NULL,
-      bcc_recipients TEXT NOT NULL,
-      attachment_paths TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      FOREIGN KEY (draft_id) REFERENCES drafts (id) ON DELETE CASCADE
-    )
-    ''');
-
-    // Contacts table for suggestions
-    await db.execute('''
-    CREATE TABLE contacts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      email TEXT NOT NULL UNIQUE,
-      frequency INTEGER NOT NULL DEFAULT 1,
-      last_used INTEGER NOT NULL
-    )
-    ''');
-
-    // Create indexes for faster queries
-    await db.execute('CREATE INDEX idx_messages_account_mailbox ON messages(account_id, mailbox_path)');
-    await db.execute('CREATE INDEX idx_messages_uid ON messages(uid)');
-    await db.execute('CREATE INDEX idx_attachments_message_id ON attachments(message_id)');
-    await db.execute('CREATE INDEX idx_drafts_message_id ON drafts(message_id)');
-    await db.execute('CREATE INDEX idx_drafts_category ON drafts(category)');
-    await db.execute('CREATE INDEX idx_drafts_is_scheduled ON drafts(is_scheduled, scheduled_for)');
-    await db.execute('CREATE INDEX idx_draft_versions_draft_id ON draft_versions(draft_id, version DESC)');
-    await db.execute('CREATE INDEX idx_contacts_email ON contacts(email)');
-    await db.execute('CREATE INDEX idx_contacts_frequency ON contacts(frequency DESC)');
-  }
-
-  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // Add drafts table if upgrading from version 1
-      await db.execute('''
-      CREATE TABLE IF NOT EXISTS drafts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        message_id TEXT,
-        subject TEXT NOT NULL,
-        body TEXT NOT NULL,
-        is_html INTEGER NOT NULL,
-        to_recipients TEXT NOT NULL,
-        cc_recipients TEXT NOT NULL,
-        bcc_recipients TEXT NOT NULL,
-        attachment_paths TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        is_scheduled INTEGER NOT NULL DEFAULT 0,
-        scheduled_for INTEGER
-      )
-      ''');
-
-      // Add contacts table if upgrading from version 1
-      await db.execute('''
-      CREATE TABLE IF NOT EXISTS contacts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        email TEXT NOT NULL UNIQUE,
-        frequency INTEGER NOT NULL DEFAULT 1,
-        last_used INTEGER NOT NULL
-      )
-      ''');
-
-      // Create indexes for new tables
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_drafts_message_id ON drafts(message_id)');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email)');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_contacts_frequency ON contacts(frequency DESC)');
+/// SQLite implementation for email storage
+/// 
+/// Replaces the HiveMailboxMimeStorage class with SQLite-based storage
+class SQLiteMailboxMimeStorage {
+  final MailAccount mailAccount;
+  final Mailbox mailbox;
+  bool _isContinuousRange(List<int> list) {
+    if (list.length < 2) return false;
+    final sorted = List<int>.from(list)..sort();
+    for (int i = 1; i < sorted.length; i++) {
+      if (sorted[i] != sorted[i - 1] + 1) {
+        return false;
+      }
     }
+    return true;
+  }
+  // Stream controller for notifying listeners of changes
+  final _dataStreamController = StreamController<List<MimeMessage>>.broadcast();
+  Stream<List<MimeMessage>> get dataStream => _dataStreamController.stream;
 
-    if (oldVersion < 3) {
-      // Add new columns to drafts table for enhanced features
-      await db.execute('ALTER TABLE drafts ADD COLUMN version INTEGER NOT NULL DEFAULT 1');
-      await db.execute('ALTER TABLE drafts ADD COLUMN category TEXT NOT NULL DEFAULT "default"');
-      await db.execute('ALTER TABLE drafts ADD COLUMN priority INTEGER NOT NULL DEFAULT 0');
-      await db.execute('ALTER TABLE drafts ADD COLUMN is_synced INTEGER NOT NULL DEFAULT 0');
-      await db.execute('ALTER TABLE drafts ADD COLUMN server_uid INTEGER');
-      await db.execute('ALTER TABLE drafts ADD COLUMN is_dirty INTEGER NOT NULL DEFAULT 1');
-      await db.execute('ALTER TABLE drafts ADD COLUMN tags TEXT');
-      await db.execute('ALTER TABLE drafts ADD COLUMN last_error TEXT');
+  // Value notifier for UI updates
+  final ValueNotifier<List<MimeMessage>> dataNotifier = ValueNotifier<List<MimeMessage>>([]);
 
-      // Create draft versions table for history tracking
-      await db.execute('''
-      CREATE TABLE IF NOT EXISTS draft_versions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        draft_id INTEGER NOT NULL,
-        version INTEGER NOT NULL,
-        subject TEXT NOT NULL,
-        body TEXT NOT NULL,
-        is_html INTEGER NOT NULL,
-        to_recipients TEXT NOT NULL,
-        cc_recipients TEXT NOT NULL,
-        bcc_recipients TEXT NOT NULL,
-        attachment_paths TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        FOREIGN KEY (draft_id) REFERENCES drafts (id) ON DELETE CASCADE
-      )
-      ''');
+  SQLiteMailboxMimeStorage({
+    required this.mailAccount,
+    required this.mailbox,
+  });
 
-      // Create new indexes for enhanced draft features
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_drafts_category ON drafts(category)');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_drafts_is_scheduled ON drafts(is_scheduled, scheduled_for)');
-      await db.execute('CREATE INDEX IF NOT EXISTS idx_draft_versions_draft_id ON draft_versions(draft_id, version DESC)');
-    }
+  /// Initialize the storage
+  Future<void> init() async {
+    // Ensure mailbox is registered in database
+    await _ensureMailboxExists();
+
+    // Load initial data
+    final messages = await loadAllMessages();
+    dataNotifier.value = messages;
+    _dataStreamController.add(messages);
   }
 
-  // Message operations
-  Future<String> insertMessage(MimeMessage message, String accountId, String mailboxPath) async {
-    final db = await instance.database;
+  /// Ensure the mailbox exists in the database
+  Future<int> _ensureMailboxExists() async {
+    final db = await SQLiteDatabaseHelper.instance.database;
 
-    // Generate a unique ID for the message
-    final id = '${accountId}_${mailboxPath}_${message.uid}';
-
-    // Get the raw source of the message for storage
-    String mimeSource = '';
     try {
-      // In enough_mail 2.1.6, we need to get the raw source differently
-      if (message.mimeData != null) {
-        // Use the raw text representation instead of the non-existent source property
-        mimeSource = message.toString();
+      // Check if mailbox exists
+      final List<Map<String, dynamic>> result = await db.query(
+        SQLiteDatabaseHelper.tableMailboxes,
+        where: '${SQLiteDatabaseHelper.columnAccountEmail} = ? AND ${SQLiteDatabaseHelper.columnPath} = ?',
+        whereArgs: [mailAccount.email, mailbox.path],
+      );
+
+      if (result.isNotEmpty) {
+        // Update mailbox data
+        await db.update(
+          SQLiteDatabaseHelper.tableMailboxes,
+          _mailboxToMap(),
+          where: '${SQLiteDatabaseHelper.columnAccountEmail} = ? AND ${SQLiteDatabaseHelper.columnPath} = ?',
+          whereArgs: [mailAccount.email, mailbox.path],
+        );
+        return result.first[SQLiteDatabaseHelper.columnId] as int;
+      } else {
+        // Insert new mailbox
+        return await db.insert(
+          SQLiteDatabaseHelper.tableMailboxes,
+          _mailboxToMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
     } catch (e) {
-      print('Error getting MIME source: $e');
+      if (kDebugMode) {
+        print('Error ensuring mailbox exists: $e');
+      }
+      rethrow;
     }
-
-    // Convert message to map
-    final messageMap = {
-      'id': id,
-      'account_id': accountId,
-      'mailbox_path': mailboxPath,
-      'sequence_id': message.sequenceId ?? 0,
-      'uid': message.uid ?? 0,
-      'subject': message.decodeSubject() ?? '',
-      'from_email': message.fromEmail ?? '',
-      'to_email': message.to != null ? message.to!.map((e) => e.email).join(', ') : '',
-      'cc_email': message.cc != null ? message.cc!.map((e) => e.email).join(', ') : '',
-      'bcc_email': message.bcc != null ? message.bcc!.map((e) => e.email).join(', ') : '',
-      'date': message.decodeDate()?.toIso8601String() ?? DateTime.now().toIso8601String(),
-      'size': message.size ?? 0,
-      'is_seen': message.isSeen ? 1 : 0,
-      'is_flagged': message.isFlagged ? 1 : 0,
-      'is_answered': message.isAnswered ? 1 : 0,
-      'is_forwarded': message.isForwarded ? 1 : 0,
-      'has_attachments': message.hasAttachments() ? 1 : 0,
-      'mime_source': mimeSource,
-      'created_at': DateTime.now().toIso8601String(),
-    };
-
-    // Insert or replace the message
-    await db.insert(
-      'messages',
-      messageMap,
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
-
-    // Update contact suggestions from recipients
-    _updateContactsFromMessage(message);
-
-    return id;
   }
 
-  // Draft operations with enhanced features
-// Fix for sqlite_mime_storage.dart
-  Future<DraftModel> saveDraft(DraftModel draft) async {
-    final db = await instance.database;
-    final now = DateTime.now();
+  /// Convert mailbox to map for database storage
+  Map<String, dynamic> _mailboxToMap() {
+    return {
+      SQLiteDatabaseHelper.columnAccountEmail: mailAccount.email,
+      SQLiteDatabaseHelper.columnName: mailbox.name,
+      SQLiteDatabaseHelper.columnPath: mailbox.path,
+      SQLiteDatabaseHelper.columnFlags: mailbox.flags.join(','),
+      SQLiteDatabaseHelper.columnPathSeparator: mailbox.pathSeparator,
+      SQLiteDatabaseHelper.columnHasChildren: SQLiteDatabaseHelper.boolToInt(mailbox.hasChildren),
+      SQLiteDatabaseHelper.columnMessagesExists: mailbox.messagesExists,
+      SQLiteDatabaseHelper.columnMessagesRecent: mailbox.messagesRecent,
+      SQLiteDatabaseHelper.columnMessagesUnseen: mailbox.messagesUnseen,
+      SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
+      SQLiteDatabaseHelper.columnUidValidity: mailbox.uidValidity,
+    };
+  }
 
-    // Create a copy with updated timestamp and clean state
-    final updatedDraft = draft.copyWith(
-      updatedAt: now,
-      isDirty: false,
+  /// Get mailbox ID from database
+  Future<int> _getMailboxId() async {
+    final db = await SQLiteDatabaseHelper.instance.database;
+
+    final List<Map<String, dynamic>> result = await db.query(
+      SQLiteDatabaseHelper.tableMailboxes,
+      columns: [SQLiteDatabaseHelper.columnId],
+      where: '${SQLiteDatabaseHelper.columnAccountEmail} = ? AND ${SQLiteDatabaseHelper.columnPath} = ?',
+      whereArgs: [mailAccount.email, mailbox.path],
     );
 
-    final draftMap = updatedDraft.toMap();
+    if (result.isEmpty) {
+      return await _ensureMailboxExists();
+    }
 
-    // Initialize id with a default value
-    int id = draft.id ?? -1;
+    return result.first[SQLiteDatabaseHelper.columnId] as int;
+  }
+
+  /// Save message envelopes to database
+  Future<void> saveMessageEnvelopes(List<MimeMessage> messages) async {
+    if (messages.isEmpty) return;
+
+    final db = await SQLiteDatabaseHelper.instance.database;
+    final mailboxId = await _getMailboxId();
 
     await db.transaction((txn) async {
-      if (draft.id != null) {
-        // Update existing draft
-        await txn.update(
-          'drafts',
-          draftMap,
-          where: 'id = ?',
-          whereArgs: [draft.id],
-        );
-        id = draft.id!;
+      for (final message in messages) {
+        final Map<String, dynamic> messageMap = await compute(_messageToMap, {
+          'message': message,
+          'mailboxId': mailboxId,
+        });
 
-        // Save version history if version changed
-        if (draft.version > 1) {
-          await _saveDraftVersion(txn, draft);
-        }
-      } else {
-        // Insert new draft
-        id = await txn.insert('drafts', draftMap);
-      }
-    });
-
-    // Return updated draft with ID
-    return updatedDraft.copyWith(id: id);
-  }
-
-  // Save draft version for history tracking
-  Future<void> _saveDraftVersion(Transaction txn, DraftModel draft) async {
-    if (draft.id == null) return;
-
-    await txn.insert('draft_versions', {
-      'draft_id': draft.id,
-      'version': draft.version,
-      'subject': draft.subject,
-      'body': draft.body,
-      'is_html': draft.isHtml ? 1 : 0,
-      'to_recipients': draft.to.join('||'),
-      'cc_recipients': draft.cc.join('||'),
-      'bcc_recipients': draft.bcc.join('||'),
-      'attachment_paths': draft.attachmentPaths.join('||'),
-      'created_at': DateTime.now().millisecondsSinceEpoch,
-    });
-  }
-
-  Future<DraftModel?> getDraft(int id) async {
-    final db = await instance.database;
-
-    final maps = await db.query(
-      'drafts',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-
-    if (maps.isEmpty) {
-      return null;
-    }
-
-    return DraftModel.fromMap(maps.first);
-  }
-
-  Future<DraftModel?> getDraftByMessageId(String messageId) async {
-    final db = await instance.database;
-
-    final maps = await db.query(
-      'drafts',
-      where: 'message_id = ?',
-      whereArgs: [messageId],
-    );
-
-    if (maps.isEmpty) {
-      return null;
-    }
-
-    return DraftModel.fromMap(maps.first);
-  }
-
-  Future<List<DraftModel>> getAllDrafts({
-    int limit = 50,
-    int offset = 0,
-    String? category,
-    bool? isScheduled,
-    bool? isDirty,
-  }) async {
-    final db = await instance.database;
-
-    // Build where clause based on filters
-    String whereClause = '';
-    List<dynamic> whereArgs = [];
-
-    if (category != null) {
-      whereClause += 'category = ?';
-      whereArgs.add(category);
-    }
-
-    if (isScheduled != null) {
-      if (whereClause.isNotEmpty) whereClause += ' AND ';
-      whereClause += 'is_scheduled = ?';
-      whereArgs.add(isScheduled ? 1 : 0);
-    }
-
-    if (isDirty != null) {
-      if (whereClause.isNotEmpty) whereClause += ' AND ';
-      whereClause += 'is_dirty = ?';
-      whereArgs.add(isDirty ? 1 : 0);
-    }
-
-    final maps = await db.query(
-      'drafts',
-      where: whereClause.isNotEmpty ? whereClause : null,
-      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-      orderBy: 'updated_at DESC',
-      limit: limit,
-      offset: offset,
-    );
-
-    return maps.map((map) => DraftModel.fromMap(map)).toList();
-  }
-
-  Future<List<DraftModel>> getScheduledDrafts() async {
-    final db = await instance.database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-
-    final maps = await db.query(
-      'drafts',
-      where: 'is_scheduled = 1 AND scheduled_for <= ?',
-      whereArgs: [now],
-      orderBy: 'scheduled_for ASC',
-    );
-
-    return maps.map((map) => DraftModel.fromMap(map)).toList();
-  }
-
-  Future<List<DraftModel>> getDraftsByCategory(String category) async {
-    final db = await instance.database;
-
-    final maps = await db.query(
-      'drafts',
-      where: 'category = ?',
-      whereArgs: [category],
-      orderBy: 'updated_at DESC',
-    );
-
-    return maps.map((map) => DraftModel.fromMap(map)).toList();
-  }
-
-  Future<List<DraftModel>> searchDrafts(String query) async {
-    final db = await instance.database;
-
-    final maps = await db.query(
-      'drafts',
-      where: 'subject LIKE ? OR body LIKE ?',
-      whereArgs: ['%$query%', '%$query%'],
-      orderBy: 'updated_at DESC',
-    );
-
-    return maps.map((map) => DraftModel.fromMap(map)).toList();
-  }
-
-  Future<List<DraftModel>> getDirtyDrafts() async {
-    final db = await instance.database;
-
-    final maps = await db.query(
-      'drafts',
-      where: 'is_dirty = 1',
-      orderBy: 'updated_at DESC',
-    );
-
-    return maps.map((map) => DraftModel.fromMap(map)).toList();
-  }
-
-  Future<int> deleteDraft(int id) async {
-    final db = await instance.database;
-
-    return await db.transaction((txn) async {
-      // Delete draft versions first
-      await txn.delete(
-        'draft_versions',
-        where: 'draft_id = ?',
-        whereArgs: [id],
-      );
-
-      // Then delete the draft
-      return await txn.delete(
-        'drafts',
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    });
-  }
-
-  Future<int> deleteDraftByMessageId(String messageId) async {
-    final db = await instance.database;
-
-    // First get the draft to find its ID
-    final draft = await getDraftByMessageId(messageId);
-    if (draft == null || draft.id == null) {
-      return 0;
-    }
-
-    return await deleteDraft(draft.id!);
-  }
-
-  Future<List<Map<String, dynamic>>> getDraftVersionHistory(int draftId) async {
-    final db = await instance.database;
-
-    return await db.query(
-      'draft_versions',
-      where: 'draft_id = ?',
-      whereArgs: [draftId],
-      orderBy: 'version DESC',
-    );
-  }
-
-  Future<DraftModel?> restoreDraftVersion(int draftId, int version) async {
-    final db = await instance.database;
-
-    final versionMaps = await db.query(
-      'draft_versions',
-      where: 'draft_id = ? AND version = ?',
-      whereArgs: [draftId, version],
-    );
-
-    if (versionMaps.isEmpty) {
-      return null;
-    }
-
-    final versionMap = versionMaps.first;
-
-    // Get current draft
-    final currentDraft = await getDraft(draftId);
-    if (currentDraft == null) {
-      return null;
-    }
-
-    // Create restored draft with version data but keep metadata
-    final restoredDraft = currentDraft.copyWith(
-      subject: versionMap['subject'] as String,
-      body: versionMap['body'] as String,
-      isHtml: versionMap['is_html'] == 1,
-      to: (versionMap['to_recipients'] as String).split('||'),
-      cc: (versionMap['cc_recipients'] as String).split('||'),
-      bcc: (versionMap['bcc_recipients'] as String).split('||'),
-      attachmentPaths: (versionMap['attachment_paths'] as String).split('||'),
-      version: currentDraft.version + 1, // Increment version
-      isDirty: true, // Mark as dirty
-      updatedAt: DateTime.now(),
-    );
-
-    // Save the restored draft
-    return await saveDraft(restoredDraft);
-  }
-
-  Future<int> markDraftSynced(int id, int serverUid) async {
-    final db = await instance.database;
-
-    return await db.update(
-      'drafts',
-      {
-        'is_synced': 1,
-        'server_uid': serverUid,
-        'is_dirty': 0,
-        'last_error': null,
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<int> markDraftSyncError(int id, String error) async {
-    final db = await instance.database;
-
-    return await db.update(
-      'drafts',
-      {
-        'is_synced': 0,
-        'last_error': error,
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<int> updateDraftCategory(int id, String category) async {
-    final db = await instance.database;
-
-    return await db.update(
-      'drafts',
-      {'category': category},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<int> updateDraftTags(int id, List<String> tags) async {
-    final db = await instance.database;
-
-    return await db.update(
-      'drafts',
-      {'tags': tags.join('||')},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<int> batchDeleteDrafts(List<int> ids) async {
-    final db = await instance.database;
-
-    return await db.transaction((txn) async {
-      // Delete draft versions first
-      await txn.delete(
-        'draft_versions',
-        where: 'draft_id IN (${ids.map((_) => '?').join(', ')})',
-        whereArgs: ids,
-      );
-
-      // Then delete the drafts
-      return await txn.delete(
-        'drafts',
-        where: 'id IN (${ids.map((_) => '?').join(', ')})',
-        whereArgs: ids,
-      );
-    });
-  }
-
-  Future<int> batchUpdateDraftCategory(List<int> ids, String category) async {
-    final db = await instance.database;
-
-    return await db.update(
-      'drafts',
-      {'category': category},
-      where: 'id IN (${ids.map((_) => '?').join(', ')})',
-      whereArgs: ids,
-    );
-  }
-
-  // Contact suggestion operations
-  Future<void> _updateContactsFromMessage(MimeMessage message) async {
-    final db = await instance.database;
-    final now = DateTime.now().millisecondsSinceEpoch;
-
-    // Process all recipients
-    final allRecipients = [
-      ...message.to ?? [],
-      ...message.cc ?? [],
-      ...message.bcc ?? [],
-      ...message.from ?? [],
-    ];
-
-    for (final recipient in allRecipients) {
-      if (recipient.email.isNotEmpty) {
         try {
-          // Try to insert new contact
-          await db.insert(
-            'contacts',
-            {
-              'name': recipient.personalName ?? '',
-              'email': recipient.email,
-              'frequency': 1,
-              'last_used': now,
-            },
-            conflictAlgorithm: ConflictAlgorithm.ignore,
-          );
-
-          // If already exists, update frequency
-          await db.rawUpdate(
-            'UPDATE contacts SET frequency = frequency + 1, last_used = ?, name = CASE WHEN name IS NULL OR name = "" THEN ? ELSE name END WHERE email = ?',
-            [now, recipient.personalName ?? '', recipient.email],
+          await txn.insert(
+            SQLiteDatabaseHelper.tableEmails,
+            messageMap,
+            conflictAlgorithm: ConflictAlgorithm.replace,
           );
         } catch (e) {
-          print('Error updating contact: $e');
+          if (kDebugMode) {
+            print('Error saving message: $e');
+          }
+          // Try update if insert fails
+          try {
+            await txn.update(
+              SQLiteDatabaseHelper.tableEmails,
+              messageMap,
+              where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
+              whereArgs: [mailboxId, message.uid],
+            );
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error updating message: $e');
+            }
+          }
         }
+      }
+    });
+
+    // Notify listeners
+    final updatedMessages = await loadAllMessages();
+    dataNotifier.value = updatedMessages;
+    _dataStreamController.add(updatedMessages);
+  }
+
+  /// Load message envelopes from database for a specific sequence
+  Future<List<MimeMessage>> loadMessageEnvelopes(MessageSequence sequence) async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final mailboxId = await _getMailboxId();
+
+      List<Map<String, dynamic>> results;
+
+      if (sequence.isUidSequence) {
+        // Handle UID sequence
+        final sequenceList = sequence.toList();
+        final isRange = sequenceList.length >= 2 && _isContinuousRange(sequenceList);
+
+        if (isRange) {
+          int start = sequence.toList().first;
+          int? end = sequence.toList().last;
+
+          results = await db.query(
+            SQLiteDatabaseHelper.tableEmails,
+            where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} >= ? AND ${SQLiteDatabaseHelper.columnUid} <= ?',
+            whereArgs: [mailboxId, start, end ?? 999999999],
+            orderBy: '${SQLiteDatabaseHelper.columnDate} DESC',
+          );
+        } else {
+          // Handle individual UIDs
+          final List<int> uids = sequence.toList();
+          if (uids.isEmpty) return [];
+
+          final placeholders = uids.map((_) => '?').join(',');
+          results = await db.query(
+            SQLiteDatabaseHelper.tableEmails,
+            where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} IN ($placeholders)',
+            whereArgs: [mailboxId, ...uids],
+            orderBy: '${SQLiteDatabaseHelper.columnDate} DESC',
+          );
+        }
+      } else {
+        // Handle sequence numbers (page-based)
+        final sequenceList = sequence.toList();
+        final isRange = sequenceList.length >= 2 && _isContinuousRange(sequenceList);
+
+        if (isRange) {          int start = sequence.toList().first;
+          int? end = sequence.toList().last;
+
+          results = await db.query(
+            SQLiteDatabaseHelper.tableEmails,
+            where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+            whereArgs: [mailboxId],
+            orderBy: '${SQLiteDatabaseHelper.columnDate} DESC',
+            limit: end != null ? end - start + 1 : null,
+            offset: start - 1,
+          );
+        } else {
+          // Handle individual sequence numbers
+          final List<int> seqNums = sequence.toList();
+          if (seqNums.isEmpty) return [];
+
+          // For sequence numbers, we need to get all messages and filter
+          final allMessages = await db.query(
+            SQLiteDatabaseHelper.tableEmails,
+            where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+            whereArgs: [mailboxId],
+            orderBy: '${SQLiteDatabaseHelper.columnDate} DESC',
+          );
+
+          // Filter by sequence numbers
+          final List<Map<String, dynamic>> filteredResults = [];
+          for (int i = 0; i < allMessages.length; i++) {
+            if (seqNums.contains(i + 1)) {
+              filteredResults.add(allMessages[i]);
+            }
+          }
+          results = filteredResults;
+        }
+      }
+
+      // Convert database results to MimeMessage objects
+      return await compute(_mapsToMessages, results);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading message envelopes: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Load all messages from database
+  Future<List<MimeMessage>> loadAllMessages() async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final mailboxId = await _getMailboxId();
+
+      final List<Map<String, dynamic>> results = await db.query(
+        SQLiteDatabaseHelper.tableEmails,
+        where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+        whereArgs: [mailboxId],
+        orderBy: '${SQLiteDatabaseHelper.columnDate} DESC',
+      );
+
+      return await compute(_mapsToMessages, results);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading all messages: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Fetch message contents - added to fix error in mail_tile.dart
+  Future<MimeMessage?> fetchMessageContents(MimeMessage message) async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final mailboxId = await _getMailboxId();
+
+      final List<Map<String, dynamic>> results = await db.query(
+        SQLiteDatabaseHelper.tableEmails,
+        where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
+        whereArgs: [mailboxId, message.uid],
+      );
+
+      if (results.isEmpty) {
+        return null;
+      }
+
+      final List<MimeMessage> messages = await compute(_mapsToMessages, results);
+      return messages.isNotEmpty ? messages.first : null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching message contents: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Delete a message from database
+  Future<void> deleteMessage(MimeMessage message) async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final mailboxId = await _getMailboxId();
+
+      await db.delete(
+        SQLiteDatabaseHelper.tableEmails,
+        where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
+        whereArgs: [mailboxId, message.uid],
+      );
+
+      // Notify listeners
+      final updatedMessages = await loadAllMessages();
+      dataNotifier.value = updatedMessages;
+      _dataStreamController.add(updatedMessages);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting message: $e');
       }
     }
   }
 
-  Future<List<MailAddress>> getContactSuggestions() async {
+  /// Delete all messages from database
+  Future<void> deleteAllMessages() async {
     try {
-      final storage = Get.find<SqliteMimeStorage>();
-      return await storage.getContactSuggestions();
-    } catch (error) {
-      debugPrint('Error getting contact suggestions: $error');
-      return <MailAddress>[];
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final mailboxId = await _getMailboxId();
+
+      await db.delete(
+        SQLiteDatabaseHelper.tableEmails,
+        where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+        whereArgs: [mailboxId],
+      );
+
+      // Notify listeners
+      dataNotifier.value = [];
+      _dataStreamController.add([]);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting all messages: $e');
+      }
     }
   }
 
-  Future<List<MailAddress>> searchContacts(String query, {int limit = 10}) async {
-    final db = await instance.database;
+  /// Clean up resources when account is removed
+  Future<void> onAccountRemoved() async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
 
-    final maps = await db.query(
-      'contacts',
-      where: 'name LIKE ? OR email LIKE ?',
-      whereArgs: ['%$query%', '%$query%'],
-      orderBy: 'frequency DESC, last_used DESC',
-      limit: limit,
-    );
-
-    return maps.map((map) {
-      return MailAddress(
-        map['name'] as String? ?? '',
-        map['email'] as String,
+      await db.delete(
+        SQLiteDatabaseHelper.tableMailboxes,
+        where: '${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailAccount.email],
       );
-    }).toList();
+
+      // Emails will be deleted by cascade
+
+      // Notify listeners
+      dataNotifier.value = [];
+      _dataStreamController.add([]);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error removing account: $e');
+      }
+    }
   }
+
+  /// Dispose resources
+  void dispose() {
+    _dataStreamController.close();
+  }
+}
+
+/// Helper function to convert message to map (runs in isolate)
+Map<String, dynamic> _messageToMap(Map<String, dynamic> params) {
+  final MimeMessage message = params['message'];
+  final int mailboxId = params['mailboxId'];
+
+  // Convert addresses to strings
+  String? fromAddress;
+  if (message.from != null && message.from!.isNotEmpty) {
+    fromAddress = message.from!.map((addr) =>
+    '${addr.personalName ?? ''} <${addr.email}>').join(', ');
+  }
+
+  String? toAddress;
+  if (message.to != null && message.to!.isNotEmpty) {
+    toAddress = message.to!.map((addr) =>
+    '${addr.personalName ?? ''} <${addr.email}>').join(', ');
+  }
+
+  String? ccAddress;
+  if (message.cc != null && message.cc!.isNotEmpty) {
+    ccAddress = message.cc!.map((addr) =>
+    '${addr.personalName ?? ''} <${addr.email}>').join(', ');
+  }
+
+  String? bccAddress;
+  if (message.bcc != null && message.bcc!.isNotEmpty) {
+    bccAddress = message.bcc!.map((addr) =>
+    '${addr.personalName ?? ''} <${addr.email}>').join(', ');
+  }
+
+  // Extract content
+  String? textContent = message.decodeTextPlainPart();
+  String? htmlContent = message.decodeTextHtmlPart();
+
+  // Serialize envelope for faster retrieval
+  Uint8List? envelopeBytes;
+  try {
+    final Map<String, dynamic> envelope = {
+      'uid': message.uid,
+      'sequenceId': message.sequenceId,
+      'subject': message.decodeSubject(),
+      'from': fromAddress,
+      'to': toAddress,
+      'cc': ccAddress,
+      'bcc': bccAddress,
+      'date': message.decodeDate()?.millisecondsSinceEpoch,
+      'size': message.size,
+      'flags': message.flags,
+      'hasAttachments': message.hasAttachments(),
+    };
+
+    envelopeBytes = Uint8List.fromList(utf8.encode(jsonEncode(envelope)));
+  } catch (e) {
+    // Ignore serialization errors
+  }
+
+  return {
+    SQLiteDatabaseHelper.columnMailboxId: mailboxId,
+    SQLiteDatabaseHelper.columnUid: message.uid,
+    SQLiteDatabaseHelper.columnMessageId: message.getHeaderValue('message-id')?.replaceAll('<', '').replaceAll('>', ''),
+    SQLiteDatabaseHelper.columnSubject: message.decodeSubject(),
+    SQLiteDatabaseHelper.columnFrom: fromAddress,
+    SQLiteDatabaseHelper.columnTo: toAddress,
+    SQLiteDatabaseHelper.columnCc: ccAddress,
+    SQLiteDatabaseHelper.columnBcc: bccAddress,
+    SQLiteDatabaseHelper.columnDate: message.decodeDate()?.millisecondsSinceEpoch,
+    SQLiteDatabaseHelper.columnContent: textContent,
+    SQLiteDatabaseHelper.columnHtmlContent: htmlContent,
+    SQLiteDatabaseHelper.columnIsSeen: SQLiteDatabaseHelper.boolToInt(message.isSeen),
+    SQLiteDatabaseHelper.columnIsFlagged: SQLiteDatabaseHelper.boolToInt(message.isFlagged),
+    SQLiteDatabaseHelper.columnIsDeleted: SQLiteDatabaseHelper.boolToInt(message.isDeleted),
+    SQLiteDatabaseHelper.columnIsAnswered: SQLiteDatabaseHelper.boolToInt(message.isAnswered),
+    SQLiteDatabaseHelper.columnIsDraft: SQLiteDatabaseHelper.boolToInt(false), // MimeMessage doesn't have isDraft
+    SQLiteDatabaseHelper.columnIsRecent: SQLiteDatabaseHelper.boolToInt(false), // MimeMessage doesn't have isRecent
+    SQLiteDatabaseHelper.columnHasAttachments: SQLiteDatabaseHelper.boolToInt(message.hasAttachments()),
+    SQLiteDatabaseHelper.columnSize: message.size,
+    SQLiteDatabaseHelper.columnEnvelope: envelopeBytes,
+    SQLiteDatabaseHelper.columnSequenceId: message.sequenceId,
+    SQLiteDatabaseHelper.columnModSeq: message.modSequence,
+  };
+}
+
+/// Helper function to convert database maps to MimeMessage objects (runs in isolate)
+List<MimeMessage> _mapsToMessages(List<Map<String, dynamic>> maps) {
+  final List<MimeMessage> messages = [];
+
+  for (final map in maps) {
+    try {
+      final MimeMessage message = MimeMessage();
+
+      // Set basic properties
+      message.uid = map[SQLiteDatabaseHelper.columnUid] as int?;
+      message.sequenceId = map[SQLiteDatabaseHelper.columnSequenceId] as int?;
+      message.modSequence = map[SQLiteDatabaseHelper.columnModSeq] as int?;
+      message.size = map[SQLiteDatabaseHelper.columnSize] as int?;
+
+      // Set flags
+      message.isSeen = SQLiteDatabaseHelper.intToBool(map[SQLiteDatabaseHelper.columnIsSeen] as int);
+      message.isFlagged = SQLiteDatabaseHelper.intToBool(map[SQLiteDatabaseHelper.columnIsFlagged] as int);
+      message.isDeleted = SQLiteDatabaseHelper.intToBool(map[SQLiteDatabaseHelper.columnIsDeleted] as int);
+      message.isAnswered = SQLiteDatabaseHelper.intToBool(map[SQLiteDatabaseHelper.columnIsAnswered] as int);
+      // MimeMessage doesn't have isDraft or isRecent properties
+
+      // Set headers
+      final String? subject = map[SQLiteDatabaseHelper.columnSubject] as String?;
+      if (subject != null) {
+        message.addHeader('subject', subject);
+      }
+
+      final String? messageId = map[SQLiteDatabaseHelper.columnMessageId] as String?;
+      if (messageId != null) {
+        message.addHeader('message-id', '<$messageId>');
+      }
+
+      // Set addresses
+      final String? fromAddress = map[SQLiteDatabaseHelper.columnFrom] as String?;
+      if (fromAddress != null && fromAddress.isNotEmpty) {
+        message.from = _parseAddresses(fromAddress);
+      }
+
+      final String? toAddress = map[SQLiteDatabaseHelper.columnTo] as String?;
+      if (toAddress != null && toAddress.isNotEmpty) {
+        message.to = _parseAddresses(toAddress);
+      }
+
+      final String? ccAddress = map[SQLiteDatabaseHelper.columnCc] as String?;
+      if (ccAddress != null && ccAddress.isNotEmpty) {
+        message.cc = _parseAddresses(ccAddress);
+      }
+
+      final String? bccAddress = map[SQLiteDatabaseHelper.columnBcc] as String?;
+      if (bccAddress != null && bccAddress.isNotEmpty) {
+        message.bcc = _parseAddresses(bccAddress);
+      }
+
+      // Set date
+      final int? dateMillis = map[SQLiteDatabaseHelper.columnDate] as int?;
+      if (dateMillis != null) {
+        final date = DateTime.fromMillisecondsSinceEpoch(dateMillis);
+        message.addHeader('date', _formatDateForHeader(date));
+      }
+
+      // Set content
+      final String? textContent = map[SQLiteDatabaseHelper.columnContent] as String?;
+      final String? htmlContent = map[SQLiteDatabaseHelper.columnHtmlContent] as String?;
+
+      if (htmlContent != null && htmlContent.isNotEmpty) {
+        final part = MimePart();
+        part.addHeader('Content-Type', 'text/html; charset=utf-8');
+        part.addHeader('Content-Transfer-Encoding', 'quoted-printable');
+        part.mimeData = TextMimeData(htmlContent, containsHeader: false);
+        message.addPart(part);
+      }
+
+      if (textContent != null && textContent.isNotEmpty) {
+        final part = MimePart();
+        part.addHeader('Content-Type', 'text/plain; charset=utf-8');
+        part.addHeader('Content-Transfer-Encoding', 'quoted-printable');
+        part.mimeData = TextMimeData(textContent, containsHeader: false);
+        message.addPart(part);
+      }
+
+      messages.add(message);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error converting map to message: $e');
+      }
+    }
+  }
+
+  return messages;
+}
+
+/// Helper function to parse addresses from string
+List<MailAddress> _parseAddresses(String addressesString) {
+  final List<MailAddress> addresses = [];
+
+  final addressParts = addressesString.split(',');
+  for (final part in addressParts) {
+    final trimmedPart = part.trim();
+    if (trimmedPart.isEmpty) continue;
+
+    final match = RegExp(r'(.*) <(.*)>').firstMatch(trimmedPart);
+    if (match != null && match.group(1)!.isNotEmpty) {
+      addresses.add(MailAddress(match.group(1)!.trim(), match.group(2)!.trim()));
+    } else {
+      addresses.add(MailAddress('', trimmedPart.replaceAll(RegExp(r'<|>'), '').trim()));
+    }
+  }
+
+  return addresses;
+}
+
+/// Helper function to format date for email header
+String _formatDateForHeader(DateTime date) {
+  final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  final day = days[date.weekday - 1];
+  final month = months[date.month - 1];
+
+  return '$day, ${date.day} $month ${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')} ${_formatTimeZoneOffset(date.timeZoneOffset)}';
+}
+
+/// Helper function to format timezone offset
+String _formatTimeZoneOffset(Duration offset) {
+  final sign = offset.isNegative ? '-' : '+';
+  final hours = offset.inHours.abs().toString().padLeft(2, '0');
+  final minutes = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+  return '$sign$hours$minutes';
 }
