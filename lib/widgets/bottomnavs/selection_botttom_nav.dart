@@ -5,15 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/email_operation_controller.dart';
 import 'package:wahda_bank/app/controllers/mailbox_list_controller.dart';
+import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/utills/extensions.dart';
-
-import '../../app/controllers/selection_controller.dart';
+import 'package:wahda_bank/utills/theme/app_theme.dart';
 
 class SelectionBottomNav extends StatelessWidget {
-  SelectionBottomNav({
-    super.key,
-    required this.box,
-  });
+  SelectionBottomNav({super.key, required this.box});
 
   final Mailbox box;
 
@@ -23,157 +20,184 @@ class SelectionBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
-      height: 60,
-      color: const Color.fromRGBO(255, 255, 255, 1).withOpacity(0.8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+        boxShadow: AppTheme.bottomNavShadow,
+      ),
+      padding: EdgeInsets.only(
+        top: 12,
+        bottom: 12 + MediaQuery.of(context).padding.bottom,
+        left: 16,
+        right: 16,
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildActionButton(
+                    icon: Icons.delete_outline_rounded,
+                    label: 'delete'.tr,
+                    onTap: () => _showDeleteConfirmation(context),
+                    destructive: true,
+                  ),
+                  _buildActionButton(
+                    icon: Icons.mark_email_unread_rounded,
+                    label: 'Unread',
+                    onTap: () async {
+                      operationController.markAsReadUnread(
+                        selectionController.selected,
+                        box,
+                        false,
+                      );
+                      selectionController.clear();
+                    },
+                  ),
+                  _buildActionButton(
+                    icon: Icons.mark_email_read_rounded,
+                    label: 'Read',
+                    onTap: () async {
+                      await operationController.markAsReadUnread(
+                        selectionController.selected,
+                        box,
+                      );
+                      selectionController.clear();
+                    },
+                  ),
+                  _buildActionButton(
+                    icon: Icons.drive_file_move_outline,
+                    label: 'Move',
+                    onTap: () => _showMoveActionSheet(context),
+                  ),
+                ],
+              ),
+            ),
+            GestureDetector(
+              onTap: () => selectionController.clear(),
+              child: Container(
+                width: 40,
+                height: 40,
+                margin: const EdgeInsets.only(left: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 20, color: Colors.black54),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool destructive = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          IconButtons(
-            isImage:false,
-            icon: CupertinoIcons.trash,
-            onTap: () {
-              showCupertinoModalPopup(
-                context: context,
-                builder: (context) => CupertinoActionSheet(
-                  title: Text('are_you_u_wtd'.tr),
-                  actions: [
-                    CupertinoActionSheetAction(
-                      onPressed: () async {
-                        Get.back();
-                        await operationController.deleteMails(
-                          selectionController.selected,
-                          box,
-                        );
-                        selectionController.clear();
-                      },
-                      isDestructiveAction: true,
-                      child: Text('delete'.tr),
-                    ),
-                  ],
-                  cancelButton: CupertinoActionSheetAction(
-                    onPressed: () {
-                      Get.back();
-                    },
-                    child: Text('cancel'.tr),
-                  ),
-                ),
-              );
-            },
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: destructive
+                  ? Colors.red.withOpacity(0.1)
+                  : AppTheme.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              color: destructive ? Colors.red : AppTheme.primaryColor,
+              size: 22,
+            ),
           ),
-          IconButtons(
-            icon: CupertinoIcons.mail_solid,
-            isImage: false,
-            onTap: () async {
-              operationController.markAsReadUnread(
-                selectionController.selected,
-                box,
-                false,
-              );
-              selectionController.clear();
-            },
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: destructive ? Colors.red : AppTheme.textPrimaryColor,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          IconButtons(
-            icon: CupertinoIcons.envelope_open,
-            isImage: false,
-            onTap: () async {
-              await operationController.markAsReadUnread(
-                selectionController.selected,
-                box,
-              );
-              selectionController.clear();
-            },
-          ),
-          IconButtons(
-            icon: CupertinoIcons.move,
-            isImage: false,
-            onTap: () {
-              showCupertinoModalPopup(
-                context: context,
-                builder: (context) => CupertinoActionSheet(
-                  title: Text('move_to'.tr),
-                  actions: [
-                    for (var item in mailboxController.mailboxes
-                        .whereNot((e) => e == box)
-                        .toList())
-                      CupertinoActionSheetAction(
-                        onPressed: () async {
-                          Get.back();
-                          await operationController.moveMails(
-                            selectionController.selected,
-                            box,
-                            item,
-                          );
-                          selectionController.clear();
-                        },
-                        child: Text(item.name.ucFirst()),
-                      ),
-                  ],
-                  cancelButton: CupertinoActionSheetAction(
-                    onPressed: () {
-                      Get.back();
-                    },
-                    child: Text('cancel'.tr),
-                  ),
-                ),
-              );
-            },
-          )
         ],
       ),
     );
   }
-}
 
-Widget bottomButton(VoidCallback onTap, String text, IconData icon) {
-  return InkWell(
-    onTap: onTap,
-    child: Container(
-      width: 70,
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        // border: Border.all(),
-        color: Colors.blue.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+  void _showDeleteConfirmation(BuildContext context) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text(
+          'are_you_u_wtd'.tr,
+          style: TextStyle(color: AppTheme.textPrimaryColor),
+        ),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () async {
+              Get.back();
+              await operationController.deleteMails(
+                selectionController.selected,
+                box,
+              );
+              selectionController.clear();
+            },
+            isDestructiveAction: true,
+            child: Text('delete'.tr),
           ),
         ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Get.back(),
+          child: Text('cancel'.tr),
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-class IconButtons extends StatelessWidget {
-  const IconButtons(
-      {super.key, this.icon, this.isImage = true, this.image, this.onTap});
-  final IconData? icon;
-  final bool isImage;
-  final String? image;
-  final VoidCallback? onTap;
+  void _showMoveActionSheet(BuildContext context) {
+    final otherBoxes = mailboxController.mailboxes
+        .whereNot((e) => e == box)
+        .toList();
 
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        height: 25,
-        child: isImage
-            ? Image.asset(
-          image!,
-          color: Colors.blue,
-        )
-            : Icon(
-          icon,
-          color: Colors.blue,
+    showCupertinoModalPopup(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        title: Text('move_to'.tr),
+        actions: [
+          for (var item in otherBoxes)
+            CupertinoActionSheetAction(
+              onPressed: () async {
+                Get.back();
+                await operationController.moveMails(
+                  selectionController.selected,
+                  box,
+                  item,
+                );
+                selectionController.clear();
+              },
+              child: Text(item.name.ucFirst()),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Get.back(),
+          child: Text('cancel'.tr),
         ),
       ),
     );

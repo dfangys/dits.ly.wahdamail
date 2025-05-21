@@ -72,23 +72,30 @@ class InboxController extends GetxController {
   /// Initialize inbox and subscribe to updates
   Future<void> _initializeInbox() async {
     try {
-      // Ensure mailbox is selected
+      // 1) Ensure you have an inbox mailbox object
       if (mailboxController.mailBoxInbox == null) {
         await mailboxController.loadMailBoxes();
       }
 
-      // Initialize storage for inbox
-      if (mailboxController.mailBoxInbox != null) {
-        storageController.initializeMailboxStorage(mailboxController.mailBoxInbox!);
+      final inbox = mailboxController.mailBoxInbox;
+      if (inbox != null) {
+        // 2) Initialize local storage
+        await storageController.initializeMailboxStorage(inbox);
 
-        // Subscribe to inbox updates
+        // 3) Subscribe to the storage stream
         _subscribeToInboxUpdates();
+
+        // ───────────────────────────────────────────────
+        // 4) **Initial server fetch**: load the first page
+        await fetchController.loadEmailsForBox(inbox);
+        // or, if you want just “new” since last time:
+        // await fetchController.fetchNewEmails(inbox);
+        // ───────────────────────────────────────────────
       }
     } catch (e) {
       debugPrint('Error initializing inbox: $e');
     }
   }
-
   /// Subscribe to inbox updates
   void _subscribeToInboxUpdates() {
     // Cancel existing subscription

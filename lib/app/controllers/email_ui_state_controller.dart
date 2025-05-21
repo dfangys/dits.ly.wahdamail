@@ -91,6 +91,25 @@ class EmailUiStateController extends GetxController {
     }
   }
 
+
+  /// Handle connection state changes
+  void handleConnectionStateChange(bool isConnected) {
+    this.isConnected.value = isConnected;
+
+    if (isConnected) {
+      // Re-setup controller references if needed
+      if (_fetchController == null && Get.isRegistered<EmailFetchController>()) {
+        _fetchController = Get.find<EmailFetchController>();
+        _setupFetchControllerListeners();
+      }
+
+      // Refresh state
+      refreshState();
+    }
+  }
+
+
+
   /// Setup listeners for fetch controller
   void _setupFetchControllerListeners() {
     if (_fetchController == null) return;
@@ -194,6 +213,9 @@ class EmailUiStateController extends GetxController {
 
   /// Set connection state
   void setConnectionState(bool isConnected) {
+    if (Get.isRegistered<EmailUiStateController>()) {
+      Get.find<EmailUiStateController>().handleConnectionStateChange(isConnected);
+    }
     this.isConnected.value = isConnected;
     logger.d("UI State: Set connection state to $isConnected");
   }
@@ -286,6 +308,8 @@ class EmailUiStateController extends GetxController {
       logger.d("UI State: Search found ${results.length} results for query '$query'");
     }
   }
+
+
 
   /// Show loading indicator
   void showLoading(String message) {

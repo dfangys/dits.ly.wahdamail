@@ -84,38 +84,41 @@ class MailboxListController extends GetxController {
   EmailUiStateController? _uiStateController;
 
   @override
-  void onInit() async {
+  void onInit() {
     super.onInit();
 
+    // Set up any sync listeners first
+    ever(_selectedMailbox, (mailbox) {
+      if (mailbox != null) {
+        logger.d("Selected mailbox changed to: ${mailbox.name}");
+      }
+    });
+
+    // Then start the async bootstrap without blocking onInit
+    _bootstrap();
+  }
+  Future<void> _bootstrap() async {
     try {
       mailService = MailService.instance;
-
-      // Get required controllers
       _backgroundTaskController = Get.find<BackgroundTaskController>();
 
-      // Try to find other controllers, but don't fail if not available yet
+      // Other controllers might not yet be registered; we’ll look them up later
       if (Get.isRegistered<EmailFetchController>()) {
         _fetchController = Get.find<EmailFetchController>();
       }
-
       if (Get.isRegistered<EmailUiStateController>()) {
         _uiStateController = Get.find<EmailUiStateController>();
       }
 
-      // Listen for mailbox selection changes
-      ever(_selectedMailbox, (mailbox) {
-        if (mailbox != null) {
-          logger.d("Selected mailbox changed to: ${mailbox.name}");
-        }
-      });
-
+      // Initialize mail service (loads credentials, sets up client, etc.)
       await mailService.init();
+
+      // Load or refresh your list of mailboxes
       await loadMailBoxes();
     } catch (e) {
       logger.e("Error initializing MailboxListController: $e");
     }
   }
-
   /// Notify other controllers about mailbox selection changes
   void _notifyMailboxSelectionChanged(Mailbox mailbox) {
     try {
@@ -130,10 +133,46 @@ class MailboxListController extends GetxController {
       // Queue operation to ensure mailbox is selected in mail service
       _backgroundTaskController.queueOperation(() async {
         try {
-          if (!mailService.client.isConnected) {
+          // Check if mail service is properly initialized
+          if (!mailService.isInitialized) {
+            logger.d("Mail service not initialized, initializing now");
+            await mailService.init();
+          }
+
+          // Safe connection check with socket validation
+          bool isConnected = false;
+          try {
+            isConnected = mailService.isClientReady;
+          } catch (socketError) {
+            logger.w("Socket error during connection check: $socketError");
+            isConnected = false;
+          }
+
+          // Connect if needed
+          if (!isConnected) {
+            logger.d("Mail client not connected, connecting now");
             await mailService.connect();
           }
-          await mailService.client.selectMailbox(mailbox);
+
+          // Select mailbox with retry logic
+          int retries = 0;
+          while (retries < 3) {
+            try {
+              await mailService.client.selectMailbox(mailbox);
+              break; // Success, exit retry loop
+            } catch (selectError) {
+              retries++;
+              logger.w("Error selecting mailbox (attempt $retries): $selectError");
+
+              if (retries < 3) {
+                // Reconnect and try again
+                await mailService.connect();
+                await Future.delayed(Duration(milliseconds: 500 * retries));
+              } else {
+                throw selectError; // Rethrow after max retries
+              }
+            }
+          }
         } catch (e) {
           logger.e("Error selecting mailbox in mail service: $e");
         }
@@ -153,8 +192,8 @@ class MailboxListController extends GetxController {
               () async {
             await mailService.connect();
             final serverMailboxes = await mailService.client.listMailboxes();
-            mailboxes(serverMailboxes);
-
+            // mailboxes(serverMailboxes);
+            mailboxes.assignAll(serverMailboxes);
             // Save mailboxes to storage
             await getStorage.write('boxes', mailboxes.map((box) => box.toJson()).toList());
           },
@@ -177,8 +216,8 @@ class MailboxListController extends GetxController {
 
             // Update mailboxes if there are changes
             if (_mailboxesChanged(serverMailboxes)) {
-              mailboxes(serverMailboxes);
-
+              // mailboxes(serverMailboxes);
+              mailboxes.assignAll(serverMailboxes);
               // Save updated mailboxes to storage
               await getStorage.write('boxes', mailboxes.map((box) => box.toJson()).toList());
 
@@ -352,7 +391,8 @@ class MailboxListController extends GetxController {
           }
 
           final serverMailboxes = await mailService.client.listMailboxes();
-          mailboxes(serverMailboxes);
+          // mailboxes(serverMailboxes);
+          mailboxes.assignAll(serverMailboxes);
 
           // Save updated mailboxes to storage
           await getStorage.write('boxes', mailboxes.map((box) => box.toJson()).toList());
@@ -420,7 +460,8 @@ class MailboxListController extends GetxController {
 
           // Refresh mailboxes
           final serverMailboxes = await mailService.client.listMailboxes();
-          mailboxes(serverMailboxes);
+          // mailboxes(serverMailboxes);
+          mailboxes.assignAll(serverMailboxes);
 
           // Save updated mailboxes to storage
           await getStorage.write('boxes', mailboxes.map((box) => box.toJson()).toList());
@@ -464,7 +505,8 @@ class MailboxListController extends GetxController {
 
           // Refresh mailboxes
           final serverMailboxes = await mailService.client.listMailboxes();
-          mailboxes(serverMailboxes);
+          // mailboxes(serverMailboxes);
+          mailboxes.assignAll(serverMailboxes);
 
           // Save updated mailboxes to storage
           await getStorage.write('boxes', mailboxes.map((box) => box.toJson()).toList());
@@ -500,57 +542,57 @@ class MailboxListController extends GetxController {
     }
   }
 
-  /// Rename a mailbox
-  // Future<bool> renameMailbox(Mailbox mailbox, String newName) async {
-  //   try {
-  //     await _backgroundTaskController.executeWithRetry<void>(
-  //           () async {
-  //         if (!mailService.client.isConnected) {
-  //           await mailService.connect();
-  //         }
-  //
-  //         // In enough_mail 2.1.6, we need to use the IMAP client directly
-  //         final imapClient = mailService.client.lowLevelIncomingMailClient as ImapClient;
-  //         await imapClient.renameMailbox(mailbox.encodedPath, newName);
-  //
-  //         // Refresh mailboxes
-  //         final serverMailboxes = await mailService.client.listMailboxes();
-  //         mailboxes(serverMailboxes);
-  //
-  //         // Save updated mailboxes to storage
-  //         await getStorage.write('boxes', mailboxes.map((box) => box.toJson()).toList());
-  //
-  //         // If the renamed mailbox was selected, update selection
-  //         if (selectedMailbox?.encodedPath == mailbox.encodedPath) {
-  //           final newMailbox = mailboxes.firstWhereOrNull((box) => box.encodedName == newName);
-  //           if (newMailbox != null) {
-  //             selectedMailbox = newMailbox;
-  //           }
-  //         }
-  //       },
-  //       maxRetries: 3,
-  //     );
-  //
-  //     // Show success message
-  //     Get.showSnackbar(
-  //       GetSnackBar(
-  //         message: 'Mailbox renamed to "$newName"',
-  //         backgroundColor: Colors.green,
-  //         duration: const Duration(seconds: 2),
-  //       ),
-  //     );
-  //
-  //     return true;
-  //   } catch (e) {
-  //     logger.e("Error renaming mailbox: $e");
-  //     Get.showSnackbar(
-  //       GetSnackBar(
-  //         message: 'Error renaming mailbox: ${e.toString()}',
-  //         backgroundColor: Colors.red,
-  //         duration: const Duration(seconds: 3),
-  //       ),
-  //     );
-  //     return false;
-  //   }
-  // }
+/// Rename a mailbox
+// Future<bool> renameMailbox(Mailbox mailbox, String newName) async {
+//   try {
+//     await _backgroundTaskController.executeWithRetry<void>(
+//           () async {
+//         if (!mailService.client.isConnected) {
+//           await mailService.connect();
+//         }
+//
+//         // In enough_mail 2.1.6, we need to use the IMAP client directly
+//         final imapClient = mailService.client.lowLevelIncomingMailClient as ImapClient;
+//         await imapClient.renameMailbox(mailbox.encodedPath, newName);
+//
+//         // Refresh mailboxes
+//         final serverMailboxes = await mailService.client.listMailboxes();
+//         mailboxes(serverMailboxes);
+//
+//         // Save updated mailboxes to storage
+//         await getStorage.write('boxes', mailboxes.map((box) => box.toJson()).toList());
+//
+//         // If the renamed mailbox was selected, update selection
+//         if (selectedMailbox?.encodedPath == mailbox.encodedPath) {
+//           final newMailbox = mailboxes.firstWhereOrNull((box) => box.encodedName == newName);
+//           if (newMailbox != null) {
+//             selectedMailbox = newMailbox;
+//           }
+//         }
+//       },
+//       maxRetries: 3,
+//     );
+//
+//     // Show success message
+//     Get.showSnackbar(
+//       GetSnackBar(
+//         message: 'Mailbox renamed to "$newName"',
+//         backgroundColor: Colors.green,
+//         duration: const Duration(seconds: 2),
+//       ),
+//     );
+//
+//     return true;
+//   } catch (e) {
+//     logger.e("Error renaming mailbox: $e");
+//     Get.showSnackbar(
+//       GetSnackBar(
+//         message: 'Error renaming mailbox: ${e.toString()}',
+//         backgroundColor: Colors.red,
+//         duration: const Duration(seconds: 3),
+//       ),
+//     );
+//     return false;
+//   }
+// }
 }

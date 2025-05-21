@@ -175,7 +175,6 @@ class BgService {
   }
 
   /// Register a 15-min periodic check for new mail
-  /// Register a 15-minute periodic check for new mail
   Future<void> registerPeriodicEmailChecks() async {
     // Only Android supports Workmanager periodic tasks
     if (!kIsWeb && Platform.isAndroid) {

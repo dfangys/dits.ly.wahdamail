@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'dart:io';
-
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/app/controllers/email_fetch_controller.dart';
 import 'package:wahda_bank/app/controllers/email_operation_controller.dart';
-import 'package:wahda_bank/app/controllers/mailbox_list_controller.dart';
 import 'package:wahda_bank/app/controllers/background_task_controller.dart';
 import 'package:wahda_bank/app/controllers/email_ui_state_controller.dart';
 import 'package:wahda_bank/services/email_notification_service.dart';
@@ -31,7 +29,41 @@ class MailService {
   // Mail client properties
   late MailAccount account;
   final storage = GetStorage();
-  late MailClient client;
+  MailClient? _client;
+
+  // Safe client getter with reconnection logic for hot restart recovery
+  MailClient get client {
+    if (_client == null) {
+      throw Exception('Mail client not initialized');
+    }
+
+    // Check if socket is initialized by trying to access a property that uses it
+    try {
+      // This will throw if socket is not initialized
+      if (!_client!.isConnected && !_isConnecting.value) {
+        // Schedule reconnection but don't block the getter
+        Future.microtask(() => _handleHotRestartRecovery());
+      }
+    } catch (e) {
+      // Socket initialization error detected, trigger recovery
+      Future.microtask(() => _handleHotRestartRecovery());
+    }
+
+    return _client!;
+  }
+
+  // Check if client is properly initialized and connected
+  bool get isClientReady {
+    if (_client == null) return false;
+
+    try {
+      // This will throw if socket is not initialized
+      return _client!.isConnected;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Mailbox? selectedBox;
 
   // State tracking
@@ -150,7 +182,7 @@ class MailService {
       );
 
       // Create mail client with proper settings
-      client = MailClient(
+      _client = MailClient(
         account,
         isLogEnabled: kDebugMode,
         logName: 'WahdaMailClient',
@@ -172,87 +204,140 @@ class MailService {
     }
   }
 
+
+
+  /// Handle hot restart recovery by recreating client and reconnecting
+  Future<bool> _handleHotRestartRecovery() async {
+    debugPrint('Hot restart recovery triggered - recreating mail client');
+
+    // Reset connection state
+    _isConnected.value = false;
+
+    // Recreate client from stored credentials
+    String? email = storage.read('email');
+    String? password = storage.read('password');
+
+    if (email == null || password == null) {
+      debugPrint('Cannot recover from hot restart: missing credentials');
+      return false;
+    }
+
+    // Recreate client
+    setClientAndAccount(email, password);
+
+    // Connect with the new client
+    final success = await connect();
+
+    // Trigger a full reload after reconnect
+    if (success && Get.isRegistered<EmailFetchController>()) {
+      debugPrint('Reconnection successful—reloading all mailboxes');
+      final fetchController = Get.find<EmailFetchController>();
+      fetchController.reloadAllMailboxes();
+    }
+
+    return success;
+  }
   /// Connect to mail server with retry logic
   Future<bool> connect() async {
-    // Skip if already connecting
     if (_isConnecting.value) return false;
 
-    // Use lock to prevent concurrent connection attempts
     return await _connectionLock.synchronized(() async {
-      if (_isConnected.value && client.isConnected) {
-        return true;
+      // 0) Ensure client instance exists
+      if (_client == null) {
+        final email = storage.read('email');
+        final password = storage.read('password');
+        if (email == null || password == null) {
+          debugPrint('Cannot connect: missing credentials');
+          return false;
+        }
+        setClientAndAccount(email, password);
       }
+
+      // 0a) Quick already-connected check
+      try {
+        if (_isConnected.value && _client!.isConnected) {
+          return true;
+        }
+      } catch (_) {}
 
       _isConnecting.value = true;
       _lastConnectionAttempt = DateTime.now();
 
       try {
-        // Check internet connectivity first
-        final hasInternet = await InternetService.instance.checkConnectivity();
-        if (!hasInternet) {
+        // 1) Internet check
+        if (!await InternetService.instance.checkConnectivity()) {
           throw Exception('No internet connection');
         }
 
-        // Connect to mail server
-        await client.connect();
+        // 2) Low-level connect & wait for isConnected
+        await _client!.connect();
+        var attempts = 0;
+        while (!_client!.isConnected && attempts++ < 20) {
+          await Future.delayed(const Duration(milliseconds: 50));
+        }
+        if (!_client!.isConnected) {
+          throw Exception('Timed out waiting for IMAP connection');
+        }
 
-        // Select inbox by default
-        await client.selectInbox();
-        selectedBox = client.selectedMailbox;
-        await client.startPolling(const Duration(minutes: 5));
+        // — Ensure serverInfo is populated on the low-level IMAP client —
+        final imap = _client!.lowLevelIncomingMailClient as ImapClient;
+        if (imap.serverInfo == null) {
+          debugPrint('serverInfo missing; forcing LOGIN to reinitialize');
+          await _client!.connect();        // reconnect
+          // await _client!.login();          // explicit login if needed
+          // (after this, `imap.serverInfo` should be non-null)
+        }
 
-        // Start polling on Android
+        // 3) Select INBOX
+        await _client!.selectInbox();
+        selectedBox = _client!.selectedMailbox;
+
+        // 4) Start polling/IDLE
+        await _client!.startPolling(const Duration(minutes: 5));
         if (Platform.isAndroid) {
-          await client.startPolling();
+          await _client!.startPolling();
         }
 
-        // Subscribe to events if not already subscribed
-        if (!_isSubscribed) {
-          _subscribeEvents();
-        }
+        // 5) Subscribe events if not yet done
+        if (!_isSubscribed) _subscribeEvents();
 
-        // Start IDLE mode
+        // 6) Kick off IDLE notifications
         await _startIdleMode();
 
-        // Reset connection retries
+        // 7) Success: reset and notify UI
         _connectionRetries = 0;
         _isConnected.value = true;
         _isConnecting.value = false;
-
-        // Update UI state
         if (Get.isRegistered<EmailUiStateController>()) {
           Get.find<EmailUiStateController>().setConnectionState(true);
         }
-
         return true;
       } catch (e) {
         _lastError = e.toString();
         debugPrint('Connection error: $e');
 
-        // Update UI state
+        // notify UI offline
         if (Get.isRegistered<EmailUiStateController>()) {
           Get.find<EmailUiStateController>().setConnectionState(false);
         }
 
-        // Retry with exponential backoff
+        // retry with exponential backoff
         if (_connectionRetries < _maxConnectionRetries) {
           _connectionRetries++;
-
-          // Calculate retry delay with exponential backoff
           final delay = Duration(
-              milliseconds: _initialRetryDelay.inMilliseconds * (1 << (_connectionRetries - 1))
+            milliseconds: _initialRetryDelay.inMilliseconds *
+                (1 << (_connectionRetries - 1)),
           );
-
-          // Cap at max delay
-          final actualDelay = delay.compareTo(_maxRetryDelay) > 0 ? _maxRetryDelay : delay;
-
-          debugPrint('Retrying connection in ${actualDelay.inSeconds} seconds (attempt $_connectionRetries)');
-
+          final actualDelay =
+          delay.compareTo(_maxRetryDelay) > 0 ? _maxRetryDelay : delay;
+          debugPrint(
+              'Retrying connection in ${actualDelay.inSeconds}s (attempt $_connectionRetries)');
           _isConnecting.value = false;
           await Future.delayed(actualDelay);
           return connect();
         }
 
+        // give up
         _isConnecting.value = false;
         return false;
       }
@@ -391,6 +476,7 @@ class MailService {
         // Fall back to direct call
         else if (Get.isRegistered<EmailFetchController>()) {
           Get.find<EmailFetchController>().handleIncomingMail(event.message);
+
         }
       }
     });
@@ -466,9 +552,12 @@ class MailService {
     }
 
     try {
+
+      if (!client.isConnected) await connect();
       final selected = await client.selectMailbox(mailbox);
       selectedBox = selected;
       return selected;
+
     } catch (e) {
       _lastError = e.toString();
       debugPrint('Error selecting mailbox: $e');
@@ -497,7 +586,8 @@ class MailService {
     int count = 30,
     int page = 1,
     bool onlyUnread = false,
-  }) async {
+  })
+  async {
     if (!_isConnected.value) {
       final connected = await connect();
       if (!connected) return [];

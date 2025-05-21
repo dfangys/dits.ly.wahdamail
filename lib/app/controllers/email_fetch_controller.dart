@@ -72,7 +72,7 @@ class EmailFetchController extends GetxController {
 
   // Track pagination for each mailbox
   final Map<Mailbox, int> _currentPage = {};
-  final int pageSize = 20;
+  final int pageSize = 100;
 
   // Debounce timer for UI updates
   Timer? _debounceTimer;
@@ -145,16 +145,40 @@ class EmailFetchController extends GetxController {
         return;
       }
 
-      // Get inbox mailbox
-      final inboxMailbox = mailService.client.mailboxes?.firstWhereOrNull(
-            (box) => box.isInbox,
-      );
+      // Add a short delay to ensure server info is initialized
+      await Future.delayed(Duration(milliseconds: 500));
+
+      // Get mailboxes list with retry logic
+      int attempts = 0;
+      Mailbox? inboxMailbox;
+
+      while (attempts < 5 && inboxMailbox == null) {
+        try {
+          // Get mailboxes list
+          final mailboxes = await mailService.client.listMailboxes();
+
+          // Find inbox mailbox
+          inboxMailbox = mailboxes.firstWhereOrNull(
+                (box) => box.isInbox,
+          );
+
+          if (inboxMailbox == null) {
+            attempts++;
+            logger.w("Inbox mailbox not found, retrying ($attempts/5)...");
+            await Future.delayed(Duration(milliseconds: 500 * attempts));
+          }
+        } catch (e) {
+          attempts++;
+          logger.e("Error listing mailboxes (attempt $attempts): $e");
+          await Future.delayed(Duration(milliseconds: 500 * attempts));
+        }
+      }
 
       if (inboxMailbox != null) {
         // Load inbox emails
         await loadEmailsForBox(inboxMailbox);
       } else {
-        logger.e("Inbox mailbox not found during initialization");
+        logger.e("Inbox mailbox not found after multiple attempts");
       }
     } catch (e) {
       logger.e("Error initializing mailboxes: $e");
@@ -420,10 +444,10 @@ class EmailFetchController extends GetxController {
       }
 
       final currentPage = _currentPage[mailbox] ?? 1;
-      final nextPage = currentPage + 1;
+      final nextPage = currentPage + 2;
 
       // Calculate start and end indices for this page
-      final startIndex = (nextPage - 1) * pageSize + 1;
+      final startIndex = (nextPage - 1) * pageSize + 2;
       final endIndex = startIndex + pageSize - 1;
 
       // Check if we've reached the end
@@ -575,6 +599,33 @@ class EmailFetchController extends GetxController {
       _releaseMailboxLock(mailbox);
     }
   }
+
+
+  /// Reload all mailboxes after reconnection
+  Future<void> reloadAllMailboxes() async {
+    logger.d("Reloading all mailboxes after reconnection");
+
+    try {
+      // Reset state
+      _initialLoadDone.clear();
+      _currentPage.clear();
+
+      // Reload mailboxes
+      final mailboxes = await mailService.client.listMailboxes();
+
+      // Find inbox
+      final inbox = mailboxes.firstWhereOrNull((box) => box.isInbox);
+
+      if (inbox != null) {
+        // Force reload emails for inbox
+        await loadEmailsForBox(inbox);
+      }
+    } catch (e) {
+      logger.e("Error reloading mailboxes: $e");
+    }
+  }
+
+
 
   /// Fetch new emails for a mailbox with improved error handling and retry logic
   Future<void> fetchNewEmails(Mailbox? mailbox) async {
@@ -904,6 +955,7 @@ class EmailFetchController extends GetxController {
   }
 
   /// Fetch mailbox contents with optimized batching and improved error handling
+  /// Modified to load all emails in batches instead of just the most recent ones
   Future<void> fetchMailbox(Mailbox mailbox) async {
     // Acquire lock to prevent concurrent operations on the same mailbox
     await _acquireMailboxLock(mailbox);
@@ -937,7 +989,7 @@ class EmailFetchController extends GetxController {
         }
       }
 
-      int max = mailbox.messagesExists;
+      int totalMessages = mailbox.messagesExists;
       if (mailbox.uidNext != null && mailbox.isInbox) {
         await getStorage.write(
           BackgroundService.keyInboxLastUid,
@@ -945,7 +997,7 @@ class EmailFetchController extends GetxController {
         );
       }
 
-      if (max == 0) {
+      if (totalMessages == 0) {
         isBoxBusy(false);
         isRefreshing(false);
         _uiStateController?.setMailboxLoading(mailbox, false);
@@ -970,29 +1022,81 @@ class EmailFetchController extends GetxController {
       // Initialize storage for this mailbox if needed
       await _storageController.initializeMailboxStorage(mailbox);
 
-      // Calculate fetch range for first page
-      int fetchCount = math.min(pageSize, max);
-      int fetchStart = max - fetchCount + 1;
-      int fetchEnd = max;
+      // MODIFIED: Load all emails in batches instead of just the first page
+      int batchSize = 50; // Larger batch size for efficiency
+      List<MimeMessage> allMessages = [];
 
-      // Ensure valid range
-      if (fetchStart < 1) fetchStart = 1;
-      if (fetchEnd < 1) fetchEnd = 1;
-      if (fetchStart > fetchEnd) {
-        int temp = fetchStart;
-        fetchStart = fetchEnd;
-        fetchEnd = temp;
+      // Show initial loading message
+      Get.showSnackbar(
+        GetSnackBar(
+          message: 'Loading all emails from ${mailbox.name}...',
+          backgroundColor: Colors.blue,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Load emails in batches from newest to oldest
+      for (int i = 0; i < totalMessages; i += batchSize) {
+        // Update progress every few batches
+        if (i > 0 && i % (batchSize * 3) == 0) {
+          Get.showSnackbar(
+            GetSnackBar(
+              message: 'Loading emails: ${math.min(i + batchSize, totalMessages)}/$totalMessages',
+              backgroundColor: Colors.blue,
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+
+        int fetchCount = math.min(batchSize, totalMessages - i);
+        int fetchStart = totalMessages - i - fetchCount + 1;
+        int fetchEnd = totalMessages - i;
+
+        // Ensure valid range
+        if (fetchStart < 1) fetchStart = 1;
+        if (fetchEnd < 1) fetchEnd = 1;
+        if (fetchStart > fetchEnd) {
+          int temp = fetchStart;
+          fetchStart = fetchEnd;
+          fetchEnd = temp;
+        }
+
+        logger.d("Fetching messages from $fetchStart to $fetchEnd (total: ${fetchEnd - fetchStart + 1})");
+
+        final sequence = MessageSequence.fromRange(fetchStart, fetchEnd);
+        final messages = await fetchMessageBatch(sequence);
+
+        if (messages.isNotEmpty) {
+          allMessages.addAll(messages);
+
+          // Save to local storage in smaller batches to avoid overwhelming the database
+          _storageController.saveMessagesInBackground(messages, mailbox);
+
+          // Periodically update the UI to show progress
+          if (i == 0 || allMessages.length >= 100 || i + batchSize >= totalMessages) {
+            // Sort by date (newest first)
+            allMessages.sort((a, b) {
+              final dateA = a.decodeDate() ?? DateTime.now();
+              final dateB = b.decodeDate() ?? DateTime.now();
+              return dateB.compareTo(dateA);
+            });
+
+            // Update emails list with what we have so far
+            emails[mailbox] = List.from(allMessages);
+
+            // Notify about changes
+            notifyEmailsChanged(mailbox, UpdateType.replace, allMessages);
+          }
+        }
+
+        // Add a small delay to avoid overwhelming the server
+        await Future.delayed(const Duration(milliseconds: 100));
       }
 
-      // Create sequence for first page
-      final sequence = MessageSequence.fromRange(fetchStart, fetchEnd);
-
-      // Fetch messages for first page
-      final messages = await fetchMessageBatch(sequence);
-
-      if (messages.isNotEmpty) {
-        // Sort by date (newest first)
-        messages.sort((a, b) {
+      // Process all fetched messages
+      if (allMessages.isNotEmpty) {
+        // Final sort by date (newest first)
+        allMessages.sort((a, b) {
           final dateA = a.decodeDate() ?? DateTime.now();
           final dateB = b.decodeDate() ?? DateTime.now();
           return dateB.compareTo(dateA);
@@ -1000,21 +1104,27 @@ class EmailFetchController extends GetxController {
 
         // Update last fetched UID
         int lastUid = 0;
-        for (var msg in messages) {
+        for (var msg in allMessages) {
           if (msg.uid != null && msg.uid! > lastUid) {
             lastUid = msg.uid!;
           }
         }
         _lastFetchedUids[mailbox] = lastUid;
 
-        // Save to local storage
-        _storageController.saveMessagesInBackground(messages, mailbox);
+        // Final update to emails list
+        emails[mailbox] = allMessages;
 
-        // Update emails list
-        emails[mailbox] = messages;
+        // Final notification about changes
+        notifyEmailsChanged(mailbox, UpdateType.replace, allMessages);
 
-        // Notify about changes
-        notifyEmailsChanged(mailbox, UpdateType.replace, messages);
+        // Show completion message
+        Get.showSnackbar(
+          GetSnackBar(
+            message: 'Loaded ${allMessages.length} emails from ${mailbox.name}',
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
       }
 
       // Update unread count

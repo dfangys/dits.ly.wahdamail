@@ -1,26 +1,33 @@
+// lib/app/bindings/home_binding.dart
+
 import 'package:get/get.dart';
 import 'package:wahda_bank/models/sqlite_mime_storage.dart';
-
-import '../controllers/mail_count_controller.dart';
-// import '../controllers/mailbox_controller.dart';
-import '../controllers/selection_controller.dart';
-import '../controllers/settings_controller.dart';
 import 'package:wahda_bank/app/controllers/email_controller_binding.dart';
+import 'package:wahda_bank/app/controllers/selection_controller.dart';
+import 'package:wahda_bank/app/controllers/settings_controller.dart';
+import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
+import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 
 class HomeBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<SelectionController>(() => SelectionController());
-    Get.lazyPut<SettingController>(() => SettingController());
-    Get.lazyPut<MailCountController>(() => MailCountController());
-    EmailControllerBinding().dependencies();
+    // 1️⃣ Ensure local SQLite storage is warmed up
+    Get.putAsync<SqliteMimeStorage>(
+          () async {
+        final storage = SqliteMimeStorage.instance;
+        await storage.database;
+        return storage;
+      },
+      permanent: true,
+    ).then((_) {
+      // 2️⃣ Guarantee all email controllers are bound
+      EmailControllerBinding().dependencies();
 
-    // 👇 this line is the important change
-    Get.putAsync<SqliteMimeStorage>(() async {
-      final storage = SqliteMimeStorage.instance;
-      await storage.database;          // warm-up
-      return storage;
+      // 3️⃣ Screen-specific controllers
+      Get.lazyPut<SelectionController>(() => SelectionController(), fenix: true);
+      Get.lazyPut<SettingController>(()   => SettingController(),   fenix: true);
+      Get.lazyPut<MailCountController>(()   => MailCountController(),   fenix: true);
+      Get.lazyPut<ComposeController>(()     => ComposeController(),     fenix: true);
     });
   }
-
 }
