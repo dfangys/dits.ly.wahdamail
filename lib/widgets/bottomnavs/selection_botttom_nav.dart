@@ -18,6 +18,7 @@ class SelectionBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final isTablet = MediaQuery.of(context).size.width > 600;
 
     return Container(
@@ -32,51 +33,69 @@ class SelectionBottomNav extends StatelessWidget {
       padding: EdgeInsets.only(
         top: 12,
         bottom: 12 + MediaQuery.of(context).padding.bottom,
-        left: isTablet ? 24 : 16,
-        right: isTablet ? 24 : 16,
+        left: 16,
+        right: 16,
       ),
       child: SafeArea(
         top: false,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildActionButton(
-              context: context,
-              icon: Icons.delete_outline_rounded,
-              label: 'delete'.tr,
-              destructive: true,
-              onTap: () => _showDeleteConfirmation(context),
+            // Actions Row
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildActionButton(
+                    icon: Icons.delete_outline_rounded,
+                    label: 'delete'.tr,
+                    onTap: () => _showDeleteConfirmation(context),
+                    destructive: true,
+                  ),
+                  _buildActionButton(
+                    icon: Icons.mark_email_unread_rounded,
+                    label: 'Unread',
+                    onTap: () async {
+                      mailController.markAsReadUnread(
+                        selectionController.selected,
+                        box,
+                        false,
+                      );
+                      selectionController.clear();
+                    },
+                  ),
+                  _buildActionButton(
+                    icon: Icons.mark_email_read_rounded,
+                    label: 'Read',
+                    onTap: () async {
+                      await mailController.markAsReadUnread(
+                        selectionController.selected,
+                        box,
+                      );
+                      selectionController.clear();
+                    },
+                  ),
+                  _buildActionButton(
+                    icon: Icons.drive_file_move_outline,
+                    label: 'Move',
+                    onTap: () => _showMoveActionSheet(context),
+                  ),
+                ],
+              ),
             ),
-            _buildActionButton(
-              context: context,
-              icon: Icons.mark_email_unread_rounded,
-              label: 'Mark Unread',
-              onTap: () async {
-                mailController.markAsReadUnread(
-                  selectionController.selected,
-                  box,
-                  false,
-                );
-                selectionController.clear();
-              },
-            ),
-            _buildActionButton(
-              context: context,
-              icon: Icons.mark_email_read_rounded,
-              label: 'Mark Read',
-              onTap: () async {
-                await mailController.markAsReadUnread(
-                  selectionController.selected,
-                  box,
-                );
-                selectionController.clear();
-              },
-            ),
-            _buildActionButton(
-              context: context,
-              icon: Icons.drive_file_move_outline,
-              label: 'Move',
-              onTap: () => _showMoveActionSheet(context),
+
+            // Close Button
+            GestureDetector(
+              onTap: () => selectionController.clear(),
+              child: Container(
+                width: 40,
+                height: 40,
+                margin: const EdgeInsets.only(left: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 20, color: Colors.black54),
+              ),
             ),
           ],
         ),
@@ -85,51 +104,41 @@ class SelectionBottomNav extends StatelessWidget {
   }
 
   Widget _buildActionButton({
-    required BuildContext context,
     required IconData icon,
     required String label,
     required VoidCallback onTap,
     bool destructive = false,
   }) {
-    final isTablet = MediaQuery.of(context).size.width > 600;
-
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isTablet ? 12 : 8,
-          vertical: 8,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: isTablet ? 48 : 40,
-              height: isTablet ? 48 : 40,
-              decoration: BoxDecoration(
-                color: destructive
-                    ? Colors.red.withOpacity(0.1)
-                    : AppTheme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                size: isTablet ? 24 : 20,
-                color: destructive ? Colors.red : AppTheme.primaryColor,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: destructive
+                  ? Colors.red.withOpacity(0.1)
+                  : AppTheme.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: destructive ? Colors.red : AppTheme.textPrimaryColor,
-              ),
+            child: Icon(
+              icon,
+              color: destructive ? Colors.red : AppTheme.primaryColor,
+              size: 22,
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: destructive ? Colors.red : AppTheme.textPrimaryColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
