@@ -199,7 +199,7 @@ class ShowMessage extends StatelessWidget {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(4.0),
-                  child: MailAttachments(message: message),
+                  child: MailAttachments(message: message, mailbox: mailbox),
                 ),
               ),
             ],

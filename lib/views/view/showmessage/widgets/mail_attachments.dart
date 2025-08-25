@@ -14,13 +14,41 @@ import '../../../../services/mail_service.dart';
 import '../../../../utills/theme/app_theme.dart';
 
 class MailAttachments extends StatelessWidget {
-  const MailAttachments({super.key, required this.message});
+  const MailAttachments({super.key, required this.message, this.mailbox});
   final MimeMessage message;
+  final Mailbox? mailbox;
+
+  Future<MimeMessage> _fetchMessageContent() async {
+    try {
+      final mailService = MailService.instance;
+      
+      // Ensure we're connected
+      if (!mailService.client.isConnected) {
+        await mailService.connect();
+      }
+      
+      // If mailbox is provided and it's different from current selection, select it
+      if (mailbox != null) {
+        final currentMailbox = mailService.client.selectedMailbox;
+        if (currentMailbox == null || currentMailbox.path != mailbox!.path) {
+          await mailService.client.selectMailbox(mailbox!);
+        }
+      }
+      
+      // Fetch the message content with proper context
+      return await mailService.client.fetchMessageContents(message);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching message content: $e');
+      }
+      rethrow;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: MailService.instance.client.fetchMessageContents(message),
+    return FutureBuilder<MimeMessage>(
+      future: _fetchMessageContent(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(

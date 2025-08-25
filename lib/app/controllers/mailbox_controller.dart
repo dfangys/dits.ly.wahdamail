@@ -7,6 +7,8 @@ import 'package:logger/logger.dart';
 import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/models/sqlite_mime_storage.dart';
+import 'package:wahda_bank/models/sqlite_draft_repository.dart';
+import 'package:wahda_bank/views/compose/models/draft_model.dart';
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
@@ -194,6 +196,12 @@ class MailBoxController extends GetxController {
         currentMailbox = mailbox;
       }
 
+      // Special handling for draft mailbox
+      if (mailbox.name.toLowerCase() == 'drafts' || mailbox.name.toLowerCase() == 'draft') {
+        await _loadDraftsFromLocal(mailbox);
+        return;
+      }
+
       int max = mailbox.messagesExists;
       if (mailbox.uidNext != null && mailbox.isInbox) {
         await GetStorage().write(
@@ -290,6 +298,74 @@ class MailBoxController extends GetxController {
       logger.e("Error in fetchMailbox: $e");
       // Don't rethrow, let the calling method handle the error
     }
+  }
+
+  Future<void> _loadDraftsFromLocal(Mailbox mailbox) async {
+    try {
+      // Initialize storage for drafts if not exists
+      if (mailboxStorage[mailbox] == null) {
+        mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
+          mailAccount: mailService.account,
+          mailbox: mailbox,
+        );
+        await mailboxStorage[mailbox]!.init();
+      }
+
+      if (emails[mailbox] == null) {
+        emails[mailbox] = <MimeMessage>[];
+      }
+      emails[mailbox]!.clear();
+
+      // Load drafts from local SQLite database
+      final draftRepository = SQLiteDraftRepository.instance;
+      final drafts = await draftRepository.getAllDrafts();
+      
+      // Convert drafts to MimeMessage objects
+      List<MimeMessage> draftMessages = [];
+      for (var draft in drafts) {
+        try {
+          final mimeMessage = _convertDraftToMimeMessage(draft);
+          draftMessages.add(mimeMessage);
+        } catch (e) {
+          logger.e("Error converting draft to MimeMessage: $e");
+        }
+      }
+
+      emails[mailbox]!.addAll(draftMessages);
+      
+      // Save to storage and notify listeners
+      await mailboxStorage[mailbox]!.saveMessageEnvelopes(draftMessages);
+      
+      if (Get.isRegistered<MailCountController>()) {
+        final countControll = Get.find<MailCountController>();
+        String key = "${mailbox.name.toLowerCase()}_count";
+        countControll.counts[key] = draftMessages.length;
+      }
+    } catch (e) {
+      logger.e("Error loading drafts from local: $e");
+    }
+  }
+
+  MimeMessage _convertDraftToMimeMessage(DraftModel draft) {
+    final message = MimeMessage();
+    
+    // Set basic properties
+    message.setHeader('subject', draft.subject ?? '');
+    message.setHeader('from', draft.from ?? '');
+    message.setHeader('to', draft.to ?? '');
+    message.setHeader('cc', draft.cc ?? '');
+    message.setHeader('bcc', draft.bcc ?? '');
+    message.setHeader('date', draft.createdAt.toIso8601String());
+    
+    // Set content
+    if (draft.body != null && draft.body!.isNotEmpty) {
+      message.text = draft.body;
+    }
+    
+    // Mark as draft
+    message.setHeader('x-draft-id', draft.id.toString());
+    
+    return message;
   }
 
   Future<List<MimeMessage>> queue(MessageSequence sequence) async {
