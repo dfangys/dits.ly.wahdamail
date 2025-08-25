@@ -9,9 +9,11 @@ import '../app/controllers/selection_controller.dart';
 import '../app/controllers/settings_controller.dart';
 import '../utills/funtions.dart';
 import '../utills/theme/app_theme.dart';
+import '../services/cache_manager.dart';
+import '../services/realtime_update_service.dart';
 
-class MailTile extends StatelessWidget {
-  MailTile({
+class MailTile extends StatefulWidget {
+  const MailTile({
     super.key,
     required this.onTap,
     required this.message,
@@ -22,251 +24,335 @@ class MailTile extends StatelessWidget {
   final MimeMessage message;
   final Mailbox mailBox;
 
+  @override
+  State<MailTile> createState() => _MailTileState();
+}
+
+class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin {
   final settingController = Get.find<SettingController>();
   final selectionController = Get.find<SelectionController>();
   final mailboxController = Get.find<MailBoxController>();
+  final cacheManager = CacheManager.instance;
 
-  String get name {
-    if ((["sent", "drafts"].contains(mailBox.name.toLowerCase())) &&
-        message.to != null &&
-        message.to!.isNotEmpty) {
-      return message.to!.first.personalName ?? message.to!.first.email;
-    }
-    if (message.from != null && message.from!.isNotEmpty) {
-      return message.from!.first.personalName ?? message.from!.first.email;
-    }
-    return "Unknown";
+  // Cached computed values to avoid recomputation
+  late final String _senderName;
+  late final String _senderEmail;
+  late final bool _hasAttachments;
+  late final DateTime? _messageDate;
+  late final String _subject;
+  late final String _preview;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _computeCachedValues();
   }
 
-  // Optimized method to check for attachments
-  bool get hasAttachments {
-    // Use the built-in method from enough_mail
-    return message.hasAttachments();
+  void _computeCachedValues() {
+    // Compute sender information
+    if ((["sent", "drafts"].contains(widget.mailBox.name.toLowerCase())) &&
+        widget.message.to != null &&
+        widget.message.to!.isNotEmpty) {
+      _senderName = widget.message.to!.first.personalName ?? 
+                   widget.message.to!.first.email.split('@').first;
+      _senderEmail = widget.message.to!.first.email;
+    } else if (widget.message.from != null && widget.message.from!.isNotEmpty) {
+      _senderName = widget.message.from!.first.personalName ?? 
+                   widget.message.from!.first.email.split('@').first;
+      _senderEmail = widget.message.from!.first.email;
+    } else {
+      _senderName = "Unknown";
+      _senderEmail = "";
+    }
+
+    // Cache other computed values
+    _hasAttachments = widget.message.hasAttachments();
+    _messageDate = widget.message.decodeDate();
+    _subject = widget.message.decodeSubject() ?? 'No Subject';
+    _preview = _generatePreview();
+  }
+
+  String _generatePreview() {
+    // Try to get cached content first
+    final cachedContent = cacheManager.getCachedMessageContent(widget.message);
+    if (cachedContent != null) {
+      return _extractPreviewFromContent(cachedContent);
+    }
+
+    // Fallback to basic preview extraction
+    final textPart = widget.message.decodeTextPlainPart();
+    if (textPart != null && textPart.isNotEmpty) {
+      return _extractPreviewFromContent(textPart);
+    }
+
+    final htmlPart = widget.message.decodeTextHtmlPart();
+    if (htmlPart != null && htmlPart.isNotEmpty) {
+      return _extractPreviewFromContent(htmlPart);
+    }
+
+    return 'No preview available';
+  }
+
+  String _extractPreviewFromContent(String content) {
+    // Remove HTML tags and extra whitespace
+    final cleanContent = content
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    
+    // Return first 100 characters
+    return cleanContent.length > 100 
+        ? '${cleanContent.substring(0, 100)}...'
+        : cleanContent;
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isUnread = !message.isSeen;
-    final bool hasFlagged = message.isFlagged;
+    super.build(context);
+    
+    final bool isUnread = !widget.message.isSeen;
+    final bool hasFlagged = widget.message.isFlagged;
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
 
-    return SlidableAutoCloseBehavior(
+    return Obx(() {
+      final isSelected = selectionController.selected.contains(widget.message);
+      
+      return OptimizedMailTileContent(
+        message: widget.message,
+        mailBox: widget.mailBox,
+        isUnread: isUnread,
+        hasFlagged: hasFlagged,
+        isSelected: isSelected,
+        senderName: _senderName,
+        senderEmail: _senderEmail,
+        hasAttachments: _hasAttachments,
+        messageDate: _messageDate,
+        subject: _subject,
+        preview: _preview,
+        onTap: widget.onTap,
+        theme: theme,
+        isDarkMode: isDarkMode,
+      );
+    });
+  }
+}
+
+class OptimizedMailTileContent extends StatelessWidget {
+  const OptimizedMailTileContent({
+    super.key,
+    required this.message,
+    required this.mailBox,
+    required this.isUnread,
+    required this.hasFlagged,
+    required this.isSelected,
+    required this.senderName,
+    required this.senderEmail,
+    required this.hasAttachments,
+    required this.messageDate,
+    required this.subject,
+    required this.preview,
+    required this.onTap,
+    required this.theme,
+    required this.isDarkMode,
+  });
+
+  final MimeMessage message;
+  final Mailbox mailBox;
+  final bool isUnread;
+  final bool hasFlagged;
+  final bool isSelected;
+  final String senderName;
+  final String senderEmail;
+  final bool hasAttachments;
+  final DateTime? messageDate;
+  final String subject;
+  final String preview;
+  final VoidCallback? onTap;
+  final ThemeData theme;
+  final bool isDarkMode;
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inDays == 0) {
+      return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else if (difference.inDays < 7) {
+      const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return weekdays[date.weekday - 1];
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectionController = Get.find<SelectionController>();
+    final mailboxController = Get.find<MailBoxController>();
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? theme.primaryColor.withValues(alpha: 0.1)
+            : (isDarkMode ? Colors.grey.shade900 : Colors.white),
+        borderRadius: BorderRadius.circular(12),
+        border: isSelected
+            ? Border.all(color: theme.primaryColor, width: 2)
+            : null,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDarkMode ? 0.3 : 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Slidable(
-        startActionPane: ActionPane(
-            motion: const StretchMotion(),
-            children: [
-              Obx(
-                    () => SlidableAction(
-                  onPressed: (context) {
-                    mailboxController.ltrTap(message, mailBox);
-                  },
-                  backgroundColor:
-                  settingController.swipeGesturesLTRModel.backgroundColor,
-                  icon: settingController.swipeGesturesLTRModel.icon,
-                  label: settingController.swipeGesturesLTRModel.text,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              )
-            ]
-        ),
+        key: ValueKey(message.uid ?? message.sequenceId),
         endActionPane: ActionPane(
-          motion: const BehindMotion(),
+          motion: const ScrollMotion(),
           children: [
-            Obx(
-                  () => SlidableAction(
-                onPressed: (context) {
-                  mailboxController.rtlTap(message, mailBox);
-                },
-                backgroundColor:
-                settingController.swipeGesturesRTLModel.backgroundColor,
-                icon: settingController.swipeGesturesRTLModel.icon,
-                label: settingController.swipeGesturesRTLModel.text,
-                borderRadius: BorderRadius.circular(8),
-              ),
+            SlidableAction(
+              onPressed: (context) => _markAsRead(),
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              icon: isUnread ? Icons.mark_email_read : Icons.mark_email_unread,
+              label: isUnread ? 'Read' : 'Unread',
+            ),
+            SlidableAction(
+              onPressed: (context) => _toggleFlag(),
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              icon: hasFlagged ? Icons.flag : Icons.flag_outlined,
+              label: hasFlagged ? 'Unflag' : 'Flag',
+            ),
+            SlidableAction(
+              onPressed: (context) => _deleteMessage(),
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              icon: Icons.delete,
+              label: 'Delete',
             ),
           ],
         ),
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.white,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha : 0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(12),
-              onTap: () async {
-                try {
-                  if (selectionController.isSelecting) {
-                    selectionController.toggle(message);
-                  } else if (mailBox.name.toLowerCase() == 'drafts') {
-                    EasyLoading.showInfo('Loading...');
-                    // Use client.fetchMessageContents directly since we added the method to SQLiteMailboxMimeStorage
-                    MimeMessage? msg = await mailboxController.mailService.client.fetchMessageContents(message);
-                    Get.to(
-                          () => const ComposeScreen(),
-                      arguments: {'type': 'draft', 'message': msg},
-                    );
-                  } else if (onTap != null) {
-                    onTap!.call();
-                  }
-                } catch (e) {
-                  EasyLoading.showError(e.toString());
-                } finally {
-                  EasyLoading.dismiss();
-                }
-              },
-              onLongPress: () {
-                selectionController.toggle(message);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Avatar or selection indicator
-                    Obx(
-                          () => AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        height: 48,
-                        width: 48,
-                        decoration: BoxDecoration(
-                          color: selectionController.selected.contains(message)
-                              ? AppTheme.primaryColor
-                              : AppTheme.colorPalette[name.hashCode % AppTheme.colorPalette.length],
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: selectionController.selected.contains(message)
-                              ? const Icon(Icons.check, color: Colors.white, size: 24)
-                              : Text(
-                            name.isNotEmpty ? name[0].toUpperCase() : "?",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Email content
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Sender name and time
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  name,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: isUnread ? FontWeight.bold : FontWeight.w500,
-                                    color: isUnread ? Colors.black : Colors.black87,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              Text(
-                                mailTileTimeFormat(message.decodeDate()),
+            onTap: () {
+              if (selectionController.isSelecting) {
+                _toggleSelection();
+              } else {
+                onTap?.call();
+              }
+            },
+            onLongPress: _toggleSelection,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // Selection indicator or avatar
+                  _buildLeadingWidget(),
+                  const SizedBox(width: 12),
+                  
+                  // Message content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header row with sender and time
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                senderName,
                                 style: TextStyle(
-                                  color: isUnread ? AppTheme.primaryColor : Colors.grey,
-                                  fontSize: 12,
-                                  fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400,
+                                  fontWeight: isUnread ? FontWeight.w600 : FontWeight.w500,
+                                  fontSize: 16,
+                                  color: theme.textTheme.bodyLarge?.color,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          // Email address
-                          Text(
-                            message.from != null && message.from!.isNotEmpty
-                                ? message.from![0].email
-                                : "",
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.black54,
-                              fontSize: 13,
-                              fontWeight: isUnread ? FontWeight.w500 : FontWeight.w400,
                             ),
-                          ),
-                          const SizedBox(height: 6),
-                          // Subject and indicators
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      message.decodeSubject() ?? 'no_subject'.tr,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: isUnread ? Colors.black87 : Colors.black54,
-                                        fontSize: 14,
-                                        fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    // Preview text (if available)
-                                    Text(
-                                      message.decodeTextPlainPart()?.trim() ?? '',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
+                            if (messageDate != null)
+                              Text(
+                                _formatDate(messageDate!),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: theme.textTheme.bodySmall?.color,
+                                  fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              // Status indicators column
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  // Attachment indicator
-                                  if (hasAttachments)
-                                    Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: isUnread ? AppTheme.primaryColor.withValues(alpha : 0.1) : Colors.grey.withValues(alpha : 0.1),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Icon(
-                                        Icons.attachment,
-                                        color: isUnread ? AppTheme.primaryColor : Colors.grey,
-                                        size: 16,
-                                      ),
-                                    ),
-                                  const SizedBox(height: 8),
-                                  // Mail status indicator
-                                  _buildStatusIndicator(isUnread, hasFlagged),
-                                ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        
+                        // Subject line
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                subject,
+                                style: TextStyle(
+                                  fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400,
+                                  fontSize: 14,
+                                  color: theme.textTheme.bodyMedium?.color,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ],
+                            ),
+                            if (hasAttachments)
+                              Icon(
+                                Icons.attach_file,
+                                size: 16,
+                                color: theme.primaryColor,
+                              ),
+                            if (hasFlagged)
+                              Icon(
+                                Icons.flag,
+                                size: 16,
+                                color: Colors.orange,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        
+                        // Preview text
+                        Text(
+                          preview,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: theme.textTheme.bodySmall?.color,
+                            height: 1.3,
                           ),
-                        ],
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Unread indicator
+                  if (isUnread)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: theme.primaryColor,
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
           ),
@@ -275,62 +361,96 @@ class MailTile extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusIndicator(bool isUnread, bool hasFlagged) {
-    if (mailBox.name.toLowerCase() == 'drafts') {
-      return Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.orange.withValues(alpha : 0.1),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: const Icon(
-          Icons.edit_document,
-          color: Colors.orange,
-          size: 16,
-        ),
-      );
-    } else if (mailBox.name.toLowerCase() == 'sent') {
-      return Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.green.withValues(alpha : 0.1),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Icon(
-          Icons.check_circle_outline,
-          color: isUnread ? Colors.green : Colors.grey,
-          size: 16,
-        ),
-      );
-    } else if (mailBox.name.toLowerCase() == 'trash') {
-      return Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha : 0.1),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: const Icon(
-          Icons.delete_outline,
-          color: Colors.red,
-          size: 16,
-        ),
-      );
-    } else if (mailBox.isMarked || mailBox.name.toLowerCase() == 'inbox') {
-      return Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: hasFlagged ? AppTheme.starColor.withValues(alpha : 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Icon(
-          hasFlagged ? Icons.star : (isUnread ? Icons.circle : Icons.check_circle_outline),
-          color: hasFlagged
-              ? AppTheme.starColor
-              : (isUnread ? AppTheme.primaryColor : Colors.grey),
-          size: 16,
+  Widget _buildLeadingWidget() {
+    final selectionController = Get.find<SelectionController>();
+    
+    if (selectionController.isSelecting) {
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        child: Checkbox(
+          value: isSelected,
+          onChanged: (_) => _toggleSelection(),
+          activeColor: theme.primaryColor,
         ),
       );
     }
-    return const SizedBox.shrink();
+
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+      child: Text(
+        senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
+        style: TextStyle(
+          color: theme.primaryColor,
+          fontWeight: FontWeight.w600,
+          fontSize: 16,
+        ),
+      ),
+    );
+  }
+
+  void _toggleSelection() {
+    final selectionController = Get.find<SelectionController>();
+    if (isSelected) {
+      selectionController.selected.remove(message);
+    } else {
+      selectionController.selected.add(message);
+    }
+  }
+
+  void _markAsRead() async {
+    final realtimeService = RealtimeUpdateService.instance;
+    try {
+      if (isUnread) {
+        await realtimeService.markMessageAsRead(message);
+      } else {
+        await realtimeService.markMessageAsUnread(message);
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to update message status',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  void _toggleFlag() async {
+    final realtimeService = RealtimeUpdateService.instance;
+    try {
+      if (hasFlagged) {
+        await realtimeService.unflagMessage(message);
+      } else {
+        await realtimeService.flagMessage(message);
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to update flag status',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  void _deleteMessage() async {
+    final realtimeService = RealtimeUpdateService.instance;
+    try {
+      await realtimeService.deleteMessage(message);
+      Get.snackbar(
+        'Success',
+        'Message deleted',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to delete message',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
 }

@@ -11,6 +11,8 @@ import 'package:wahda_bank/models/sqlite_draft_repository.dart';
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
+import 'package:wahda_bank/services/cache_manager.dart';
+import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import 'package:workmanager/workmanager.dart';
@@ -24,11 +26,19 @@ class MailBoxController extends GetxController {
   final RxBool isBoxBusy = true.obs;
   final getStoarage = GetStorage();
 
+  // Performance optimization services
+  final CacheManager cacheManager = CacheManager.instance;
+  final RealtimeUpdateService realtimeService = RealtimeUpdateService.instance;
+
   // Replace Hive storage with SQLite storage
   final RxMap<Mailbox, SQLiteMailboxMimeStorage> mailboxStorage =
       <Mailbox, SQLiteMailboxMimeStorage>{}.obs;
   final RxMap<Mailbox, List<MimeMessage>> emails =
       <Mailbox, List<MimeMessage>>{}.obs;
+
+  // Real-time update observables
+  final RxMap<String, int> unreadCounts = <String, int>{}.obs;
+  final RxSet<String> flaggedMessages = <String>{}.obs;
 
   // Track current mailbox to fix fetch error when switching
   final Rx<Mailbox?> _currentMailbox = Rx<Mailbox?>(null);
@@ -372,6 +382,145 @@ class MailBoxController extends GetxController {
       logger.e("Error in fetchMailbox: $e");
       // Don't rethrow, let the calling method handle the error
     }
+  }
+
+  // Enhanced refresh method for optimized loading
+  Future<void> refreshMailbox(Mailbox mailbox) async {
+    try {
+      isBoxBusy(true);
+      
+      // Clear current data
+      if (emails[mailbox] != null) {
+        emails[mailbox]!.clear();
+      }
+      
+      // Reset pagination
+      page = 1;
+      
+      // Reload emails
+      await loadEmailsForBox(mailbox);
+    } catch (e) {
+      logger.e("Error refreshing mailbox: $e");
+      Get.snackbar(
+        'Refresh Error',
+        'Failed to refresh emails. Please try again.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    } finally {
+      isBoxBusy(false);
+    }
+  }
+
+  // Load more emails for pagination
+  Future<void> loadMoreEmails(Mailbox mailbox, int pageNumber) async {
+    try {
+      if (isBoxBusy.value) return; // Prevent multiple simultaneous loads
+      
+      // Set current mailbox
+      currentMailbox = mailbox;
+
+      // Check connection
+      if (!mailService.client.isConnected) {
+        await mailService.connect().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            throw TimeoutException("Connection timeout", const Duration(seconds: 10));
+          },
+        );
+      }
+
+      // Select mailbox
+      await mailService.client.selectMailbox(mailbox).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException("Mailbox selection timeout", const Duration(seconds: 10));
+        },
+      );
+
+      // Load additional messages
+      await _loadAdditionalMessages(mailbox, pageNumber);
+      
+    } catch (e) {
+      logger.e("Error loading more emails: $e");
+      // Don't show error for pagination failures to avoid disrupting UX
+    }
+  }
+
+  // Load additional messages for pagination
+  Future<void> _loadAdditionalMessages(Mailbox mailbox, int pageNumber) async {
+    try {
+      int max = mailbox.messagesExists;
+      if (max == 0) return;
+
+      int startIndex = pageNumber * pageSize;
+      if (startIndex >= max) return; // No more messages
+
+      int endIndex = startIndex + pageSize;
+      if (endIndex > max) {
+        endIndex = max;
+      }
+
+      // Create sequence for additional messages
+      MessageSequence sequence;
+      try {
+        sequence = MessageSequence.fromRange(max - endIndex + 1, max - startIndex);
+      } catch (e) {
+        logger.e("Error creating sequence for pagination: $e");
+        return;
+      }
+
+      // Load messages from storage first
+      if (mailboxStorage[mailbox] != null) {
+        final cachedMessages = await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () => <MimeMessage>[],
+        );
+
+        if (cachedMessages.isNotEmpty) {
+          if (emails[mailbox] == null) {
+            emails[mailbox] = <MimeMessage>[];
+          }
+          emails[mailbox]!.addAll(cachedMessages);
+          return;
+        }
+      }
+
+      // If not in cache, fetch from server
+      List<MimeMessage> newMessages = await queue(sequence).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => <MimeMessage>[],
+      );
+
+      if (newMessages.isNotEmpty) {
+        if (emails[mailbox] == null) {
+          emails[mailbox] = <MimeMessage>[];
+        }
+        emails[mailbox]!.addAll(newMessages);
+
+        // Save to cache
+        if (mailboxStorage[mailbox] != null) {
+          await Future.delayed(const Duration(milliseconds: 50));
+          await mailboxStorage[mailbox]!.saveMessageEnvelopes(newMessages).timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              logger.w("Cache save timeout during pagination");
+            },
+          );
+        }
+      }
+    } catch (e) {
+      logger.e("Error in _loadAdditionalMessages: $e");
+    }
+  }
+
+  // Get current mailbox emails for optimized list
+  List<MimeMessage> get boxMails {
+    if (currentMailbox != null && emails[currentMailbox] != null) {
+      return emails[currentMailbox]!;
+    }
+    return [];
   }
 
   Future<void> _loadDraftsFromLocal(Mailbox mailbox) async {

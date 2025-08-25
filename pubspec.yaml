@@ -48,6 +48,7 @@ dependencies:
   flutter_contacts: ^1.1.7+1
   collection: ^1.18.0
   timeago: ^3.6.1
+  rxdart: ^0.27.7
   get_storage:
   hive_flutter:
   logger: ^2.0.2+1
