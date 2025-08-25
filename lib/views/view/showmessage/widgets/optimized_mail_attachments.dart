@@ -123,7 +123,8 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
       );
       
       if (part?.mimeData != null) {
-        final data = part!.mimeData!.decodeBinary();
+        final contentTransferEncoding = part!.getHeaderValue('content-transfer-encoding');
+        final data = part.mimeData!.decodeBinary(contentTransferEncoding);
         if (data != null) {
           // Cache the data
           _attachmentDataCache[cacheKey] = data;

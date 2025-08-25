@@ -516,13 +516,6 @@ class MailBoxController extends GetxController {
       logger.e("Error in _loadAdditionalMessages: $e");
     }
   }
-
-  // Get current mailbox emails for optimized list
-  List<MimeMessage> get boxMails {
-    if (currentMailbox != null && emails[currentMailbox] != null) {
-      return emails[currentMailbox]!;
-    }
-    return [];
   }
 
   Future<void> _loadDraftsFromLocal(Mailbox mailbox) async {
