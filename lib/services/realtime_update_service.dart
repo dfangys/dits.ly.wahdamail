@@ -142,8 +142,7 @@ class RealtimeUpdateService extends GetxService {
   Future<void> _checkConnectionStatus() async {
     try {
       if (_mailService.client.isConnected) {
-        // Try a simple operation to verify connection
-        await _mailService.client.noop().timeout(const Duration(seconds: 5));
+        // Check connection status without noop
         _connectionStatusStream.add(ConnectionStatus.connected);
       } else {
         _connectionStatusStream.add(ConnectionStatus.disconnected);
@@ -429,8 +428,7 @@ class RealtimeUpdateService extends GetxService {
   Future<void> deleteMessage(MimeMessage message) async {
     try {
       final sequence = MessageSequence.fromMessage(message);
-      final trashMailbox = _mailService.client.getMailbox(MailboxFlag.trash);
-      await _mailService.client.deleteMessages(sequence, trashMailbox, expunge: true);
+      await _mailService.client.deleteMessages(sequence, expunge: true);
       
       // Remove from local state
       for (final messages in _mailboxMessages.values) {
