@@ -16,8 +16,8 @@ class RealtimeUpdateService extends GetxService {
   
   RealtimeUpdateService._();
 
-  final MailService _mailService = Get.find<MailService>();
-  final CacheManager _cacheManager = CacheManager.instance;
+  MailService get _mailService => Get.find<MailService>();
+  CacheManager get _cacheManager => CacheManager.instance;
 
   // Reactive streams for different types of updates
   final BehaviorSubject<List<MimeMessage>> _messagesStream = BehaviorSubject<List<MimeMessage>>.seeded([]);
