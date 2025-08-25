@@ -143,8 +143,14 @@ class RealtimeUpdateService extends GetxService {
     try {
       if (_mailService.client.isConnected) {
         // Try a simple operation to verify connection
-        await _mailService.client.noop().timeout(const Duration(seconds: 5));
+        final result = await _mailService.client.noop().timeout(const Duration(seconds: 5));
         _connectionStatusStream.add(ConnectionStatus.connected);
+        if (result != null) {
+          _handleMailboxUpdate(MailboxUpdate(
+            type: MailboxUpdateType.statusUpdate,
+            mailbox: result,
+          ));
+        }
       } else {
         _connectionStatusStream.add(ConnectionStatus.disconnected);
         // Try to reconnect
@@ -317,7 +323,8 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> markMessageAsRead(MimeMessage message) async {
     try {
-      await _mailService.client.markSeen(message);
+      final sequence = MessageSequence.fromMessage(message);
+      await _mailService.client.markSeen(sequence);
       
       // Update local state
       message.isSeen = true;
@@ -330,7 +337,12 @@ class RealtimeUpdateService extends GetxService {
       
       // Update unread counts
       for (final mailboxPath in _mailboxMessages.keys) {
-        await _updateUnreadCount(Mailbox(name: '', path: mailboxPath));
+        await _updateUnreadCount(Mailbox(
+          encodedName: '',
+          encodedPath: mailboxPath,
+          flags: [],
+          pathSeparator: '/',
+        ));
       }
       
     } catch (e) {
@@ -340,7 +352,8 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> markMessageAsUnread(MimeMessage message) async {
     try {
-      await _mailService.client.markUnseen(message);
+      final sequence = MessageSequence.fromMessage(message);
+      await _mailService.client.markUnseen(sequence);
       
       // Update local state
       message.isSeen = false;
@@ -353,7 +366,12 @@ class RealtimeUpdateService extends GetxService {
       
       // Update unread counts
       for (final mailboxPath in _mailboxMessages.keys) {
-        await _updateUnreadCount(Mailbox(name: '', path: mailboxPath));
+        await _updateUnreadCount(Mailbox(
+          encodedName: '',
+          encodedPath: mailboxPath,
+          flags: [],
+          pathSeparator: '/',
+        ));
       }
       
     } catch (e) {
@@ -363,7 +381,8 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> flagMessage(MimeMessage message) async {
     try {
-      await _mailService.client.markFlagged(message);
+      final sequence = MessageSequence.fromMessage(message);
+      await _mailService.client.markFlagged(sequence);
       
       // Update local state
       message.isFlagged = true;
@@ -384,7 +403,8 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> unflagMessage(MimeMessage message) async {
     try {
-      await _mailService.client.markUnflagged(message);
+      final sequence = MessageSequence.fromMessage(message);
+      await _mailService.client.markUnflagged(sequence);
       
       // Update local state
       message.isFlagged = false;
@@ -405,7 +425,8 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> deleteMessage(MimeMessage message) async {
     try {
-      await _mailService.client.markDeleted(message);
+      final sequence = MessageSequence.fromMessage(message);
+      await _mailService.client.markDeleted(sequence);
       await _mailService.client.expunge();
       
       // Remove from local state

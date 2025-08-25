@@ -1,27 +1,18 @@
-import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
-
-import 'package:enough_mail/enough_mail.dart';
-import 'package:enough_mail_flutter/enough_mail_flutter.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:enough_mail/enough_mail.dart';
 import 'package:get/get.dart';
-import 'package:open_app_file/open_app_file.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../../../services/mail_service.dart';
-import '../../../../utills/theme/app_theme.dart';
+import 'package:wahda_bank/services/cache_manager.dart';
+import 'package:wahda_bank/services/mail_service.dart';
 
 class OptimizedMailAttachments extends StatefulWidget {
   const OptimizedMailAttachments({
-    super.key, 
-    required this.message, 
+    super.key,
+    required this.message,
     this.mailbox,
   });
-  
+
   final MimeMessage message;
   final Mailbox? mailbox;
 
@@ -30,49 +21,57 @@ class OptimizedMailAttachments extends StatefulWidget {
 }
 
 class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
-  // Static caches for better performance
-  static final Map<String, MimeMessage> _contentCache = {};
-  static final Map<String, List<MimePart>> _attachmentCache = {};
+  List<ContentInfo> _attachments = [];
+  bool _isLoading = true;
+  String? _error;
+  late String _messageKey;
+  
+  // Cache for attachments
+  static final Map<String, List<ContentInfo>> _attachmentCache = {};
   static final Map<String, Uint8List> _attachmentDataCache = {};
   
-  MimeMessage? _cachedMessage;
-  List<MimePart> _attachments = [];
-  bool _isLoading = false;
-  String? _error;
-  
-  String get _messageKey => '${widget.message.uid ?? widget.message.sequenceId}';
+  // Services
+  final CacheManager _cacheManager = CacheManager.instance;
+  final MailService _mailService = Get.find<MailService>();
 
   @override
   void initState() {
     super.initState();
-    _loadMessageContent();
+    _messageKey = _generateMessageKey();
+    _loadAttachments();
   }
 
-  Future<void> _loadMessageContent() async {
-    if (_isLoading) return;
-    
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+  String _generateMessageKey() {
+    return '${widget.message.uid ?? widget.message.sequenceId ?? widget.message.hashCode}';
+  }
 
+  Future<void> _loadAttachments() async {
     try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
       // Check cache first
-      if (_contentCache.containsKey(_messageKey)) {
-        _cachedMessage = _contentCache[_messageKey];
-        _attachments = _attachmentCache[_messageKey] ?? [];
+      if (_attachmentCache.containsKey(_messageKey)) {
         setState(() {
+          _attachments = _attachmentCache[_messageKey]!;
           _isLoading = false;
         });
         return;
       }
 
-      // Fetch with optimized connection handling
-      final messageContent = await _fetchMessageContentOptimized();
-      
-      // Cache the results
-      _contentCache[_messageKey] = messageContent;
-      _cachedMessage = messageContent;
+      // Ensure we have the full message content
+      MimeMessage messageContent = widget.message;
+      if (!widget.message.hasAttachments()) {
+        // Try to fetch full content if not available
+        try {
+          messageContent = await _mailService.client.fetchMessageContents(widget.message);
+        } catch (e) {
+          // If fetch fails, use original message
+          messageContent = widget.message;
+        }
+      }
       
       // Extract attachments
       _attachments = messageContent.findContentInfo(disposition: ContentDisposition.attachment);
@@ -83,7 +82,7 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
       
     } catch (e) {
       setState(() {
-        _error = 'Error loading message content: ${e.toString()}';
+        _error = 'Failed to load attachments: $e';
       });
     } finally {
       setState(() {
@@ -92,104 +91,54 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
     }
   }
 
-  Future<MimeMessage> _fetchMessageContentOptimized() async {
-    final mailService = MailService.instance;
-    
-    // Connection with timeout
-    if (!mailService.client.isConnected) {
-      await mailService.connect().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw TimeoutException("Connection timeout", const Duration(seconds: 10)),
-      );
-    }
-    
-    // Mailbox selection with timeout
-    if (widget.mailbox != null) {
-      final currentMailbox = mailService.client.selectedMailbox;
-      if (currentMailbox == null || currentMailbox.path != widget.mailbox!.path) {
-        await mailService.client.selectMailbox(widget.mailbox!).timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => throw TimeoutException("Mailbox selection timeout", const Duration(seconds: 10)),
-        );
-      }
-    }
-    
-    // Fetch content with retry logic
-    return await _fetchWithRetry();
-  }
-
-  Future<MimeMessage> _fetchWithRetry() async {
-    int retryCount = 0;
-    const maxRetries = 3;
-    
-    while (retryCount < maxRetries) {
-      try {
-        return await MailService.instance.client.fetchMessageContents(widget.message).timeout(
-          const Duration(seconds: 30),
-          onTimeout: () => throw TimeoutException("Content fetch timeout", const Duration(seconds: 30)),
-        );
-      } catch (e) {
-        retryCount++;
-        if (retryCount >= maxRetries) rethrow;
-        
-        // Exponential backoff
-        await Future.delayed(Duration(milliseconds: 500 * retryCount));
-        
-        // Reconnect if needed
-        if (!MailService.instance.client.isConnected) {
-          await MailService.instance.connect();
-          if (widget.mailbox != null) {
-            await MailService.instance.client.selectMailbox(widget.mailbox!);
-          }
-        }
-      }
-    }
-    
-    throw Exception("Failed to fetch after $maxRetries retries");
-  }
-
-  Future<void> _preloadSmallAttachments() async {
+  void _preloadSmallAttachments() {
     for (final attachment in _attachments) {
       final size = attachment.size ?? 0;
-      if (size > 0 && size < 512 * 1024) { // Less than 512KB
-        final attachmentKey = '${_messageKey}_${attachment.fetchId}';
-        if (!_attachmentDataCache.containsKey(attachmentKey)) {
-          try {
-            final data = await _fetchAttachmentData(attachment);
-            if (data != null) {
-              _attachmentDataCache[attachmentKey] = data;
-            }
-          } catch (e) {
-            // Ignore preload errors
-            if (kDebugMode) {
-              print('Preload failed for attachment: $e');
-            }
-          }
-        }
+      if (size > 0 && size < 512 * 1024) { // Preload files smaller than 512KB
+        _fetchAttachmentData(attachment).catchError((e) {
+          // Ignore preload errors
+        });
       }
     }
   }
 
-  Future<Uint8List?> _fetchAttachmentData(MimePart attachment) async {
-    if (_cachedMessage == null || attachment.fetchId == null) return null;
-    
-    final attachmentKey = '${_messageKey}_${attachment.fetchId}';
-    
-    // Check cache first
-    if (_attachmentDataCache.containsKey(attachmentKey)) {
-      return _attachmentDataCache[attachmentKey];
-    }
-
+  Future<Uint8List?> _fetchAttachmentData(ContentInfo attachment) async {
     try {
-      final data = await MailService.instance.client.fetchMessagePart(_cachedMessage!, attachment.fetchId!);
-      _attachmentDataCache[attachmentKey] = data;
-      return data;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Failed to fetch attachment data: $e');
+      // Check cache first
+      final cacheKey = _generateAttachmentKey(attachment);
+      if (_attachmentDataCache.containsKey(cacheKey)) {
+        return _attachmentDataCache[cacheKey];
       }
+
+      // Ensure correct mailbox is selected
+      if (widget.mailbox != null && 
+          _mailService.client.selectedMailbox?.path != widget.mailbox!.path) {
+        await _mailService.client.selectMailbox(widget.mailbox!);
+      }
+
+      // Fetch the attachment part
+      final part = await _mailService.client.fetchMessagePart(
+        widget.message, 
+        attachment.fetchId,
+      );
+      
+      if (part?.mimeData != null) {
+        final data = part!.mimeData!.decodeBinary();
+        if (data != null) {
+          // Cache the data
+          _attachmentDataCache[cacheKey] = data;
+          return data;
+        }
+      }
+      
       return null;
+    } catch (e) {
+      throw Exception('Failed to fetch attachment: $e');
     }
+  }
+
+  String _generateAttachmentKey(ContentInfo attachment) {
+    return 'attachment_${_messageKey}_${attachment.fetchId}';
   }
 
   @override
@@ -210,22 +159,20 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.error_outline,
-                color: AppTheme.errorColor,
+                color: Colors.red,
                 size: 48,
               ),
               const SizedBox(height: 8),
               Text(
                 _error!,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.errorColor,
-                ),
+                style: TextStyle(color: Colors.red),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: _loadMessageContent,
+                onPressed: _loadAttachments,
                 child: const Text('Retry'),
               ),
             ],
@@ -234,45 +181,16 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
       );
     }
 
-    if (_cachedMessage == null) {
+    if (_attachments.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Attachments section
-        if (_attachments.isNotEmpty) _buildAttachmentSection(context),
-        
-        // Message content
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: MimeMessageViewer(
-            mimeMessage: _cachedMessage!,
-            adjustHeight: true,
-            blockExternalImages: true,
-            preferPlainText: false,
-            showMediaWidget: true,
-            maxImageWidth: MediaQuery.of(context).size.width - 32,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAttachmentSection(BuildContext context) {
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: Colors.grey[50],
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: Colors.grey[300]!),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,19 +200,22 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
             child: Row(
               children: [
                 Icon(
-                  Icons.attach_file,
-                  color: Theme.of(context).primaryColor,
+                  Icons.attachment,
+                  color: Colors.grey[600],
+                  size: 20,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   'Attachments (${_attachments.length})',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
                   ),
                 ),
               ],
             ),
           ),
+          const Divider(height: 1),
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -302,7 +223,11 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
             separatorBuilder: (context, index) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final attachment = _attachments[index];
-              return _buildAttachmentTile(context, attachment);
+              return _AttachmentTile(
+                attachment: attachment,
+                onDownload: () => _downloadAttachment(attachment),
+                onShare: () => _shareAttachment(attachment),
+              );
             },
           ),
         ],
@@ -310,37 +235,123 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
     );
   }
 
-  Widget _buildAttachmentTile(BuildContext context, MimePart attachment) {
-    final fileName = attachment.decodeFileName() ?? 'Unknown';
-    final fileSize = _formatFileSize(attachment.size ?? 0);
-    final fileIcon = _getFileIcon(fileName);
+  Future<void> _downloadAttachment(ContentInfo attachment) async {
+    try {
+      final data = await _fetchAttachmentData(attachment);
+      if (data != null) {
+        // Show success message
+        Get.snackbar(
+          'Success',
+          'Attachment downloaded successfully',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+      } else {
+        throw Exception('No data received');
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to download attachment: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  Future<void> _shareAttachment(ContentInfo attachment) async {
+    try {
+      final data = await _fetchAttachmentData(attachment);
+      if (data != null) {
+        final filename = attachment.contentDisposition?.filename ?? 
+                        attachment.contentType?.parameters['name'] ?? 
+                        'attachment';
+        // Create a temporary file and share it
+        await Share.shareXFiles([
+          XFile.fromData(
+            data,
+            name: filename,
+            mimeType: attachment.mediaType?.text,
+          ),
+        ]);
+      } else {
+        throw Exception('No data to share');
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to share attachment: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  static void clearCache() {
+    _attachmentCache.clear();
+    _attachmentDataCache.clear();
+  }
+}
+
+class _AttachmentTile extends StatelessWidget {
+  const _AttachmentTile({
+    required this.attachment,
+    required this.onDownload,
+    required this.onShare,
+  });
+
+  final ContentInfo attachment;
+  final VoidCallback onDownload;
+  final VoidCallback onShare;
+
+  @override
+  Widget build(BuildContext context) {
+    final filename = attachment.contentDisposition?.filename ?? 
+                    attachment.contentType?.parameters['name'] ?? 
+                    'Unknown file';
+    final size = attachment.size;
+    final sizeText = size != null ? _formatFileSize(size) : 'Unknown size';
 
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.blue[100],
+          borderRadius: BorderRadius.circular(8),
+        ),
         child: Icon(
-          fileIcon,
-          color: Theme.of(context).primaryColor,
+          _getFileIcon(filename),
+          color: Colors.blue[700],
+          size: 20,
         ),
       ),
       title: Text(
-        fileName,
-        style: const TextStyle(fontWeight: FontWeight.w500),
+        filename,
+        style: const TextStyle(
+          fontWeight: FontWeight.w500,
+        ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      subtitle: Text(fileSize),
+      subtitle: Text(
+        sizeText,
+        style: TextStyle(
+          color: Colors.grey[600],
+          fontSize: 12,
+        ),
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             icon: const Icon(Icons.download),
-            onPressed: () => _downloadAttachment(attachment),
+            onPressed: onDownload,
             tooltip: 'Download',
           ),
           IconButton(
             icon: const Icon(Icons.share),
-            onPressed: () => _shareAttachment(attachment),
+            onPressed: onShare,
             tooltip: 'Share',
           ),
         ],
@@ -351,11 +362,12 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
-  IconData _getFileIcon(String fileName) {
-    final extension = fileName.split('.').last.toLowerCase();
+  IconData _getFileIcon(String filename) {
+    final extension = filename.split('.').last.toLowerCase();
     switch (extension) {
       case 'pdf':
         return Icons.picture_as_pdf;
@@ -379,103 +391,15 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
         return Icons.video_file;
       case 'mp3':
       case 'wav':
+      case 'flac':
         return Icons.audio_file;
       case 'zip':
       case 'rar':
+      case '7z':
         return Icons.archive;
       default:
         return Icons.insert_drive_file;
     }
-  }
-
-  Future<void> _downloadAttachment(MimePart attachment) async {
-    try {
-      final data = await _fetchAttachmentData(attachment);
-      if (data == null) {
-        throw Exception('Failed to fetch attachment data');
-      }
-
-      // Request storage permission
-      if (await Permission.storage.request().isGranted) {
-        final directory = await getApplicationDocumentsDirectory();
-        final fileName = attachment.decodeFileName() ?? 'attachment';
-        final file = File('${directory.path}/$fileName');
-        
-        await file.writeAsBytes(data);
-        
-        Get.snackbar(
-          'Download Complete',
-          'Attachment saved to ${file.path}',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 3),
-        );
-      } else {
-        throw Exception('Storage permission denied');
-      }
-    } catch (e) {
-      Get.snackbar(
-        'Download Failed',
-        'Failed to download attachment: ${e.toString()}',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-      );
-    }
-  }
-
-  Future<void> _shareAttachment(MimePart attachment) async {
-    try {
-      final data = await _fetchAttachmentData(attachment);
-      if (data == null) {
-        throw Exception('Failed to fetch attachment data');
-      }
-
-      final directory = await getTemporaryDirectory();
-      final fileName = attachment.decodeFileName() ?? 'attachment';
-      final file = File('${directory.path}/$fileName');
-      
-      await file.writeAsBytes(data);
-      
-      await Share.shareXFiles([XFile(file.path)]);
-    } catch (e) {
-      Get.snackbar(
-        'Share Failed',
-        'Failed to share attachment: ${e.toString()}',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-      );
-    }
-  }
-
-  // Static methods for cache management
-  static void clearCache() {
-    _contentCache.clear();
-    _attachmentCache.clear();
-    _attachmentDataCache.clear();
-  }
-
-  static void cleanupCache() {
-    // Keep only last 50 messages in cache
-    if (_contentCache.length > 50) {
-      final keys = _contentCache.keys.toList();
-      final keysToRemove = keys.take(keys.length - 50);
-      for (final key in keysToRemove) {
-        _contentCache.remove(key);
-        _attachmentCache.remove(key);
-        _attachmentDataCache.removeWhere((k, v) => k.startsWith(key));
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    // Clean up cache periodically
-    if (_contentCache.length > 100) {
-      cleanupCache();
-    }
-    super.dispose();
   }
 }
 

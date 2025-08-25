@@ -100,7 +100,7 @@ class Drawer1 extends StatelessWidget {
                       ),
 
                       // Mailbox list
-                      for (Mailbox box in controller.sortedMailBoxes)
+                      for (Mailbox box in controller.mailBoxes)
                         WDrawerTile(
                           icon: boxIcon(box.name),
                           text: box.encodedName.toLowerCase().tr,

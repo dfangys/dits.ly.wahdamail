@@ -92,7 +92,7 @@ class MailBoxView extends GetView<MailBoxController> {
         ),
         bottomNavigationBar: Obx(() {
           return selectionController.selected.isNotEmpty
-              ? const SelectionBottomNav()
+              ? SelectionBottomNav(box: widget.mailbox)
               : const SizedBox.shrink();
         }),
       ),

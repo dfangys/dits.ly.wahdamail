@@ -128,7 +128,10 @@ class CacheManager extends GetxService {
 
   // Attachment data caching
   String _getAttachmentKey(MimeMessage message, MimePart attachment) {
-    return 'attachment_${_getMessageKey(message)}_${attachment.fetchId}';
+    final filename = attachment.contentDisposition?.filename ?? 
+                    attachment.contentType?.parameters['name'] ?? 
+                    'attachment_${attachment.hashCode}';
+    return 'attachment_${_getMessageKey(message)}_$filename';
   }
 
   void cacheAttachmentData(MimeMessage message, MimePart attachment, Uint8List data) {

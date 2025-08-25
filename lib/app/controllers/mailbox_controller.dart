@@ -66,15 +66,17 @@ class MailBoxController extends GetxController {
     'drafts',
     'trash',
     'junk',
+    'spam',
     'archive',
+    'outbox',
   ];
 
-  List<Mailbox> get sortedMailBoxes {
-    return mailboxes.toList()
-      ..sort((a, b) {
-        // Get the index of each item in the predefined order
-        int indexA = predefinedOrder.indexOf(a.name.toLowerCase());
-        int indexB = predefinedOrder.indexOf(b.name.toLowerCase());
+  final RxList<Mailbox> mailBoxes = <Mailbox>[].obs;
+
+  void sortMailboxes() {
+    mailBoxes.sort((a, b) {
+      int indexA = predefinedOrder.indexOf(a.name.toLowerCase());
+      int indexB = predefinedOrder.indexOf(b.name.toLowerCase());
         // Handle cases where the item is not in the predefined order
         if (indexA == -1) indexA = predefinedOrder.length;
         if (indexB == -1) indexB = predefinedOrder.length;
