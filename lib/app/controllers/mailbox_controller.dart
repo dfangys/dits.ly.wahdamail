@@ -366,20 +366,20 @@ class MailBoxController extends GetxController {
     // Set date
     message.setHeader('date', draft.createdAt.toIso8601String());
     
-    // Set content
+    // Set content using the correct MimePart API
     if (draft.body.isNotEmpty) {
+      final part = MimePart();
       if (draft.isHtml) {
-        message.addPart(MimePart()
-          ..contentType = ContentType.textHtml
-          ..text = draft.body);
+        part.setHeader('content-type', 'text/html; charset=utf-8');
       } else {
-        message.addPart(MimePart()
-          ..contentType = ContentType.textPlain
-          ..text = draft.body);
+        part.setHeader('content-type', 'text/plain; charset=utf-8');
       }
+      part.setHeader('content-transfer-encoding', '8bit');
+      part.body = draft.body;
+      message.addPart(part);
     }
     
-    // Mark as draft with custom header
+    // Mark as draft with custom headers
     message.setHeader('x-draft-id', draft.id?.toString() ?? '');
     message.setHeader('x-is-draft', 'true');
     
