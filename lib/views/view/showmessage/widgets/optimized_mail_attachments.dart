@@ -1,10 +1,9 @@
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
 import 'package:enough_mail/enough_mail.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/mail_service.dart';
+import 'package:share_plus/share_plus.dart';
 
 class OptimizedMailAttachments extends StatefulWidget {
   const OptimizedMailAttachments({
@@ -31,7 +30,6 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
   static final Map<String, Uint8List> _attachmentDataCache = {};
   
   // Services
-  final CacheManager _cacheManager = CacheManager.instance;
   final MailService _mailService = Get.find<MailService>();
 
   @override
@@ -97,6 +95,7 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
       if (size > 0 && size < 512 * 1024) { // Preload files smaller than 512KB
         _fetchAttachmentData(attachment).catchError((e) {
           // Ignore preload errors
+          return null;
         });
       }
     }
@@ -122,14 +121,12 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
         attachment.fetchId,
       );
       
-      if (part?.mimeData != null) {
-        final contentTransferEncoding = part!.getHeaderValue('content-transfer-encoding');
+      if (part != null && part.mimeData != null) {
+        final contentTransferEncoding = part.getHeaderValue('content-transfer-encoding');
         final data = part.mimeData!.decodeBinary(contentTransferEncoding);
-        if (data != null) {
-          // Cache the data
-          _attachmentDataCache[cacheKey] = data;
-          return data;
-        }
+        // Cache the data
+        _attachmentDataCache[cacheKey] = data;
+        return data;
       }
       
       return null;
@@ -286,11 +283,6 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
         colorText: Colors.white,
       );
     }
-  }
-
-  static void clearCache() {
-    _attachmentCache.clear();
-    _attachmentDataCache.clear();
   }
 }
 

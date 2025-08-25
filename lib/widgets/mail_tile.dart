@@ -1,14 +1,10 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import 'package:wahda_bank/views/compose/compose.dart';
 import '../app/controllers/selection_controller.dart';
 import '../app/controllers/settings_controller.dart';
-import '../utills/funtions.dart';
-import '../utills/theme/app_theme.dart';
 import '../services/cache_manager.dart';
 import '../services/realtime_update_service.dart';
 
@@ -211,7 +207,6 @@ class OptimizedMailTileContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selectionController = Get.find<SelectionController>();
-    final mailboxController = Get.find<MailBoxController>();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),

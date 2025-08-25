@@ -18,9 +18,6 @@ class SelectionBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isTablet = MediaQuery.of(context).size.width > 600;
-
     return Obx(() {
       final selectedCount = selectionController.selectedCount;
       
