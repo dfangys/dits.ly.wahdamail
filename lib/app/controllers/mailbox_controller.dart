@@ -370,12 +370,12 @@ class MailBoxController extends GetxController {
     if (draft.body.isNotEmpty) {
       final part = MimePart();
       if (draft.isHtml) {
-        part.setHeader('content-type', 'text/html; charset=utf-8');
+        part.addHeader('Content-Type', 'text/html; charset=utf-8');
       } else {
-        part.setHeader('content-type', 'text/plain; charset=utf-8');
+        part.addHeader('Content-Type', 'text/plain; charset=utf-8');
       }
-      part.setHeader('content-transfer-encoding', '8bit');
-      part.body = draft.body;
+      part.addHeader('Content-Transfer-Encoding', 'quoted-printable');
+      part.mimeData = TextMimeData(draft.body, containsHeader: false);
       message.addPart(part);
     }
     
