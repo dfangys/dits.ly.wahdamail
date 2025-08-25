@@ -11,7 +11,10 @@ import 'mail_service.dart';
 
 /// Real-time update service for reactive UI updates
 class RealtimeUpdateService extends GetxService {
-  static RealtimeUpdateService get instance => Get.find<RealtimeUpdateService>();
+  static RealtimeUpdateService? _instance;
+  static RealtimeUpdateService get instance => _instance ??= RealtimeUpdateService._();
+  
+  RealtimeUpdateService._();
 
   final MailService _mailService = Get.find<MailService>();
   final CacheManager _cacheManager = CacheManager.instance;
