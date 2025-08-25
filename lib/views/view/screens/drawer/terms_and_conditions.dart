@@ -33,7 +33,7 @@ class TermsAndCondition extends StatelessWidget {
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
+                color: theme.colorScheme.primary.withValues(alpha : 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -49,7 +49,7 @@ class TermsAndCondition extends StatelessWidget {
                       'Please read these terms and conditions carefully before using our services.',
                       style: TextStyle(
                         fontSize: 14,
-                        color: theme.colorScheme.onSurface.withOpacity(0.8),
+                        color: theme.colorScheme.onSurface.withValues(alpha : 0.8),
                       ),
                     ),
                   ),
@@ -107,7 +107,7 @@ class TermsAndCondition extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: Colors.grey.withValues(alpha : 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -115,14 +115,14 @@ class TermsAndCondition extends StatelessWidget {
                         Icon(
                           Icons.update,
                           size: 20,
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                          color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                         ),
                         const SizedBox(width: 12),
                         Text(
                           "Last updated: May 18, 2025",
                           style: TextStyle(
                             fontSize: 14,
-                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                            color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -222,7 +222,7 @@ class TermsAndCondition extends StatelessWidget {
             content,
             style: TextStyle(
               fontSize: 14,
-              color: theme.colorScheme.onSurface.withOpacity(0.7),
+              color: theme.colorScheme.onSurface.withValues(alpha : 0.7),
               height: 1.5,
             ),
           ),

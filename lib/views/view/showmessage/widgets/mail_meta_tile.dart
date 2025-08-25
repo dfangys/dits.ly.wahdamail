@@ -89,7 +89,7 @@ Widget buildMailInfo(String title, List<String> data) {
           width: 60,
           child: Text(
             "$title:",
-            style: TextStyle(
+            style: const TextStyle(
               fontWeight: FontWeight.w600,
               color: AppTheme.textSecondaryColor,
               fontSize: 14,
@@ -130,7 +130,7 @@ void _showEmailOptions(String email) {
   showCupertinoModalPopup(
     context: Get.context!,
     builder: (context) => CupertinoActionSheet(
-      title: Text('Email Options'),
+      title: const Text('Email Options'),
       message: Text(email),
       actions: [
         CupertinoActionSheetAction(
@@ -140,20 +140,20 @@ void _showEmailOptions(String email) {
 
             // Show copy confirmation
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
+              const SnackBar(
                 content: Text('Email address copied to clipboard'),
                 backgroundColor: AppTheme.successColor,
                 behavior: SnackBarBehavior.floating,
-                duration: const Duration(seconds: 2),
+                duration: Duration(seconds: 2),
               ),
             );
           },
-          child: Row(
+          child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.copy, size: 20, color: AppTheme.primaryColor),
-              const SizedBox(width: 8),
-              const Text("Copy Email Address"),
+              SizedBox(width: 8),
+              Text("Copy Email Address"),
             ],
           ),
         ),
@@ -164,11 +164,11 @@ void _showEmailOptions(String email) {
               "to": email,
             });
           },
-          child: Row(
+          child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.email_outlined, size: 20, color: AppTheme.primaryColor),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text("New Message"),
             ],
           ),
@@ -180,11 +180,11 @@ void _showEmailOptions(String email) {
               "terms": email,
             });
           },
-          child: Row(
+          child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.search, size: 20, color: AppTheme.primaryColor),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Text("Search"),
             ],
           ),

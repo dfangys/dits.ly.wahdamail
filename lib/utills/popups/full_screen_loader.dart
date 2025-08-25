@@ -82,7 +82,7 @@ class WFullScreenLoader {
           margin: const EdgeInsets.symmetric(horizontal: 30),
           decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(30),
-              color: Colors.grey.withOpacity(0.9)),
+              color: Colors.grey.withValues(alpha : 0.9)),
           child: Center(
             child: Text(
               message,

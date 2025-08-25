@@ -147,7 +147,7 @@ class ShowMessage extends StatelessWidget {
                                         ),
                                         Text(
                                           date,
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 12,
                                             color: AppTheme.textSecondaryColor,
                                           ),
@@ -157,7 +157,7 @@ class ShowMessage extends StatelessWidget {
                                     const SizedBox(height: 4),
                                     Text(
                                       email,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 14,
                                         color: AppTheme.textSecondaryColor,
                                       ),

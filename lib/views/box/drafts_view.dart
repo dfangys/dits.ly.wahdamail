@@ -26,7 +26,7 @@ class WComposeView extends StatelessWidget {
         Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: isDarkMode ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50,
+            color: isDarkMode ? Colors.grey.shade800.withValues(alpha : 0.3) : Colors.grey.shade50,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -72,7 +72,7 @@ class WComposeView extends StatelessWidget {
           duration: const Duration(milliseconds: 300),
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: isDarkMode ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50,
+            color: isDarkMode ? Colors.grey.shade800.withValues(alpha : 0.3) : Colors.grey.shade50,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -137,7 +137,7 @@ class WComposeView extends StatelessWidget {
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50,
+                    color: isDarkMode ? Colors.grey.shade800.withValues(alpha : 0.3) : Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -172,7 +172,7 @@ class WComposeView extends StatelessWidget {
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50,
+                    color: isDarkMode ? Colors.grey.shade800.withValues(alpha : 0.3) : Colors.grey.shade50,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -212,7 +212,7 @@ class WComposeView extends StatelessWidget {
         Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: isDarkMode ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50,
+            color: isDarkMode ? Colors.grey.shade800.withValues(alpha : 0.3) : Colors.grey.shade50,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -258,7 +258,7 @@ class WComposeView extends StatelessWidget {
               ? Container(
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: isDarkMode ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50,
+              color: isDarkMode ? Colors.grey.shade800.withValues(alpha : 0.3) : Colors.grey.shade50,
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
@@ -330,7 +330,7 @@ class WComposeView extends StatelessWidget {
         Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: isDarkMode ? Colors.grey.shade800.withOpacity(0.3) : Colors.grey.shade50,
+            color: isDarkMode ? Colors.grey.shade800.withValues(alpha : 0.3) : Colors.grey.shade50,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -438,7 +438,7 @@ class WComposeView extends StatelessWidget {
             margin: const EdgeInsets.only(top: 16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDarkMode ? Colors.grey.shade800.withOpacity(0.2) : Colors.grey.shade50,
+              color: isDarkMode ? Colors.grey.shade800.withValues(alpha : 0.2) : Colors.grey.shade50,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,

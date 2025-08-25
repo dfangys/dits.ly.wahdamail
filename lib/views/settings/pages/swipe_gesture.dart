@@ -15,9 +15,9 @@ class SwipGestureSetting extends GetView<SettingController> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Swipe Gestures',
-          style: const TextStyle(fontWeight: FontWeight.w600),
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
         elevation: 0,
@@ -33,7 +33,7 @@ class SwipGestureSetting extends GetView<SettingController> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
+                color: theme.colorScheme.primary.withValues(alpha : 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -49,7 +49,7 @@ class SwipGestureSetting extends GetView<SettingController> {
                       'Customize how swipe gestures behave when managing your emails',
                       style: TextStyle(
                         fontSize: 14,
-                        color: theme.colorScheme.onSurface.withOpacity(0.8),
+                        color: theme.colorScheme.onSurface.withValues(alpha : 0.8),
                       ),
                     ),
                   ),
@@ -76,7 +76,7 @@ class SwipGestureSetting extends GetView<SettingController> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: theme.dividerColor.withOpacity(0.2),
+                  color: theme.dividerColor.withValues(alpha : 0.2),
                 ),
               ),
               child: InkWell(
@@ -102,7 +102,7 @@ class SwipGestureSetting extends GetView<SettingController> {
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: actionModel.backgroundColor.withOpacity(actionModel.opacity),
+                            color: actionModel.backgroundColor.withValues(alpha: actionModel.opacity),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
@@ -131,7 +131,7 @@ class SwipGestureSetting extends GetView<SettingController> {
                                 'Swipe from left to right to ${data.swapActionModel[action]!.text.toLowerCase()}',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                                 ),
                               ),
                             ],
@@ -168,7 +168,7 @@ class SwipGestureSetting extends GetView<SettingController> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
-                  color: theme.dividerColor.withOpacity(0.2),
+                  color: theme.dividerColor.withValues(alpha : 0.2),
                 ),
               ),
               child: InkWell(
@@ -194,7 +194,7 @@ class SwipGestureSetting extends GetView<SettingController> {
                         return Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: actionModel.backgroundColor.withOpacity(actionModel.opacity),
+                            color: actionModel.backgroundColor.withValues(alpha: actionModel.opacity),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
@@ -223,7 +223,7 @@ class SwipGestureSetting extends GetView<SettingController> {
                                 'Swipe from right to left to ${data.swapActionModel[action]!.text.toLowerCase()}',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                                 ),
                               ),
                             ],
@@ -247,9 +247,9 @@ class SwipGestureSetting extends GetView<SettingController> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.1),
+                color: Colors.grey.withValues(alpha : 0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                border: Border.all(color: Colors.grey.withValues(alpha : 0.2)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -268,7 +268,7 @@ class SwipGestureSetting extends GetView<SettingController> {
                     children: [
                       Icon(
                         Icons.arrow_back,
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -279,7 +279,7 @@ class SwipGestureSetting extends GetView<SettingController> {
                             borderRadius: BorderRadius.circular(8),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
+                                color: Colors.black.withValues(alpha : 0.05),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
@@ -289,7 +289,7 @@ class SwipGestureSetting extends GetView<SettingController> {
                             child: Text(
                               "Swipe on an email to perform actions",
                               style: TextStyle(
-                                color: theme.colorScheme.onSurface.withOpacity(0.8),
+                                color: theme.colorScheme.onSurface.withValues(alpha : 0.8),
                               ),
                             ),
                           ),
@@ -298,7 +298,7 @@ class SwipGestureSetting extends GetView<SettingController> {
                       const SizedBox(width: 8),
                       Icon(
                         Icons.arrow_forward,
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                       ),
                     ],
                   ),

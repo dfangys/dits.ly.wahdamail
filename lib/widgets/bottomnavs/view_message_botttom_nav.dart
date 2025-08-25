@@ -12,7 +12,7 @@ class InboxBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 60,
-      color: const Color.fromRGBO(255, 255, 255, 1).withOpacity(0.8),
+      color: const Color.fromRGBO(255, 255, 255, 1).withValues(alpha : 0.8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -68,7 +68,7 @@ Widget bottomButton(VoidCallback onTap, String text, IconData icon) {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         // border: Border.all(),
-        color: Colors.blue.withOpacity(0.4),
+        color: Colors.blue.withValues(alpha : 0.4),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(

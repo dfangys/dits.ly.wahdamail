@@ -52,7 +52,7 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
 
             return Chip(
               avatar: CircleAvatar(
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+                backgroundColor: theme.colorScheme.primary.withValues(alpha : 0.2),
                 child: Text(
                   displayLetter,
                   style: TextStyle(
@@ -101,7 +101,7 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
             return ListTile(
               dense: true,
               leading: CircleAvatar(
-                backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+                backgroundColor: theme.colorScheme.primary.withValues(alpha : 0.2),
                 child: Text(
                   avatarText,
                   style: TextStyle(
@@ -183,7 +183,7 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
                       icon: Icon(
                         Icons.contacts_outlined,
                         color:
-                        theme.colorScheme.primary.withOpacity(0.8),
+                        theme.colorScheme.primary.withValues(alpha : 0.8),
                         size: 20,
                       ),
                       tooltip: "Select from contacts",

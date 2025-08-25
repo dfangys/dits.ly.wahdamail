@@ -23,7 +23,7 @@ class HomeAppBarIcon extends StatelessWidget {
           color: AppTheme.primaryColor,
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withOpacity(0.3),
+              color: AppTheme.primaryColor.withValues(alpha : 0.3),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),

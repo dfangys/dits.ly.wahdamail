@@ -6,7 +6,7 @@ import '../../../services/security_service.dart';
 class AuthScreen extends StatelessWidget {
   final SettingController _settingsController = Get.find<SettingController>();
   
-  AuthScreen({Key? key}) : super(key: key);
+  AuthScreen({super.key});
   
   @override
   Widget build(BuildContext context) {
@@ -21,7 +21,7 @@ class AuthScreen extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: isDarkMode
                 ? [Colors.grey.shade900, Colors.black]
-                : [theme.colorScheme.primary.withOpacity(0.1), Colors.white],
+                : [theme.colorScheme.primary.withValues(alpha : 0.1), Colors.white],
           ),
         ),
         child: SafeArea(
@@ -33,7 +33,7 @@ class AuthScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.1),
+                    color: theme.colorScheme.primary.withValues(alpha : 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(

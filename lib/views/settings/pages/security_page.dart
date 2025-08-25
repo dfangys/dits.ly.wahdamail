@@ -21,7 +21,7 @@ class SecurityPage extends GetView<SettingController> {
         ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: isDarkMode ? Colors.black.withOpacity(0.7) : Colors.white.withOpacity(0.9),
+        backgroundColor: isDarkMode ? Colors.black.withValues(alpha : 0.7) : Colors.white.withValues(alpha : 0.9),
         foregroundColor: theme.colorScheme.primary,
         flexibleSpace: ClipRect(
           child: BackdropFilter(
@@ -99,15 +99,15 @@ class SecurityPage extends GetView<SettingController> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: isDarkMode
-              ? [Colors.red.shade900.withOpacity(0.8), Colors.deepPurple.shade900.withOpacity(0.8)]
-              : [Colors.red.shade700.withOpacity(0.8), Colors.deepPurple.shade700.withOpacity(0.8)],
+              ? [Colors.red.shade900.withValues(alpha : 0.8), Colors.deepPurple.shade900.withValues(alpha : 0.8)]
+              : [Colors.red.shade700.withValues(alpha : 0.8), Colors.deepPurple.shade700.withValues(alpha : 0.8)],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: isDarkMode
-                ? Colors.black.withOpacity(0.2)
-                : Colors.red.shade700.withOpacity(0.2),
+                ? Colors.black.withValues(alpha : 0.2)
+                : Colors.red.shade700.withValues(alpha : 0.2),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -118,7 +118,7 @@ class SecurityPage extends GetView<SettingController> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha : 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -158,7 +158,7 @@ class SecurityPage extends GetView<SettingController> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.1),
+              color: theme.colorScheme.primary.withValues(alpha : 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -191,7 +191,7 @@ class SecurityPage extends GetView<SettingController> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: isDarkMode
-              ? Colors.grey.shade800.withOpacity(0.5)
+              ? Colors.grey.shade800.withValues(alpha : 0.5)
               : Colors.grey.shade200,
           width: 1,
         ),
@@ -223,13 +223,13 @@ class SecurityPage extends GetView<SettingController> {
                 _getLockMethodText(),
                 style: TextStyle(
                   fontSize: 13,
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                 ),
               )),
               trailing: Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 16,
-                color: theme.colorScheme.onSurface.withOpacity(0.3),
+                color: theme.colorScheme.onSurface.withValues(alpha : 0.3),
               ),
               onTap: () => _showLockMethodDialog(context),
               isDarkMode: isDarkMode,
@@ -247,13 +247,13 @@ class SecurityPage extends GetView<SettingController> {
                 _getAutoLockTimingText(),
                 style: TextStyle(
                   fontSize: 13,
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                 ),
               )),
               trailing: Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 16,
-                color: theme.colorScheme.onSurface.withOpacity(0.3),
+                color: theme.colorScheme.onSurface.withValues(alpha : 0.3),
               ),
               onTap: () => _showAutoLockTimingDialog(context),
               isDarkMode: isDarkMode,
@@ -274,7 +274,7 @@ class SecurityPage extends GetView<SettingController> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: isDarkMode
-              ? Colors.grey.shade800.withOpacity(0.5)
+              ? Colors.grey.shade800.withValues(alpha : 0.5)
               : Colors.grey.shade200,
           width: 1,
         ),
@@ -320,7 +320,7 @@ class SecurityPage extends GetView<SettingController> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: isDarkMode
-              ? Colors.grey.shade800.withOpacity(0.5)
+              ? Colors.grey.shade800.withValues(alpha : 0.5)
               : Colors.grey.shade200,
           width: 1,
         ),
@@ -351,7 +351,7 @@ class SecurityPage extends GetView<SettingController> {
               'Delete all cached data and reset preferences',
               style: TextStyle(
                 fontSize: 13,
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
               ),
             ),
             onTap: () => _showClearDataDialog(context),
@@ -382,7 +382,7 @@ class SecurityPage extends GetView<SettingController> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withValues(alpha : 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: iconColor, size: 22),
@@ -407,7 +407,7 @@ class SecurityPage extends GetView<SettingController> {
                     subtitle,
                     style: TextStyle(
                       fontSize: 13,
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                     ),
                   ),
                 ],
@@ -417,7 +417,7 @@ class SecurityPage extends GetView<SettingController> {
             Switch.adaptive(
               value: value(),
               activeColor: theme.colorScheme.primary,
-              activeTrackColor: theme.colorScheme.primary.withOpacity(0.3),
+              activeTrackColor: theme.colorScheme.primary.withValues(alpha : 0.3),
               inactiveThumbColor: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade50,
               inactiveTrackColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
               onChanged: (val) => value.toggle(),
@@ -441,8 +441,8 @@ class SecurityPage extends GetView<SettingController> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      splashColor: iconColor.withOpacity(0.1),
-      highlightColor: iconColor.withOpacity(0.05),
+      splashColor: iconColor.withValues(alpha : 0.1),
+      highlightColor: iconColor.withValues(alpha : 0.05),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -450,7 +450,7 @@ class SecurityPage extends GetView<SettingController> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withValues(alpha : 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: iconColor, size: 22),
@@ -489,7 +489,7 @@ class SecurityPage extends GetView<SettingController> {
     return Divider(
       height: 1,
       indent: 70,
-      color: theme.dividerColor.withOpacity(0.1),
+      color: theme.dividerColor.withValues(alpha : 0.1),
     );
   }
 
@@ -610,9 +610,9 @@ class SecurityPage extends GetView<SettingController> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: controller.lockMethod.value == value
-              ? theme.colorScheme.primary.withOpacity(0.1)
+              ? theme.colorScheme.primary.withValues(alpha : 0.1)
               : isDarkMode
-              ? Colors.grey.shade800.withOpacity(0.5)
+              ? Colors.grey.shade800.withValues(alpha : 0.5)
               : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
@@ -628,7 +628,7 @@ class SecurityPage extends GetView<SettingController> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: controller.lockMethod.value == value
-                    ? theme.colorScheme.primary.withOpacity(0.2)
+                    ? theme.colorScheme.primary.withValues(alpha : 0.2)
                     : isDarkMode
                     ? Colors.grey.shade700
                     : Colors.white,
@@ -666,7 +666,7 @@ class SecurityPage extends GetView<SettingController> {
                     subtitle,
                     style: TextStyle(
                       fontSize: 13,
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                     ),
                   ),
                 ],
@@ -778,7 +778,7 @@ class SecurityPage extends GetView<SettingController> {
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
           color: controller.autoLockTiming.value == value
-              ? theme.colorScheme.primary.withOpacity(0.1)
+              ? theme.colorScheme.primary.withValues(alpha : 0.1)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
@@ -850,7 +850,7 @@ class SecurityPage extends GetView<SettingController> {
             child: Text(
               'cancel'.tr,
               style: TextStyle(
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
+                color: theme.colorScheme.onSurface.withValues(alpha : 0.7),
                 fontWeight: FontWeight.w500,
               ),
             ),

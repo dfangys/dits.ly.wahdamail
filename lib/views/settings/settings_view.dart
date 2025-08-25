@@ -30,8 +30,8 @@ class SettingsView extends GetView<SettingController> {
             pinned: true,
             elevation: 0,
             backgroundColor: isDarkMode
-                ? Colors.black.withOpacity(0.7)
-                : Colors.white.withOpacity(0.9),
+                ? Colors.black.withValues(alpha : 0.7)
+                : Colors.white.withValues(alpha : 0.9),
             flexibleSpace: ClipRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -116,7 +116,7 @@ class SettingsView extends GetView<SettingController> {
                       duration: const Duration(milliseconds: 500),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        color: theme.colorScheme.primary.withValues(alpha : 0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
@@ -168,8 +168,8 @@ class SettingsView extends GetView<SettingController> {
           boxShadow: [
             BoxShadow(
               color: isDarkMode
-                  ? Colors.black.withOpacity(0.3)
-                  : theme.colorScheme.primary.withOpacity(0.3),
+                  ? Colors.black.withValues(alpha : 0.3)
+                  : theme.colorScheme.primary.withValues(alpha : 0.3),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
@@ -191,7 +191,7 @@ class SettingsView extends GetView<SettingController> {
                 tag: 'profile_avatar',
                 child: CircleAvatar(
                   radius: 40,
-                  backgroundColor: Colors.white.withOpacity(0.2),
+                  backgroundColor: Colors.white.withValues(alpha : 0.2),
                   child: CircleAvatar(
                     radius: 38,
                     backgroundColor: isDarkMode ? Colors.indigo.shade700 : theme.colorScheme.primary,
@@ -265,7 +265,7 @@ class SettingsView extends GetView<SettingController> {
                     //     email,
                     //     style: TextStyle(
                     //       fontSize: 14,
-                    //       color: Colors.white.withOpacity(0.8),
+                    //       color: Colors.white.withValues(alpha : 0.8),
                     //     ),
                     //   );
                     // }),
@@ -286,18 +286,18 @@ class SettingsView extends GetView<SettingController> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha : 0.2),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.edit_rounded,
                             size: 14,
                             color: Colors.white,
                           ),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4),
                           Text(
                             'Edit Profile',
                             style: TextStyle(
@@ -317,7 +317,7 @@ class SettingsView extends GetView<SettingController> {
             // Chevron indicator
             Icon(
               Icons.chevron_right_rounded,
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha : 0.7),
               size: 24,
             ),
           ],
@@ -335,7 +335,7 @@ class SettingsView extends GetView<SettingController> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: theme.colorScheme.primary.withOpacity(0.1),
+            color: theme.colorScheme.primary.withValues(alpha : 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -367,7 +367,7 @@ class SettingsView extends GetView<SettingController> {
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
           color: isDarkMode
-              ? Colors.grey.shade800.withOpacity(0.5)
+              ? Colors.grey.shade800.withValues(alpha : 0.5)
               : Colors.grey.shade200,
           width: 1,
         ),
@@ -385,13 +385,13 @@ class SettingsView extends GetView<SettingController> {
               controller.language() == 'ar' ? 'arabic'.tr : 'english'.tr,
               style: TextStyle(
                 fontSize: 13,
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
               ),
             )),
             trailing: Icon(
               Icons.arrow_forward_ios_rounded,
               size: 16,
-              color: theme.colorScheme.onSurface.withOpacity(0.3),
+              color: theme.colorScheme.onSurface.withValues(alpha : 0.3),
             ),
             onTap: () => Get.to(() => const LanguagePage()),
             isDarkMode: isDarkMode,
@@ -410,7 +410,7 @@ class SettingsView extends GetView<SettingController> {
             child: Divider(
               height: 1,
               indent: 70,
-              color: theme.dividerColor.withOpacity(0.1),
+              color: theme.dividerColor.withValues(alpha : 0.1),
             ),
           ),
 
@@ -423,7 +423,7 @@ class SettingsView extends GetView<SettingController> {
             trailing: Switch.adaptive(
               value: controller.readReceipts(),
               activeColor: theme.colorScheme.primary,
-              activeTrackColor: theme.colorScheme.primary.withOpacity(0.3),
+              activeTrackColor: theme.colorScheme.primary.withValues(alpha : 0.3),
               inactiveThumbColor: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade50,
               inactiveTrackColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
               onChanged: (value) => controller.readReceipts.toggle(),
@@ -446,7 +446,7 @@ class SettingsView extends GetView<SettingController> {
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
           color: isDarkMode
-              ? Colors.grey.shade800.withOpacity(0.5)
+              ? Colors.grey.shade800.withValues(alpha : 0.5)
               : Colors.grey.shade200,
           width: 1,
         ),
@@ -464,13 +464,13 @@ class SettingsView extends GetView<SettingController> {
               'set_your_swipe_preferences'.tr,
               style: TextStyle(
                 fontSize: 13,
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
               ),
             ),
             trailing: Icon(
               Icons.arrow_forward_ios_rounded,
               size: 16,
-              color: theme.colorScheme.onSurface.withOpacity(0.3),
+              color: theme.colorScheme.onSurface.withValues(alpha : 0.3),
             ),
             onTap: () => Get.to(() => SwipGestureSetting()),
             isDarkMode: isDarkMode,
@@ -489,7 +489,7 @@ class SettingsView extends GetView<SettingController> {
             child: Divider(
               height: 1,
               indent: 70,
-              color: theme.dividerColor.withOpacity(0.1),
+              color: theme.dividerColor.withValues(alpha : 0.1),
             ),
           ),
 
@@ -503,13 +503,13 @@ class SettingsView extends GetView<SettingController> {
               'set_your_sig'.tr,
               style: TextStyle(
                 fontSize: 13,
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
               ),
             ),
             trailing: Icon(
               Icons.arrow_forward_ios_rounded,
               size: 16,
-              color: theme.colorScheme.onSurface.withOpacity(0.3),
+              color: theme.colorScheme.onSurface.withValues(alpha : 0.3),
             ),
             onTap: () => Get.to(() => const SignaturePage()),
             isDarkMode: isDarkMode,
@@ -529,7 +529,7 @@ class SettingsView extends GetView<SettingController> {
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
           color: isDarkMode
-              ? Colors.grey.shade800.withOpacity(0.5)
+              ? Colors.grey.shade800.withValues(alpha : 0.5)
               : Colors.grey.shade200,
           width: 1,
         ),
@@ -546,7 +546,7 @@ class SettingsView extends GetView<SettingController> {
             trailing: Icon(
               Icons.arrow_forward_ios_rounded,
               size: 16,
-              color: theme.colorScheme.onSurface.withOpacity(0.3),
+              color: theme.colorScheme.onSurface.withValues(alpha : 0.3),
             ),
             onTap: () => Get.to(() => const SecurityPage()),
             isDarkMode: isDarkMode,
@@ -565,7 +565,7 @@ class SettingsView extends GetView<SettingController> {
             child: Divider(
               height: 1,
               indent: 70,
-              color: theme.dividerColor.withOpacity(0.1),
+              color: theme.dividerColor.withValues(alpha : 0.1),
             ),
           ),
 
@@ -591,7 +591,7 @@ class SettingsView extends GetView<SettingController> {
                       child: Text(
                         'cancel'.tr,
                         style: TextStyle(
-                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          color: theme.colorScheme.onSurface.withValues(alpha : 0.7),
                         ),
                       ),
                     ),
@@ -634,8 +634,8 @@ class SettingsView extends GetView<SettingController> {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
-      splashColor: iconColor.withOpacity(0.1),
-      highlightColor: iconColor.withOpacity(0.05),
+      splashColor: iconColor.withValues(alpha : 0.1),
+      highlightColor: iconColor.withValues(alpha : 0.05),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Row(
@@ -644,7 +644,7 @@ class SettingsView extends GetView<SettingController> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withValues(alpha : 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: iconColor, size: 22),

@@ -6,7 +6,7 @@ import 'package:wahda_bank/views/authantication/screens/reset_password_screen/re
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
-  ResetPasswordScreen({super.key});
+  const ResetPasswordScreen({super.key});
 
   @override
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();

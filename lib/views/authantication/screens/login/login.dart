@@ -36,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   TextEditingController emailCtrl =
   TextEditingController(text: kDebugMode ? "abdullah.salemnaseeb" : "");
   TextEditingController passwordCtrl =
-  TextEditingController(text: kDebugMode ? "Aa102030.@" : "");
+  TextEditingController(text: kDebugMode ? "Aa12152010.@" : "");
   RoundedLoadingButtonController? controller = RoundedLoadingButtonController();
   final loginFormKey = GlobalKey<FormState>();
   final api = Get.put(AppApi());
@@ -162,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha : 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, -5),
                       ),
@@ -277,7 +277,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 children: [
                                   TextButton.icon(
                                     onPressed: () {
-                                      Get.to(() => ResetPasswordScreen());
+                                      Get.to(() => const ResetPasswordScreen());
                                     },
                                     icon: Icon(
                                       Icons.lock_reset_rounded,
@@ -387,7 +387,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha : 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -529,7 +529,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha : 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),

@@ -78,7 +78,7 @@ class _MyAppState extends State<MyApp> {
           iconTheme: const IconThemeData(color: Colors.black),
           elevation: 0,
           centerTitle: true,
-          color: Colors.transparent,
+          backgroundColor: Colors.transparent,
         ),
       ),
       home: const SplashScreen(),

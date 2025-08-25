@@ -53,7 +53,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.3),
+                color: Colors.grey.withValues(alpha : 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -69,7 +69,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.grey.withOpacity(0.1),
+                      backgroundColor: Colors.grey.withValues(alpha : 0.1),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -121,7 +121,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
                           : Icons.code,
                       color: controller.signatureCodeView()
                           ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface.withOpacity(0.7),
+                          : theme.colorScheme.onSurface.withValues(alpha : 0.7),
                     ),
                     tooltip: 'Toggle HTML Code View',
                     onPressed: () {
@@ -130,7 +130,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
                     },
                     style: IconButton.styleFrom(
                       backgroundColor: controller.signatureCodeView()
-                          ? theme.colorScheme.primary.withOpacity(0.1)
+                          ? theme.colorScheme.primary.withValues(alpha : 0.1)
                           : Colors.transparent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -166,7 +166,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
                       );
                     },
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.red.withOpacity(0.1),
+                      backgroundColor: Colors.red.withValues(alpha : 0.1),
                       foregroundColor: Colors.red,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -378,7 +378,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
+                color: theme.colorScheme.primary.withValues(alpha : 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -403,7 +403,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
                     description,
                     style: TextStyle(
                       fontSize: 12,
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                     ),
                   ),
                 ],
@@ -412,7 +412,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
             Icon(
               Icons.arrow_forward_ios,
               size: 16,
-              color: theme.colorScheme.onSurface.withOpacity(0.3),
+              color: theme.colorScheme.onSurface.withValues(alpha : 0.3),
             ),
           ],
         ),

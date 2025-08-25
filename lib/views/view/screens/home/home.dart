@@ -106,7 +106,7 @@ class HomeScreen extends GetView<MailBoxController> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              color: AppTheme.primaryColor.withValues(alpha : 0.1),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Text(
@@ -115,7 +115,7 @@ class HomeScreen extends GetView<MailBoxController> {
                                     ? item.value.first.decodeDate() ?? DateTime.now()
                                     : DateTime.now(),
                               ),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                                 color: AppTheme.primaryColor,
@@ -204,7 +204,7 @@ class WSearchBar extends StatelessWidget {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha : 0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),

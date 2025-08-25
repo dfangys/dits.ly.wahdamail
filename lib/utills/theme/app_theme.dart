@@ -60,7 +60,7 @@ class AppTheme {
   // Elevation and shadows
   static List<BoxShadow> cardShadow = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.05),
+      color: Colors.black.withValues(alpha : 0.05),
       blurRadius: 8,
       offset: const Offset(0, 2),
     ),
@@ -68,7 +68,7 @@ class AppTheme {
 
   static List<BoxShadow> bottomNavShadow = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.1),
+      color: Colors.black.withValues(alpha : 0.1),
       blurRadius: 10,
       offset: const Offset(0, -2),
     ),
@@ -99,7 +99,6 @@ class AppTheme {
         primary: primaryColor,
         secondary: primaryColor.shade700,
         surface: surfaceColor,
-        background: backgroundColor,
         error: errorColor,
       ),
       scaffoldBackgroundColor: backgroundColor,
@@ -116,7 +115,7 @@ class AppTheme {
         ),
         iconTheme: IconThemeData(color: primaryColor),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 0,
         color: surfaceColor,
         shape: RoundedRectangleBorder(
@@ -160,19 +159,19 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: dividerColor, width: 1),
+          borderSide: const BorderSide(color: dividerColor, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: primaryColor, width: 2),
+          borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: errorColor, width: 1),
+          borderSide: const BorderSide(color: errorColor, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: errorColor, width: 2),
+          borderSide: const BorderSide(color: errorColor, width: 2),
         ),
       ),
       textTheme: const TextTheme(
@@ -295,7 +294,7 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: primaryColor,
-          side: BorderSide(color: primaryColor),
+          side: const BorderSide(color: primaryColor),
           padding: const EdgeInsets.symmetric(
             horizontal: spacing * 1.5,
             vertical: spacing,
@@ -311,8 +310,8 @@ class AppTheme {
         ),
       ),
       checkboxTheme: CheckboxThemeData(
-        fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
             return primaryColor;
           }
           return Colors.transparent;
@@ -322,23 +321,23 @@ class AppTheme {
         ),
       ),
       radioTheme: RadioThemeData(
-        fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
             return primaryColor;
           }
           return textSecondaryColor;
         }),
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        thumbColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
             return primaryColor;
           }
           return Colors.white;
         }),
-        trackColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
-            return primaryColor.withOpacity(0.5);
+        trackColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
+            return primaryColor.withValues(alpha : 0.5);
           }
           return textTertiaryColor;
         }),

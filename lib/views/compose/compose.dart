@@ -92,7 +92,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
                 : const SizedBox.shrink()),
             IconButton(
               onPressed: controller.sendEmail,
-              icon: Icon(
+              icon: const Icon(
                 Icons.send_outlined,
                 color: AppTheme.primaryColor,
                 size: 22,
@@ -283,7 +283,7 @@ class _ComposeScreenState extends State<ComposeScreen> {
 }
 
 class DraftOptionsSheet extends StatelessWidget {
-  DraftOptionsSheet({Key? key}) : super(key: key);
+  DraftOptionsSheet({super.key});
 
   final controller = Get.find<ComposeController>();
 

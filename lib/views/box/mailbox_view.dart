@@ -38,8 +38,8 @@ class MailBoxView extends GetView<MailBoxController> {
           centerTitle: true,
           elevation: 0,
           backgroundColor: isDarkMode
-              ? Colors.black.withOpacity(0.7)
-              : Colors.white.withOpacity(0.9),
+              ? Colors.black.withValues(alpha : 0.7)
+              : Colors.white.withValues(alpha : 0.9),
           flexibleSpace: ClipRect(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -106,7 +106,7 @@ class MailBoxView extends GetView<MailBoxController> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.primary.withOpacity(0.1),
+                                    color: theme.colorScheme.primary.withValues(alpha : 0.1),
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
@@ -121,7 +121,7 @@ class MailBoxView extends GetView<MailBoxController> {
                                 Expanded(
                                   child: Divider(
                                     indent: 8,
-                                    color: theme.colorScheme.primary.withOpacity(0.2),
+                                    color: theme.colorScheme.primary.withValues(alpha : 0.2),
                                   ),
                                 ),
                               ],
@@ -167,11 +167,11 @@ class MailBoxView extends GetView<MailBoxController> {
             secondChild: Container(
               decoration: BoxDecoration(
                 color: isDarkMode
-                    ? Colors.black.withOpacity(0.9)
-                    : Colors.white.withOpacity(0.9),
+                    ? Colors.black.withValues(alpha : 0.9)
+                    : Colors.white.withValues(alpha : 0.9),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha : 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, -5),
                   ),

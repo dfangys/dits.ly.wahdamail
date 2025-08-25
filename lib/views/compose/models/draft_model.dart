@@ -412,7 +412,7 @@ class DraftModel {
     }
 
     if (hasBody) {
-      final previewLength = 50;
+      const previewLength = 50;
       final preview = _stripHtml(body).replaceAll('\n', ' ');
       parts.add(preview.length > previewLength
           ? '${preview.substring(0, previewLength)}...'

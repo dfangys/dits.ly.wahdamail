@@ -119,8 +119,8 @@ class SelectionBottomNav extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: destructive
-                  ? Colors.red.withOpacity(0.1)
-                  : AppTheme.primaryColor.withOpacity(0.1),
+                  ? Colors.red.withValues(alpha : 0.1)
+                  : AppTheme.primaryColor.withValues(alpha : 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -149,7 +149,7 @@ class SelectionBottomNav extends StatelessWidget {
       builder: (context) => CupertinoActionSheet(
         title: Text(
           'are_you_u_wtd'.tr,
-          style: TextStyle(color: AppTheme.textPrimaryColor),
+          style: const TextStyle(color: AppTheme.textPrimaryColor),
         ),
         actions: [
           CupertinoActionSheetAction(

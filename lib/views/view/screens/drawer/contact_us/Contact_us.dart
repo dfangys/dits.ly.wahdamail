@@ -50,7 +50,7 @@ class ContactUsScreen extends StatelessWidget {
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withOpacity(0.1),
+                color: theme.colorScheme.primary.withValues(alpha : 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -66,7 +66,7 @@ class ContactUsScreen extends StatelessWidget {
                       'We\'re here to help! Reach out to us through any of the following methods.',
                       style: TextStyle(
                         fontSize: 14,
-                        color: theme.colorScheme.onSurface.withOpacity(0.8),
+                        color: theme.colorScheme.onSurface.withValues(alpha : 0.8),
                       ),
                     ),
                   ),
@@ -81,7 +81,7 @@ class ContactUsScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: theme.dividerColor.withOpacity(0.1),
+                  color: theme.dividerColor.withValues(alpha : 0.1),
                 ),
               ),
               child: Padding(
@@ -94,7 +94,7 @@ class ContactUsScreen extends StatelessWidget {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: Colors.green.withOpacity(0.1),
+                        color: Colors.green.withValues(alpha : 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -121,7 +121,7 @@ class ContactUsScreen extends StatelessWidget {
                       "info@wahdabank.com",
                       style: TextStyle(
                         fontSize: 16,
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                        color: theme.colorScheme.onSurface.withValues(alpha : 0.7),
                       ),
                     ),
 
@@ -162,7 +162,7 @@ class ContactUsScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: theme.dividerColor.withOpacity(0.1),
+                  color: theme.dividerColor.withValues(alpha : 0.1),
                 ),
               ),
               child: Padding(
@@ -175,7 +175,7 @@ class ContactUsScreen extends StatelessWidget {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
+                        color: Colors.blue.withValues(alpha : 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -202,7 +202,7 @@ class ContactUsScreen extends StatelessWidget {
                       "+218 61 2224256",
                       style: TextStyle(
                         fontSize: 16,
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                        color: theme.colorScheme.onSurface.withValues(alpha : 0.7),
                       ),
                     ),
 
@@ -240,7 +240,7 @@ class ContactUsScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: theme.dividerColor.withOpacity(0.1),
+                  color: theme.dividerColor.withValues(alpha : 0.1),
                 ),
               ),
               child: Padding(
@@ -253,7 +253,7 @@ class ContactUsScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withOpacity(0.1),
+                            color: Colors.orange.withValues(alpha : 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
@@ -289,7 +289,7 @@ class ContactUsScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: theme.dividerColor.withOpacity(0.1),
+                  color: theme.dividerColor.withValues(alpha : 0.1),
                 ),
               ),
               child: Padding(
@@ -302,7 +302,7 @@ class ContactUsScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.purple.withOpacity(0.1),
+                            color: Colors.purple.withValues(alpha : 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
@@ -327,7 +327,7 @@ class ContactUsScreen extends StatelessWidget {
                       "Wahda Bank Headquarters\nTripoli, Libya",
                       style: TextStyle(
                         fontSize: 16,
-                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                        color: theme.colorScheme.onSurface.withValues(alpha : 0.7),
                         height: 1.5,
                       ),
                     ),

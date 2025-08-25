@@ -25,7 +25,7 @@ class SignaturePage extends GetView<SettingController> {
         ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: isDarkMode ? Colors.black.withOpacity(0.7) : Colors.white.withOpacity(0.9),
+        backgroundColor: isDarkMode ? Colors.black.withValues(alpha : 0.7) : Colors.white.withValues(alpha : 0.9),
         foregroundColor: theme.colorScheme.primary,
         flexibleSpace: ClipRect(
           child: BackdropFilter(
@@ -105,15 +105,15 @@ class SignaturePage extends GetView<SettingController> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: isDarkMode
-              ? [Colors.indigo.shade800.withOpacity(0.8), Colors.purple.shade900.withOpacity(0.8)]
-              : [theme.colorScheme.primary.withOpacity(0.8), theme.colorScheme.primary.withBlue(theme.colorScheme.primary.blue + 40).withOpacity(0.8)],
+              ? [Colors.indigo.shade800.withValues(alpha : 0.8), Colors.purple.shade900.withValues(alpha : 0.8)]
+              : [theme.colorScheme.primary.withValues(alpha : 0.8), theme.colorScheme.primary.withBlue(theme.colorScheme.primary.blue + 40).withValues(alpha : 0.8)],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: isDarkMode
-                ? Colors.black.withOpacity(0.2)
-                : theme.colorScheme.primary.withOpacity(0.2),
+                ? Colors.black.withValues(alpha : 0.2)
+                : theme.colorScheme.primary.withValues(alpha : 0.2),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -124,7 +124,7 @@ class SignaturePage extends GetView<SettingController> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha : 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -164,7 +164,7 @@ class SignaturePage extends GetView<SettingController> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.1),
+              color: theme.colorScheme.primary.withValues(alpha : 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
@@ -210,7 +210,7 @@ class SignaturePage extends GetView<SettingController> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: isDarkMode
-              ? Colors.grey.shade800.withOpacity(0.5)
+              ? Colors.grey.shade800.withValues(alpha : 0.5)
               : Colors.grey.shade200,
           width: 1,
         ),
@@ -269,7 +269,7 @@ class SignaturePage extends GetView<SettingController> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: isDarkMode
-              ? Colors.grey.shade800.withOpacity(0.5)
+              ? Colors.grey.shade800.withValues(alpha : 0.5)
               : Colors.grey.shade200,
           width: 1,
         ),
@@ -299,7 +299,7 @@ class SignaturePage extends GetView<SettingController> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: Colors.orange.withValues(alpha : 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.person_rounded, color: Colors.orange, size: 22),
@@ -323,7 +323,7 @@ class SignaturePage extends GetView<SettingController> {
                       controller.accountName(),
                       style: TextStyle(
                         fontSize: 13,
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                       ),
                     )),
                   ],
@@ -333,7 +333,7 @@ class SignaturePage extends GetView<SettingController> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  color: theme.colorScheme.primary.withValues(alpha : 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -401,7 +401,7 @@ class SignaturePage extends GetView<SettingController> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -415,13 +415,13 @@ class SignaturePage extends GetView<SettingController> {
             Icon(
               Icons.edit_note,
               size: 48,
-              color: theme.colorScheme.onSurface.withOpacity(0.3),
+              color: theme.colorScheme.onSurface.withValues(alpha : 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'No signature set',
               style: TextStyle(
-                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                color: theme.colorScheme.onSurface.withValues(alpha : 0.5),
                 fontSize: 16,
               ),
             ),
@@ -429,7 +429,7 @@ class SignaturePage extends GetView<SettingController> {
             Text(
               'Tap the edit button to create your signature',
               style: TextStyle(
-                color: theme.colorScheme.onSurface.withOpacity(0.4),
+                color: theme.colorScheme.onSurface.withValues(alpha : 0.4),
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -471,7 +471,7 @@ class SignaturePage extends GetView<SettingController> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.1),
+                color: iconColor.withValues(alpha : 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: iconColor, size: 22),
@@ -496,7 +496,7 @@ class SignaturePage extends GetView<SettingController> {
                     subtitle,
                     style: TextStyle(
                       fontSize: 13,
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                     ),
                   ),
                 ],
@@ -506,7 +506,7 @@ class SignaturePage extends GetView<SettingController> {
             Switch.adaptive(
               value: value(),
               activeColor: theme.colorScheme.primary,
-              activeTrackColor: theme.colorScheme.primary.withOpacity(0.3),
+              activeTrackColor: theme.colorScheme.primary.withValues(alpha : 0.3),
               inactiveThumbColor: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade50,
               inactiveTrackColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
               onChanged: (val) => value.toggle(),
@@ -523,7 +523,7 @@ class SignaturePage extends GetView<SettingController> {
     return Divider(
       height: 1,
       indent: 70,
-      color: theme.dividerColor.withOpacity(0.1),
+      color: theme.dividerColor.withValues(alpha : 0.1),
     );
   }
 }

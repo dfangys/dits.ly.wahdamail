@@ -20,7 +20,7 @@ class TAnimationLoaderWidget extends StatelessWidget {
   final VoidCallback? onActionPressed;
 
   const TAnimationLoaderWidget({
-    Key? key,
+    super.key,
     this.title,
     this.description,
     this.animationPath,
@@ -34,7 +34,7 @@ class TAnimationLoaderWidget extends StatelessWidget {
     this.showAction,
     this.actionText,
     this.onActionPressed,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +55,7 @@ class TAnimationLoaderWidget extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         margin: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey.shade900.withOpacity(0.7) : Colors.white.withOpacity(0.9),
+          color: isDarkMode ? Colors.grey.shade900.withValues(alpha : 0.7) : Colors.white.withValues(alpha : 0.9),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -149,7 +149,7 @@ class EmptyBoxWidget extends StatelessWidget {
   final VoidCallback? onAction;
 
   const EmptyBoxWidget({
-    Key? key,
+    super.key,
     required this.title,
     required this.description,
     required this.imagePath,
@@ -158,7 +158,7 @@ class EmptyBoxWidget extends StatelessWidget {
     this.showActionButton = false,
     this.actionButtonText,
     this.onAction,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +171,7 @@ class EmptyBoxWidget extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         margin: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey.shade900.withOpacity(0.7) : Colors.white.withOpacity(0.9),
+          color: isDarkMode ? Colors.grey.shade900.withValues(alpha : 0.7) : Colors.white.withValues(alpha : 0.9),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -258,12 +258,12 @@ class NoResultsWidget extends StatelessWidget {
   final String? actionText;
 
   const NoResultsWidget({
-    Key? key,
+    super.key,
     required this.title,
     required this.description,
     this.onAction,
     this.actionText,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +276,7 @@ class NoResultsWidget extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         margin: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey.shade900.withOpacity(0.7) : Colors.white.withOpacity(0.9),
+          color: isDarkMode ? Colors.grey.shade900.withValues(alpha : 0.7) : Colors.white.withValues(alpha : 0.9),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -303,8 +303,8 @@ class NoResultsWidget extends StatelessWidget {
                   height: 80,
                   decoration: BoxDecoration(
                     color: isDarkMode
-                        ? theme.colorScheme.primary.withOpacity(0.2)
-                        : theme.colorScheme.primary.withOpacity(0.1),
+                        ? theme.colorScheme.primary.withValues(alpha : 0.2)
+                        : theme.colorScheme.primary.withValues(alpha : 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -367,11 +367,11 @@ class ErrorDisplayWidget extends StatelessWidget {
   final VoidCallback? onRetry;
 
   const ErrorDisplayWidget({
-    Key? key,
+    super.key,
     required this.title,
     required this.description,
     this.onRetry,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -384,7 +384,7 @@ class ErrorDisplayWidget extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         margin: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey.shade900.withOpacity(0.7) : Colors.white.withOpacity(0.9),
+          color: isDarkMode ? Colors.grey.shade900.withValues(alpha : 0.7) : Colors.white.withValues(alpha : 0.9),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -394,7 +394,7 @@ class ErrorDisplayWidget extends StatelessWidget {
             ),
           ],
           border: Border.all(
-            color: isDarkMode ? Colors.red.shade800.withOpacity(0.3) : Colors.red.shade100,
+            color: isDarkMode ? Colors.red.shade800.withValues(alpha : 0.3) : Colors.red.shade100,
             width: 1,
           ),
         ),
@@ -411,7 +411,7 @@ class ErrorDisplayWidget extends StatelessWidget {
                   height: 80,
                   decoration: BoxDecoration(
                     color: isDarkMode
-                        ? Colors.red.shade900.withOpacity(0.2)
+                        ? Colors.red.shade900.withValues(alpha : 0.2)
                         : Colors.red.shade50,
                     shape: BoxShape.circle,
                   ),

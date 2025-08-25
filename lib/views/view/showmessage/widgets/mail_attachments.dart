@@ -36,7 +36,7 @@ class MailAttachments extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.error_outline,
+                  const Icon(Icons.error_outline,
                       color: AppTheme.errorColor,
                       size: 48
                   ),
@@ -100,7 +100,7 @@ class MailAttachments extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.attachment_rounded,
                 color: AppTheme.primaryColor,
                 size: 20,
@@ -169,7 +169,7 @@ class _AttachmentTileState extends State<AttachmentTile> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-        side: BorderSide(color: AppTheme.dividerColor),
+        side: const BorderSide(color: AppTheme.dividerColor),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(AppTheme.borderRadius),
@@ -210,7 +210,7 @@ class _AttachmentTileState extends State<AttachmentTile> {
                       const SizedBox(height: 4),
                       Text(
                         fileSize,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.textSecondaryColor,
                         ),
@@ -220,7 +220,7 @@ class _AttachmentTileState extends State<AttachmentTile> {
                       const SizedBox(height: 4),
                       Text(
                         _error!,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.errorColor,
                         ),

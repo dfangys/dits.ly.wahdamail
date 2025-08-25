@@ -34,7 +34,7 @@ class AccountNameSheet extends GetView<SettingController> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.3),
+                color: Colors.grey.withValues(alpha : 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -50,7 +50,7 @@ class AccountNameSheet extends GetView<SettingController> {
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.grey.withOpacity(0.1),
+                      backgroundColor: Colors.grey.withValues(alpha : 0.1),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -112,7 +112,7 @@ class AccountNameSheet extends GetView<SettingController> {
                       hintText: 'Enter your name',
                       prefixIcon: const Icon(Icons.person),
                       filled: true,
-                      fillColor: Colors.grey.withOpacity(0.1),
+                      fillColor: Colors.grey.withValues(alpha : 0.1),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -147,7 +147,7 @@ class AccountNameSheet extends GetView<SettingController> {
                     'This name will appear in your email signature and account profile',
                     style: TextStyle(
                       fontSize: 12,
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
                       fontStyle: FontStyle.italic,
                     ),
                   ),

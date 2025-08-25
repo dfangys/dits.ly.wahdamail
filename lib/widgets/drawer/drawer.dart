@@ -36,7 +36,7 @@ class Drawer1 extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               theme.primaryColor,
-              theme.primaryColor.withOpacity(0.9),
+              theme.primaryColor.withValues(alpha : 0.9),
             ],
           ),
           borderRadius: const BorderRadius.only(
@@ -45,7 +45,7 @@ class Drawer1 extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha : 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -60,7 +60,7 @@ class Drawer1 extends StatelessWidget {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha : 0.1),
                   borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(24),
                     topLeft: Radius.circular(24),
@@ -91,7 +91,7 @@ class Drawer1 extends StatelessWidget {
                         child: Text(
                           'mailboxes'.tr,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
+                            color: Colors.white.withValues(alpha : 0.7),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -122,7 +122,7 @@ class Drawer1 extends StatelessWidget {
                         child: Text(
                           'preferences'.tr,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
+                            color: Colors.white.withValues(alpha : 0.7),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -168,7 +168,7 @@ class Drawer1 extends StatelessWidget {
               child: Text(
                 'v1.0.0',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha : 0.5),
                   fontSize: 12,
                 ),
               ),
@@ -196,7 +196,7 @@ class Drawer1 extends StatelessWidget {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha : 0.2),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -224,7 +224,7 @@ class Drawer1 extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha : 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),

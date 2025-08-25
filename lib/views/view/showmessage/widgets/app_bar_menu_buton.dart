@@ -8,7 +8,7 @@ class InboxAppBarMenuButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<void>(           // <void> fixes the inference error
-      icon: Icon(
+      icon: const Icon(
         Icons.more_vert_rounded,
         color: AppTheme.primaryColor,
       ),

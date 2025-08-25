@@ -106,8 +106,8 @@ class ViewMessageBottomNav extends StatelessWidget {
               height: isTablet ? 48 : 40,
               decoration: BoxDecoration(
                 color: destructive
-                    ? Colors.red.withOpacity(0.1)
-                    : AppTheme.primaryColor.withOpacity(0.1),
+                    ? Colors.red.withValues(alpha : 0.1)
+                    : AppTheme.primaryColor.withValues(alpha : 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -142,11 +142,11 @@ class ViewMessageBottomNav extends StatelessWidget {
     showCupertinoModalPopup(
       context: context,
       builder: (context) => CupertinoActionSheet(
-        title: Text(
+        title: const Text(
           'Delete Message',
           style: TextStyle(color: AppTheme.textPrimaryColor),
         ),
-        message: Text(
+        message: const Text(
           'Are you sure you want to delete this message?',
           style: TextStyle(color: AppTheme.textSecondaryColor),
         ),

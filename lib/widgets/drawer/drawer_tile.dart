@@ -28,7 +28,7 @@ class WDrawerTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
             color: isActive
-                ? Colors.white.withOpacity(0.2)
+                ? Colors.white.withValues(alpha : 0.2)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
@@ -39,8 +39,8 @@ class WDrawerTile extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: isActive
-                      ? Colors.white.withOpacity(0.3)
-                      : Colors.white.withOpacity(0.1),
+                      ? Colors.white.withValues(alpha : 0.3)
+                      : Colors.white.withValues(alpha : 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -86,7 +86,7 @@ class WDrawerTile extends StatelessWidget {
               if (count == 0)
                 Icon(
                   Iconsax.arrow_right_3,
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha : 0.5),
                   size: 16,
                 ),
             ],

@@ -80,7 +80,7 @@ class EnterOtpScreen extends GetView<OtpController> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha : 0.1),
                       blurRadius: 10,
                       offset: const Offset(0, -5),
                     ),
@@ -268,7 +268,7 @@ class EnterOtpScreen extends GetView<OtpController> {
         border: Border.all(color: Colors.grey.shade300),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha : 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -281,7 +281,7 @@ class EnterOtpScreen extends GetView<OtpController> {
       borderRadius: BorderRadius.circular(12),
       boxShadow: [
         BoxShadow(
-          color: Theme.of(context).primaryColor.withOpacity(0.2),
+          color: Theme.of(context).primaryColor.withValues(alpha : 0.2),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),
@@ -290,7 +290,7 @@ class EnterOtpScreen extends GetView<OtpController> {
 
     final submittedPinTheme = defaultPinTheme.copyWith(
       decoration: defaultPinTheme.decoration?.copyWith(
-        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        color: Theme.of(context).primaryColor.withValues(alpha : 0.1),
         border: Border.all(color: Theme.of(context).primaryColor),
       ),
     );

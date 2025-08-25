@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -30,7 +31,9 @@ class SecurityService extends GetxService {
     try {
       return await _localAuth.getAvailableBiometrics();
     } catch (e) {
-      print('Error getting biometrics: $e');
+      if (kDebugMode) {
+        print('Error getting biometrics: $e');
+      }
       return [];
     }
   }
@@ -43,7 +46,9 @@ class SecurityService extends GetxService {
           availableBiometrics.contains(BiometricType.strong) ||
           availableBiometrics.contains(BiometricType.weak);
     } catch (e) {
-      print('Error checking face recognition: $e');
+      if (kDebugMode) {
+        print('Error checking face recognition: $e');
+      }
       return false;
     }
   }
@@ -78,7 +83,9 @@ class SecurityService extends GetxService {
         ),
       );
     } catch (e) {
-      print('Error authenticating with biometrics: $e');
+      if (kDebugMode) {
+        print('Error authenticating with biometrics: $e');
+      }
       // Handle specific error cases
       if (e is PlatformException) {
         if (e.code == auth_error.notAvailable ||
@@ -103,7 +110,9 @@ class SecurityService extends GetxService {
         ),
       );
     } catch (e) {
-      print('Error authenticating with system: $e');
+      if (kDebugMode) {
+        print('Error authenticating with system: $e');
+      }
       return false;
     }
   }

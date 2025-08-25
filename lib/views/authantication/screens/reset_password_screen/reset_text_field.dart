@@ -101,7 +101,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha : 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, -5),
               ),
@@ -299,11 +299,11 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha : 0.9),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha : 0.1),
                       blurRadius: 5,
                       offset: const Offset(0, 2),
                     ),
@@ -328,7 +328,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha : 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),

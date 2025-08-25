@@ -132,7 +132,7 @@ class _VerifyResetPasswordOtpScreenState
         if (res.containsKey('otp_send') && res['otp_send']) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('OTP code has been resent to your email'),
+              content: const Text('OTP code has been resent to your email'),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
@@ -215,7 +215,7 @@ class _VerifyResetPasswordOtpScreenState
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha : 0.1),
                       blurRadius: 10,
                       offset: const Offset(0, -5),
                     ),
@@ -236,7 +236,7 @@ class _VerifyResetPasswordOtpScreenState
                               icon: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.withOpacity(0.1),
+                                  color: Colors.grey.withValues(alpha : 0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
@@ -508,7 +508,7 @@ class _VerifyResetPasswordOtpScreenState
         border: Border.all(color: Colors.grey.shade300),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha : 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -521,7 +521,7 @@ class _VerifyResetPasswordOtpScreenState
       borderRadius: BorderRadius.circular(12),
       boxShadow: [
         BoxShadow(
-          color: Theme.of(context).primaryColor.withOpacity(0.2),
+          color: Theme.of(context).primaryColor.withValues(alpha : 0.2),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),
@@ -530,7 +530,7 @@ class _VerifyResetPasswordOtpScreenState
 
     final submittedPinTheme = defaultPinTheme.copyWith(
       decoration: defaultPinTheme.decoration?.copyWith(
-        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        color: Theme.of(context).primaryColor.withValues(alpha : 0.1),
         border: Border.all(color: Theme.of(context).primaryColor),
       ),
     );

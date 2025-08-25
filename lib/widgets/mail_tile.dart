@@ -92,7 +92,7 @@ class MailTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha : 0.05),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -246,7 +246,7 @@ class MailTile extends StatelessWidget {
                                     Container(
                                       padding: const EdgeInsets.all(4),
                                       decoration: BoxDecoration(
-                                        color: isUnread ? AppTheme.primaryColor.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                                        color: isUnread ? AppTheme.primaryColor.withValues(alpha : 0.1) : Colors.grey.withValues(alpha : 0.1),
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Icon(
@@ -280,7 +280,7 @@ class MailTile extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Colors.orange.withOpacity(0.1),
+          color: Colors.orange.withValues(alpha : 0.1),
           borderRadius: BorderRadius.circular(4),
         ),
         child: const Icon(
@@ -293,7 +293,7 @@ class MailTile extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.1),
+          color: Colors.green.withValues(alpha : 0.1),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Icon(
@@ -306,7 +306,7 @@ class MailTile extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.1),
+          color: Colors.red.withValues(alpha : 0.1),
           borderRadius: BorderRadius.circular(4),
         ),
         child: const Icon(
@@ -319,7 +319,7 @@ class MailTile extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: hasFlagged ? AppTheme.starColor.withOpacity(0.1) : Colors.transparent,
+          color: hasFlagged ? AppTheme.starColor.withValues(alpha : 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
         ),
         child: Icon(

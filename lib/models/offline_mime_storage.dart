@@ -1,9 +1,8 @@
 import 'dart:io';
-import 'package:path/path.dart';
+import 'package:path/path.dart' show join;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 class OfflineMimeStorage {
@@ -203,7 +202,7 @@ class OfflineMimeStorage {
     final db = await instance.database;
     
     // Generate a unique ID for the attachment
-    final id = '${messageId}_${fetchId}';
+    final id = '${messageId}_$fetchId';
     
     final attachmentMap = {
       'id': id,

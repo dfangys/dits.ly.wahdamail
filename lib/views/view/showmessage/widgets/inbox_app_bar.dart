@@ -127,11 +127,11 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
       position: PopupMenuPosition.under,
       itemBuilder: (context) => [
         PopupMenuItem(
-          child: Row(
+          child: const Row(
             children: [
               Icon(Icons.forward_rounded, color: AppTheme.primaryColor, size: 20),
-              const SizedBox(width: 12),
-              const Text('Forward'),
+              SizedBox(width: 12),
+              Text('Forward'),
             ],
           ),
           onTap: () {
@@ -144,11 +144,11 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
           },
         ),
         PopupMenuItem(
-          child: Row(
+          child: const Row(
             children: [
               Icon(Icons.print_rounded, color: AppTheme.primaryColor, size: 20),
-              const SizedBox(width: 12),
-              const Text('Print'),
+              SizedBox(width: 12),
+              Text('Print'),
             ],
           ),
           onTap: () {
@@ -156,11 +156,11 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
           },
         ),
         PopupMenuItem(
-          child: Row(
+          child: const Row(
             children: [
               Icon(Icons.move_to_inbox_rounded, color: AppTheme.primaryColor, size: 20),
-              const SizedBox(width: 12),
-              const Text('Move to'),
+              SizedBox(width: 12),
+              Text('Move to'),
             ],
           ),
           onTap: () {
@@ -170,10 +170,10 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
           },
         ),
         PopupMenuItem(
-          child: Row(
+          child: const Row(
             children: [
               Icon(Icons.delete_outline_rounded, color: AppTheme.errorColor, size: 20),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Text('Delete', style: TextStyle(color: AppTheme.errorColor)),
             ],
           ),
@@ -191,8 +191,8 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
     showCupertinoModalPopup(
       context: context,
       builder: (context) => CupertinoActionSheet(
-        title: Text('Move message', style: TextStyle(color: AppTheme.textPrimaryColor)),
-        message: Text('Select a folder to move this message to', style: TextStyle(color: AppTheme.textSecondaryColor)),
+        title: const Text('Move message', style: TextStyle(color: AppTheme.textPrimaryColor)),
+        message: const Text('Select a folder to move this message to', style: TextStyle(color: AppTheme.textSecondaryColor)),
         actions: [
           for (var box in controller.mailboxes
               .whereNot((e) => e == widget.mailbox)
@@ -209,7 +209,7 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
               },
               child: Text(
                 box.name,
-                style: TextStyle(color: AppTheme.primaryColor),
+                style: const TextStyle(color: AppTheme.primaryColor),
               ),
             ),
         ],
