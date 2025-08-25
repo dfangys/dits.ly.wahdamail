@@ -288,7 +288,7 @@ class MailBoxController extends GetxController {
 
       // Load messages in smaller batches to avoid sequence issues and database locks
       int loaded = 0;
-      int maxToLoad = max > 50 ? 50 : max; // Limit initial load to 50 messages
+      int maxToLoad = max > 200 ? 200 : max; // Load up to 200 recent messages
       
       while (loaded < maxToLoad) {
         int batchSize = pageSize;
@@ -296,8 +296,9 @@ class MailBoxController extends GetxController {
           batchSize = maxToLoad - loaded;
         }
         
-        int start = loaded + 1;
-        int end = loaded + batchSize;
+        // Load from the most recent messages (highest sequence numbers)
+        int start = max - loaded - batchSize + 1;
+        int end = max - loaded;
         
         // Create a safe sequence
         MessageSequence sequence;
@@ -553,11 +554,16 @@ class MailBoxController extends GetxController {
       // Save to storage and notify listeners
       await mailboxStorage[mailbox]!.saveMessageEnvelopes(draftMessages);
       
+      // Force UI update by triggering the observable
+      update();
+      
       if (Get.isRegistered<MailCountController>()) {
         final countControll = Get.find<MailCountController>();
         String key = "${mailbox.name.toLowerCase()}_count";
         countControll.counts[key] = draftMessages.length;
       }
+      
+      logger.i("Loaded ${draftMessages.length} drafts for mailbox: ${mailbox.name}");
     } catch (e) {
       logger.e("Error loading drafts from local: $e");
     }

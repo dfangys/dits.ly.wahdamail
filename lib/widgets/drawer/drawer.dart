@@ -99,8 +99,8 @@ class Drawer1 extends StatelessWidget {
                         ),
                       ),
 
-                      // Mailbox list
-                      for (Mailbox box in controller.mailboxes)
+                      // Mailbox list - sorted by priority
+                      for (Mailbox box in _getSortedMailboxes(controller.mailboxes))
                         WDrawerTile(
                           icon: boxIcon(box.name),
                           text: box.encodedName.toLowerCase().tr,
@@ -251,6 +251,31 @@ class Drawer1 extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // Sort mailboxes by priority: Inbox, Sent, Drafts, Trash, Others
+  List<Mailbox> _getSortedMailboxes(List<Mailbox> mailboxes) {
+    final priorityOrder = {
+      'inbox': 1,
+      'sent': 2,
+      'drafts': 3,
+      'trash': 4,
+      'spam': 5,
+      'junk': 5,
+      'flagged': 6,
+    };
+
+    return mailboxes.toList()..sort((a, b) {
+      final priorityA = priorityOrder[a.name.toLowerCase()] ?? 999;
+      final priorityB = priorityOrder[b.name.toLowerCase()] ?? 999;
+      
+      if (priorityA != priorityB) {
+        return priorityA.compareTo(priorityB);
+      }
+      
+      // If same priority, sort alphabetically
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
   }
 }
 

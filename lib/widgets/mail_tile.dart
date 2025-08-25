@@ -237,32 +237,8 @@ class OptimizedMailTileContent extends StatelessWidget {
       ),
       child: Slidable(
         key: ValueKey(message.uid ?? message.sequenceId),
-        endActionPane: ActionPane(
-          motion: const ScrollMotion(),
-          children: [
-            SlidableAction(
-              onPressed: (context) => _markAsRead(),
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              icon: isUnread ? Icons.mark_email_read : Icons.mark_email_unread,
-              label: isUnread ? 'Read' : 'Unread',
-            ),
-            SlidableAction(
-              onPressed: (context) => _toggleFlag(),
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-              icon: hasFlagged ? Icons.flag : Icons.flag_outlined,
-              label: hasFlagged ? 'Unflag' : 'Flag',
-            ),
-            SlidableAction(
-              onPressed: (context) => _deleteMessage(),
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              icon: Icons.delete,
-              label: 'Delete',
-            ),
-          ],
-        ),
+        startActionPane: _buildStartActionPane(),
+        endActionPane: _buildEndActionPane(),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -418,6 +394,74 @@ class OptimizedMailTileContent extends StatelessWidget {
     }
   }
 
+  // Build start action pane based on settings (Left-to-Right swipe)
+  ActionPane? _buildStartActionPane() {
+    final settingController = Get.find<SettingController>();
+    final action = settingController.swipeGesturesLTR.value;
+    
+    return ActionPane(
+      motion: const ScrollMotion(),
+      children: [_buildSwipeAction(action, isStartPane: true)],
+    );
+  }
+
+  // Build end action pane based on settings (Right-to-Left swipe)
+  ActionPane? _buildEndActionPane() {
+    final settingController = Get.find<SettingController>();
+    final action = settingController.swipeGesturesRTL.value;
+    
+    return ActionPane(
+      motion: const ScrollMotion(),
+      children: [_buildSwipeAction(action, isStartPane: false)],
+    );
+  }
+
+  // Build individual swipe action based on action type
+  SlidableAction _buildSwipeAction(String actionType, {required bool isStartPane}) {
+    switch (actionType) {
+      case 'read_unread':
+        return SlidableAction(
+          onPressed: (context) => _markAsRead(),
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          icon: isUnread ? Icons.mark_email_read : Icons.mark_email_unread,
+          label: isUnread ? 'Read' : 'Unread',
+        );
+      case 'flag':
+        return SlidableAction(
+          onPressed: (context) => _toggleFlag(),
+          backgroundColor: Colors.orange,
+          foregroundColor: Colors.white,
+          icon: hasFlagged ? Icons.flag : Icons.flag_outlined,
+          label: hasFlagged ? 'Unflag' : 'Flag',
+        );
+      case 'delete':
+        return SlidableAction(
+          onPressed: (context) => _deleteMessage(),
+          backgroundColor: Colors.red,
+          foregroundColor: Colors.white,
+          icon: Icons.delete,
+          label: 'Delete',
+        );
+      case 'archive':
+        return SlidableAction(
+          onPressed: (context) => _archiveMessage(),
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+          icon: Icons.archive,
+          label: 'Archive',
+        );
+      default:
+        return SlidableAction(
+          onPressed: (context) => _markAsRead(),
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          icon: isUnread ? Icons.mark_email_read : Icons.mark_email_unread,
+          label: isUnread ? 'Read' : 'Unread',
+        );
+    }
+  }
+
   void _markAsRead() async {
     final realtimeService = RealtimeUpdateService.instance;
     try {
@@ -468,6 +512,25 @@ class OptimizedMailTileContent extends StatelessWidget {
       Get.snackbar(
         'Error',
         'Failed to delete message',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  void _archiveMessage() async {
+    // Archive functionality - move to archive folder
+    try {
+      Get.snackbar(
+        'Info',
+        'Archive functionality coming soon',
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to archive message',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
