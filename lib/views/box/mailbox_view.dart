@@ -1,17 +1,14 @@
 import 'dart:ui';
-
-import 'package:collection/collection.dart';
-import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:enough_mail/enough_mail.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/controllers/selection_controller.dart';
+import 'package:wahda_bank/widgets/bottomnavs/selection_botttom_nav.dart';
+import 'package:wahda_bank/widgets/mail_tile.dart';
+import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/utills/funtions.dart';
-import '../../app/controllers/mailbox_controller.dart';
-import 'package:timeago/timeago.dart' as timeago;
-import '../../app/controllers/selection_controller.dart';
-import '../../widgets/bottomnavs/selection_botttom_nav.dart';
-import '../../widgets/empty_box.dart';
-import '../../widgets/mail_tile.dart';
-import '../view/showmessage/show_message.dart';
+import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 
 class MailBoxView extends GetView<MailBoxController> {
   const MailBoxView({super.key, required this.mailBox});
@@ -38,8 +35,8 @@ class MailBoxView extends GetView<MailBoxController> {
           centerTitle: true,
           elevation: 0,
           backgroundColor: isDarkMode
-              ? Colors.black.withValues(alpha : 0.7)
-              : Colors.white.withValues(alpha : 0.9),
+              ? Colors.black.withValues(alpha: 0.7)
+              : Colors.white.withValues(alpha: 0.9),
           flexibleSpace: ClipRect(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -73,8 +70,8 @@ class MailBoxView extends GetView<MailBoxController> {
                     theme: theme,
                     isDarkMode: isDarkMode,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
@@ -118,7 +115,6 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _loadInitialData();
   }
 
   @override
@@ -128,13 +124,12 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= 
-        _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       _loadMoreMessages();
     }
   }
 
-  Future<void> _loadInitialData() async {
+  void _refreshMessages() {
     final messages = widget.controller.boxMails;
     _processMessages(messages);
   }
@@ -165,21 +160,22 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     _groupedMessages.clear();
     _dateKeys.clear();
 
-    final sortedMessages = messages.sorted((a, b) {
-      final dateA = a.decodeDate() ?? DateTime(1970);
-      final dateB = b.decodeDate() ?? DateTime(1970);
-      return dateB.compareTo(dateA);
-    });
+    for (final message in messages) {
+      final date = message.decodeDate() ?? DateTime.now();
+      final dateKey = DateTime(date.year, date.month, date.day);
+      
+      if (!_groupedMessages.containsKey(dateKey)) {
+        _groupedMessages[dateKey] = [];
+        _dateKeys.add(dateKey);
+      }
+      _groupedMessages[dateKey]!.add(message);
+    }
 
-    final grouped = groupBy<MimeMessage, DateTime>(
-      sortedMessages,
-      (m) => filterDate(m.decodeDate() ?? DateTime.now()),
-    );
-
-    _groupedMessages.addAll(grouped);
-    _dateKeys.addAll(grouped.keys.toList()..sort((a, b) => b.compareTo(a)));
-
-    setState(() {});
+    _dateKeys.sort((a, b) => b.compareTo(a));
+    
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -188,12 +184,31 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
       valueListenable: widget.controller.mailboxStorage[widget.mailBox]!.dataNotifier,
       builder: (context, List<MimeMessage> messages, _) {
         if (messages.isEmpty && !widget.controller.isBoxBusy()) {
-          return TAnimationLoaderWidget(
-            text: 'Whoops! Box is empty',
-            animation: 'assets/lottie/empty.json',
-            showAction: true,
-            actionText: 'try_again'.tr,
-            onActionPressed: () => widget.controller.loadEmailsForBox(widget.mailBox),
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.inbox_outlined,
+                  size: 64,
+                  color: Colors.grey.shade400,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Whoops! Box is empty',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: () => widget.controller.loadEmailsForBox(widget.mailBox),
+                  child: Text('try_again'.tr),
+                ),
+              ],
+            ),
           );
         }
 
@@ -260,69 +275,59 @@ class OptimizedDateGroup extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Date header with modern styling
-        Container(
-          margin: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha : 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  timeago.format(messages.first.decodeDate() ?? DateTime.now()),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              _formatDate(date),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.primaryColor,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  height: 1,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.primary.withValues(alpha : 0.3),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-        // Optimized message list
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: messages.length,
-          itemBuilder: (context, messageIndex) {
-            final message = messages[messageIndex];
+          itemBuilder: (context, index) {
+            final message = messages[index];
             return OptimizedMailTile(
-              key: ValueKey(message.uid ?? message.sequenceId),
               message: message,
               mailBox: mailBox,
               onTap: () {
-                Get.to(
-                  () => ShowMessage(
-                    message: message,
-                    mailbox: mailBox,
-                  ),
-                  transition: Transition.rightToLeft,
-                  duration: const Duration(milliseconds: 300),
-                );
+                Get.to(() => ShowMessage(
+                  message: message,
+                  mailbox: mailBox,
+                ));
               },
             );
           },
+          itemCount: messages.length,
         ),
       ],
     );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final dateOnly = DateTime(date.year, date.month, date.day);
+
+    if (dateOnly == today) {
+      return 'Today';
+    } else if (dateOnly == yesterday) {
+      return 'Yesterday';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
   }
 }
 
