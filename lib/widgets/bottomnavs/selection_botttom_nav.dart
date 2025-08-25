@@ -21,28 +21,57 @@ class SelectionBottomNav extends StatelessWidget {
     final theme = Theme.of(context);
     final isTablet = MediaQuery.of(context).size.width > 600;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
+    return Obx(() {
+      final selectedCount = selectionController.selectedCount;
+      
+      return Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceColor,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+          ),
+          boxShadow: AppTheme.bottomNavShadow,
         ),
-        boxShadow: AppTheme.bottomNavShadow,
-      ),
-      padding: EdgeInsets.only(
-        top: 12,
-        bottom: 12 + MediaQuery.of(context).padding.bottom,
-        left: 16,
-        right: 16,
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            // Actions Row
-            Expanded(
-              child: Row(
+        padding: EdgeInsets.only(
+          top: 12,
+          bottom: 12 + MediaQuery.of(context).padding.bottom,
+          left: 16,
+          right: 16,
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Selection count header
+              Row(
+                children: [
+                  Text(
+                    '$selectedCount selected',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimaryColor,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => selectionController.clear(),
+                    child: Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              
+              // Actions Row
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildActionButton(
@@ -75,32 +104,25 @@ class SelectionBottomNav extends StatelessWidget {
                     },
                   ),
                   _buildActionButton(
+                    icon: Icons.flag_outlined,
+                    label: 'Flag',
+                    onTap: () async {
+                      // Flag functionality - implement if needed
+                      selectionController.clear();
+                    },
+                  ),
+                  _buildActionButton(
                     icon: Icons.drive_file_move_outline,
                     label: 'Move',
                     onTap: () => _showMoveActionSheet(context),
                   ),
                 ],
               ),
-            ),
-
-            // Close Button
-            GestureDetector(
-              onTap: () => selectionController.clear(),
-              child: Container(
-                width: 40,
-                height: 40,
-                margin: const EdgeInsets.only(left: 8),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.close, size: 20, color: Colors.black54),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildActionButton({

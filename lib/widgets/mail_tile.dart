@@ -104,11 +104,8 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin 
         }
       }
 
-      // Try subject as fallback
-      final subject = widget.message.decodeSubject();
-      if (subject != null && subject.isNotEmpty) {
-        return 'Subject: $subject';
-      }
+      // Don't use subject as fallback to avoid duplication
+      // Subject is already displayed separately in the UI
     } catch (e) {
       // If all else fails, return a default message
     }
