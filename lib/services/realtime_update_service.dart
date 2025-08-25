@@ -222,7 +222,11 @@ class RealtimeUpdateService extends GetxService {
         mailbox.messagesExists,
       );
       
-      final newMessages = await _mailService.client.fetchMessages(sequence);
+      final newMessages = await _mailService.client.fetchMessages(
+        mailbox: mailbox,
+        count: newMessageCount,
+        page: 1,
+      );
       
       // Update cache and streams
       final existingMessages = _mailboxMessages[mailbox.path] ?? [];
@@ -289,9 +293,14 @@ class RealtimeUpdateService extends GetxService {
       
       for (int i = 0; i < totalMessages; i += batchSize) {
         final end = (i + batchSize > totalMessages) ? totalMessages : i + batchSize;
-        final sequence = MessageSequence.fromRange(i + 1, end);
+        final count = end - i;
+        final page = (i ~/ batchSize) + 1;
         
-        final batchMessages = await _mailService.client.fetchMessages(sequence);
+        final batchMessages = await _mailService.client.fetchMessages(
+          mailbox: mailbox,
+          count: count,
+          page: page,
+        );
         messages.addAll(batchMessages);
         
         // Cache messages
@@ -420,7 +429,8 @@ class RealtimeUpdateService extends GetxService {
   Future<void> deleteMessage(MimeMessage message) async {
     try {
       final sequence = MessageSequence.fromMessage(message);
-      await _mailService.client.deleteMessages(sequence, null, expunge: true);
+      final trashMailbox = _mailService.client.getMailbox(MailboxFlag.trash);
+      await _mailService.client.deleteMessages(sequence, trashMailbox, expunge: true);
       
       // Remove from local state
       for (final messages in _mailboxMessages.values) {

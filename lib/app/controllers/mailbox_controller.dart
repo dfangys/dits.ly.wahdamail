@@ -516,7 +516,6 @@ class MailBoxController extends GetxController {
       logger.e("Error in _loadAdditionalMessages: $e");
     }
   }
-  }
 
   Future<void> _loadDraftsFromLocal(Mailbox mailbox) async {
     try {

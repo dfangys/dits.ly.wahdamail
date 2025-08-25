@@ -44,7 +44,7 @@ dependencies:
   iconsax: ^0.0.8
   lottie: ^3.0.0
   html_editor_enhanced: ^2.5.1
-  enough_mail:
+  enough_mail: ^2.1.7
   flutter_contacts: ^1.1.7+1
   collection: ^1.18.0
   timeago: ^3.6.1
