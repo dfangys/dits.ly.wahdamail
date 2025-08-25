@@ -39,65 +39,68 @@ class HomeScreen extends GetView<MailBoxController> {
               onActionPressed: () {},
             );
           }
-          return ValueListenableBuilder<List<MimeMessage>>(
-            valueListenable: controller.mailboxStorage[controller.mailBoxInbox]!.dataNotifier,
-            builder: (context, messages, child) {
-              List<MimeMessage> rows = messages.sorted((a, b) {
-                final dateA = a.decodeDate();
-                final dateB = b.decodeDate();
-                if (dateA == null && dateB == null) return 0;
-                if (dateA == null) return 1;
-                if (dateB == null) return -1;
-                return dateB.compareTo(dateA);
-              });
+          
+          return Stack(
+            children: [
+              ValueListenableBuilder<List<MimeMessage>>(
+                valueListenable: controller.mailboxStorage[controller.mailBoxInbox]!.dataNotifier,
+                builder: (context, messages, child) {
+                  List<MimeMessage> rows = messages.sorted((a, b) {
+                    final dateA = a.decodeDate();
+                    final dateB = b.decodeDate();
+                    if (dateA == null && dateB == null) return 0;
+                    if (dateA == null) return 1;
+                    if (dateB == null) return -1;
+                    return dateB.compareTo(dateA);
+                  });
 
-              if (rows.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.inbox_outlined,
-                        size: 80,
-                        color: Colors.grey.shade400,
+                  if (rows.isEmpty && !controller.isBoxBusy()) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.inbox_outlined,
+                            size: 80,
+                            color: Colors.grey.shade400,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Your inbox is empty',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Pull down to refresh',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Your inbox is empty',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Pull down to refresh',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
+                    );
+                  }
 
-              Map<DateTime, List<MimeMessage>> group = groupBy(
-                rows,
-                    (MimeMessage msg) => filterDate(msg.decodeDate() ?? DateTime.now()),
-              );
+                  Map<DateTime, List<MimeMessage>> group = groupBy(
+                    rows,
+                        (MimeMessage msg) => filterDate(msg.decodeDate() ?? DateTime.now()),
+                  );
 
-              return RefreshIndicator(
-                onRefresh: () async {
-                  await controller.loadEmailsForBox(controller.mailBoxInbox);
-                },
-                child: ListView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.only(top: 8, bottom: 16),
-                  itemCount: group.length,
-                  itemBuilder: (context, index) {
-                    var item = group.entries.elementAt(index);
+                  return RefreshIndicator(
+                    onRefresh: () async {
+                      await controller.loadEmailsForBox(controller.mailBoxInbox);
+                    },
+                    child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(top: 8, bottom: 16),
+                      itemCount: group.length,
+                      itemBuilder: (context, index) {
+                        var item = group.entries.elementAt(index);
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -151,7 +154,19 @@ class HomeScreen extends GetView<MailBoxController> {
                 ),
               );
             },
-          );
+          ),
+          // Loading overlay
+          if (controller.isBoxBusy())
+            Container(
+              color: Colors.black.withValues(alpha: 0.3),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                ),
+              ),
+            ),
+        ],
+      );
         },
       ),
       floatingActionButton: Obx(

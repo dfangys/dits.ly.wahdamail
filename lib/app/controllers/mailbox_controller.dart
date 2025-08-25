@@ -83,45 +83,66 @@ class MailBoxController extends GetxController {
   }
 
   Future<void> initInbox() async {
-    mailBoxInbox = mailboxes.firstWhere(
-          (element) => element.isInbox,
-      orElse: () => mailboxes.first,
-    );
-    loadEmailsForBox(mailBoxInbox);
+    try {
+      mailBoxInbox = mailboxes.firstWhere(
+            (element) => element.isInbox,
+        orElse: () => mailboxes.first,
+      );
+      await loadEmailsForBox(mailBoxInbox);
+    } catch (e) {
+      logger.e("Error in initInbox: $e");
+      // Reset loading state in case of error
+      isBoxBusy(false);
+    }
   }
 
   Future loadMailBoxes() async {
-    List b = getStoarage.read('boxes') ?? [];
-    if (b.isEmpty) {
-      await mailService.connect();
-      mailboxes(await mailService.client.listMailboxes());
-    } else {
-      mailboxes(
-        b.map((e) => BoxModel.fromJson(e as Map<String, dynamic>)).toList(),
+    try {
+      List b = getStoarage.read('boxes') ?? [];
+      if (b.isEmpty) {
+        await mailService.connect();
+        mailboxes(await mailService.client.listMailboxes());
+      } else {
+        mailboxes(
+          b.map((e) => BoxModel.fromJson(e as Map<String, dynamic>)).toList(),
+        );
+      }
+      for (var mailbox in mailboxes) {
+        if (mailboxStorage[mailbox] != null) continue;
+        mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
+          mailAccount: mailService.account,
+          mailbox: mailbox,
+        );
+        emails[mailbox] = <MimeMessage>[];
+        await mailboxStorage[mailbox]!.init();
+      }
+      isBusy(false);
+      await initInbox();
+    } catch (e) {
+      logger.e("Error in loadMailBoxes: $e");
+      isBusy(false);
+      // Show error to user
+      Get.snackbar(
+        'Error',
+        'Failed to load mailboxes. Please check your connection and try again.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
       );
     }
-    for (var mailbox in mailboxes) {
-      if (mailboxStorage[mailbox] != null) continue;
-      mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
-        mailAccount: mailService.account,
-        mailbox: mailbox,
-      );
-      emails[mailbox] = <MimeMessage>[];
-      await mailboxStorage[mailbox]!.init();
-    }
-    isBusy(false);
-    initInbox();
   }
 
   Future loadEmailsForBox(Mailbox mailbox) async {
-    // Set current mailbox to fix fetch error when switching
-    currentMailbox = mailbox;
-
-    if (!mailService.client.isConnected) {
-      await mailService.connect();
-    }
-
     try {
+      // Set loading state
+      isBoxBusy(true);
+      
+      // Set current mailbox to fix fetch error when switching
+      currentMailbox = mailbox;
+
+      if (!mailService.client.isConnected) {
+        await mailService.connect();
+      }
+
       await mailService.client.selectMailbox(mailbox);
       await fetchMailbox(mailbox);
     } catch (e) {
@@ -133,7 +154,17 @@ class MailBoxController extends GetxController {
         await fetchMailbox(mailbox);
       } catch (e) {
         logger.e("Failed to reconnect and select mailbox: $e");
+        // Show error to user
+        Get.snackbar(
+          'Error',
+          'Failed to load emails. Please check your connection and try again.',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
       }
+    } finally {
+      // Always reset loading state
+      isBoxBusy(false);
     }
   }
 
@@ -142,60 +173,69 @@ class MailBoxController extends GetxController {
   int pageSize = 20;
 
   Future<void> fetchMailbox(Mailbox mailbox) async {
-    // Ensure we're working with the correct mailbox
-    if (currentMailbox != mailbox) {
-      currentMailbox = mailbox;
-    }
-
-    int max = mailbox.messagesExists;
-    if (mailbox.uidNext != null && mailbox.isInbox) {
-      await GetStorage().write(
-        BackgroundService.keyInboxLastUid,
-        mailbox.uidNext,
-      );
-    }
-    if (max == 0) return;
-    if (emails[mailbox] == null) {
-      emails[mailbox] = <MimeMessage>[];
-    }
-    page = 1;
-    emails[mailbox]!.clear();
-
-    if (mailboxStorage[mailbox] == null) {
-      mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
-        mailAccount: mailService.account,
-        mailbox: mailbox,
-      );
-      await mailboxStorage[mailbox]!.init();
-    }
-
-    while (emails[mailbox]!.length < max) {
-      MessageSequence sequence = MessageSequence.fromPage(
-        page,
-        pageSize,
-        max,
-      );
-      final messages =
-      await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
-      if (messages.isNotEmpty) {
-        emails[mailbox]!.addAll(messages);
-      } else {
-        List<MimeMessage> newMessages = await queue(sequence);
-        emails[mailbox]!.addAll(newMessages);
-        await mailboxStorage[mailbox]!.saveMessageEnvelopes(newMessages);
+    try {
+      // Ensure we're working with the correct mailbox
+      if (currentMailbox != mailbox) {
+        currentMailbox = mailbox;
       }
-      page += 1;
+
+      int max = mailbox.messagesExists;
+      if (mailbox.uidNext != null && mailbox.isInbox) {
+        await GetStorage().write(
+          BackgroundService.keyInboxLastUid,
+          mailbox.uidNext,
+        );
+      }
+      if (max == 0) return;
+      
+      if (emails[mailbox] == null) {
+        emails[mailbox] = <MimeMessage>[];
+      }
+      page = 1;
+      emails[mailbox]!.clear();
+
+      if (mailboxStorage[mailbox] == null) {
+        mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
+          mailAccount: mailService.account,
+          mailbox: mailbox,
+        );
+        await mailboxStorage[mailbox]!.init();
+      }
+
+      while (emails[mailbox]!.length < max) {
+        MessageSequence sequence = MessageSequence.fromPage(
+          page,
+          pageSize,
+          max,
+        );
+        final messages =
+        await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
+        if (messages.isNotEmpty) {
+          emails[mailbox]!.addAll(messages);
+        } else {
+          List<MimeMessage> newMessages = await queue(sequence);
+          emails[mailbox]!.addAll(newMessages);
+          await mailboxStorage[mailbox]!.saveMessageEnvelopes(newMessages);
+        }
+        page += 1;
+      }
+      
+      if (mailbox.isInbox) {
+        BackgroundService.checkForNewMail(false);
+      }
+      
+      if (Get.isRegistered<MailCountController>()) {
+        final countControll = Get.find<MailCountController>();
+        String key = "${mailbox.name.toLowerCase()}_count";
+        countControll.counts[key] =
+            emails[mailbox]!.where((e) => !e.isSeen).length;
+      }
+      
+      storeContactMails(emails[mailbox]!);
+    } catch (e) {
+      logger.e("Error in fetchMailbox: $e");
+      // Don't rethrow, let the calling method handle the error
     }
-    if (mailbox.isInbox) {
-      BackgroundService.checkForNewMail(false);
-    }
-    if (Get.isRegistered<MailCountController>()) {
-      final countControll = Get.find<MailCountController>();
-      String key = "${mailbox.name.toLowerCase()}_count";
-      countControll.counts[key] =
-          emails[mailbox]!.where((e) => !e.isSeen).length;
-    }
-    storeContactMails(emails[mailbox]!);
   }
 
   Future<List<MimeMessage>> queue(MessageSequence sequence) async {
@@ -380,11 +420,17 @@ class MailBoxController extends GetxController {
   }
 
   Future navigatToMailBox(Mailbox mailbox) async {
-    // Reset current mailbox before navigation to fix fetch error
-    currentMailbox = null;
+    try {
+      // Reset current mailbox before navigation to fix fetch error
+      currentMailbox = null;
 
-    Get.to(() => MailBoxView(mailBox: mailbox));
-    await loadEmailsForBox(mailbox);
+      Get.to(() => MailBoxView(mailBox: mailbox));
+      await loadEmailsForBox(mailbox);
+    } catch (e) {
+      logger.e("Error in navigatToMailBox: $e");
+      // Reset loading state in case of error
+      isBoxBusy(false);
+    }
   }
 
   void storeContactMails(List<MimeMessage> messages) {

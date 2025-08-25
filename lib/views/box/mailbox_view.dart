@@ -63,41 +63,43 @@ class MailBoxView extends GetView<MailBoxController> {
                     : [Colors.grey.shade50, Colors.white],
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-              child: ValueListenableBuilder<List<MimeMessage>>(
-                valueListenable: controller.mailboxStorage[mailBox]!.dataNotifier,
-                builder: (context, List<MimeMessage> messages, _) {
-                  if (messages.isEmpty) {
-                    return TAnimationLoaderWidget(
-                      text: 'Whoops! Box is empty',
-                      animation: 'assets/lottie/empty.json',
-                      showAction: true,
-                      actionText: 'try_again'.tr,
-                      onActionPressed: () => controller.loadEmailsForBox(mailBox),
-                    );
-                  }
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  child: ValueListenableBuilder<List<MimeMessage>>(
+                    valueListenable: controller.mailboxStorage[mailBox]!.dataNotifier,
+                    builder: (context, List<MimeMessage> messages, _) {
+                      if (messages.isEmpty && !controller.isBoxBusy()) {
+                        return TAnimationLoaderWidget(
+                          text: 'Whoops! Box is empty',
+                          animation: 'assets/lottie/empty.json',
+                          showAction: true,
+                          actionText: 'try_again'.tr,
+                          onActionPressed: () => controller.loadEmailsForBox(mailBox),
+                        );
+                      }
 
-                  final sortedMessages = messages.sorted((a, b) {
-                    final dateA = a.decodeDate() ?? DateTime(1970);
-                    final dateB = b.decodeDate() ?? DateTime(1970);
-                    return dateB.compareTo(dateA);
-                  });
+                      final sortedMessages = messages.sorted((a, b) {
+                        final dateA = a.decodeDate() ?? DateTime(1970);
+                        final dateB = b.decodeDate() ?? DateTime(1970);
+                        return dateB.compareTo(dateA);
+                      });
 
-                  final grouped = groupBy<MimeMessage, DateTime>(
-                    sortedMessages,
-                        (m) => filterDate(m.decodeDate() ?? DateTime.now()),
-                  );
+                      final grouped = groupBy<MimeMessage, DateTime>(
+                        sortedMessages,
+                            (m) => filterDate(m.decodeDate() ?? DateTime.now()),
+                      );
 
-                  return ListView.builder(
-                    itemCount: grouped.length,
-                    physics: const BouncingScrollPhysics(),
-                    itemBuilder: (context, index) {
-                      final item = grouped.entries.elementAt(index);
+                      return ListView.builder(
+                        itemCount: grouped.length,
+                        physics: const BouncingScrollPhysics(),
+                        itemBuilder: (context, index) {
+                          final item = grouped.entries.elementAt(index);
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                           // Date header with modern styling
                           Container(
                             margin: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
@@ -159,8 +161,21 @@ class MailBoxView extends GetView<MailBoxController> {
                 },
               ),
             ),
-          ),
+            // Loading overlay
+            Obx(() => controller.isBoxBusy()
+                ? Container(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink()),
+          ],
         ),
+      ),
+    ),
         bottomNavigationBar: Obx(
               () => AnimatedCrossFade(
             firstChild: const SizedBox(),
