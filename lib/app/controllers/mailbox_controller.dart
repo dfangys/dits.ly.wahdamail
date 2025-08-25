@@ -134,49 +134,86 @@ class MailBoxController extends GetxController {
     }
   }
 
-  Future loadEmailsForBox(Mailbox mailbox) async {
+  Future<void> loadEmailsForBox(Mailbox mailbox) async {
     try {
-      // Set loading state
       isBoxBusy(true);
       
       // Set current mailbox to fix fetch error when switching
       currentMailbox = mailbox;
 
+      // Check connection with shorter timeout
       if (!mailService.client.isConnected) {
-        await mailService.connect();
+        await mailService.connect().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            throw TimeoutException("Connection timeout", const Duration(seconds: 10));
+          },
+        );
       }
 
-      await mailService.client.selectMailbox(mailbox);
+      // Select mailbox with timeout
+      await mailService.client.selectMailbox(mailbox).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException("Mailbox selection timeout", const Duration(seconds: 10));
+        },
+      );
       
-      // Add timeout to prevent infinite loading
+      // Fetch mailbox with longer timeout but better error handling
       await fetchMailbox(mailbox).timeout(
-        const Duration(seconds: 30),
+        const Duration(seconds: 45),
         onTimeout: () {
           logger.e("Timeout while fetching mailbox: ${mailbox.name}");
-          throw TimeoutException("Loading emails timed out", const Duration(seconds: 30));
+          throw TimeoutException("Loading emails timed out", const Duration(seconds: 45));
         },
       );
     } catch (e) {
       logger.e("Error selecting mailbox: $e");
-      // Try to reconnect and retry
-      try {
-        await mailService.connect();
-        await mailService.client.selectMailbox(mailbox);
-        await fetchMailbox(mailbox).timeout(
-          const Duration(seconds: 30),
-          onTimeout: () {
-            logger.e("Timeout while fetching mailbox on retry: ${mailbox.name}");
-            throw TimeoutException("Loading emails timed out on retry", const Duration(seconds: 30));
-          },
-        );
-      } catch (e) {
-        logger.e("Failed to reconnect and select mailbox: $e");
-        // Show error to user
+      
+      // Only retry if it's not a timeout from our own operations
+      if (e is! TimeoutException) {
+        try {
+          // Shorter retry timeout
+          await mailService.connect().timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              throw TimeoutException("Reconnection timeout", const Duration(seconds: 8));
+            },
+          );
+          
+          await mailService.client.selectMailbox(mailbox).timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              throw TimeoutException("Mailbox selection timeout on retry", const Duration(seconds: 8));
+            },
+          );
+          
+          await fetchMailbox(mailbox).timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              logger.e("Timeout while fetching mailbox on retry: ${mailbox.name}");
+              throw TimeoutException("Loading emails timed out on retry", const Duration(seconds: 30));
+            },
+          );
+        } catch (retryError) {
+          logger.e("Failed to reconnect and select mailbox: $retryError");
+          // Show error to user
+          Get.snackbar(
+            'Connection Error',
+            'Failed to load emails. Please check your connection and try again.',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 3),
+          );
+        }
+      } else {
+        // It's a timeout, show appropriate message
         Get.snackbar(
-          'Error',
-          'Failed to load emails. Please check your connection and try again.',
-          backgroundColor: Colors.red,
+          'Timeout Error',
+          'Loading emails is taking too long. Please try again.',
+          backgroundColor: Colors.orange,
           colorText: Colors.white,
+          duration: const Duration(seconds: 3),
         );
       }
     } finally {
@@ -187,7 +224,7 @@ class MailBoxController extends GetxController {
 
   // Pagination for emails
   int page = 1;
-  int pageSize = 20;
+  int pageSize = 10; // Reduced from 20 to prevent timeouts
 
   Future<void> fetchMailbox(Mailbox mailbox) async {
     try {
@@ -223,20 +260,28 @@ class MailBoxController extends GetxController {
       page = 1;
       emails[mailbox]!.clear();
 
+      // Initialize storage with timeout
       if (mailboxStorage[mailbox] == null) {
         mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
           mailAccount: mailService.account,
           mailbox: mailbox,
         );
-        await mailboxStorage[mailbox]!.init();
+        await mailboxStorage[mailbox]!.init().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            throw TimeoutException("Database initialization timeout", const Duration(seconds: 10));
+          },
+        );
       }
 
-      // Load messages in batches to avoid sequence issues
+      // Load messages in smaller batches to avoid sequence issues and database locks
       int loaded = 0;
-      while (loaded < max) {
+      int maxToLoad = max > 50 ? 50 : max; // Limit initial load to 50 messages
+      
+      while (loaded < maxToLoad) {
         int batchSize = pageSize;
-        if (loaded + batchSize > max) {
-          batchSize = max - loaded;
+        if (loaded + batchSize > maxToLoad) {
+          batchSize = maxToLoad - loaded;
         }
         
         int start = loaded + 1;
@@ -245,8 +290,8 @@ class MailBoxController extends GetxController {
         // Create a safe sequence
         MessageSequence sequence;
         try {
-          if (end > max) {
-            end = max;
+          if (end > maxToLoad) {
+            end = maxToLoad;
           }
           sequence = MessageSequence.fromRange(start, end);
         } catch (e) {
@@ -255,15 +300,41 @@ class MailBoxController extends GetxController {
         }
         
         try {
-          final messages = await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
+          // Add small delay to prevent database locking
+          if (loaded > 0) {
+            await Future.delayed(const Duration(milliseconds: 100));
+          }
+          
+          final messages = await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence).timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              throw TimeoutException("Database load timeout", const Duration(seconds: 15));
+            },
+          );
+          
           if (messages.isNotEmpty) {
             emails[mailbox]!.addAll(messages);
             loaded += messages.length;
           } else {
-            List<MimeMessage> newMessages = await queue(sequence);
+            List<MimeMessage> newMessages = await queue(sequence).timeout(
+              const Duration(seconds: 20),
+              onTimeout: () {
+                throw TimeoutException("Network fetch timeout", const Duration(seconds: 20));
+              },
+            );
+            
             if (newMessages.isNotEmpty) {
               emails[mailbox]!.addAll(newMessages);
-              await mailboxStorage[mailbox]!.saveMessageEnvelopes(newMessages);
+              
+              // Save with timeout and delay to prevent database locking
+              await Future.delayed(const Duration(milliseconds: 50));
+              await mailboxStorage[mailbox]!.saveMessageEnvelopes(newMessages).timeout(
+                const Duration(seconds: 10),
+                onTimeout: () {
+                  logger.w("Database save timeout - continuing without saving");
+                },
+              );
+              
               loaded += newMessages.length;
             } else {
               // No more messages to load
@@ -272,12 +343,15 @@ class MailBoxController extends GetxController {
           }
         } catch (e) {
           logger.e("Error loading messages for sequence $start:$end: $e");
-          // Try to continue with next batch
+          // Try to continue with next batch instead of failing completely
           loaded += batchSize;
+          
+          // Add delay before next attempt
+          await Future.delayed(const Duration(milliseconds: 200));
         }
         
         // Prevent infinite loop
-        if (loaded >= max || batchSize == 0) {
+        if (loaded >= maxToLoad || batchSize == 0) {
           break;
         }
       }
