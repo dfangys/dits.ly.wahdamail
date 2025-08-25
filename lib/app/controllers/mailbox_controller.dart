@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -144,14 +145,28 @@ class MailBoxController extends GetxController {
       }
 
       await mailService.client.selectMailbox(mailbox);
-      await fetchMailbox(mailbox);
+      
+      // Add timeout to prevent infinite loading
+      await fetchMailbox(mailbox).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          logger.e("Timeout while fetching mailbox: ${mailbox.name}");
+          throw TimeoutException("Loading emails timed out", const Duration(seconds: 30));
+        },
+      );
     } catch (e) {
       logger.e("Error selecting mailbox: $e");
       // Try to reconnect and retry
       try {
         await mailService.connect();
         await mailService.client.selectMailbox(mailbox);
-        await fetchMailbox(mailbox);
+        await fetchMailbox(mailbox).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () {
+            logger.e("Timeout while fetching mailbox on retry: ${mailbox.name}");
+            throw TimeoutException("Loading emails timed out on retry", const Duration(seconds: 30));
+          },
+        );
       } catch (e) {
         logger.e("Failed to reconnect and select mailbox: $e");
         // Show error to user
@@ -186,7 +201,13 @@ class MailBoxController extends GetxController {
           mailbox.uidNext,
         );
       }
-      if (max == 0) return;
+      if (max == 0) {
+        // No messages, but still update the storage to trigger UI update
+        if (mailboxStorage[mailbox] != null) {
+          await mailboxStorage[mailbox]!.saveMessageEnvelopes([]);
+        }
+        return;
+      }
       
       if (emails[mailbox] == null) {
         emails[mailbox] = <MimeMessage>[];
@@ -202,22 +223,55 @@ class MailBoxController extends GetxController {
         await mailboxStorage[mailbox]!.init();
       }
 
-      while (emails[mailbox]!.length < max) {
-        MessageSequence sequence = MessageSequence.fromPage(
-          page,
-          pageSize,
-          max,
-        );
-        final messages =
-        await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
-        if (messages.isNotEmpty) {
-          emails[mailbox]!.addAll(messages);
-        } else {
-          List<MimeMessage> newMessages = await queue(sequence);
-          emails[mailbox]!.addAll(newMessages);
-          await mailboxStorage[mailbox]!.saveMessageEnvelopes(newMessages);
+      // Load messages in batches to avoid sequence issues
+      int loaded = 0;
+      while (loaded < max) {
+        int batchSize = pageSize;
+        if (loaded + batchSize > max) {
+          batchSize = max - loaded;
         }
-        page += 1;
+        
+        int start = loaded + 1;
+        int end = loaded + batchSize;
+        
+        // Create a safe sequence
+        MessageSequence sequence;
+        try {
+          if (end > max) {
+            end = max;
+          }
+          sequence = MessageSequence.fromRange(start, end);
+        } catch (e) {
+          logger.e("Error creating sequence for range $start:$end: $e");
+          break;
+        }
+        
+        try {
+          final messages = await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence);
+          if (messages.isNotEmpty) {
+            emails[mailbox]!.addAll(messages);
+            loaded += messages.length;
+          } else {
+            List<MimeMessage> newMessages = await queue(sequence);
+            if (newMessages.isNotEmpty) {
+              emails[mailbox]!.addAll(newMessages);
+              await mailboxStorage[mailbox]!.saveMessageEnvelopes(newMessages);
+              loaded += newMessages.length;
+            } else {
+              // No more messages to load
+              break;
+            }
+          }
+        } catch (e) {
+          logger.e("Error loading messages for sequence $start:$end: $e");
+          // Try to continue with next batch
+          loaded += batchSize;
+        }
+        
+        // Prevent infinite loop
+        if (loaded >= max || batchSize == 0) {
+          break;
+        }
       }
       
       if (mailbox.isInbox) {
@@ -239,10 +293,15 @@ class MailBoxController extends GetxController {
   }
 
   Future<List<MimeMessage>> queue(MessageSequence sequence) async {
-    return await mailService.client.fetchMessageSequence(
-      sequence,
-      fetchPreference: FetchPreference.envelope,
-    );
+    try {
+      return await mailService.client.fetchMessageSequence(
+        sequence,
+        fetchPreference: FetchPreference.envelope,
+      );
+    } catch (e) {
+      logger.e("Error in queue method: $e");
+      return <MimeMessage>[];
+    }
   }
 
   // Operations on emails
