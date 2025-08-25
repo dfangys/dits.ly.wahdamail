@@ -350,20 +350,38 @@ class MailBoxController extends GetxController {
     final message = MimeMessage();
     
     // Set basic properties
-    message.setHeader('subject', draft.subject ?? '');
-    message.setHeader('from', draft.from ?? '');
-    message.setHeader('to', draft.to ?? '');
-    message.setHeader('cc', draft.cc ?? '');
-    message.setHeader('bcc', draft.bcc ?? '');
+    message.setHeader('subject', draft.subject);
+    
+    // Set recipients
+    if (draft.to.isNotEmpty) {
+      message.setHeader('to', draft.to.join(', '));
+    }
+    if (draft.cc.isNotEmpty) {
+      message.setHeader('cc', draft.cc.join(', '));
+    }
+    if (draft.bcc.isNotEmpty) {
+      message.setHeader('bcc', draft.bcc.join(', '));
+    }
+    
+    // Set date
     message.setHeader('date', draft.createdAt.toIso8601String());
     
     // Set content
-    if (draft.body != null && draft.body!.isNotEmpty) {
-      message.text = draft.body;
+    if (draft.body.isNotEmpty) {
+      if (draft.isHtml) {
+        message.addPart(MimePart()
+          ..contentType = ContentType.textHtml
+          ..text = draft.body);
+      } else {
+        message.addPart(MimePart()
+          ..contentType = ContentType.textPlain
+          ..text = draft.body);
+      }
     }
     
-    // Mark as draft
-    message.setHeader('x-draft-id', draft.id.toString());
+    // Mark as draft with custom header
+    message.setHeader('x-draft-id', draft.id?.toString() ?? '');
+    message.setHeader('x-is-draft', 'true');
     
     return message;
   }
