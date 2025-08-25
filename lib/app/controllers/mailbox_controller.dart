@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -6,13 +9,13 @@ import 'package:get_storage/get_storage.dart';
 import 'package:logger/logger.dart';
 import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
-import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/models/sqlite_draft_repository.dart';
-import 'package:wahda_bank/views/compose/models/draft_model.dart';
-import 'package:wahda_bank/services/background_service.dart';
-import 'package:wahda_bank/services/internet_service.dart';
+import 'package:wahda_bank/models/sqlite_mime_storage.dart';
+import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
+import 'package:wahda_bank/views/compose/models/draft_model.dart';
+import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import 'package:workmanager/workmanager.dart';
@@ -148,6 +151,16 @@ class MailBoxController extends GetxController {
 
   Future<void> loadEmailsForBox(Mailbox mailbox) async {
     try {
+      // Show progress indicator
+      if (Get.isRegistered<EmailDownloadProgressController>()) {
+        final progressController = Get.find<EmailDownloadProgressController>();
+        progressController.show(
+          title: 'Loading Emails',
+          subtitle: 'Connecting to ${mailbox.name}...',
+          indeterminate: true,
+        );
+      }
+
       isBoxBusy(true);
       
       // Set current mailbox to fix fetch error when switching
@@ -155,6 +168,11 @@ class MailBoxController extends GetxController {
 
       // Check connection with shorter timeout
       if (!mailService.client.isConnected) {
+        if (Get.isRegistered<EmailDownloadProgressController>()) {
+          final progressController = Get.find<EmailDownloadProgressController>();
+          progressController.updateStatus('Connecting to mail server...');
+        }
+        
         await mailService.connect().timeout(
           const Duration(seconds: 10),
           onTimeout: () {
@@ -164,6 +182,11 @@ class MailBoxController extends GetxController {
       }
 
       // Select mailbox with timeout
+      if (Get.isRegistered<EmailDownloadProgressController>()) {
+        final progressController = Get.find<EmailDownloadProgressController>();
+        progressController.updateStatus('Selecting mailbox ${mailbox.name}...');
+      }
+      
       await mailService.client.selectMailbox(mailbox).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
@@ -172,6 +195,11 @@ class MailBoxController extends GetxController {
       );
       
       // Fetch mailbox with longer timeout but better error handling
+      if (Get.isRegistered<EmailDownloadProgressController>()) {
+        final progressController = Get.find<EmailDownloadProgressController>();
+        progressController.updateStatus('Fetching emails from ${mailbox.name}...');
+      }
+      
       await fetchMailbox(mailbox).timeout(
         const Duration(seconds: 45),
         onTimeout: () {
@@ -185,6 +213,11 @@ class MailBoxController extends GetxController {
       // Only retry if it's not a timeout from our own operations
       if (e is! TimeoutException) {
         try {
+          if (Get.isRegistered<EmailDownloadProgressController>()) {
+            final progressController = Get.find<EmailDownloadProgressController>();
+            progressController.updateStatus('Retrying connection...');
+          }
+          
           // Shorter retry timeout
           await mailService.connect().timeout(
             const Duration(seconds: 8),
@@ -231,6 +264,12 @@ class MailBoxController extends GetxController {
     } finally {
       // Always reset loading state
       isBoxBusy(false);
+      
+      // Hide progress indicator
+      if (Get.isRegistered<EmailDownloadProgressController>()) {
+        final progressController = Get.find<EmailDownloadProgressController>();
+        progressController.hide();
+      }
     }
   }
 
@@ -523,21 +562,31 @@ class MailBoxController extends GetxController {
       // Initialize storage for drafts if not exists
       if (mailboxStorage[mailbox] == null) {
         mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
-          mailAccount: mailService.account,
+          mailAccount: _mailService.account,
           mailbox: mailbox,
         );
         await mailboxStorage[mailbox]!.init();
       }
 
-      if (emails[mailbox] == null) {
-        emails[mailbox] = <MimeMessage>[];
+      // Check if MailService is available
+      if (!Get.isRegistered<MailService>()) {
+        logger.w("MailService not available for draft loading");
+        return;
       }
-      emails[mailbox]!.clear();
 
-      // Load drafts from local SQLite database
-      final draftRepository = SQLiteDraftRepository.instance;
-      final drafts = await draftRepository.getAllDrafts();
+      final draftRepository = SQLiteDraftRepository();
+      await draftRepository.init();
       
+      final drafts = await draftRepository.getAllDrafts();
+      logger.i("Found ${drafts.length} drafts in local database");
+
+      if (drafts.isEmpty) {
+        logger.i("No drafts found in local database");
+        // Still update UI to show empty state
+        update();
+        return;
+      }
+
       // Convert drafts to MimeMessage objects
       List<MimeMessage> draftMessages = [];
       for (var draft in drafts) {
@@ -566,6 +615,8 @@ class MailBoxController extends GetxController {
       logger.i("Loaded ${draftMessages.length} drafts for mailbox: ${mailbox.name}");
     } catch (e) {
       logger.e("Error loading drafts from local: $e");
+      // Still update UI even on error
+      update();
     }
   }
 

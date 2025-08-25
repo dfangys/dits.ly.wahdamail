@@ -11,6 +11,7 @@ import 'package:wahda_bank/widgets/bottomnavs/selection_botttom_nav.dart';
 import 'package:wahda_bank/widgets/drawer/drawer.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/widgets/search/search.dart';
+import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import '../../../../app/controllers/selection_controller.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../../../../widgets/empty_box.dart';
@@ -21,6 +22,8 @@ class HomeScreen extends GetView<MailBoxController> {
   @override
   Widget build(BuildContext context) {
     final selectionController = Get.find<SelectionController>();
+    final progressController = Get.find<EmailDownloadProgressController>();
+    
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: PreferredSize(
@@ -28,25 +31,27 @@ class HomeScreen extends GetView<MailBoxController> {
         child: appBar(),
       ),
       drawer: const Drawer1(),
-      body: Obx(
-            () {
-          if (controller.isBusy()) {
-            return TAnimationLoaderWidget(
-              text: 'Searching for emails',
-              animation: 'assets/lottie/search.json',
-              showAction: false,
-              actionText: 'try_again'.tr,
-              onActionPressed: () {},
-            );
-          }
-          
-          return Stack(
-            children: [
-              ValueListenableBuilder<List<MimeMessage>>(
-                valueListenable: controller.mailboxStorage[controller.mailBoxInbox]!.dataNotifier,
-                builder: (context, messages, child) {
-                  List<MimeMessage> rows = messages.sorted((a, b) {
-                    final dateA = a.decodeDate();
+      body: Stack(
+        children: [
+          Obx(
+                () {
+              if (controller.isBusy()) {
+                return TAnimationLoaderWidget(
+                  text: 'Searching for emails',
+                  animation: 'assets/lottie/search.json',
+                  showAction: false,
+                  actionText: 'try_again'.tr,
+                  onActionPressed: () {},
+                );
+              }
+              
+              return Stack(
+                children: [
+                  ValueListenableBuilder<List<MimeMessage>>(
+                    valueListenable: controller.mailboxStorage[controller.mailBoxInbox]!.dataNotifier,
+                    builder: (context, messages, child) {
+                      List<MimeMessage> rows = messages.sorted((a, b) {
+                        final dateA = a.decodeDate();
                     final dateB = b.decodeDate();
                     if (dateA == null && dateB == null) return 0;
                     if (dateA == null) return 1;
@@ -159,15 +164,17 @@ class HomeScreen extends GetView<MailBoxController> {
       );
         },
       ),
-      floatingActionButton: Obx(
-            () => selectionController.isSelecting
-            ? const SizedBox.shrink()
-            : FloatingActionButton(
-          onPressed: () {
-            Get.to(() => const ComposeScreen());
-          },
-          backgroundColor: AppTheme.primaryColor,
-          child: const Icon(Icons.edit_outlined, color: Colors.white),
+      ],
+    ),
+    floatingActionButton: Obx(
+          () => selectionController.isSelecting
+          ? const SizedBox.shrink()
+          : FloatingActionButton(
+        onPressed: () {
+          Get.to(() => const ComposeScreen());
+        },
+        backgroundColor: AppTheme.primaryColor,
+        child: const Icon(Icons.edit_outlined, color: Colors.white),
         ),
       ),
       bottomNavigationBar: Obx(
@@ -247,7 +254,14 @@ class WSearchBar extends StatelessWidget {
             ],
           ),
         ),
-      ),
+        // Progress indicator overlay
+        Obx(() => progressController.isVisible.value 
+          ? EmailDownloadProgressWidget(
+              title: progressController.title.value,
+              subtitle: progressController.subtitle.value,
+            ) 
+          : const SizedBox.shrink()),
+      ],
     );
   }
 }

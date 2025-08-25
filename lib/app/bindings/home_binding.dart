@@ -3,6 +3,7 @@ import 'package:wahda_bank/app/controllers/auth_controller.dart';
 import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
+import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 
 import '../controllers/mail_count_controller.dart';
 import '../controllers/mailbox_controller.dart';
@@ -15,6 +16,9 @@ class HomeBinding extends Bindings {
     // Register performance optimization services first
     Get.put<CacheManager>(CacheManager(), permanent: true);
     Get.put<RealtimeUpdateService>(RealtimeUpdateService.instance, permanent: true);
+    
+    // Register progress controller
+    Get.put<EmailDownloadProgressController>(EmailDownloadProgressController(), permanent: true);
     
     Get.lazyPut<MailBoxController>(() => MailBoxController(), fenix: true);
     Get.lazyPut<SelectionController>(() => SelectionController());
