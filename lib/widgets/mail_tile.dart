@@ -76,21 +76,41 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin 
   }
 
   String _generatePreview() {
-    // Try to get cached content first
+    // Try cached content first
     final cachedContent = cacheManager.getCachedMessageContent(widget.message);
-    if (cachedContent != null) {
+    if (cachedContent != null && cachedContent.isNotEmpty) {
       return _extractPreviewFromContent(cachedContent);
     }
 
-    // Fallback to basic preview extraction
-    final textPart = widget.message.decodeTextPlainPart();
-    if (textPart != null && textPart.isNotEmpty) {
-      return _extractPreviewFromContent(textPart);
-    }
+    // Try to get text content from message
+    try {
+      // Try plain text first
+      final textPart = widget.message.decodeTextPlainPart();
+      if (textPart != null && textPart.trim().isNotEmpty) {
+        return _extractPreviewFromContent(textPart);
+      }
 
-    final htmlPart = widget.message.decodeTextHtmlPart();
-    if (htmlPart != null && htmlPart.isNotEmpty) {
-      return _extractPreviewFromContent(htmlPart);
+      // Try HTML content
+      final htmlPart = widget.message.decodeTextHtmlPart();
+      if (htmlPart != null && htmlPart.trim().isNotEmpty) {
+        return _extractPreviewFromContent(htmlPart);
+      }
+
+      // Try to extract from message body parts
+      if (widget.message.body != null) {
+        final bodyText = widget.message.body.toString();
+        if (bodyText.isNotEmpty) {
+          return _extractPreviewFromContent(bodyText);
+        }
+      }
+
+      // Try subject as fallback
+      final subject = widget.message.decodeSubject();
+      if (subject != null && subject.isNotEmpty) {
+        return 'Subject: $subject';
+      }
+    } catch (e) {
+      // If all else fails, return a default message
     }
 
     return 'No preview available';

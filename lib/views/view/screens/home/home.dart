@@ -155,16 +155,6 @@ class HomeScreen extends GetView<MailBoxController> {
               );
             },
           ),
-          // Loading overlay
-          if (controller.isBoxBusy())
-            Container(
-              color: Colors.black.withValues(alpha: 0.3),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                ),
-              ),
-            ),
         ],
       );
         },

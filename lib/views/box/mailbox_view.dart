@@ -73,20 +73,8 @@ class MailBoxView extends GetView<MailBoxController> {
                     theme: theme,
                     isDarkMode: isDarkMode,
                   ),
-                ),
-                // Loading overlay
-                Obx(() {
-                  if (controller.isBoxBusy.value) {
-                    return Container(
-                      color: Colors.black.withValues(alpha : 0.3),
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                }),
-              ],
+                ],
+              ),
             ),
           ),
         ),
