@@ -36,8 +36,25 @@ class MailBoxController extends GetxController {
   late final IndexedCache<MimeMessage> _messageCache;
   static const int _maxCacheSize = 200; // Optimized for mobile devices
   late MailService mailService;
+  // CRITICAL: Add navigation state preservation
+  final RxBool _isNavigating = false.obs;
+  bool get isNavigating => _isNavigating.value;
+  
   final RxBool isBusy = true.obs;
   final RxBool isBoxBusy = true.obs;
+  bool get isInboxInitialized => _hasInitializedInbox;
+  bool _hasInitializedInbox = false;
+  
+  void setNavigating(bool value) {
+    _isNavigating.value = value;
+  }
+  
+  // CRITICAL: Prevent infinite loading loops
+  final Map<Mailbox, bool> _isLoadingMore = {};
+  
+  bool isLoadingMoreEmails(Mailbox mailbox) {
+    return _isLoadingMore[mailbox] ?? false;
+  }
   final getStoarage = GetStorage();
 
   // Performance optimization services
@@ -403,6 +420,7 @@ class MailBoxController extends GetxController {
         orElse: () => mailboxes.first,
       );
       await loadEmailsForBox(mailBoxInbox);
+      _hasInitializedInbox = true; // Set initialization flag
     } catch (e) {
       logger.e("Error in initInbox: $e");
       // Reset loading state in case of error
@@ -781,8 +799,14 @@ class MailBoxController extends GetxController {
   }
 
   // Load more emails for pagination
-  Future<void> loadMoreEmails(Mailbox mailbox, int pageNumber) async {
+  Future<void> loadMoreEmails(Mailbox mailbox, [int? pageNumber]) async {
     try {
+      // CRITICAL: Prevent infinite loading loops
+      if (_isLoadingMore[mailbox] == true) {
+        debugPrint('🔄 Already loading more emails for ${mailbox.name}');
+        return;
+      }
+      
       if (isBoxBusy.value) return; // Prevent multiple simultaneous loads
       
       // Check if we have more messages to load
@@ -790,11 +814,14 @@ class MailBoxController extends GetxController {
       final totalMessages = mailbox.messagesExists;
       
       if (currentCount >= totalMessages) {
-        logger.i("All messages already loaded for ${mailbox.name} ($currentCount/$totalMessages)");
+        logger.i("💡 All messages already loaded for ${mailbox.name} ($currentCount/$totalMessages)");
         return;
       }
       
-      logger.i("Loading more emails for ${mailbox.name}, page: $pageNumber (current: $currentCount/$totalMessages)");
+      // Set loading state
+      _isLoadingMore[mailbox] = true;
+      
+      logger.i("Loading more emails for ${mailbox.name} (current: $currentCount/$totalMessages)");
       
       // Set current mailbox
       currentMailbox = mailbox;
@@ -818,11 +845,14 @@ class MailBoxController extends GetxController {
       );
 
       // Load additional messages
-      await _loadAdditionalMessages(mailbox, pageNumber);
+      await _loadAdditionalMessages(mailbox, pageNumber ?? 1);
       
     } catch (e) {
       logger.e("Error loading more emails: $e");
       // Don't show error for pagination failures to avoid disrupting UX
+    } finally {
+      // CRITICAL: Always reset loading state
+      _isLoadingMore[mailbox] = false;
     }
   }
 
