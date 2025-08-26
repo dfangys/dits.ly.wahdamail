@@ -22,21 +22,93 @@ class MailAttachments extends StatelessWidget {
     try {
       final mailService = MailService.instance;
       
-      // Ensure we're connected
-      if (!mailService.client.isConnected) {
-        await mailService.connect();
+      // CRITICAL FIX: Validate message UID before fetching
+      if (message.uid == null) {
+        throw Exception('Message UID is null, cannot fetch content');
       }
       
-      // If mailbox is provided and it's different from current selection, select it
-      if (mailbox != null) {
-        final currentMailbox = mailService.client.selectedMailbox;
-        if (currentMailbox == null || currentMailbox.path != mailbox!.path) {
-          await mailService.client.selectMailbox(mailbox!);
+      // Ensure we're connected with retry logic
+      int connectionRetries = 3;
+      while (!mailService.client.isConnected && connectionRetries > 0) {
+        try {
+          await mailService.connect();
+          break;
+        } catch (e) {
+          connectionRetries--;
+          if (connectionRetries == 0) rethrow;
+          await Future.delayed(const Duration(seconds: 1));
         }
       }
       
-      // Fetch the message content with proper context
-      return await mailService.client.fetchMessageContents(message);
+      // CRITICAL FIX: Validate and ensure correct mailbox is selected
+      if (mailbox != null) {
+        final currentMailbox = mailService.client.selectedMailbox;
+        if (currentMailbox == null || currentMailbox.path != mailbox!.path) {
+          if (kDebugMode) {
+            print('Selecting mailbox: ${mailbox!.path} (current: ${currentMailbox?.path})');
+          }
+          await mailService.client.selectMailbox(mailbox!);
+          
+          // Wait a moment for mailbox selection to complete
+          await Future.delayed(const Duration(milliseconds: 100));
+        }
+      }
+      
+      // CRITICAL FIX: Add logging for debugging UID fetch issues
+      if (kDebugMode) {
+        print('Preparing to fetch message content for UID ${message.uid} in mailbox ${mailbox?.path}');
+      }
+      
+      // CRITICAL FIX: Fetch message content with retry logic and proper error handling
+      int fetchRetries = 3;
+      while (fetchRetries > 0) {
+        try {
+          if (kDebugMode) {
+            print('Fetching message contents for UID ${message.uid} (attempt ${4 - fetchRetries})');
+          }
+          
+          final fetchedMessage = await mailService.client.fetchMessageContents(message);
+          
+          if (fetchedMessage == null) {
+            throw Exception('fetchMessageContents returned null for UID ${message.uid}');
+          }
+          
+          if (kDebugMode) {
+            print('Successfully fetched message contents for UID ${message.uid}');
+          }
+          
+          return fetchedMessage;
+        } catch (e) {
+          fetchRetries--;
+          if (kDebugMode) {
+            print('Fetch attempt failed for UID ${message.uid}: $e (retries left: $fetchRetries)');
+          }
+          
+          if (fetchRetries == 0) {
+            // Final attempt failed, throw with more context
+            throw Exception('Failed to fetch message content after 3 attempts. UID: ${message.uid}, Error: $e');
+          }
+          
+          // Wait before retry
+          await Future.delayed(Duration(milliseconds: 500 * (4 - fetchRetries)));
+          
+          // Re-select mailbox before retry to ensure proper context
+          if (mailbox != null) {
+            try {
+              await mailService.client.selectMailbox(mailbox!);
+              await Future.delayed(const Duration(milliseconds: 100));
+            } catch (selectError) {
+              if (kDebugMode) {
+                print('Mailbox re-selection failed during retry: $selectError');
+              }
+            }
+          }
+        }
+      }
+      
+      // This should never be reached due to the loop logic above
+      throw Exception('Unexpected error in message fetch retry logic');
+      
     } catch (e) {
       if (kDebugMode) {
         print('Error fetching message content: $e');

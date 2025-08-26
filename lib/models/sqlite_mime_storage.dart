@@ -50,37 +50,40 @@ class SQLiteMailboxMimeStorage {
   Future<int> _ensureMailboxExists() async {
     final db = await SQLiteDatabaseHelper.instance.database;
 
-    try {
-      // Check if mailbox exists
-      final List<Map<String, dynamic>> result = await db.query(
-        SQLiteDatabaseHelper.tableMailboxes,
-        where: '${SQLiteDatabaseHelper.columnAccountEmail} = ? AND ${SQLiteDatabaseHelper.columnPath} = ?',
-        whereArgs: [mailAccount.email, mailbox.path],
-      );
-
-      if (result.isNotEmpty) {
-        // Update mailbox data
-        await db.update(
+    // CRITICAL FIX: Wrap all database operations in a single transaction to prevent locking
+    return await db.transaction((txn) async {
+      try {
+        // Check if mailbox exists
+        final List<Map<String, dynamic>> result = await txn.query(
           SQLiteDatabaseHelper.tableMailboxes,
-          _mailboxToMap(),
           where: '${SQLiteDatabaseHelper.columnAccountEmail} = ? AND ${SQLiteDatabaseHelper.columnPath} = ?',
           whereArgs: [mailAccount.email, mailbox.path],
         );
-        return result.first[SQLiteDatabaseHelper.columnId] as int;
-      } else {
-        // Insert new mailbox
-        return await db.insert(
-          SQLiteDatabaseHelper.tableMailboxes,
-          _mailboxToMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+
+        if (result.isNotEmpty) {
+          // Update mailbox data within transaction
+          await txn.update(
+            SQLiteDatabaseHelper.tableMailboxes,
+            _mailboxToMap(),
+            where: '${SQLiteDatabaseHelper.columnAccountEmail} = ? AND ${SQLiteDatabaseHelper.columnPath} = ?',
+            whereArgs: [mailAccount.email, mailbox.path],
+          );
+          return result.first[SQLiteDatabaseHelper.columnId] as int;
+        } else {
+          // Insert new mailbox within transaction
+          return await txn.insert(
+            SQLiteDatabaseHelper.tableMailboxes,
+            _mailboxToMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error ensuring mailbox exists: $e');
+        }
+        rethrow;
       }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error ensuring mailbox exists: $e');
-      }
-      rethrow;
-    }
+    });
   }
 
   /// Convert mailbox to map for database storage
@@ -100,22 +103,25 @@ class SQLiteMailboxMimeStorage {
     };
   }
 
-  /// Get mailbox ID from database
+  /// Get mailbox ID from database with transaction safety
   Future<int> _getMailboxId() async {
     final db = await SQLiteDatabaseHelper.instance.database;
 
-    final List<Map<String, dynamic>> result = await db.query(
-      SQLiteDatabaseHelper.tableMailboxes,
-      columns: [SQLiteDatabaseHelper.columnId],
-      where: '${SQLiteDatabaseHelper.columnAccountEmail} = ? AND ${SQLiteDatabaseHelper.columnPath} = ?',
-      whereArgs: [mailAccount.email, mailbox.path],
-    );
+    // CRITICAL FIX: Use read transaction for consistency and to prevent locking issues
+    return await db.transaction((txn) async {
+      final List<Map<String, dynamic>> result = await txn.query(
+        SQLiteDatabaseHelper.tableMailboxes,
+        columns: [SQLiteDatabaseHelper.columnId],
+        where: '${SQLiteDatabaseHelper.columnAccountEmail} = ? AND ${SQLiteDatabaseHelper.columnPath} = ?',
+        whereArgs: [mailAccount.email, mailbox.path],
+      );
 
-    if (result.isEmpty) {
-      return await _ensureMailboxExists();
-    }
+      if (result.isEmpty) {
+        throw Exception('Mailbox not found in database: ${mailbox.path}');
+      }
 
-    return result.first[SQLiteDatabaseHelper.columnId] as int;
+      return result.first[SQLiteDatabaseHelper.columnId] as int;
+    });
   }
 
   /// Save message envelopes to database
@@ -255,14 +261,18 @@ class SQLiteMailboxMimeStorage {
   Future<List<MimeMessage>> loadAllMessages() async {
     try {
       final db = await SQLiteDatabaseHelper.instance.database;
-      final mailboxId = await _getMailboxId();
+      
+      // CRITICAL FIX: Use transaction for consistent read operations
+      final results = await db.transaction((txn) async {
+        final mailboxId = await _getMailboxIdFromTransaction(txn);
 
-      final List<Map<String, dynamic>> results = await db.query(
-        SQLiteDatabaseHelper.tableEmails,
-        where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
-        whereArgs: [mailboxId],
-        orderBy: '${SQLiteDatabaseHelper.columnDate} DESC',
-      );
+        return await txn.query(
+          SQLiteDatabaseHelper.tableEmails,
+          where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+          whereArgs: [mailboxId],
+          orderBy: '${SQLiteDatabaseHelper.columnDate} DESC',
+        );
+      });
 
       return await compute(_mapsToMessages, results);
     } catch (e) {
@@ -271,6 +281,22 @@ class SQLiteMailboxMimeStorage {
       }
       return [];
     }
+  }
+
+  /// Get mailbox ID within an existing transaction
+  Future<int> _getMailboxIdFromTransaction(Transaction txn) async {
+    final List<Map<String, dynamic>> result = await txn.query(
+      SQLiteDatabaseHelper.tableMailboxes,
+      columns: [SQLiteDatabaseHelper.columnId],
+      where: '${SQLiteDatabaseHelper.columnAccountEmail} = ? AND ${SQLiteDatabaseHelper.columnPath} = ?',
+      whereArgs: [mailAccount.email, mailbox.path],
+    );
+
+    if (result.isEmpty) {
+      throw Exception('Mailbox not found in database: ${mailbox.path}');
+    }
+
+    return result.first[SQLiteDatabaseHelper.columnId] as int;
   }
 
   /// Fetch message contents - added to fix error in mail_tile.dart
@@ -303,15 +329,19 @@ class SQLiteMailboxMimeStorage {
   Future<void> deleteMessage(MimeMessage message) async {
     try {
       final db = await SQLiteDatabaseHelper.instance.database;
-      final mailboxId = await _getMailboxId();
 
-      await db.delete(
-        SQLiteDatabaseHelper.tableEmails,
-        where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
-        whereArgs: [mailboxId, message.uid],
-      );
+      // CRITICAL FIX: Use transaction for delete operations to prevent locking
+      await db.transaction((txn) async {
+        final mailboxId = await _getMailboxIdFromTransaction(txn);
 
-      // Notify listeners
+        await txn.delete(
+          SQLiteDatabaseHelper.tableEmails,
+          where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
+          whereArgs: [mailboxId, message.uid],
+        );
+      });
+
+      // Notify listeners after successful transaction
       final updatedMessages = await loadAllMessages();
       dataNotifier.value = updatedMessages;
       _dataStreamController.add(updatedMessages);
@@ -326,15 +356,19 @@ class SQLiteMailboxMimeStorage {
   Future<void> deleteAllMessages() async {
     try {
       final db = await SQLiteDatabaseHelper.instance.database;
-      final mailboxId = await _getMailboxId();
 
-      await db.delete(
-        SQLiteDatabaseHelper.tableEmails,
-        where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
-        whereArgs: [mailboxId],
-      );
+      // CRITICAL FIX: Use transaction for bulk delete operations to prevent locking
+      await db.transaction((txn) async {
+        final mailboxId = await _getMailboxIdFromTransaction(txn);
 
-      // Notify listeners
+        await txn.delete(
+          SQLiteDatabaseHelper.tableEmails,
+          where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+          whereArgs: [mailboxId],
+        );
+      });
+
+      // Notify listeners after successful transaction
       dataNotifier.value = [];
       _dataStreamController.add([]);
     } catch (e) {
