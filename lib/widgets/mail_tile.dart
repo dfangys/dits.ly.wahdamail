@@ -149,10 +149,65 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     // ENHANCED: Cache other computed values with better fallbacks
     _hasAttachments = widget.message.hasAttachments == true;
     
-    // ENHANCED: Better date handling with envelope fallback
-    _messageDate = widget.message.decodeDate() ?? 
-                   widget.message.envelope?.date ?? 
-                   DateTime.now();
+    // ENHANCED: Better date handling with comprehensive fallback chain
+    DateTime? messageDate;
+    
+    // Try multiple date sources in order of preference
+    try {
+      // 1. Try message.decodeDate() first
+      messageDate = widget.message.decodeDate();
+      if (messageDate != null && kDebugMode) {
+        print('📧 Date from message.decodeDate(): $messageDate');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error in message.decodeDate(): $e');
+      }
+    }
+    
+    // 2. Try envelope date if message date failed
+    if (messageDate == null) {
+      try {
+        messageDate = widget.message.envelope?.date;
+        if (messageDate != null && kDebugMode) {
+          print('📧 Date from envelope.date: $messageDate');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('📧 Error in envelope.date: $e');
+        }
+      }
+    }
+    
+    // 3. Try parsing date header directly
+    if (messageDate == null) {
+      try {
+        final dateHeader = widget.message.getHeaderValue('date');
+        if (dateHeader != null && dateHeader.isNotEmpty) {
+          messageDate = DateTime.tryParse(dateHeader);
+          if (messageDate != null && kDebugMode) {
+            print('📧 Date from header parsing: $messageDate');
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('📧 Error parsing date header: $e');
+        }
+      }
+    }
+    
+    // 4. Last resort: use current time but log the issue
+    if (messageDate == null) {
+      messageDate = DateTime.now();
+      if (kDebugMode) {
+        print('📧 WARNING: Using current time as fallback for message date');
+        print('📧 Message UID: ${widget.message.uid}');
+        print('📧 Message envelope: ${widget.message.envelope}');
+        print('📧 Message headers: ${widget.message.headers}');
+      }
+    }
+    
+    _messageDate = messageDate;
     
     // ENHANCED: Use enough_mail_app pattern for proper subject decoding
     final decodedSubject = widget.message.decodeSubject();

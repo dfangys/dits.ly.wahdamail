@@ -33,12 +33,19 @@ class SQLiteMailboxMimeStorage {
       await _ensureMailboxExists();
 
       // CRITICAL FIX: Check if we need to migrate address format
-      await _migrateAddressFormatIfNeeded();
+      bool migrationOccurred = await _migrateAddressFormatIfNeeded();
 
       // Load initial data
       final messages = await loadAllMessages();
       dataNotifier.value = messages;
       _dataStreamController.add(messages);
+      
+      // If migration occurred and we have no messages, we need to trigger a refresh
+      if (migrationOccurred && messages.isEmpty) {
+        if (kDebugMode) {
+          print('📧 Migration completed but no messages found - refresh needed');
+        }
+      }
     } catch (e) {
       if (kDebugMode) {
         print('📧 Error initializing SQLite storage: $e');
@@ -47,9 +54,14 @@ class SQLiteMailboxMimeStorage {
   }
 
   /// Migrate address format if needed (clear old data with string-based addresses)
-  Future<void> _migrateAddressFormatIfNeeded() async {
+  /// Returns true if migration occurred (database was cleared)
+  Future<bool> _migrateAddressFormatIfNeeded() async {
     try {
       final db = await SQLiteDatabaseHelper.instance.database;
+      
+      if (kDebugMode) {
+        print('📧 Starting address format migration check for mailbox: ${mailbox.name}');
+      }
       
       // Check if we have any messages with old address format
       final result = await db.query(
@@ -58,11 +70,19 @@ class SQLiteMailboxMimeStorage {
         limit: 1,
       );
       
+      if (kDebugMode) {
+        print('📧 Found ${result.length} messages in database for migration check');
+      }
+      
       if (result.isNotEmpty) {
         final envelopeJson = result.first[SQLiteDatabaseHelper.columnEnvelope];
         if (envelopeJson != null && envelopeJson is String && envelopeJson.isNotEmpty) {
           try {
             final envelopeMap = jsonDecode(envelopeJson as String);
+            
+            if (kDebugMode) {
+              print('📧 Checking envelope format: ${envelopeMap.toString()}');
+            }
             
             // Check if addresses are in old string format
             if (envelopeMap['from'] != null && envelopeMap['from'] is List) {
@@ -83,7 +103,25 @@ class SQLiteMailboxMimeStorage {
                 if (kDebugMode) {
                   print('📧 Database cleared - messages will be re-fetched with new address format');
                 }
+                return true; // Migration occurred
+              } else {
+                if (kDebugMode) {
+                  print('📧 New address format detected - no migration needed');
+                }
+                return false; // No migration needed
               }
+            } else {
+              if (kDebugMode) {
+                print('📧 No from addresses found in envelope - clearing database to be safe');
+              }
+              // Clear database if envelope structure is unexpected
+              final mailboxId = await _getMailboxId();
+              await db.delete(
+                SQLiteDatabaseHelper.tableEmails,
+                where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+                whereArgs: [mailboxId],
+              );
+              return true; // Migration occurred
             }
           } catch (e) {
             // If we can't parse the envelope, it's probably corrupted - clear it
@@ -96,13 +134,32 @@ class SQLiteMailboxMimeStorage {
               where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
               whereArgs: [mailboxId],
             );
+            return true; // Migration occurred
           }
+        } else {
+          if (kDebugMode) {
+            print('📧 Empty or null envelope data - clearing database');
+          }
+          // Clear database if envelope is empty or null
+          final mailboxId = await _getMailboxId();
+          await db.delete(
+            SQLiteDatabaseHelper.tableEmails,
+            where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+            whereArgs: [mailboxId],
+          );
+          return true; // Migration occurred
         }
+      } else {
+        if (kDebugMode) {
+          print('📧 No messages found in database - no migration needed');
+        }
+        return false; // No migration needed
       }
     } catch (e) {
       if (kDebugMode) {
         print('📧 Error during address format migration: $e');
       }
+      return false; // No migration occurred due to error
     }
   }
 
@@ -473,6 +530,26 @@ class SQLiteMailboxMimeStorage {
       try {
         final envelopeMap = jsonDecode(envelopeJson);
         message.envelope = _mapToEnvelope(envelopeMap);
+        
+        // CRITICAL FIX: Ensure envelope date is properly set from database if missing
+        if (message.envelope?.date == null) {
+          final dateValue = row[SQLiteDatabaseHelper.columnDate];
+          if (dateValue != null) {
+            try {
+              final dateMillis = dateValue is int ? dateValue : int.tryParse(dateValue.toString());
+              if (dateMillis != null) {
+                message.envelope!.date = DateTime.fromMillisecondsSinceEpoch(dateMillis);
+                if (kDebugMode) {
+                  print('📧 Set envelope date from database: ${message.envelope!.date}');
+                }
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('📧 Error setting envelope date: $e');
+              }
+            }
+          }
+        }
       } catch (e) {
         if (kDebugMode) {
           print('📧 Error parsing envelope: $e');
