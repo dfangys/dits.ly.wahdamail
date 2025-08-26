@@ -628,6 +628,10 @@ class MailBoxController extends GetxController {
         if (mailboxStorage[mailbox] != null) {
           await mailboxStorage[mailbox]!.saveMessageEnvelopes([]);
         }
+        
+        // CRITICAL FIX: Trigger reactive updates for empty mailbox
+        emails.refresh();
+        update();
         return;
       }
       
@@ -745,6 +749,10 @@ class MailBoxController extends GetxController {
           return dateB.compareTo(dateA); // Newest first
         });
       }
+      
+      // CRITICAL FIX: Trigger reactive updates for UI
+      emails.refresh();
+      update();
       
       logger.i("Finished loading ${emails[mailbox]!.length} emails for ${mailbox.name}");
       
@@ -914,6 +922,7 @@ class MailBoxController extends GetxController {
         final uniqueNewMessages = newMessages.where((m) => !existingIds.contains(m.uid)).toList();
         
         emails[mailbox]!.addAll(uniqueNewMessages);
+        emails.refresh(); // CRITICAL FIX: Trigger reactive update for UI
         logger.i("Added ${uniqueNewMessages.length} unique messages to mailbox ${mailbox.name}");
 
         // Save to storage
@@ -925,6 +934,9 @@ class MailBoxController extends GetxController {
             logger.e("Error saving messages to storage: $e");
           }
         }
+        
+        // Force UI update
+        update();
       } else {
         logger.w("No new messages fetched for pagination");
       }
