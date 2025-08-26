@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // For HapticFeedback
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
@@ -178,20 +179,27 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   }
 
   void _onScroll() {
-    // Enhanced scroll detection to prevent infinite scroll loop at end of list
+    // Enhanced scroll detection with improved performance and user feedback
     if (!_scrollController.hasClients || _isLoadingMore || _allMessagesLoaded) return;
     
     final position = _scrollController.position;
     final maxScroll = position.maxScrollExtent;
     final currentScroll = position.pixels;
     
-    // Only trigger loading when:
-    // 1. User is close to bottom (800px threshold)
-    // 2. Not at absolute bottom (prevent infinite loop)
-    // 3. There's actually more content to scroll
-    if (currentScroll >= maxScroll - 800 && 
-        currentScroll < maxScroll - 100 && // Don't trigger at absolute bottom
+    // ENHANCED: More responsive scroll loading with better thresholds
+    // Trigger loading when user is within 600px of bottom (reduced from 800px for faster loading)
+    // But not at absolute bottom to prevent infinite loops
+    if (currentScroll >= maxScroll - 600 && 
+        currentScroll < maxScroll - 50 && // Smaller buffer for more responsive loading
         maxScroll > 0) {
+      
+      // ENHANCED: Add haptic feedback for better user experience
+      try {
+        HapticFeedback.selectionClick();
+      } catch (e) {
+        // Ignore haptic feedback errors on unsupported devices
+      }
+      
       _loadMoreMessages();
     }
   }
@@ -434,34 +442,89 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${_processedUIDs.length} emails total',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: widget.isDarkMode 
+                                          ? Colors.green.shade400 
+                                          : Colors.green.shade700,
+                                  ),
+                                ),
                               ],
                             ),
                           )
                         : _isLoadingMore
-                          ? Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.0,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      widget.isDarkMode ? Colors.white70 : Colors.grey.shade600,
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                              decoration: BoxDecoration(
+                                color: widget.isDarkMode 
+                                      ? Colors.grey.shade800.withValues(alpha: 0.3)
+                                      : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: widget.isDarkMode 
+                                          ? Colors.black26 
+                                          : Colors.grey.shade300,
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        widget.theme.primaryColor,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  'Loading...',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: widget.isDarkMode 
-                                          ? Colors.white60 
-                                          : Colors.grey.shade600,
+                                  const SizedBox(width: 16),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Loading more emails...',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: widget.isDarkMode 
+                                                ? Colors.white87 
+                                                : Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Fetching from server',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: widget.isDarkMode 
+                                                ? Colors.white60 
+                                                : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        '${_processedUIDs.length} emails loaded',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: widget.isDarkMode 
+                                                ? Colors.white50 
+                                                : Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             )
                           : const SizedBox.shrink(),
                     );
