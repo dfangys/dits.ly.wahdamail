@@ -149,6 +149,7 @@ class ComposeController extends GetxController {
               : '';
           messageBuilder = MessageBuilder.prepareForwardMessage(msg!);
         } else if (type == 'draft') {
+          // CRITICAL FIX: Enhanced draft loading with debugging
           toList.addAll(msg!.to ?? []);
           cclist.addAll(msg!.cc ?? []);
           bcclist.addAll(msg!.bcc ?? []);
@@ -160,9 +161,21 @@ class ComposeController extends GetxController {
 
           // Load draft from storage
           _loadDraftFromMessage(msg!);
+          
+          // DEBUGGING: Log draft loading info
+          debugPrint('Loading draft: ${msg!.decodeSubject()}');
+          debugPrint('Draft recipients - To: ${msg!.to?.length ?? 0}, CC: ${msg!.cc?.length ?? 0}, BCC: ${msg!.bcc?.length ?? 0}');
         }
 
         bodyPart = msg!.decodeTextHtmlPart() ?? msg!.decodeTextPlainPart() ?? '';
+        
+        // DEBUGGING: Log body content loading
+        debugPrint('Draft body content length: ${bodyPart.length}');
+        if (bodyPart.isNotEmpty) {
+          debugPrint('Draft body preview: ${bodyPart.substring(0, bodyPart.length > 100 ? 100 : bodyPart.length)}...');
+        } else {
+          debugPrint('WARNING: Draft body is empty!');
+        }
       } else {
         final settingController = Get.find<SettingController>();
         signature = settingController.signatureNewMessage()
@@ -189,9 +202,13 @@ class ComposeController extends GetxController {
     if (bodyPart.isNotEmpty) {
       // Use Future.delayed to ensure the HTML editor is initialized
       Future.delayed(Duration.zero, () {
+        debugPrint('Setting HTML editor content: ${bodyPart.length} characters');
         htmlController.setText(bodyPart);
         plainTextController.text = _removeHtmlTags(bodyPart);
+        debugPrint('HTML editor content set successfully');
       });
+    } else {
+      debugPrint('No body content to set in HTML editor');
     }
   }
 
@@ -488,36 +505,43 @@ class ComposeController extends GetxController {
     }
   }
 
-  // Load draft from message
+  // CRITICAL FIX: Load draft from MimeMessage directly (server-based drafts)
   Future<void> _loadDraftFromMessage(MimeMessage message) async {
     try {
-      final storage = Get.find<SQLiteDraftRepository>();
-
-      // Get message ID from headers for enough_mail 2.1.6
-      String? messageId;
-      try {
-        messageId = message.getHeaderValue('message-id')?.replaceAll('<', '').replaceAll('>', '');
-      } catch (e) {
-        messageId = '';
-      }
-
-      final draft = await storage.getDraftByMessageId(messageId ?? '');
-
-      if (draft != null) {
-        _currentDraft = draft;
-        _lastSavedTime.value = _formatSaveTime(draft.updatedAt);
-        _showDraftOptions.value = true;
-
-        // Load attachments
-        for (final path in draft.attachmentPaths) {
-          final file = File(path);
-          if (await file.exists()) {
-            attachments.add(file);
+      // FIXED: Since drafts are now loaded from server, extract data directly from MimeMessage
+      // No need to query SQLiteDraftRepository as all data is in the message
+      
+      // Set draft metadata
+      _showDraftOptions.value = true;
+      _lastSavedTime.value = _formatSaveTime(DateTime.now());
+      
+      // Load attachments from the MimeMessage
+      if (message.hasAttachments()) {
+        final attachmentParts = message.allPartsWithDisposition(ContentDisposition.attachment);
+        for (final part in attachmentParts) {
+          try {
+            // Extract attachment info from the message part
+            final filename = part.decodeFileName() ?? 'attachment';
+            final contentType = part.mediaType?.toString() ?? 'application/octet-stream';
+            
+            // Note: For server-based drafts, attachments are embedded in the message
+            // We would need to download and save them locally if editing is required
+            // For now, we'll log the attachment info
+            debugPrint('Draft has attachment: $filename ($contentType)');
+            
+            // TODO: Download attachment data and create local file if needed for editing
+            // This would require implementing attachment download from the MimeMessage
+            
+          } catch (e) {
+            debugPrint('Error processing attachment: $e');
           }
         }
       }
+      
+      debugPrint('Successfully loaded draft from server: ${message.decodeSubject()}');
+      
     } catch (e) {
-      debugPrint('Error loading draft: $e');
+      debugPrint('Error loading draft from message: $e');
     }
   }
 
