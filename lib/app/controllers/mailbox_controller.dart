@@ -14,6 +14,7 @@ import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
+import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
@@ -574,7 +575,7 @@ class MailBoxController extends GetxController {
         return;
       }
 
-      final draftRepository = SQLiteDraftRepository();
+      final draftRepository = SQLiteDraftRepository.instance;
       await draftRepository.init();
       
       final drafts = await draftRepository.getAllDrafts();
