@@ -9,6 +9,7 @@ import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/utills/funtions.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
+import 'package:wahda_bank/views/compose/compose.dart';
 
 class MailBoxView extends GetView<MailBoxController> {
   const MailBoxView({super.key, required this.mailBox});
@@ -302,10 +303,36 @@ class OptimizedDateGroup extends StatelessWidget {
               message: message,
               mailBox: mailBox,
               onTap: () {
-                Get.to(() => ShowMessage(
-                  message: message,
-                  mailbox: mailBox,
-                ));
+                // CRITICAL FIX: Route drafts to compose screen, regular emails to show message
+                final isDraft = message.flags?.contains(MessageFlags.draft) ?? false;
+                final isInDraftsMailbox = mailBox.isDrafts;
+                
+                // DEBUGGING: Log draft detection
+                print('=== MAILBOX VIEW EMAIL TAP DEBUG ===');
+                print('Subject: ${message.decodeSubject()}');
+                print('Flags: ${message.flags}');
+                print('Is Draft (by flag): $isDraft');
+                print('Current Mailbox: ${mailBox.name}');
+                print('Is Drafts Mailbox: $isInDraftsMailbox');
+                print('Final Decision: ${isDraft || isInDraftsMailbox ? "COMPOSE" : "SHOW MESSAGE"}');
+                print('====================================');
+                
+                // ENHANCED LOGIC: If in drafts mailbox OR has draft flag, open in compose mode
+                if (isDraft || isInDraftsMailbox) {
+                  // Navigate to compose screen for draft editing
+                  print('NAVIGATING TO COMPOSE SCREEN FOR DRAFT');
+                  Get.to(() => const ComposeScreen(), arguments: {
+                    'type': 'draft',
+                    'message': message,
+                  });
+                } else {
+                  // Navigate to email detail view for regular emails
+                  print('NAVIGATING TO SHOW MESSAGE FOR REGULAR EMAIL');
+                  Get.to(() => ShowMessage(
+                    message: message,
+                    mailbox: mailBox,
+                  ));
+                }
               },
             );
           },
