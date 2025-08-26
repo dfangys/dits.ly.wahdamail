@@ -125,8 +125,8 @@ class ComposeController extends GetxController {
         if (type == 'reply') {
           toList.addAll(msg!.from ?? []);
           subjectController.text = 'Re: ${msg!.decodeSubject()}';
-          signature = settingController.signatureReply()
-              ? settingController.signature()
+          signature = settingController.signatureReply.value
+              ? settingController.signature.value
               : '';
           messageBuilder = MessageBuilder.prepareReplyToMessage(
             msg!,
@@ -137,8 +137,8 @@ class ComposeController extends GetxController {
           cclist.addAll(msg!.cc ?? []);
           bcclist.addAll(msg!.bcc ?? []);
           subjectController.text = 'Re: ${msg!.decodeSubject()}';
-          signature = settingController.signatureReply()
-              ? settingController.signature()
+          signature = settingController.signatureReply.value
+              ? settingController.signature.value
               : '';
           messageBuilder = MessageBuilder.prepareReplyToMessage(
             msg!,
@@ -147,8 +147,8 @@ class ComposeController extends GetxController {
           );
         } else if (type == 'forward') {
           subjectController.text = 'Fwd: ${msg!.decodeSubject()}';
-          signature = settingController.signatureForward()
-              ? settingController.signature()
+          signature = settingController.signatureForward.value
+              ? settingController.signature.value
               : '';
           messageBuilder = MessageBuilder.prepareForwardMessage(msg!);
         } else if (type == 'draft') {
@@ -157,8 +157,8 @@ class ComposeController extends GetxController {
           cclist.addAll(msg!.cc ?? []);
           bcclist.addAll(msg!.bcc ?? []);
           subjectController.text = msg!.decodeSubject() ?? '';
-          signature = settingController.signatureNewMessage()
-              ? settingController.signature()
+          signature = settingController.signatureNewMessage.value
+              ? settingController.signature.value
               : '';
           messageBuilder = MessageBuilder.prepareFromDraft(msg!);
 
@@ -181,15 +181,15 @@ class ComposeController extends GetxController {
         }
       } else {
         final settingController = Get.find<SettingController>();
-        signature = settingController.signatureNewMessage()
-            ? settingController.signature()
+        signature = settingController.signatureNewMessage.value
+            ? settingController.signature.value
             : '';
         messageBuilder = MessageBuilder();
       }
     } else {
       final settingController = Get.find<SettingController>();
-      signature = settingController.signatureNewMessage()
-          ? settingController.signature()
+      signature = settingController.signatureNewMessage.value
+          ? settingController.signature.value
           : '';
       messageBuilder = MessageBuilder();
     }

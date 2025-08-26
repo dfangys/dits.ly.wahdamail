@@ -936,7 +936,7 @@ class MailBoxController extends GetxController {
 
   Future ltrTap(MimeMessage message, Mailbox mailbox) async {
     SwapAction action =
-    getSwapActionFromString(settingController.swipeGesturesLTR());
+    getSwapActionFromString(settingController.swipeGesturesLTR.value);
     _doSwapAction(
       action,
       message,
@@ -946,7 +946,7 @@ class MailBoxController extends GetxController {
 
   Future rtlTap(MimeMessage message, Mailbox mailbox) async {
     SwapAction action =
-    getSwapActionFromString(settingController.swipeGesturesRTL());
+    getSwapActionFromString(settingController.swipeGesturesRTL.value);
     _doSwapAction(
       action,
       message,

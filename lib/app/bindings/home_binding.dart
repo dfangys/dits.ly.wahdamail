@@ -26,7 +26,6 @@ class HomeBinding extends Bindings {
     
     Get.lazyPut<MailBoxController>(() => MailBoxController(), fenix: true);
     Get.lazyPut<SelectionController>(() => SelectionController());
-    Get.lazyPut<SettingController>(() => SettingController());
     Get.lazyPut<MailCountController>(() => MailCountController());
     Get.lazyPut<AuthController>(() => AuthController(), fenix: true);
     // Get.put<AuthController>(AuthController(), permanent: true);
