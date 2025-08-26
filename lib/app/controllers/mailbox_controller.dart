@@ -151,10 +151,10 @@ class MailBoxController extends GetxController {
   }
 
   Future<void> loadEmailsForBox(Mailbox mailbox) async {
+    // Check if we have cached emails first (moved outside try block for scope)
+    final hasExistingEmails = emails[mailbox] != null && emails[mailbox]!.isNotEmpty;
+    
     try {
-      // Check if we have cached emails first
-      final hasExistingEmails = emails[mailbox] != null && emails[mailbox]!.isNotEmpty;
-      
       // Only show progress indicator if this is the first time loading (no cached emails)
       if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
         final progressController = Get.find<EmailDownloadProgressController>();
