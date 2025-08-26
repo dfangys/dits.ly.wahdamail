@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
@@ -64,12 +65,11 @@ class MailBoxController extends GetxController {
   final Logger logger = Logger();
   RxList<Mailbox> mailboxes = <Mailbox>[].obs;
 
-  // CRITICAL FIX: Add getter for drafts mailbox
+  // CRITICAL FIX: Add getter for drafts mailbox using proper enough_mail API
   Mailbox? get draftsMailbox {
     try {
       return mailboxes.firstWhere(
-        (mailbox) => mailbox.name.toLowerCase() == 'drafts' || 
-                     mailbox.name.toLowerCase() == 'draft',
+        (mailbox) => mailbox.isDrafts, // Use proper enough_mail API
       );
     } catch (e) {
       logger.w("Drafts mailbox not found: $e");
@@ -92,6 +92,46 @@ class MailBoxController extends GetxController {
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
+    }
+  }
+
+  // PROPER ENOUGH_MAIL API: Save draft using the correct API
+  Future<bool> saveDraftMessage(MimeMessage message) async {
+    try {
+      final drafts = draftsMailbox;
+      if (drafts == null) {
+        logger.e("Cannot save draft: drafts mailbox not found");
+        return false;
+      }
+
+      // Use proper enough_mail API to save draft
+      final result = await mailService.client.saveDraftMessage(
+        message,
+        draftsMailbox: drafts,
+      );
+
+      if (result != null) {
+        logger.i("Draft saved successfully with UID: ${result.uid}");
+        
+        // Refresh drafts to show the new draft
+        if (currentMailbox?.isDrafts == true) {
+          await loadEmailsForBox(drafts);
+        }
+        
+        return true;
+      } else {
+        logger.e("Failed to save draft: no UID returned");
+        return false;
+      }
+    } catch (e) {
+      logger.e("Error saving draft: $e");
+      Get.snackbar(
+        'Error Saving Draft',
+        'Failed to save draft: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return false;
     }
   }
 
@@ -328,9 +368,9 @@ class MailBoxController extends GetxController {
         currentMailbox = mailbox;
       }
 
-      // Special handling for draft mailbox
-      if (mailbox.name.toLowerCase() == 'drafts' || mailbox.name.toLowerCase() == 'draft') {
-        await _loadDraftsFromLocal(mailbox);
+      // Special handling for draft mailbox using proper enough_mail API
+      if (mailbox.isDrafts) {
+        await _loadDraftsFromServer(mailbox);
         return;
       }
 
@@ -621,7 +661,7 @@ class MailBoxController extends GetxController {
     }
   }
 
-  Future<void> _loadDraftsFromLocal(Mailbox mailbox) async {
+  Future<void> _loadDraftsFromServer(Mailbox mailbox) async {
     try {
       // CRITICAL FIX: Initialize emails list for draft mailbox
       if (emails[mailbox] == null) {
@@ -637,41 +677,49 @@ class MailBoxController extends GetxController {
         await mailboxStorage[mailbox]!.init();
       }
 
-      // Check if MailService is available
-      if (!Get.isRegistered<MailService>()) {
-        logger.w("MailService not available for draft loading");
-        return;
-      }
-
-      final draftRepository = SQLiteDraftRepository.instance;
-      await draftRepository.init();
-      
-      final drafts = await draftRepository.getAllDrafts();
-      logger.i("Found ${drafts.length} drafts in local database");
-
-      // PERFORMANCE FIX: Clear existing drafts before adding new ones
+      // PERFORMANCE FIX: Clear existing drafts before loading new ones
       emails[mailbox]!.clear();
 
-      if (drafts.isEmpty) {
-        logger.i("No drafts found in local database");
+      logger.i("Loading drafts from server for mailbox: ${mailbox.name}");
+
+      // PROPER ENOUGH_MAIL API: Load drafts from server like regular emails
+      int max = mailbox.messagesExists;
+      if (max == 0) {
+        logger.i("No draft messages exist in ${mailbox.name}");
         // Update storage with empty list to trigger UI update
         await mailboxStorage[mailbox]!.saveMessageEnvelopes([]);
-        // Force UI update
         update();
         return;
       }
 
-      // Convert drafts to MimeMessage objects
-      List<MimeMessage> draftMessages = [];
-      for (var draft in drafts) {
-        try {
-          final mimeMessage = _convertDraftToMimeMessage(draft);
-          draftMessages.add(mimeMessage);
-          logger.d("Converted draft: ${draft.subject}");
-        } catch (e) {
-          logger.e("Error converting draft to MimeMessage: $e");
-        }
+      // Load drafts using proper enough_mail API (they're just regular emails with \Draft flag)
+      int start = math.max(1, max - 100); // Load last 100 drafts
+      int end = max;
+      
+      logger.i("Fetching drafts from sequence $start:$end in ${mailbox.name}");
+      
+      final sequence = MessageSequence.fromRange(start, end);
+      final draftMessages = await mailService.client.fetchMessageSequence(
+        sequence,
+        fetchPreference: FetchPreference.envelope,
+      );
+
+      if (draftMessages.isEmpty) {
+        logger.i("No draft messages found in ${mailbox.name}");
+        await mailboxStorage[mailbox]!.saveMessageEnvelopes([]);
+        update();
+        return;
       }
+
+      // Sort drafts by date (newest first)
+      draftMessages.sort((a, b) {
+        final dateA = a.decodeDate();
+        final dateB = b.decodeDate();
+        if (dateA == null && dateB == null) return 0;
+        if (dateA == null) return 1;
+        if (dateB == null) return -1;
+        return dateB.compareTo(dateA);
+      });
 
       // Add drafts to emails list
       emails[mailbox]!.addAll(draftMessages);
@@ -689,13 +737,21 @@ class MailBoxController extends GetxController {
       // Force UI update by triggering the observable
       update();
       
-      logger.i("Successfully loaded ${draftMessages.length} drafts for ${mailbox.name}");
+      logger.i("Successfully loaded ${draftMessages.length} drafts from server for ${mailbox.name}");
     } catch (e) {
-      logger.e("Error loading drafts from local: $e");
+      logger.e("Error loading drafts from server: $e");
       // Ensure UI shows empty state on error
       if (emails[mailbox] == null) {
         emails[mailbox] = <MimeMessage>[];
       }
+      // Show error to user
+      Get.snackbar(
+        'Error Loading Drafts',
+        'Failed to load draft emails: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
       update();
     }
   }
