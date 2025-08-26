@@ -510,6 +510,9 @@ class MailBoxController extends GetxController {
         },
       );
       
+      // Start IDLE mode after successful mailbox selection
+      await mailService.startIdleMode();
+      
       // Fetch mailbox with longer timeout but better error handling
       if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
         final progressController = Get.find<EmailDownloadProgressController>();

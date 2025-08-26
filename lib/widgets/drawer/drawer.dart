@@ -181,18 +181,21 @@ class Drawer1 extends StatelessWidget {
 
   Widget _buildDrawerHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+      padding: const EdgeInsets.fromLTRB(20, 48, 20, 24),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SvgPicture.asset(
-            WImages.logoWhite,
-            height: 40,
-            colorFilter: const ColorFilter.mode(
-              Colors.white,
-              BlendMode.srcIn,
+          Flexible(
+            child: SvgPicture.asset(
+              WImages.logoWhite,
+              height: 40,
+              colorFilter: const ColorFilter.mode(
+                Colors.white,
+                BlendMode.srcIn,
+              ),
             ),
           ),
+          const SizedBox(width: 8),
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
             icon: Container(

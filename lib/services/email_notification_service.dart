@@ -309,24 +309,32 @@ class EmailNotificationService {
   Future<void> _scheduleBackgroundChecks() async {
     if (!(Platform.isAndroid || Platform.isIOS)) return;
 
-    // Cancel any existing tasks
-    await Workmanager().cancelByUniqueName(backgroundTaskName);
+    try {
+      // Cancel any existing tasks
+      await Workmanager().cancelByUniqueName(backgroundTaskName);
 
-    // Schedule periodic task
-    await Workmanager().registerPeriodicTask(
-      backgroundTaskName,
-      backgroundTaskName,
-      frequency: backgroundCheckInterval,
-      constraints: Constraints(
-        networkType: NetworkType.connected,
-      ),
-      existingWorkPolicy: ExistingWorkPolicy.replace,
-      backoffPolicy: BackoffPolicy.linear,
-      backoffPolicyDelay: const Duration(minutes: 5),
-    );
-
-    if (kDebugMode) {
-      print('Scheduled background email checks every ${backgroundCheckInterval.inMinutes} minutes');
+      // Schedule periodic task with error handling
+      await Workmanager().registerPeriodicTask(
+        backgroundTaskName,
+        backgroundTaskName,
+        frequency: backgroundCheckInterval,
+        constraints: Constraints(
+          networkType: NetworkType.connected,
+        ),
+        existingWorkPolicy: ExistingWorkPolicy.replace,
+        backoffPolicy: BackoffPolicy.linear,
+        backoffPolicyDelay: const Duration(minutes: 5),
+      );
+      
+      if (kDebugMode) {
+        print('Background email checks scheduled successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to schedule background email checks: $e');
+        print('Background notifications will not be available, but foreground IDLE will still work');
+      }
+      // Don't throw the error - the app should continue working without background tasks
     }
   }
 

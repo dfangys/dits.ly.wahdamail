@@ -90,8 +90,8 @@ class MailService {
           _subscribeEvents();
         }
 
-        // Start IMAP IDLE for real-time notifications
-        await _startIdleMode();
+        // NOTE: IDLE mode will be started after mailbox selection in MailBoxController
+        // This prevents "no mailbox selected" errors
 
         // Reset connection retries on successful connection
         _connectionRetries = 0;
@@ -113,13 +113,24 @@ class MailService {
     return client.isConnected;
   }
 
-  Future<void> _startIdleMode() async {
+  Future<void> startIdleMode() async {
     if (_isIdleActive || !client.isConnected) return;
 
     try {
+      // Ensure a mailbox is selected before starting IDLE
+      if (client.selectedMailbox == null) {
+        if (kDebugMode) {
+          print('Cannot start IDLE mode: no mailbox selected');
+        }
+        return;
+      }
+
       // Start email notification service for IDLE mode
       await EmailNotificationService.instance.startListening();
       _isIdleActive = true;
+      if (kDebugMode) {
+        print('IDLE mode started for mailbox: ${client.selectedMailbox?.name}');
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error starting IDLE mode: $e');
@@ -212,8 +223,8 @@ class MailService {
           if (data.mailClient == client) {
             data.mailClient.isConnected;
 
-            // Restart IDLE mode on reconnection
-            _startIdleMode();
+            // Restart IDLE mode on reconnection (only if mailbox is selected)
+            startIdleMode();
           }
         });
 
