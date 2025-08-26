@@ -96,7 +96,29 @@ class ComposeController extends GetxController {
     _checkForRecovery();
   }
 
-  void _initializeController() {
+  // Setup autosave functionality
+  void _setupAutosave() {
+    // Setup periodic autosave every 30 seconds
+    _autosaveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_hasUnsavedChanges.value && !_isAutosaving.value) {
+        _autosaveDraft();
+      }
+    });
+  }
+
+  // Setup change listeners for form fields
+  void _setupChangeListeners() {
+    subjectController.addListener(_markAsChanged);
+    plainTextController.addListener(_markAsChanged);
+    
+    // Listen to recipient list changes
+    toList.listen((_) => _markAsChanged());
+    cclist.listen((_) => _markAsChanged());
+    bcclist.listen((_) => _markAsChanged());
+    attachments.listen((_) => _markAsChanged());
+  }
+
+  void _initializeController() async {
     final args = Get.arguments;
 
     // CRITICAL FIX: Clear any previous draft state first
@@ -172,7 +194,6 @@ class ComposeController extends GetxController {
 
         // NOTE: Body content is now handled in _loadDraftFromMessage method
         // Removed duplicate body loading logic to prevent conflicts
-        }
       } else {
         final settingController = Get.find<SettingController>();
         signature = settingController.signatureNewMessage.value
@@ -213,16 +234,6 @@ class ComposeController extends GetxController {
   String get email => account.email;
   String get name => account.name;
 
-  // Setup autosave timer
-  void _setupAutosave() {
-    _autosaveTimer?.cancel();
-    _autosaveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (_hasUnsavedChanges.value && _shouldAutosave()) {
-        _autosaveDraft();
-      }
-    });
-  }
-
   // Determine if autosave should run based on time since last change
   bool _shouldAutosave() {
     if (_lastChangeTime == null) return false;
@@ -231,22 +242,232 @@ class ComposeController extends GetxController {
     return DateTime.now().difference(_lastChangeTime!).inSeconds >= 3;
   }
 
-  // Setup change listeners for all form fields
-  void _setupChangeListeners() {
-    // Listen for changes to mark as unsaved
-    subjectController.addListener(_markAsChanged);
-    plainTextController.addListener(_markAsChanged);
+  // RECIPIENT MANAGEMENT METHODS
+  
+  /// Add email address to TO list
+  void addTo(String email) {
+    try {
+      final address = MailAddress.parse(email);
+      if (!toList.any((addr) => addr.email == address.email)) {
+        toList.add(address);
+        _markAsChanged();
+      }
+    } catch (e) {
+      debugPrint('Error adding TO address: $e');
+    }
+  }
 
-    // Listen for changes in observable lists
-    toList.listen((_) => _markAsChanged());
-    cclist.listen((_) => _markAsChanged());
-    bcclist.listen((_) => _markAsChanged());
-    attachments.listen((_) => _markAsChanged());
+  /// Remove email address from TO list
+  void removeFromToList(MailAddress address) {
+    toList.remove(address);
+    _markAsChanged();
+  }
 
-    // Show draft options when there's content
-    ever(_hasUnsavedChanges, (value) {
-      _showDraftOptions.value = value || _currentDraft != null;
-    });
+  /// Add email address to CC list
+  void addToCC(String email) {
+    try {
+      final address = MailAddress.parse(email);
+      if (!cclist.any((addr) => addr.email == address.email)) {
+        cclist.add(address);
+        _markAsChanged();
+      }
+    } catch (e) {
+      debugPrint('Error adding CC address: $e');
+    }
+  }
+
+  /// Remove email address from CC list
+  void removeFromCcList(MailAddress address) {
+    cclist.remove(address);
+    _markAsChanged();
+  }
+
+  /// Add email address to BCC list
+  void addToBcc(String email) {
+    try {
+      final address = MailAddress.parse(email);
+      if (!bcclist.any((addr) => addr.email == address.email)) {
+        bcclist.add(address);
+        _markAsChanged();
+      }
+    } catch (e) {
+      debugPrint('Error adding BCC address: $e');
+    }
+  }
+
+  /// Remove email address from BCC list
+  void removeFromBccList(MailAddress address) {
+    bcclist.remove(address);
+    _markAsChanged();
+  }
+
+  // CONTENT MANAGEMENT METHODS
+
+  /// Toggle between HTML and plain text editing
+  Future<void> togglePlainHtml() async {
+    try {
+      if (isHtml.value) {
+        // Switching from HTML to plain text
+        final htmlContent = await htmlController.getText();
+        plainTextController.text = _removeHtmlTags(htmlContent);
+        isHtml.value = false;
+      } else {
+        // Switching from plain text to HTML
+        final plainContent = plainTextController.text;
+        final htmlContent = _convertPlainToHtml(plainContent);
+        await htmlController.setText(htmlContent);
+        isHtml.value = true;
+      }
+      _markAsChanged();
+    } catch (e) {
+      debugPrint('Error toggling HTML/Plain text: $e');
+    }
+  }
+
+  // ATTACHMENT METHODS
+
+  /// Pick files for attachment
+  Future<void> pickFiles() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.any,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        for (final file in result.files) {
+          if (file.path != null) {
+            attachments.add(File(file.path!));
+          }
+        }
+        _markAsChanged();
+      }
+    } catch (e) {
+      debugPrint('Error picking files: $e');
+      _showErrorDialog('Error selecting files: $e');
+    }
+  }
+
+  /// Pick image for attachment
+  Future<void> pickImage() async {
+    try {
+      final picker = ImagePicker();
+      final image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image != null) {
+        attachments.add(File(image.path));
+        _markAsChanged();
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+      _showErrorDialog('Error selecting image: $e');
+    }
+  }
+
+  // DRAFT MANAGEMENT METHODS
+
+  /// Save current email as draft
+  Future<void> saveAsDraft() async {
+    if (isBusy.value) return;
+
+    try {
+      isBusy.value = true;
+      EasyLoading.show(status: 'saving_draft'.tr);
+
+      // Get current content
+      late String body;
+      if (isHtml.value) {
+        body = await htmlController.getText();
+      } else {
+        body = plainTextController.text;
+      }
+
+      // Create draft model
+      final draft = _createDraftModel(body);
+
+      // Save to storage
+      final storage = Get.find<SQLiteDraftRepository>();
+      final savedDraft = await storage.saveDraft(draft);
+
+      // Update current draft reference
+      _currentDraft = savedDraft;
+      _hasUnsavedChanges.value = false;
+      _draftStatus.value = 'draft_saved'.tr;
+      _lastSavedTime.value = _formatSaveTime(DateTime.now());
+
+      EasyLoading.showSuccess('draft_saved_successfully'.tr);
+
+    } catch (e) {
+      debugPrint('Save draft error: $e');
+      EasyLoading.showError('save_draft_error'.tr);
+    } finally {
+      isBusy.value = false;
+    }
+  }
+
+  /// Schedule draft for later sending
+  Future<void> scheduleDraft() async {
+    // Implementation for scheduling drafts
+    // This would integrate with a scheduling service
+    debugPrint('Schedule draft functionality - to be implemented');
+  }
+
+  /// Categorize draft with labels/folders
+  Future<void> categorizeDraft() async {
+    // Implementation for categorizing drafts
+    // This would integrate with folder/label management
+    debugPrint('Categorize draft functionality - to be implemented');
+  }
+
+  // EMAIL SENDING METHOD
+
+  /// Send email getter for UI binding
+  VoidCallback get sendEmail => _sendEmail;
+
+  /// Send the composed email
+  Future<void> _sendEmail() async {
+    if (isBusy.value) return;
+
+    try {
+      // Validate recipients
+      if (toList.isEmpty) {
+        _showErrorDialog('please_add_recipient'.tr);
+        return;
+      }
+
+      isBusy.value = true;
+      EasyLoading.show(status: 'sending_email'.tr);
+
+      // Get current content
+      late String body;
+      if (isHtml.value) {
+        body = await htmlController.getText();
+      } else {
+        body = plainTextController.text;
+      }
+
+      // Build message
+      await _buildMessage(body);
+
+      // Send via mail service
+      final mailService = MailService.instance;
+      await mailService.sendMessage(messageBuilder.buildMimeMessage());
+
+      // Clear draft if it was saved
+      if (_currentDraft != null) {
+        final storage = Get.find<SQLiteDraftRepository>();
+        await storage.deleteDraft(_currentDraft!.id!);
+      }
+
+      EasyLoading.showSuccess('email_sent_successfully'.tr);
+      Get.back();
+
+    } catch (e) {
+      debugPrint('Send email error: $e');
+      EasyLoading.showError('send_email_error'.tr);
+    } finally {
+      isBusy.value = false;
+    }
   }
 
   // Mark content as changed and needing save
@@ -1271,6 +1492,68 @@ class ComposeController extends GetxController {
         .replaceAll('&quot;', '"')
         .replaceAll('&#39;', "'")
         .trim();
+  }
+
+  // Convert plain text to HTML
+  String _convertPlainToHtml(String plainText) {
+    return plainText
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;')
+        .replaceAll('\n', '<br>');
+  }
+
+  // Show error dialog
+  void _showErrorDialog(String message) {
+    AwesomeDialog(
+      context: Get.context!,
+      dialogType: DialogType.error,
+      animType: AnimType.bottomSlide,
+      title: 'error'.tr,
+      desc: message,
+      btnOkOnPress: () {},
+    ).show();
+  }
+
+  // Check if content is saveable
+  bool _hasSaveableContent(String body) {
+    return subjectController.text.trim().isNotEmpty ||
+           body.trim().isNotEmpty ||
+           toList.isNotEmpty ||
+           attachments.isNotEmpty;
+  }
+
+  // Format save time
+  String _formatSaveTime(DateTime time) {
+    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  // Build message for sending
+  Future<void> _buildMessage(String body) async {
+    messageBuilder.from = [MailAddress(account.name, account.email)];
+    messageBuilder.to = toList;
+    messageBuilder.cc = cclist.isNotEmpty ? cclist : null;
+    messageBuilder.bcc = bcclist.isNotEmpty ? bcclist : null;
+    messageBuilder.subject = subjectController.text;
+
+    if (isHtml.value) {
+      messageBuilder.addTextHtml(body);
+    } else {
+      messageBuilder.addTextPlain(body);
+    }
+
+    // Add attachments
+    for (final file in attachments) {
+      await messageBuilder.addFile(file);
+    }
+  }
+
+  // Check for recovery data
+  void _checkForRecovery() {
+    // Implementation for checking recovery data
+    // This would check for any unsaved drafts or recovery data
   }
 
   @override
