@@ -14,70 +14,73 @@ class ComposeToolbar extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          // Format toggle
-          Obx(() => _buildToolbarButton(
-            context,
-            icon: controller.isHtml.isTrue ? Icons.code_off : Icons.code,
-            label: controller.isHtml.isTrue ? 'plain_text'.tr : 'rich_text'.tr,
-            onTap: () => controller.togglePlainHtml(),
-            isActive: controller.isHtml.isTrue,
-          )),
-          
-          const SizedBox(width: 8),
-          
-          // Attachment button
-          _buildToolbarButton(
-            context,
-            icon: Icons.attach_file_outlined,
-            label: 'attach'.tr,
-            onTap: () => _showAttachmentOptions(context),
-          ),
-          
-          const SizedBox(width: 8),
-          
-          // Priority button
-          Obx(() => _buildToolbarButton(
-            context,
-            icon: Icons.flag_outlined,
-            label: 'priority'.tr,
-            onTap: () => _showPriorityOptions(context),
-            isActive: controller.priority.value > 0,
-          )),
-          
-          const Spacer(),
-          
-          // Draft indicator
-          Obx(() => controller.hasUnsavedChanges
-              ? Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.secondary.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.edit_outlined,
-                        size: 12,
-                        color: theme.colorScheme.secondary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'draft'.tr,
-                        style: theme.textTheme.bodySmall?.copyWith(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // Format toggle
+            Obx(() => _buildToolbarButton(
+              context,
+              icon: controller.isHtml.isTrue ? Icons.code_off : Icons.code,
+              label: controller.isHtml.isTrue ? 'plain_text'.tr : 'rich_text'.tr,
+              onTap: () => controller.togglePlainHtml(),
+              isActive: controller.isHtml.isTrue,
+            )),
+            
+            const SizedBox(width: 8),
+            
+            // Attachment button
+            _buildToolbarButton(
+              context,
+              icon: Icons.attach_file_outlined,
+              label: 'attach'.tr,
+              onTap: () => _showAttachmentOptions(context),
+            ),
+            
+            const SizedBox(width: 8),
+            
+            // Priority button
+            Obx(() => _buildToolbarButton(
+              context,
+              icon: Icons.flag_outlined,
+              label: 'priority'.tr,
+              onTap: () => _showPriorityOptions(context),
+              isActive: controller.priority.value > 0,
+            )),
+            
+            const SizedBox(width: 16),
+            
+            // Draft indicator
+            Obx(() => controller.hasUnsavedChanges
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondary.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.edit_outlined,
+                          size: 12,
                           color: theme.colorScheme.secondary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
                         ),
-                      ),
-                    ],
-                  ),
-                )
-              : const SizedBox()),
-        ],
+                        const SizedBox(width: 4),
+                        Text(
+                          'draft'.tr,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.secondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox()),
+          ],
+        ),
       ),
     );
   }

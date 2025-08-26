@@ -42,6 +42,41 @@ class ComposeController extends GetxController {
   final TextEditingController fromController = TextEditingController();
   final TextEditingController plainTextController = TextEditingController();
   final HtmlEditorController htmlController = HtmlEditorController();
+  
+  // HTML editor state
+  final RxBool _isHtmlEditorReady = false.obs;
+  bool get isHtmlEditorReady => _isHtmlEditorReady.value;
+  
+  // Helper method to safely interact with HTML editor
+  Future<String> _safeGetHtmlText() async {
+    try {
+      if (!isHtmlEditorReady) {
+        debugPrint('HTML editor not ready, returning empty string');
+        return '';
+      }
+      return await htmlController.getText();
+    } catch (e) {
+      debugPrint('Error getting HTML text: $e');
+      return '';
+    }
+  }
+  
+  Future<void> _safeSetHtmlText(String text) async {
+    try {
+      if (!isHtmlEditorReady) {
+        debugPrint('HTML editor not ready, skipping setText');
+        return;
+      }
+      htmlController.setText(text);
+    } catch (e) {
+      debugPrint('Error setting HTML text: $e');
+    }
+  }
+  
+  void markHtmlEditorReady() {
+    _isHtmlEditorReady.value = true;
+    debugPrint('HTML editor marked as ready');
+  }
 
   // Message builder and content
   late MessageBuilder messageBuilder;
@@ -126,7 +161,7 @@ class ComposeController extends GetxController {
     final args = Get.arguments;
 
     // Clear any previous draft state first
-    _clearDraftState();
+    await _clearDraftState();
 
     if (args != null) {
       type = args['type'];
@@ -214,9 +249,9 @@ class ComposeController extends GetxController {
 
     // Initialize HTML editor with content
     if (bodyPart.isNotEmpty) {
-      Future.delayed(Duration.zero, () {
+      Future.delayed(Duration.zero, () async {
         debugPrint('Setting HTML editor content: ${bodyPart.length} characters');
-        htmlController.setText(bodyPart);
+        await _safeSetHtmlText(bodyPart);
         plainTextController.text = _removeHtmlTags(bodyPart);
       });
     }
@@ -368,14 +403,14 @@ class ComposeController extends GetxController {
       
       if (isHtml.value) {
         // Switching from HTML to plain text
-        final htmlContent = await htmlController.getText();
+        final htmlContent = await _safeGetHtmlText();
         plainTextController.text = _removeHtmlTags(htmlContent);
         isHtml.value = false;
       } else {
         // Switching from plain text to HTML
         final plainContent = plainTextController.text;
         final htmlContent = _convertPlainToHtml(plainContent);
-        await htmlController.setText(htmlContent);
+        await _safeSetHtmlText(htmlContent);
         isHtml.value = true;
       }
       _markAsChanged();
@@ -464,7 +499,7 @@ class ComposeController extends GetxController {
       // Get current content
       late String body;
       if (isHtml.value) {
-        body = await htmlController.getText();
+        body = await _safeGetHtmlText();
       } else {
         body = plainTextController.text;
       }
@@ -577,7 +612,7 @@ class ComposeController extends GetxController {
       // Get current content
       late String body;
       if (isHtml.value) {
-        body = await htmlController.getText();
+        body = await _safeGetHtmlText();
       } else {
         body = plainTextController.text;
       }
@@ -673,7 +708,7 @@ class ComposeController extends GetxController {
       // Get current content
       late String body;
       if (isHtml.value) {
-        body = await htmlController.getText();
+        body = await _safeGetHtmlText();
       } else {
         body = plainTextController.text;
       }
@@ -786,7 +821,7 @@ class ComposeController extends GetxController {
       // Get current content
       late String body;
       if (isHtml.value) {
-        body = await htmlController.getText();
+        body = await _safeGetHtmlText();
       } else {
         body = plainTextController.text;
       }
@@ -901,9 +936,9 @@ class ComposeController extends GetxController {
                 child: Text('discard'.tr),
               ),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   Get.back();
-                  _recoverDraft(mostRecent);
+                  await _recoverDraft(mostRecent);
                 },
                 child: Text('recover'.tr),
               ),
@@ -918,7 +953,7 @@ class ComposeController extends GetxController {
   }
 
   // Recover a draft
-  void _recoverDraft(DraftModel draft) {
+  Future<void> _recoverDraft(DraftModel draft) async {
     // Update current draft reference
     _currentDraft = draft;
 
@@ -954,7 +989,7 @@ class ComposeController extends GetxController {
     // Set content
     if (draft.isHtml) {
       isHtml.value = true;
-      htmlController.setText(draft.body);
+      await _safeSetHtmlText(draft.body);
     } else {
       isHtml.value = false;
       plainTextController.text = draft.body;
@@ -980,7 +1015,7 @@ class ComposeController extends GetxController {
   }
 
   // Clear all draft-related state
-  void _clearDraftState() {
+  Future<void> _clearDraftState() async {
     debugPrint('Clearing previous draft state');
     
     // Clear recipient lists
@@ -1004,7 +1039,7 @@ class ComposeController extends GetxController {
     
     // Reset HTML editor if needed
     try {
-      htmlController.setText('');
+      await _safeSetHtmlText('');
     } catch (e) {
       debugPrint('Error clearing HTML editor: $e');
     }
@@ -1102,7 +1137,7 @@ class ComposeController extends GetxController {
         bodyPart = bodyContent;
         
         try {
-          await htmlController.setText(bodyContent);
+          await _safeSetHtmlText(bodyContent);
         } catch (e) {
           debugPrint('Failed to set HTML content: $e');
           // Fallback to plain text if HTML setting fails

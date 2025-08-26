@@ -531,6 +531,8 @@ class RedesignedComposeView extends StatelessWidget {
           hint: "compose_your_message".tr,
           initialText: controller.bodyPart,
           shouldEnsureVisible: true,
+          autoAdjustHeight: false,
+          adjustHeightForKeyboard: true,
         ),
         otherOptions: OtherOptions(
           height: 300,
@@ -540,6 +542,26 @@ class RedesignedComposeView extends StatelessWidget {
               bottom: Radius.circular(12),
             ),
           ),
+        ),
+        callbacks: Callbacks(
+          onInit: () {
+            // Editor is initialized and ready
+            print('HTML Editor initialized successfully');
+            controller.markHtmlEditorReady();
+          },
+          onChangeContent: (String? changed) {
+            // Handle content changes safely
+            if (changed != null) {
+              controller.bodyPart = changed;
+              controller.hasUnsavedChanges = true;
+            }
+          },
+          onFocus: () {
+            print('HTML Editor focused');
+          },
+          onBlur: () {
+            print('HTML Editor blurred');
+          },
         ),
       ),
     );
