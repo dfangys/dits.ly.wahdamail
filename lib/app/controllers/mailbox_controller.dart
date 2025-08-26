@@ -152,8 +152,11 @@ class MailBoxController extends GetxController {
 
   Future<void> loadEmailsForBox(Mailbox mailbox) async {
     try {
-      // Show progress indicator
-      if (Get.isRegistered<EmailDownloadProgressController>()) {
+      // Check if we have cached emails first
+      final hasExistingEmails = emails[mailbox] != null && emails[mailbox]!.isNotEmpty;
+      
+      // Only show progress indicator if this is the first time loading (no cached emails)
+      if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
         final progressController = Get.find<EmailDownloadProgressController>();
         progressController.show(
           title: 'Loading Emails',
@@ -169,7 +172,7 @@ class MailBoxController extends GetxController {
 
       // Check connection with shorter timeout
       if (!mailService.client.isConnected) {
-        if (Get.isRegistered<EmailDownloadProgressController>()) {
+        if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
           final progressController = Get.find<EmailDownloadProgressController>();
           progressController.updateStatus('Connecting to mail server...');
         }
@@ -183,7 +186,7 @@ class MailBoxController extends GetxController {
       }
 
       // Select mailbox with timeout
-      if (Get.isRegistered<EmailDownloadProgressController>()) {
+      if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
         final progressController = Get.find<EmailDownloadProgressController>();
         progressController.updateStatus('Selecting mailbox ${mailbox.name}...');
       }
@@ -196,7 +199,7 @@ class MailBoxController extends GetxController {
       );
       
       // Fetch mailbox with longer timeout but better error handling
-      if (Get.isRegistered<EmailDownloadProgressController>()) {
+      if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
         final progressController = Get.find<EmailDownloadProgressController>();
         progressController.updateStatus('Fetching emails from ${mailbox.name}...');
       }
@@ -214,7 +217,7 @@ class MailBoxController extends GetxController {
       // Only retry if it's not a timeout from our own operations
       if (e is! TimeoutException) {
         try {
-          if (Get.isRegistered<EmailDownloadProgressController>()) {
+          if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
             final progressController = Get.find<EmailDownloadProgressController>();
             progressController.updateStatus('Retrying connection...');
           }
@@ -266,10 +269,12 @@ class MailBoxController extends GetxController {
       // Always reset loading state
       isBoxBusy(false);
       
-      // Hide progress indicator
+      // Hide progress indicator only if it was shown (visible)
       if (Get.isRegistered<EmailDownloadProgressController>()) {
         final progressController = Get.find<EmailDownloadProgressController>();
-        progressController.hide();
+        if (progressController.isVisible) {
+          progressController.hide();
+        }
       }
     }
   }

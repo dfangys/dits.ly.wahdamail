@@ -106,47 +106,7 @@ class HomeScreen extends GetView<MailBoxController> {
       bottomNavigationBar: Obx(
         () => selectionController.isSelecting
           ? SelectionBottomNav(box: controller.mailBoxInbox)
-          : Container(
-              height: 60,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: Colors.grey.shade200),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.search,
-                    color: Colors.grey.shade600,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Search in emails',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    width: 1,
-                    height: 24,
-                    color: Colors.grey.shade300,
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                  ),
-                  Icon(
-                    Icons.mic_none_rounded,
-                    color: Colors.grey.shade600,
-                    size: 20,
-                  ),
-                ],
-              ),
-            ),
+          : const SizedBox.shrink(),
       ),
     );
   }
