@@ -1028,30 +1028,59 @@ class MailBoxController extends GetxController {
   // CRITICAL FIX: Add method to validate message-mailbox consistency
   bool validateMessageMailboxConsistency(MimeMessage message, Mailbox mailbox) {
     try {
-      // Check if the message exists in the specified mailbox's email list
-      final mailboxEmails = emails[mailbox];
-      if (mailboxEmails == null) {
-        logger.w("Mailbox ${mailbox.name} has no loaded emails");
-        return false;
+      // CRITICAL FIX: Check multiple possible mailbox sources to handle mismatch
+      List<Mailbox> mailboxesToCheck = [
+        mailbox, // The passed mailbox
+        currentMailbox, // The current mailbox
+        mailService.client.selectedMailbox, // The IMAP selected mailbox
+      ].where((mb) => mb != null).cast<Mailbox>().toSet().toList(); // Remove nulls and duplicates
+      
+      // Check each possible mailbox source
+      for (final checkMailbox in mailboxesToCheck) {
+        final mailboxEmails = emails[checkMailbox];
+        if (mailboxEmails == null) {
+          logger.w("Mailbox ${checkMailbox.name} has no loaded emails");
+          continue; // Try next mailbox
+        }
+        
+        // Check if the message is in this mailbox's email list
+        final messageExists = mailboxEmails.any((email) => 
+          email.uid == message.uid || 
+          email.sequenceId == message.sequenceId ||
+          (email.decodeSubject() == message.decodeSubject() && 
+           email.decodeDate()?.millisecondsSinceEpoch == message.decodeDate()?.millisecondsSinceEpoch)
+        );
+        
+        if (messageExists) {
+          logger.i("Message '${message.decodeSubject()}' found in mailbox ${checkMailbox.name}");
+          return true; // Message found in at least one mailbox
+        }
       }
       
-      // Check if the message is in the mailbox's email list
-      final messageExists = mailboxEmails.any((email) => 
+      // CRITICAL FIX: If message not found in any mailbox, check if it's in the currently displayed messages
+      final currentlyDisplayedMessages = boxMails;
+      final messageInDisplayed = currentlyDisplayedMessages.any((email) => 
         email.uid == message.uid || 
         email.sequenceId == message.sequenceId ||
         (email.decodeSubject() == message.decodeSubject() && 
          email.decodeDate()?.millisecondsSinceEpoch == message.decodeDate()?.millisecondsSinceEpoch)
       );
       
-      if (!messageExists) {
-        logger.w("Message '${message.decodeSubject()}' not found in mailbox ${mailbox.name}");
-        return false;
+      if (messageInDisplayed) {
+        logger.i("Message '${message.decodeSubject()}' found in currently displayed messages");
+        return true; // Message is in the displayed list, so it's valid
       }
       
-      return true;
+      logger.w("Message '${message.decodeSubject()}' not found in any checked mailbox or displayed messages");
+      logger.w("Checked mailboxes: ${mailboxesToCheck.map((mb) => mb.name).join(', ')}");
+      logger.w("Currently displayed messages count: ${currentlyDisplayedMessages.length}");
+      
+      return false;
     } catch (e) {
       logger.e("Error validating message-mailbox consistency: $e");
-      return false;
+      // CRITICAL FIX: On validation error, allow navigation to proceed (fail-safe approach)
+      logger.w("Validation error occurred, allowing navigation to proceed as fail-safe");
+      return true;
     }
   }
 
