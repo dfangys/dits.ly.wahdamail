@@ -242,11 +242,11 @@ class _HomeEmailListState extends State<HomeEmailList> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Pull to refresh or check your connection',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDarkMode ? Colors.white50 : Colors.grey.shade500,
-                ),
+                  'Pull to refresh or check your connection',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDarkMode ? Colors.white.withValues(alpha: 0.5) : Colors.grey.shade500,
+                  ),
               ),
             ],
           ),
@@ -255,7 +255,7 @@ class _HomeEmailListState extends State<HomeEmailList> {
 
       return RefreshIndicator(
         onRefresh: () async {
-          await controller.refreshInbox();
+          await controller.refreshMailbox(controller.mailBoxInbox);
           _processMessages(controller.boxMails);
         },
         child: ListView.builder(
@@ -339,16 +339,16 @@ class _HomeEmailListState extends State<HomeEmailList> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(
-                                  'Loading more emails...',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: isDarkMode 
-                                          ? Colors.white87 
-                                          : Colors.grey.shade700,
+                                  Text(
+                                    'Loading more emails...',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: isDarkMode 
+                                            ? Colors.white.withValues(alpha: 0.87) 
+                                            : Colors.grey.shade700,
+                                    ),
                                   ),
-                                ),
                                 const SizedBox(height: 2),
                                 Text(
                                   'Fetching from server',
@@ -365,7 +365,7 @@ class _HomeEmailListState extends State<HomeEmailList> {
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: isDarkMode 
-                                          ? Colors.white50 
+                                          ? Colors.white.withValues(alpha: 0.5) 
                                           : Colors.grey.shade500,
                                   ),
                                 ),
@@ -413,16 +413,14 @@ class _HomeEmailListState extends State<HomeEmailList> {
   Widget _buildMessageTile(MimeMessage message) {
     return Obx(() => MailTile(
       message: message,
-      isSelected: selectionController.selectedMessages.contains(message),
+      mailBox: controller.mailBoxInbox,
       onTap: () {
         if (selectionController.isSelecting) {
-          selectionController.toggleSelection(message);
+          // Use the correct method to toggle selection
+          selectionController.toggle(message);
         } else {
           Get.to(() => ShowMessage(message: message));
         }
-      },
-      onLongPress: () {
-        selectionController.toggleSelection(message);
       },
     ));
   }

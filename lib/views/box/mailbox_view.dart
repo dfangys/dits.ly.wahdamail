@@ -493,13 +493,13 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                                     children: [
                                       Text(
                                         'Loading more emails...',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: widget.isDarkMode 
-                                                ? Colors.white87 
-                                                : Colors.grey.shade700,
-                                        ),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: isDarkMode 
+                                          ? Colors.white.withValues(alpha: 0.87) 
+                                          : Colors.grey.shade700,
+                                  ),
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
@@ -516,8 +516,8 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                                         '${_processedUIDs.length} emails loaded',
                                         style: TextStyle(
                                           fontSize: 11,
-                                          color: widget.isDarkMode 
-                                                ? Colors.white50 
+                                          color: isDarkMode 
+                                                ? Colors.white.withValues(alpha: 0.5) 
                                                 : Colors.grey.shade500,
                                         ),
                                       ),
