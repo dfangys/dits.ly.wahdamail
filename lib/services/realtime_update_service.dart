@@ -639,7 +639,7 @@ extension IncomingEmailExtension on RealtimeUpdateService {
   /// ENHANCED: Notify about new messages with event-driven architecture
   Future<void> notifyNewMessages(List<MimeMessage> newMessages) async {
     try {
-      _logger.i('📧 Processing ${newMessages.length} new messages');
+      RealtimeUpdateService._logger.i('📧 Processing ${newMessages.length} new messages');
       
       // Batch process messages for performance
       final Map<String, List<MimeMessage>> messagesByMailbox = {};
@@ -676,7 +676,12 @@ extension IncomingEmailExtension on RealtimeUpdateService {
         
         // Emit mailbox update event
         _mailboxUpdateStream.add(MailboxUpdate(
-          mailbox: Mailbox()..name = mailboxKey,
+          mailbox: Mailbox(
+            encodedName: mailboxKey,
+            encodedPath: mailboxKey,
+            flags: [],
+            pathSeparator: '/',
+          )..name = mailboxKey,
           type: MailboxUpdateType.newMessages,
           messages: messages,
           metadata: {'unreadCount': _unreadCounts[mailboxKey] ?? 0},
@@ -686,7 +691,7 @@ extension IncomingEmailExtension on RealtimeUpdateService {
         for (final message in messages) {
           _messageUpdateStream.add(MessageUpdate(
             message: message,
-            type: MessageUpdateType.read,
+            type: MessageUpdateType.received,
             metadata: {'mailboxName': mailboxKey},
           ));
         }
@@ -696,10 +701,10 @@ extension IncomingEmailExtension on RealtimeUpdateService {
       _messagesStream.add(_mailboxMessages['INBOX'] ?? []);
       _unreadCountsStream.add(Map.from(_unreadCounts));
       
-      _logger.i('📧 Successfully processed ${newMessages.length} new messages');
+      RealtimeUpdateService._logger.i('📧 Successfully processed ${newMessages.length} new messages');
       
     } catch (e) {
-      _logger.e('📧 Error processing new messages: $e');
+      RealtimeUpdateService._logger.e('📧 Error processing new messages: $e');
       _errorStream.add('Failed to process new messages: $e');
     }
   }

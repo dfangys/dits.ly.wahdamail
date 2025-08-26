@@ -148,7 +148,7 @@ class AdvancedErrorHandler {
     
     switch (logLevel) {
       case Level.error:
-        _logger.e(message, report.error, report.stackTrace);
+        _logger.e(message, error: report.error, stackTrace: report.stackTrace);
         break;
       case Level.warning:
         _logger.w(message);

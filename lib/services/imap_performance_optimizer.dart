@@ -34,14 +34,14 @@ class ImapPerformanceOptimizer {
       for (int i = 0; i < connectionPoolSize; i++) {
         final client = ImapClient(isLogEnabled: kDebugMode);
         await client.connectToServer(
-          account.incoming.hostname,
-          account.incoming.port,
-          isSecure: account.incoming.isSecure,
+          account.incoming.serverConfig.hostname,
+          account.incoming.serverConfig.port,
+          isSecure: account.incoming.serverConfig.isSecureSocket,
         );
         
         await client.login(
           account.userName,
-          account.password,
+          (account.incoming.authentication as PlainAuthentication).password,
         );
         
         _connectionPool.add(client);
@@ -102,10 +102,13 @@ class ImapPerformanceOptimizer {
       // ENHANCED: Use size-based fetching strategy from enough_mail_app
       final fetchPreference = preference ?? _determineFetchPreference(sequence);
       
-      final messages = await client.fetchMessages(
+      final fetchResult = await client.fetchMessages(
         sequence,
-        fetchPreference: fetchPreference,
+        _fetchPreferenceToString(fetchPreference),
       );
+      
+      // Extract messages from FetchImapResult
+      final messages = fetchResult.messages;
       
       // Apply post-fetch optimizations
       await _optimizeMessages(messages, client, mailbox);
@@ -113,7 +116,9 @@ class ImapPerformanceOptimizer {
       _totalFetches++;
       _totalFetchTime += stopwatch.elapsed;
       
-      _logger.i('📧 Fetched ${messages.length} messages in ${stopwatch.elapsedMilliseconds}ms');
+      if (kDebugMode) {
+        print('📧 Fetched ${messages.length} messages in ${stopwatch.elapsedMilliseconds}ms');
+      }
       
       return messages;
     } catch (e) {
@@ -127,6 +132,22 @@ class ImapPerformanceOptimizer {
     }
   }
   
+  /// Convert FetchPreference enum to string for enough_mail v2.1.7 compatibility
+  String _fetchPreferenceToString(FetchPreference preference) {
+    switch (preference) {
+      case FetchPreference.envelope:
+        return 'ENVELOPE';
+      case FetchPreference.bodystructure:
+        return 'BODYSTRUCTURE';
+      case FetchPreference.fullWhenWithinSize:
+        return 'BODY[]';
+      case FetchPreference.full:
+        return 'BODY[]';
+      default:
+        return 'ENVELOPE';
+    }
+  }
+
   /// Determine optimal fetch preference based on message characteristics
   FetchPreference _determineFetchPreference(MessageSequence sequence) {
     // For small batches, fetch full content
@@ -175,13 +196,13 @@ class ImapPerformanceOptimizer {
     
     try {
       final sequence = MessageSequence.fromId(message.sequenceId!);
-      final envelopeMessages = await client.fetchMessages(
+      final fetchResult = await client.fetchMessages(
         sequence,
-        fetchPreference: FetchPreference.envelope,
+        _fetchPreferenceToString(FetchPreference.envelope),
       );
       
-      if (envelopeMessages.isNotEmpty) {
-        message.envelope = envelopeMessages.first.envelope;
+      if (fetchResult.messages.isNotEmpty) {
+        message.envelope = fetchResult.messages.first.envelope;
       }
     } catch (e) {
       _logger.w('📧 Failed to fetch envelope for message ${message.sequenceId}: $e');
