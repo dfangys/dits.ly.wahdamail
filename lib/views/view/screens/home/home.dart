@@ -43,9 +43,9 @@ class HomeScreen extends GetView<MailBoxController> {
             return Stack(
               children: [
                 Obx(() {
-                  // CRITICAL FIX: Show current mailbox instead of hardcoded inbox
-                  final currentMailbox = controller.currentMailbox ?? controller.mailBoxInbox;
-                  final storage = controller.mailboxStorage[currentMailbox];
+                  // CRITICAL FIX: Home screen should ALWAYS show inbox, not current mailbox
+                  // This was the root cause - home screen was showing whatever mailbox user last visited
+                  final storage = controller.mailboxStorage[controller.mailBoxInbox];
                   
                   if (storage == null) {
                     return const Center(
@@ -67,30 +67,31 @@ class HomeScreen extends GetView<MailBoxController> {
 
                       return RefreshIndicator(
                         onRefresh: () async {
-                          // PERFORMANCE FIX: Use refreshMailbox for proper refresh
-                          await controller.refreshMailbox(currentMailbox);
+                          // CRITICAL FIX: Always refresh inbox on home screen
+                          await controller.refreshMailbox(controller.mailBoxInbox);
                         },
                         child: ListView.builder(
                           itemCount: rows.length,
                           itemBuilder: (context, index) {
                             return MailTile(
                               onTap: () {
-                                // CRITICAL FIX: Use safe navigation method with validation
+                                // CRITICAL FIX: Always use inbox mailbox for home screen emails
                                 final message = rows[index];
-                                final currentMailbox = controller.currentMailbox ?? controller.mailBoxInbox;
                                 
                                 // DEBUGGING: Log navigation attempt
                                 print('=== HOME SCREEN EMAIL TAP DEBUG ===');
                                 print('Subject: ${message.decodeSubject()}');
-                                print('Current Mailbox: ${currentMailbox.name}');
-                                print('Using safe navigation method');
+                                print('Mailbox: ${controller.mailBoxInbox.name} (ALWAYS INBOX)');
                                 print('===================================');
                                 
-                                // Use the new safe navigation method
-                                controller.safeNavigateToMessage(message, currentMailbox);
+                                // Navigate to email detail view - always use inbox mailbox
+                                Get.to(() => ShowMessage(
+                                  message: message,
+                                  mailbox: controller.mailBoxInbox,
+                                ));
                               },
                               message: rows[index],
-                              mailBox: currentMailbox,
+                              mailBox: controller.mailBoxInbox,
                             );
                           },
                         ),
