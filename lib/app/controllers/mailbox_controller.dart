@@ -456,14 +456,7 @@ class MailBoxController extends GetxController {
       logger.i("Previous current mailbox: ${currentMailbox?.name}");
       
       // Only show progress indicator if this is the first time loading (no cached emails)
-      if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
-        final progressController = Get.find<EmailDownloadProgressController>();
-        progressController.show(
-          title: 'Loading Emails',
-          subtitle: 'Connecting to ${mailbox.name}...',
-          indeterminate: true,
-        );
-      }
+      // Removed progressController to avoid duplicate loading indicators
 
       isBoxBusy(true);
       
@@ -484,10 +477,7 @@ class MailBoxController extends GetxController {
 
       // Check connection with shorter timeout
       if (!mailService.client.isConnected) {
-        if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
-          final progressController = Get.find<EmailDownloadProgressController>();
-          progressController.updateStatus('Connecting to mail server...');
-        }
+        // Removed progressController updateStatus to avoid duplicate indicators
         
         await mailService.connect().timeout(
           const Duration(seconds: 10),
@@ -498,10 +488,7 @@ class MailBoxController extends GetxController {
       }
 
       // Select mailbox with timeout
-      if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
-        final progressController = Get.find<EmailDownloadProgressController>();
-        progressController.updateStatus('Selecting mailbox ${mailbox.name}...');
-      }
+      // Removed progressController updateStatus to avoid duplicate indicators
       
       await mailService.client.selectMailbox(mailbox).timeout(
         const Duration(seconds: 10),
@@ -514,10 +501,7 @@ class MailBoxController extends GetxController {
       await mailService.startIdleMode();
       
       // Fetch mailbox with longer timeout but better error handling
-      if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
-        final progressController = Get.find<EmailDownloadProgressController>();
-        progressController.updateStatus('Fetching emails from ${mailbox.name}...');
-      }
+      // Removed progressController updateStatus to avoid duplicate indicators
       
       await fetchMailbox(mailbox).timeout(
         const Duration(seconds: 45),
@@ -532,10 +516,7 @@ class MailBoxController extends GetxController {
       // Only retry if it's not a timeout from our own operations
       if (e is! TimeoutException) {
         try {
-          if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
-            final progressController = Get.find<EmailDownloadProgressController>();
-            progressController.updateStatus('Retrying connection...');
-          }
+          // Removed progressController updateStatus to avoid duplicate indicators
           
           // Shorter retry timeout
           await mailService.connect().timeout(
@@ -585,13 +566,7 @@ class MailBoxController extends GetxController {
       // Always reset loading state
       isBoxBusy(false);
       
-      // Hide progress indicator only if it was shown (visible)
-      if (Get.isRegistered<EmailDownloadProgressController>()) {
-        final progressController = Get.find<EmailDownloadProgressController>();
-        if (progressController.isVisible) {
-          progressController.hide();
-        }
-      }
+      // Removed progressController hide to avoid duplicate indicators
     }
   }
 

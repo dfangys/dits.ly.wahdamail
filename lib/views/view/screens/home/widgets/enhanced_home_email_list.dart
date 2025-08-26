@@ -472,7 +472,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
 
   /// Build message tile
   Widget _buildMessageTile(MimeMessage message) {
-    return Obx(() => MailTile(
+    return MailTile(
       message: message,
       mailBox: controller.mailBoxInbox,
       onTap: () {
@@ -485,7 +485,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
           ));
         }
       },
-    ));
+    );
   }
 
   @override

@@ -515,7 +515,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
 
   /// Build message tile
   Widget _buildMessageTile(MimeMessage message) {
-    return Obx(() => MailTile(
+    return MailTile(
       message: message,
       mailBox: widget.mailbox,
       onTap: () {
@@ -528,7 +528,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
           ));
         }
       },
-    ));
+    );
   }
 
   @override
