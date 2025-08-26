@@ -149,6 +149,11 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     // ENHANCED: Cache other computed values with better fallbacks
     _hasAttachments = widget.message.hasAttachments();
     
+    // DEBUG: Log attachment status for debugging
+    if (kDebugMode && _hasAttachments) {
+      print('📎 Message "${widget.message.decodeSubject()}" has attachments');
+    }
+    
     // ENHANCED: Better date handling with comprehensive fallback chain
     DateTime? messageDate;
     
@@ -772,18 +777,22 @@ class OptimizedMailTileContent extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            // Attachment indicator
+                            // Attachment indicator - Enhanced visibility
                             if (hasAttachments) ...[
                               const SizedBox(width: 4),
                               Container(
-                                padding: const EdgeInsets.all(2),
+                                padding: const EdgeInsets.all(3),
                                 decoration: BoxDecoration(
-                                  color: theme.primaryColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(4),
+                                  color: theme.primaryColor.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: theme.primaryColor.withValues(alpha: 0.3),
+                                    width: 0.5,
+                                  ),
                                 ),
                                 child: Icon(
                                   Icons.attach_file,
-                                  size: 14,
+                                  size: 16, // Slightly larger for better visibility
                                   color: theme.primaryColor,
                                 ),
                               ),

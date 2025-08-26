@@ -266,42 +266,47 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
       return;
     }
     
+    // CRITICAL FIX: Process ALL messages, not just new unique ones
     // Filter out duplicate messages using UID-based Set checking
-    final uniqueMessages = <MimeMessage>[];
-    final newUIDs = <int>{};
+    final allUniqueMessages = <MimeMessage>[];
+    final allUIDs = <int>{};
     
     for (final message in messages) {
       final uid = message.uid ?? message.sequenceId ?? 0;
-      if (uid > 0 && !_processedUIDs.contains(uid)) {
-        uniqueMessages.add(message);
-        newUIDs.add(uid);
+      if (uid > 0 && !allUIDs.contains(uid)) {
+        allUniqueMessages.add(message);
+        allUIDs.add(uid);
       }
     }
     
-    // If no new unique messages, don't process
-    if (uniqueMessages.isEmpty && _groupedMessages.isNotEmpty) {
+    // If no messages, clear everything
+    if (allUniqueMessages.isEmpty) {
+      _groupedMessages.clear();
+      _dateKeys.clear();
+      _processedUIDs.clear();
+      _lastProcessedCount = 0;
+      if (mounted) setState(() {});
       return;
     }
     
-    // Add new UIDs to processed set
-    _processedUIDs.addAll(newUIDs);
+    // Update processed UIDs and count
+    _processedUIDs.clear();
+    _processedUIDs.addAll(allUIDs);
     _lastProcessedCount = messages.length;
     
-    // Clear and rebuild with unique messages only
+    // Clear and rebuild with ALL unique messages
     _groupedMessages.clear();
     _dateKeys.clear();
 
-    // Sort unique messages only once and cache the result
-    if (_sortedMessages == null || _sortedMessages!.length != uniqueMessages.length) {
-      _sortedMessages = List<MimeMessage>.from(uniqueMessages);
-      _sortedMessages!.sort((a, b) {
-        final dateA = _getMessageDate(a);
-        final dateB = _getMessageDate(b);
-        return dateB.compareTo(dateA); // Newest first
-      });
-    }
+    // Sort ALL unique messages and cache the result
+    _sortedMessages = List<MimeMessage>.from(allUniqueMessages);
+    _sortedMessages!.sort((a, b) {
+      final dateA = _getMessageDate(a);
+      final dateB = _getMessageDate(b);
+      return dateB.compareTo(dateA); // Newest first
+    });
 
-    // Group messages by date efficiently
+    // Group ALL messages by date efficiently
     for (final message in _sortedMessages!) {
       final date = _getMessageDate(message);
       final dateKey = DateTime(date.year, date.month, date.day);

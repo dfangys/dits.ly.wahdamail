@@ -668,7 +668,7 @@ class MailBoxController extends GetxController {
 
       // PERFORMANCE OPTIMIZATION: Use larger batch sizes and fewer requests
       int loaded = 0;
-      int maxToLoad = max > 100 ? 100 : max; // Load up to 100 recent messages
+      int maxToLoad = max; // CRITICAL FIX: Load ALL messages, not just 100
       int batchSize = 50; // Increased from 10 to 50 for better performance
       
       while (loaded < maxToLoad) {
