@@ -303,36 +303,44 @@ class OptimizedDateGroup extends StatelessWidget {
               message: message,
               mailBox: mailBox,
               onTap: () {
+                // CRITICAL DEBUG: Add comprehensive logging to understand the issue
+                print('=== MAILBOX VIEW EMAIL TAP DEBUG ===');
+                print('MailBoxView.dart onTap called!');
+                print('Subject: ${message.decodeSubject()}');
+                print('Flags: ${message.flags}');
+                print('Current Mailbox: ${mailBox.name}');
+                print('Mailbox path: ${mailBox.path}');
+                print('Mailbox flags: ${mailBox.flags}');
+                
                 // CRITICAL FIX: Route drafts to compose screen, regular emails to show message
                 final isDraft = message.flags?.contains(MessageFlags.draft) ?? false;
                 final isInDraftsMailbox = mailBox.isDrafts;
+                final isDraftsMailboxByName = mailBox.name.toLowerCase().contains('draft');
                 
-                // DEBUGGING: Log draft detection
-                print('=== MAILBOX VIEW EMAIL TAP DEBUG ===');
-                print('Subject: ${message.decodeSubject()}');
-                print('Flags: ${message.flags}');
                 print('Is Draft (by flag): $isDraft');
-                print('Current Mailbox: ${mailBox.name}');
-                print('Is Drafts Mailbox: $isInDraftsMailbox');
-                print('Final Decision: ${isDraft || isInDraftsMailbox ? "COMPOSE" : "SHOW MESSAGE"}');
-                print('====================================');
+                print('Is Drafts Mailbox (by isDrafts): $isInDraftsMailbox');
+                print('Is Drafts Mailbox (by name): $isDraftsMailboxByName');
+                print('MessageFlags.draft value: ${MessageFlags.draft}');
+                print('All available flags: ${MessageFlags.values}');
                 
-                // ENHANCED LOGIC: If in drafts mailbox OR has draft flag, open in compose mode
-                if (isDraft || isInDraftsMailbox) {
-                  // Navigate to compose screen for draft editing
-                  print('NAVIGATING TO COMPOSE SCREEN FOR DRAFT');
+                // ULTIMATE FALLBACK: If ANY condition indicates this is a draft, open in compose mode
+                final shouldOpenInCompose = isDraft || isInDraftsMailbox || isDraftsMailboxByName;
+                
+                if (shouldOpenInCompose) {
+                  print('DECISION: NAVIGATING TO COMPOSE SCREEN FOR DRAFT');
+                  print('Compose arguments: type=draft, message=${message.decodeSubject()}');
                   Get.to(() => const ComposeScreen(), arguments: {
                     'type': 'draft',
                     'message': message,
                   });
                 } else {
-                  // Navigate to email detail view for regular emails
-                  print('NAVIGATING TO SHOW MESSAGE FOR REGULAR EMAIL');
+                  print('DECISION: NAVIGATING TO SHOW MESSAGE FOR REGULAR EMAIL');
                   Get.to(() => ShowMessage(
                     message: message,
                     mailbox: mailBox,
                   ));
                 }
+                print('====================================');
               },
             );
           },
