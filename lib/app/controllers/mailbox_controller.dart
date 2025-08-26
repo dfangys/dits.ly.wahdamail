@@ -12,6 +12,7 @@ import 'package:logger/logger.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
 import 'package:wahda_bank/models/sqlite_mime_storage.dart';
+import 'package:wahda_bank/utils/indexed_cache.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';

@@ -117,12 +117,29 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       }
       
       if (sender != null) {
-        _senderName = sender.personalName?.isNotEmpty == true 
-            ? sender.personalName! 
-            : (sender.email.isNotEmpty 
-                ? sender.email.split('@').first 
-                : 'Unknown Sender');
-        _senderEmail = sender.email;
+        // Use enough_mail_app pattern for smart sender display
+        if (_isSentMessage()) {
+          // For sent messages, show recipients
+          final recipients = widget.message.to ?? [];
+          if (recipients.isNotEmpty) {
+            _senderName = recipients
+                .map((r) => r.personalName?.isNotEmpty == true ? r.personalName! : r.email)
+                .take(2) // Limit to first 2 recipients
+                .join(', ');
+            _senderEmail = recipients.first.email;
+          } else {
+            _senderName = "Recipients";
+            _senderEmail = "recipients@unknown.com";
+          }
+        } else {
+          // For received messages, show sender with enhanced logic
+          _senderName = sender.personalName?.isNotEmpty == true 
+              ? sender.personalName! 
+              : (sender.email.isNotEmpty 
+                  ? sender.email.split('@').first 
+                  : 'Unknown Sender');
+          _senderEmail = sender.email;
+        }
       } else {
         _senderName = "Unknown Sender";
         _senderEmail = "unknown@unknown.com";
@@ -130,22 +147,25 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     }
 
     // ENHANCED: Cache other computed values with better fallbacks
-    _hasAttachments = widget.message.hasAttachments();
+    _hasAttachments = widget.message.hasAttachments == true;
     
-    // Better date handling
+    // ENHANCED: Better date handling with envelope fallback
     _messageDate = widget.message.decodeDate() ?? 
                    widget.message.envelope?.date ?? 
                    DateTime.now();
     
-    // ENHANCED: Better subject handling with envelope fallback
-    String? subject = widget.message.decodeSubject();
-    if (subject == null || subject.isEmpty) {
-      subject = widget.message.envelope?.subject;
+    // ENHANCED: Use enough_mail_app pattern for proper subject decoding
+    final decodedSubject = widget.message.decodeSubject();
+    if (decodedSubject?.isNotEmpty == true) {
+      _subject = decodedSubject!;
+    } else {
+      // Fallback to envelope subject
+      String? subject = widget.message.envelope?.subject;
+      if (subject == null || subject.isEmpty) {
+        subject = widget.message.getHeaderValue('subject');
+      }
+      _subject = subject?.isNotEmpty == true ? subject! : 'No Subject';
     }
-    if (subject == null || subject.isEmpty) {
-      subject = widget.message.getHeaderValue('subject');
-    }
-    _subject = subject?.isNotEmpty == true ? subject! : 'No Subject';
     
     _preview = _generatePreview();
     
@@ -153,6 +173,24 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       print('📧 Mail tile computed: sender="$_senderName", subject="$_subject", date=$_messageDate');
     }
   }
+
+  bool _isSentMessage() {
+    // Determine if this is a sent message based on mailbox context
+    final controller = Get.find<MailBoxController>();
+    final currentMailbox = controller.currentMailbox ?? controller.selectedMailbox;
+    
+    if (currentMailbox?.name.toLowerCase().contains('sent') == true) {
+      return true;
+    }
+    
+    // Additional check for drafts
+    if (currentMailbox?.name.toLowerCase().contains('draft') == true) {
+      return true;
+    }
+    
+    return false;
+  }
+
   String _generatePreview() {
     // ENHANCED: Try multiple sources for preview content
     
