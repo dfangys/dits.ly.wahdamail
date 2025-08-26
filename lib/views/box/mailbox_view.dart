@@ -156,6 +156,10 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   bool _isLoadingMore = false;
   int _currentPage = 0;
   static const int _pageSize = 50; // Increased from 20 to match controller
+  
+  // Performance optimization variables
+  List<MimeMessage>? _sortedMessages;
+  int _lastProcessedCount = 0;
 
   @override
   void initState() {
@@ -170,15 +174,16 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   }
 
   void _onScroll() {
-    // Enhanced scroll detection for better performance
+    // Optimized scroll detection to reduce performance impact
     if (!_scrollController.hasClients || _isLoadingMore) return;
     
     final position = _scrollController.position;
     final maxScroll = position.maxScrollExtent;
     final currentScroll = position.pixels;
     
-    // Trigger loading when user is 400 pixels from the bottom (increased threshold)
-    if (currentScroll >= maxScroll - 400) {
+    // Increased threshold to 800px to reduce frequent triggers
+    // Only trigger when user is very close to bottom
+    if (currentScroll >= maxScroll - 800) {
       _loadMoreMessages();
     }
   }
@@ -194,14 +199,15 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     final totalMessages = widget.controller.boxMails.length;
     final currentlyDisplayed = _groupedMessages.values.fold<int>(0, (sum, list) => sum + list.length);
     
-    // Check if we have more messages to display
-    if (currentlyDisplayed >= totalMessages) {
-      // Try to load more from server
-      try {
-        setState(() {
-          _isLoadingMore = true;
-        });
-        
+    // Set loading state once
+    setState(() {
+      _isLoadingMore = true;
+    });
+    
+    try {
+      // Check if we have more messages to display
+      if (currentlyDisplayed >= totalMessages) {
+        // Try to load more from server
         await widget.controller.loadMoreEmails(widget.mailBox, _currentPage + 1);
         _currentPage++; // Increment page after successful load
         
@@ -210,28 +216,19 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
         if (allMessages.length > totalMessages) {
           _processMessages(allMessages);
         }
-      } catch (e) {
-        // Handle error silently or show user feedback
-        print('Error loading more emails: $e');
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoadingMore = false;
-          });
-        }
+      } else {
+        // We have more messages locally, just display them
+        // Reduced delay for better performance
+        await Future.delayed(const Duration(milliseconds: 50));
+        
+        final allMessages = widget.controller.boxMails;
+        _processMessages(allMessages);
       }
-    } else {
-      // We have more messages locally, just display them
-      setState(() {
-        _isLoadingMore = true;
-      });
-      
-      // Simulate brief loading for smooth UX (reduced delay for better performance)
-      await Future.delayed(const Duration(milliseconds: 100));
-      
-      final allMessages = widget.controller.boxMails;
-      _processMessages(allMessages);
-      
+    } catch (e) {
+      // Handle error silently or show user feedback
+      print('Error loading more emails: $e');
+    } finally {
+      // Clear loading state once
       if (mounted) {
         setState(() {
           _isLoadingMore = false;
@@ -241,20 +238,29 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   }
 
   void _processMessages(List<MimeMessage> messages) {
+    // Skip processing if messages haven't changed to avoid unnecessary work
+    if (messages.length == _lastProcessedCount && _groupedMessages.isNotEmpty) {
+      return;
+    }
+    
+    _lastProcessedCount = messages.length;
     _groupedMessages.clear();
     _dateKeys.clear();
 
-    // Sort all messages first by date (newest first) for consistent ordering
-    final sortedMessages = List<MimeMessage>.from(messages);
-    sortedMessages.sort((a, b) {
-      final dateA = _getMessageDate(a);
-      final dateB = _getMessageDate(b);
-      return dateB.compareTo(dateA);
-    });
+    // Sort messages only once and cache the result
+    if (_sortedMessages == null || _sortedMessages!.length != messages.length) {
+      _sortedMessages = List<MimeMessage>.from(messages);
+      _sortedMessages!.sort((a, b) {
+        final dateA = _getMessageDate(a);
+        final dateB = _getMessageDate(b);
+        return dateB.compareTo(dateA); // Newest first
+      });
+    }
 
-    for (final message in sortedMessages) {
-      final messageDate = _getMessageDate(message);
-      final dateKey = DateTime(messageDate.year, messageDate.month, messageDate.day);
+    // Group messages by date efficiently
+    for (final message in _sortedMessages!) {
+      final date = _getMessageDate(message);
+      final dateKey = DateTime(date.year, date.month, date.day);
       
       if (!_groupedMessages.containsKey(dateKey)) {
         _groupedMessages[dateKey] = [];
@@ -263,10 +269,8 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
       _groupedMessages[dateKey]!.add(message);
     }
 
-    // Sort dates in descending order (newest first)
-    _dateKeys.sort((a, b) => b.compareTo(a));
-    
-    // Messages within each group are already sorted from the initial sort
+    // Sort date keys once
+    _dateKeys.sort((a, b) => b.compareTo(a)); // Newest dates first
     
     if (mounted) {
       setState(() {});

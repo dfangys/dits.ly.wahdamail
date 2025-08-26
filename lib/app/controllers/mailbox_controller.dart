@@ -854,10 +854,21 @@ class MailBoxController extends GetxController {
         endIndex = max;
       }
 
-      // Create sequence for additional messages
+      // Create sequence for additional messages (fix sequence calculation)
       MessageSequence sequence;
       try {
-        sequence = MessageSequence.fromRange(max - endIndex + 1, max - startIndex);
+        // IMAP messages are numbered 1 to max, we want older messages
+        // For page 1: get messages (max-pageSize+1) to max
+        // For page 2: get messages (max-2*pageSize+1) to (max-pageSize)
+        int sequenceStart = max - endIndex + 1;
+        int sequenceEnd = max - startIndex;
+        
+        // Ensure valid range
+        if (sequenceStart < 1) sequenceStart = 1;
+        if (sequenceEnd < sequenceStart) sequenceEnd = sequenceStart;
+        
+        sequence = MessageSequence.fromRange(sequenceStart, sequenceEnd);
+        logger.i("Loading messages ${sequenceStart}-${sequenceEnd} for page $pageNumber");
       } catch (e) {
         logger.e("Error creating sequence for pagination: $e");
         return;
@@ -880,27 +891,39 @@ class MailBoxController extends GetxController {
       }
 
       // If not in cache, fetch from server
+      logger.i("Fetching ${sequence.length} messages from server for pagination");
       List<MimeMessage> newMessages = await queue(sequence).timeout(
-        const Duration(seconds: 20),
-        onTimeout: () => <MimeMessage>[],
+        const Duration(seconds: 30), // Increased timeout for better reliability
+        onTimeout: () {
+          logger.w("Timeout loading messages for pagination");
+          return <MimeMessage>[];
+        },
       );
 
+      logger.i("Fetched ${newMessages.length} new messages from server");
       if (newMessages.isNotEmpty) {
         if (emails[mailbox] == null) {
           emails[mailbox] = <MimeMessage>[];
         }
-        emails[mailbox]!.addAll(newMessages);
+        
+        // Add new messages and remove duplicates
+        final existingIds = emails[mailbox]!.map((m) => m.uid).toSet();
+        final uniqueNewMessages = newMessages.where((m) => !existingIds.contains(m.uid)).toList();
+        
+        emails[mailbox]!.addAll(uniqueNewMessages);
+        logger.i("Added ${uniqueNewMessages.length} unique messages to mailbox ${mailbox.name}");
 
-        // Save to cache
-        if (mailboxStorage[mailbox] != null) {
-          await Future.delayed(const Duration(milliseconds: 50));
-          await mailboxStorage[mailbox]!.saveMessageEnvelopes(newMessages).timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              logger.w("Cache save timeout during pagination");
-            },
-          );
+        // Save to storage
+        if (mailboxStorage[mailbox] != null && uniqueNewMessages.isNotEmpty) {
+          try {
+            await mailboxStorage[mailbox]!.saveMessageEnvelopes(uniqueNewMessages);
+            logger.i("Saved ${uniqueNewMessages.length} messages to storage");
+          } catch (e) {
+            logger.e("Error saving messages to storage: $e");
+          }
         }
+      } else {
+        logger.w("No new messages fetched for pagination");
       }
     } catch (e) {
       logger.e("Error in _loadAdditionalMessages: $e");
