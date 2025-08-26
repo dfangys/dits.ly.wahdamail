@@ -321,7 +321,6 @@ class OptimizedDateGroup extends StatelessWidget {
                 print('Is Drafts Mailbox (by isDrafts): $isInDraftsMailbox');
                 print('Is Drafts Mailbox (by name): $isDraftsMailboxByName');
                 print('MessageFlags.draft value: ${MessageFlags.draft}');
-                print('All available flags: ${MessageFlags.values}');
                 
                 // ULTIMATE FALLBACK: If ANY condition indicates this is a draft, open in compose mode
                 final shouldOpenInCompose = isDraft || isInDraftsMailbox || isDraftsMailboxByName;

@@ -99,6 +99,9 @@ class ComposeController extends GetxController {
   void _initializeController() {
     final args = Get.arguments;
 
+    // CRITICAL FIX: Clear any previous draft state first
+    _clearDraftState();
+
     if (args != null) {
       type = args['type'];
       msg = args['message'];
@@ -488,6 +491,39 @@ class ComposeController extends GetxController {
     update();
   }
 
+  // CRITICAL FIX: Clear all draft-related state
+  void _clearDraftState() {
+    debugPrint('Clearing previous draft state');
+    
+    // Clear recipient lists
+    toList.clear();
+    cclist.clear();
+    bcclist.clear();
+    
+    // Clear form fields
+    subjectController.clear();
+    plainTextController.clear();
+    
+    // Clear attachments
+    attachments.clear();
+    
+    // Reset draft-specific state
+    _showDraftOptions.value = false;
+    _hasUnsavedChanges.value = false;
+    _draftStatus.value = '';
+    _lastSavedTime.value = '';
+    bodyPart = '';
+    
+    // Reset HTML editor if needed
+    try {
+      htmlController.setText('');
+    } catch (e) {
+      debugPrint('Error clearing HTML editor: $e');
+    }
+    
+    debugPrint('Draft state cleared successfully');
+  }
+
   // Parse mail address from string
   MailAddress? _parseMailAddress(String address) {
     try {
@@ -551,14 +587,18 @@ class ComposeController extends GetxController {
       bool isHtmlContent = false;
       
       // Try to get HTML content first
-      if (message.hasTextHtmlPart()) {
-        bodyContent = message.decodeTextHtmlPart() ?? '';
+      final htmlContent = message.decodeTextHtmlPart();
+      if (htmlContent != null && htmlContent.isNotEmpty) {
+        bodyContent = htmlContent;
         isHtmlContent = true;
         debugPrint('Draft body type: HTML');
-      } else if (message.hasTextPlainPart()) {
-        bodyContent = message.decodeTextPlainPart() ?? '';
-        isHtmlContent = false;
-        debugPrint('Draft body type: Plain text');
+      } else {
+        final plainContent = message.decodeTextPlainPart();
+        if (plainContent != null && plainContent.isNotEmpty) {
+          bodyContent = plainContent;
+          isHtmlContent = false;
+          debugPrint('Draft body type: Plain text');
+        }
       }
       
       debugPrint('Draft body content length: ${bodyContent.length}');
@@ -568,7 +608,8 @@ class ComposeController extends GetxController {
         isHtml.value = true;
         bodyPart = bodyContent;
         debugPrint('Setting HTML editor content: ${bodyContent.length} characters');
-        await htmlController.setText(bodyContent);
+        // Use setText method properly
+        htmlController.setText(bodyContent);
         debugPrint('HTML editor content set successfully');
       } else if (bodyContent.isNotEmpty) {
         isHtml.value = false;
