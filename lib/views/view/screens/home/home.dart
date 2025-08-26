@@ -75,11 +75,23 @@ class HomeScreen extends GetView<MailBoxController> {
                           itemBuilder: (context, index) {
                             return MailTile(
                               onTap: () {
-                                // Navigate to email detail view
-                                Get.to(() => ShowMessage(
-                                  message: rows[index],
-                                  mailbox: currentMailbox,
-                                ));
+                                // CRITICAL FIX: Route drafts to compose screen, regular emails to show message
+                                final message = rows[index];
+                                final isDraft = message.flags?.contains(MessageFlags.draft) ?? false;
+                                
+                                if (isDraft) {
+                                  // Navigate to compose screen for draft editing
+                                  Get.to(() => const ComposeScreen(), arguments: {
+                                    'type': 'draft',
+                                    'message': message,
+                                  });
+                                } else {
+                                  // Navigate to email detail view for regular emails
+                                  Get.to(() => ShowMessage(
+                                    message: message,
+                                    mailbox: currentMailbox,
+                                  ));
+                                }
                               },
                               message: rows[index],
                               mailBox: currentMailbox,
