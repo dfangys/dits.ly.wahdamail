@@ -11,7 +11,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../services/mail_service.dart';
+import '../../../../services/email_cache_service.dart';
 import '../../../../utills/theme/app_theme.dart';
+import '../../../../widgets/enhanced_message_viewer.dart';
+import '../../../../widgets/enhanced_attachment_viewer.dart';
 
 class MailAttachments extends StatelessWidget {
   const MailAttachments({super.key, required this.message, this.mailbox});
@@ -20,6 +23,20 @@ class MailAttachments extends StatelessWidget {
 
   Future<MimeMessage> _fetchMessageContent() async {
     try {
+      // Initialize cache service
+      await EmailCacheService.instance.initialize();
+      
+      // PERFORMANCE OPTIMIZATION: Check cache first
+      if (message.uid != null) {
+        final cachedMessage = await EmailCacheService.instance.getCachedEmail(message.uid!);
+        if (cachedMessage != null) {
+          if (kDebugMode) {
+            print('Using cached message content for UID ${message.uid}');
+          }
+          return cachedMessage;
+        }
+      }
+      
       final mailService = MailService.instance;
       
       // CRITICAL FIX: Validate message UID before fetching
@@ -61,13 +78,15 @@ class MailAttachments extends StatelessWidget {
       
       // CRITICAL FIX: Fetch message content with retry logic and proper error handling
       int fetchRetries = 3;
+      MimeMessage? fetchedMessage;
+      
       while (fetchRetries > 0) {
         try {
           if (kDebugMode) {
             print('Fetching message contents for UID ${message.uid} (attempt ${4 - fetchRetries})');
           }
           
-          final fetchedMessage = await mailService.client.fetchMessageContents(message);
+          fetchedMessage = await mailService.client.fetchMessageContents(message);
           
           if (fetchedMessage == null) {
             throw Exception('fetchMessageContents returned null for UID ${message.uid}');
@@ -77,7 +96,7 @@ class MailAttachments extends StatelessWidget {
             print('Successfully fetched message contents for UID ${message.uid}');
           }
           
-          return fetchedMessage;
+          break; // Success, exit retry loop
         } catch (e) {
           fetchRetries--;
           if (kDebugMode) {
@@ -106,8 +125,23 @@ class MailAttachments extends StatelessWidget {
         }
       }
       
-      // This should never be reached due to the loop logic above
-      throw Exception('Unexpected error in message fetch retry logic');
+      if (fetchedMessage == null) {
+        throw Exception('Unexpected error: fetchedMessage is null after retry logic');
+      }
+      
+      // PERFORMANCE OPTIMIZATION: Cache the fetched message
+      if (fetchedMessage.uid != null) {
+        try {
+          await EmailCacheService.instance.cacheEmail(fetchedMessage);
+        } catch (cacheError) {
+          if (kDebugMode) {
+            print('Warning: Failed to cache message UID ${fetchedMessage.uid}: $cacheError');
+          }
+          // Don't fail the entire operation if caching fails
+        }
+      }
+      
+      return fetchedMessage;
       
     } catch (e) {
       if (kDebugMode) {
@@ -158,19 +192,29 @@ class MailAttachments extends StatelessWidget {
             ),
           );
         } else if (snapshot.hasData && snapshot.data != null) {
-          // First display attachments, then message content
+          // Enhanced email content display with proper structure
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // First display attachments if any
-              _buildAttachmentSection(context, snapshot.data!),
+              // Enhanced message content viewer
+              EnhancedMessageViewer(
+                mimeMessage: snapshot.data!,
+                maxImageWidth: 600,
+                enableDarkMode: Theme.of(context).brightness == Brightness.dark,
+                blockExternalImages: true,
+                preferPlainText: false,
+                onZoomed: () {
+                  if (kDebugMode) {
+                    print('Message content zoomed');
+                  }
+                },
+              ),
 
-              // Then display the message content with proper padding
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: MimeMessageViewer(
-                  mimeMessage: snapshot.data!,
-                ),
+              // Enhanced attachment viewer
+              EnhancedAttachmentViewer(
+                mimeMessage: snapshot.data!,
+                showInline: false,
+                maxAttachmentsToShow: 20,
               ),
             ],
           );
