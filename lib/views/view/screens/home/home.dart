@@ -74,15 +74,13 @@ class HomeScreen extends GetView<MailBoxController> {
             
             return Stack(
               children: [
-                Obx(() {
-                  // Use the advanced OptimizedEmailList for inbox with all features
-                  return OptimizedEmailList(
-                    mailBox: controller.mailBoxInbox,
-                    controller: controller,
-                    theme: Theme.of(context),
-                    isDarkMode: Theme.of(context).brightness == Brightness.dark,
-                  );
-                }),
+                // Remove unnecessary Obx wrapper - OptimizedEmailList handles its own reactivity
+                OptimizedEmailList(
+                  mailBox: controller.mailBoxInbox,
+                  controller: controller,
+                  theme: Theme.of(context),
+                  isDarkMode: Theme.of(context).brightness == Brightness.dark,
+                ),
               ],
             );
           }),
