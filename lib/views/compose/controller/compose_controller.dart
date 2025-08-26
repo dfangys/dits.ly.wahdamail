@@ -54,10 +54,14 @@ class ComposeController extends GetxController {
   final RxBool isCcAndBccVisible = false.obs;
   final RxBool isHtml = true.obs;
   final RxBool isBusy = false.obs;
+  final RxBool isSending = false.obs;
+  final RxInt priority = 0.obs;
+  int? currentDraftId;
 
   // Draft state
   final RxBool _hasUnsavedChanges = false.obs;
   bool get hasUnsavedChanges => _hasUnsavedChanges.value;
+  set hasUnsavedChanges(bool value) => _hasUnsavedChanges.value = value;
 
   final RxString _draftStatus = ''.obs;
   String get draftStatus => _draftStatus.value;
