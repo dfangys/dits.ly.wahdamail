@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
-import 'package:rounded_loading_button_plus/rounded_loading_button_plus.dart';
+import 'package:wahda_bank/widgets/custom_loading_button.dart';
 import 'package:wahda_bank/app/apis/app_api.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/views/authantication/screens/reset_password_screen/reset_password_screen.dart';
@@ -37,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   TextEditingController(text: kDebugMode ? "abdullah.salemnaseeb" : "");
   TextEditingController passwordCtrl =
   TextEditingController(text: kDebugMode ? "Aa12152010.@" : "");
-  RoundedLoadingButtonController? controller = RoundedLoadingButtonController();
+  CustomLoadingButtonController? controller = CustomLoadingButtonController();
   final loginFormKey = GlobalKey<FormState>();
   final api = Get.put(AppApi());
   final otpController = Get.put(OtpController());

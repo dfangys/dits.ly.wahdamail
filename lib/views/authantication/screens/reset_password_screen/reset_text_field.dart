@@ -1,7 +1,7 @@
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:rounded_loading_button_plus/rounded_loading_button_plus.dart';
+import 'package:wahda_bank/widgets/custom_loading_button.dart';
 import 'package:wahda_bank/app/apis/app_api.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
@@ -23,7 +23,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
   final appApi = Get.find<AppApi>();
-  final btnController = RoundedLoadingButtonController();
+  final btnController = CustomLoadingButtonController();
   bool isError = false;
   bool _isEmailValid = true;
   final FocusNode _emailFocusNode = FocusNode();
@@ -418,7 +418,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
           ).show();
         }
       } finally {
-        if (btnController.currentState != ButtonState.success) {
+        if (btnController.state != ButtonState.success) {
           Future.delayed(const Duration(seconds: 1), () {
             btnController.reset();
           });

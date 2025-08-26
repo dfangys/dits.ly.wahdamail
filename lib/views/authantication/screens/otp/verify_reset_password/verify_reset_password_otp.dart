@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:pinput/pinput.dart';
-import 'package:rounded_loading_button_plus/rounded_loading_button_plus.dart';
+import 'package:wahda_bank/widgets/custom_loading_button.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 
@@ -27,7 +27,7 @@ class VerifyResetPasswordOtpScreen extends StatefulWidget {
 class _VerifyResetPasswordOtpScreenState
     extends State<VerifyResetPasswordOtpScreen> {
   final TextEditingController passwordController = TextEditingController();
-  RoundedLoadingButtonController controller = RoundedLoadingButtonController();
+  CustomLoadingButtonController controller = CustomLoadingButtonController();
   final formKey = GlobalKey<FormState>();
   String otpPin = '';
 

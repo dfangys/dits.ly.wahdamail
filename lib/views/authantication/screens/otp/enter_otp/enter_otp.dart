@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:pinput/pinput.dart';
-import 'package:rounded_loading_button_plus/rounded_loading_button_plus.dart';
+import 'package:wahda_bank/widgets/custom_loading_button.dart';
 import 'package:wahda_bank/app/controllers/otp_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
@@ -14,8 +14,8 @@ import '../../login/widgets/rounded_button.dart';
 class EnterOtpScreen extends GetView<OtpController> {
   EnterOtpScreen({super.key});
 
-  final RoundedLoadingButtonController btnController =
-      RoundedLoadingButtonController();
+  final CustomLoadingButtonController btnController =
+      CustomLoadingButtonController();
 
   @override
   Widget build(BuildContext context) {

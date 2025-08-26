@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:rounded_loading_button_plus/rounded_loading_button_plus.dart';
+import 'package:wahda_bank/widgets/custom_loading_button.dart';
 
 class WRoundedButton extends StatelessWidget {
   const WRoundedButton(
@@ -7,13 +7,13 @@ class WRoundedButton extends StatelessWidget {
       required this.controller,
       required this.onPress,
       required this.text});
-  final RoundedLoadingButtonController controller;
+  final CustomLoadingButtonController controller;
   final String text;
   final Function()? onPress;
 
   @override
   Widget build(BuildContext context) {
-    return RoundedLoadingButton(
+    return CustomLoadingButton(
       color: Theme.of(context).primaryColor,
       borderRadius: 10,
       elevation: 3,
