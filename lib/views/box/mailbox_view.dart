@@ -14,8 +14,9 @@ import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/views/box/enhanced_mailbox_view.dart';
 
 class MailBoxView extends GetView<MailBoxController> {
-  const MailBoxView({super.key, required this.mailBox});
-  final Mailbox mailBox;
+  const MailBoxView({super.key, required this.mailbox, this.isDarkMode = false});
+  final Mailbox mailbox;
+  final bool isDarkMode;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +29,7 @@ class MailBoxView extends GetView<MailBoxController> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(
-            mailBox.name.toLowerCase().tr,
+            mailbox.name.toLowerCase().tr,
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 20,
@@ -49,7 +50,7 @@ class MailBoxView extends GetView<MailBoxController> {
         ),
         body: RefreshIndicator(
           onRefresh: () async {
-            await controller.refreshMailbox(mailBox);
+            await controller.refreshMailbox(mailbox);
           },
           color: theme.colorScheme.primary,
           backgroundColor: isDarkMode ? Colors.grey.shade900 : Colors.white,
@@ -111,7 +112,7 @@ class MailBoxView extends GetView<MailBoxController> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                       child: EnhancedMailboxView(
-                        mailbox: mailBox,
+                        mailbox: mailbox,
                         theme: theme,
                         isDarkMode: isDarkMode,
                       ),
@@ -124,7 +125,7 @@ class MailBoxView extends GetView<MailBoxController> {
         ),
         bottomNavigationBar: Obx(() {
           return selectionController.selected.isNotEmpty
-              ? SelectionBottomNav(box: mailBox)
+              ? SelectionBottomNav(box: mailbox)
               : const SizedBox.shrink();
         }),
       ),
@@ -133,14 +134,14 @@ class MailBoxView extends GetView<MailBoxController> {
 }
 
 class OptimizedEmailList extends StatefulWidget {
-  final Mailbox mailBox;
+  final Mailbox mailbox;
   final MailBoxController controller;
   final ThemeData theme;
   final bool isDarkMode;
 
   const OptimizedEmailList({
     super.key,
-    required this.mailBox,
+    required this.mailbox,
     required this.controller,
     required this.theme,
     required this.isDarkMode,
@@ -216,7 +217,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     final currentlyDisplayed = _processedUIDs.length; // Use processed UIDs count for accuracy
     
     // Check if we've reached the end based on mailbox message count
-    final mailboxMessageCount = widget.mailBox.messagesExists;
+    final mailboxMessageCount = widget.mailbox.messagesExists;
     if (currentlyDisplayed >= mailboxMessageCount && mailboxMessageCount > 0) {
       _allMessagesLoaded = true;
       return;
@@ -232,7 +233,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
       if (currentlyDisplayed >= totalMessages) {
         // Try to load more from server
         final previousCount = totalMessages;
-        await widget.controller.loadMoreEmails(widget.mailBox, _currentPage + 1);
+        await widget.controller.loadMoreEmails(widget.mailbox, _currentPage + 1);
         
         // Check if new messages were actually loaded
         final newTotalMessages = widget.controller.boxMails.length;
@@ -372,7 +373,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<List<MimeMessage>>(
-      valueListenable: widget.controller.mailboxStorage[widget.mailBox]!.dataNotifier,
+      valueListenable: widget.controller.mailboxStorage[widget.mailbox]!.dataNotifier,
       builder: (context, List<MimeMessage> messages, _) {
         if (messages.isEmpty && !widget.controller.isBoxBusy()) {
           return Center(
@@ -395,7 +396,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton(
-                  onPressed: () => widget.controller.loadEmailsForBox(widget.mailBox),
+                  onPressed: () => widget.controller.loadEmailsForBox(widget.mailbox),
                   child: Text('try_again'.tr),
                 ),
               ],
@@ -536,7 +537,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                   return OptimizedDateGroup(
                     date: dateKey,
                     messages: messagesForDate,
-                    mailBox: widget.mailBox,
+                    mailBox: widget.mailbox,
                     theme: widget.theme,
                     isDarkMode: widget.isDarkMode,
                   );
@@ -554,7 +555,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
 class OptimizedDateGroup extends StatelessWidget {
   final DateTime date;
   final List<MimeMessage> messages;
-  final Mailbox mailBox;
+  final Mailbox mailbox;
   final ThemeData theme;
   final bool isDarkMode;
 
@@ -562,7 +563,7 @@ class OptimizedDateGroup extends StatelessWidget {
     super.key,
     required this.date,
     required this.messages,
-    required this.mailBox,
+    required this.mailbox,
     required this.theme,
     required this.isDarkMode,
   });
@@ -597,7 +598,7 @@ class OptimizedDateGroup extends StatelessWidget {
             final message = messages[index];
             return OptimizedMailTile(
               message: message,
-              mailBox: mailBox,
+              mailBox: mailbox,
               onTap: () {
                 // CRITICAL FIX: Use safe navigation method with validation
                 final mailboxController = Get.find<MailBoxController>();
@@ -605,12 +606,12 @@ class OptimizedDateGroup extends StatelessWidget {
                 print('=== MAILBOX VIEW EMAIL TAP DEBUG ===');
                 print('MailBoxView.dart onTap called!');
                 print('Subject: ${message.decodeSubject()}');
-                print('Current Mailbox: ${mailBox.name}');
+                print('Current Mailbox: ${mailbox.name}');
                 print('Using safe navigation method');
                 print('====================================');
                 
                 // Use the new safe navigation method from the controller
-                mailboxController.safeNavigateToMessage(message, mailBox);
+                mailboxController.safeNavigateToMessage(message, mailbox);
               },
             );
           },

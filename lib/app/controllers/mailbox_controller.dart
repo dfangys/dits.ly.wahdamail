@@ -51,6 +51,7 @@ class MailBoxController extends GetxController {
   
   // CRITICAL: Prevent infinite loading loops
   final Map<Mailbox, bool> _isLoadingMore = {};
+  final RxBool isLoadingEmails = false.obs;
   
   bool isLoadingMoreEmails(Mailbox mailbox) {
     return _isLoadingMore[mailbox] ?? false;
@@ -468,6 +469,14 @@ class MailBoxController extends GetxController {
     final hasExistingEmails = emails[mailbox] != null && emails[mailbox]!.isNotEmpty;
     
     try {
+      // CRITICAL FIX: Prevent infinite loading loops
+      if (isLoadingEmails.value) {
+        logger.i("Already loading emails, skipping duplicate request");
+        return;
+      }
+      
+      isLoadingEmails.value = true;
+      
       // CRITICAL FIX: Add comprehensive logging for mailbox context
       logger.i("Loading emails for mailbox: ${mailbox.name} (path: ${mailbox.path})");
       logger.i("Has existing emails: $hasExistingEmails");
@@ -488,6 +497,7 @@ class MailBoxController extends GetxController {
       // PERFORMANCE FIX: If emails already exist, just return them (use cache)
       if (hasExistingEmails) {
         logger.i("Using cached emails for ${mailbox.name} (${emails[mailbox]!.length} messages)");
+        isLoadingEmails.value = false;
         // Still ensure current mailbox is set correctly even when using cache
         currentMailbox = mailbox;
         return;
@@ -583,6 +593,7 @@ class MailBoxController extends GetxController {
     } finally {
       // Always reset loading state
       isBoxBusy(false);
+      isLoadingEmails.value = false;
       
       // Removed progressController hide to avoid duplicate indicators
     }
