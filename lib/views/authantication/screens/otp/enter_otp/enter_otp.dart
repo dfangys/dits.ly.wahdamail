@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:pinput/pinput.dart';
 import 'package:wahda_bank/widgets/custom_loading_button.dart';
@@ -45,9 +46,13 @@ class EnterOtpScreen extends GetView<OtpController> {
             child: SizedBox(
               height: isTablet ? 110 : 85,
               width: isTablet ? 280 : 221,
-              child: Image.asset(
+              child: SvgPicture.asset(
                 WImages.splash,
-                fit: BoxFit.fill,
+                fit: BoxFit.contain,
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
               ),
             ),
           ),

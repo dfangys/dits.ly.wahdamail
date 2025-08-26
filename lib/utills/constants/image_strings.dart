@@ -6,7 +6,8 @@ class WImages {
   // -- App Logos
   static const String logo = "assets/svg/logo.svg";
   static const String logoWhite = "assets/svg/logo_white.svg";
-  static const String splash = 'assets/png/splash.png';
+  static const String splash = 'assets/svg/splash.svg';
+  static const String splash2 = 'assets/svg/splash2.svg';
 
   static const String contactPhone = "assets/png/contact_phone.png";
   static const String contactMail = "assets/png/contact_mail.png";
