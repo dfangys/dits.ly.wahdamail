@@ -181,10 +181,12 @@ class _VerifyResetPasswordOtpScreenState
             child: Padding(
               padding: EdgeInsets.all(isTablet ? 24 : 20),
               child: SvgPicture.asset(
-                WImages.logo,
+                WImages.logoWhite,
                 fit: BoxFit.cover,
-                // ignore: deprecated_member_use
-                color: Colors.white,
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
                 width: Get.width * 0.7,
               ),
             ),

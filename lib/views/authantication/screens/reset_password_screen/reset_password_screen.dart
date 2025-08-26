@@ -65,10 +65,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> with SingleTi
                 child: Padding(
                   padding: EdgeInsets.all(isTablet ? 30 : 20),
                   child: SvgPicture.asset(
-                    WImages.logo,
+                    WImages.logoWhite,
                     fit: BoxFit.cover,
-                    // ignore: deprecated_member_use
-                    color: Colors.white,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
+                    ),
                     width: Get.width * (isTablet ? 0.6 : 0.7),
                   ),
                 ),

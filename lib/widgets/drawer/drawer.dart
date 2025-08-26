@@ -186,10 +186,12 @@ class Drawer1 extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           SvgPicture.asset(
-            WImages.logo,
+            WImages.logoWhite,
             height: 40,
-            // ignore: deprecated_member_use
-            color: Colors.white,
+            colorFilter: const ColorFilter.mode(
+              Colors.white,
+              BlendMode.srcIn,
+            ),
           ),
           IconButton(
             onPressed: () => Navigator.of(context).pop(),

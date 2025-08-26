@@ -186,7 +186,11 @@ class _LoadingFirstViewState extends State<LoadingFirstView> with SingleTickerPr
                           height: isTablet ? 140.0 : 105.0,
                           width: isTablet ? 360.0 : 273.0,
                           child: SvgPicture.asset(
-                            WImages.logo,
+                            WImages.logoWhite,
+                            colorFilter: const ColorFilter.mode(
+                              Colors.white,
+                              BlendMode.srcIn,
+                            ),
                           ),
                         ),
                       ),

@@ -95,7 +95,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     height: 105.0,
                     width: 273,
                     child: SvgPicture.asset(
-                      WImages.logo,
+                      WImages.logoWhite,
+                      colorFilter: const ColorFilter.mode(
+                        Colors.white,
+                        BlendMode.srcIn,
+                      ),
                     ),
                   ),
                 ),

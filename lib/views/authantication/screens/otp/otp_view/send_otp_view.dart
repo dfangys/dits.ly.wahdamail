@@ -43,9 +43,12 @@ class _SendOtpViewState extends State<SendOtpView> {
           Padding(
             padding: const EdgeInsets.all(WSizes.defaultSpace),
             child: SvgPicture.asset(
-              WImages.logo,
+              WImages.logoWhite,
               fit: BoxFit.cover,
-              theme: const SvgTheme(currentColor: Colors.white),
+              colorFilter: const ColorFilter.mode(
+                Colors.white,
+                BlendMode.srcIn,
+              ),
               width: Get.width * 0.7,
             ),
           ),
