@@ -121,7 +121,7 @@ class ComposeController extends GetxController {
   void _initializeController() async {
     final args = Get.arguments;
 
-    // CRITICAL FIX: Clear any previous draft state first
+    // Clear any previous draft state first
     _clearDraftState();
 
     if (args != null) {
@@ -174,7 +174,6 @@ class ComposeController extends GetxController {
               : '';
           messageBuilder = MessageBuilder.prepareForwardMessage(msg!);
         } else if (type == 'draft') {
-          // CRITICAL FIX: Enhanced draft loading with debugging
           toList.addAll(msg!.to ?? []);
           cclist.addAll(msg!.cc ?? []);
           bcclist.addAll(msg!.bcc ?? []);
@@ -184,16 +183,9 @@ class ComposeController extends GetxController {
               : '';
           messageBuilder = MessageBuilder.prepareFromDraft(msg!);
 
-          // Load draft from storage with comprehensive debugging
+          // Load draft from storage
           await _loadDraftFromMessage(msg!);
-          
-          // DEBUGGING: Log draft loading info
-          debugPrint('Loading draft: ${msg!.decodeSubject()}');
-          debugPrint('Draft recipients - To: ${msg!.to?.length ?? 0}, CC: ${msg!.cc?.length ?? 0}, BCC: ${msg!.bcc?.length ?? 0}');
         }
-
-        // NOTE: Body content is now handled in _loadDraftFromMessage method
-        // Removed duplicate body loading logic to prevent conflicts
       } else {
         final settingController = Get.find<SettingController>();
         signature = settingController.signatureNewMessage.value
@@ -218,15 +210,11 @@ class ComposeController extends GetxController {
 
     // Initialize HTML editor with content
     if (bodyPart.isNotEmpty) {
-      // Use Future.delayed to ensure the HTML editor is initialized
       Future.delayed(Duration.zero, () {
         debugPrint('Setting HTML editor content: ${bodyPart.length} characters');
         htmlController.setText(bodyPart);
         plainTextController.text = _removeHtmlTags(bodyPart);
-        debugPrint('HTML editor content set successfully');
       });
-    } else {
-      debugPrint('No body content to set in HTML editor');
     }
   }
 
@@ -234,22 +222,28 @@ class ComposeController extends GetxController {
   String get email => account.email;
   String get name => account.name;
 
-  // Determine if autosave should run based on time since last change
-  bool _shouldAutosave() {
-    if (_lastChangeTime == null) return false;
-
-    // If it's been at least 3 seconds since the last change
-    return DateTime.now().difference(_lastChangeTime!).inSeconds >= 3;
-  }
-
-  // RECIPIENT MANAGEMENT METHODS
+  // RECIPIENT MANAGEMENT METHODS (CONSOLIDATED - REMOVED DUPLICATES)
   
-  /// Add email address to TO list
-  void addTo(String email) {
+  /// Add email address to TO list - supports both String and MailAddress
+  void addTo(dynamic emailOrAddress) {
     try {
-      final address = MailAddress.parse(email);
+      MailAddress address;
+      if (emailOrAddress is String) {
+        address = MailAddress.parse(emailOrAddress);
+      } else if (emailOrAddress is MailAddress) {
+        address = emailOrAddress;
+      } else {
+        debugPrint('Invalid parameter type for addTo');
+        return;
+      }
+
       if (!toList.any((addr) => addr.email == address.email)) {
         toList.add(address);
+        
+        // Remove from other lists if present
+        cclist.removeWhere((addr) => addr.email == address.email);
+        bcclist.removeWhere((addr) => addr.email == address.email);
+        
         _markAsChanged();
       }
     } catch (e) {
@@ -257,18 +251,42 @@ class ComposeController extends GetxController {
     }
   }
 
-  /// Remove email address from TO list
-  void removeFromToList(MailAddress address) {
-    toList.remove(address);
-    _markAsChanged();
+  /// Remove email address from TO list - supports both index and MailAddress
+  void removeFromToList(dynamic indexOrAddress) {
+    try {
+      if (indexOrAddress is int) {
+        if (indexOrAddress >= 0 && indexOrAddress < toList.length) {
+          toList.removeAt(indexOrAddress);
+        }
+      } else if (indexOrAddress is MailAddress) {
+        toList.remove(indexOrAddress);
+      }
+      _markAsChanged();
+    } catch (e) {
+      debugPrint('Error removing from TO list: $e');
+    }
   }
 
-  /// Add email address to CC list
-  void addToCC(String email) {
+  /// Add email address to CC list - supports both String and MailAddress
+  void addToCC(dynamic emailOrAddress) {
     try {
-      final address = MailAddress.parse(email);
+      MailAddress address;
+      if (emailOrAddress is String) {
+        address = MailAddress.parse(emailOrAddress);
+      } else if (emailOrAddress is MailAddress) {
+        address = emailOrAddress;
+      } else {
+        debugPrint('Invalid parameter type for addToCC');
+        return;
+      }
+
       if (!cclist.any((addr) => addr.email == address.email)) {
         cclist.add(address);
+        
+        // Remove from other lists if present
+        toList.removeWhere((addr) => addr.email == address.email);
+        bcclist.removeWhere((addr) => addr.email == address.email);
+        
         _markAsChanged();
       }
     } catch (e) {
@@ -276,18 +294,42 @@ class ComposeController extends GetxController {
     }
   }
 
-  /// Remove email address from CC list
-  void removeFromCcList(MailAddress address) {
-    cclist.remove(address);
-    _markAsChanged();
+  /// Remove email address from CC list - supports both index and MailAddress
+  void removeFromCcList(dynamic indexOrAddress) {
+    try {
+      if (indexOrAddress is int) {
+        if (indexOrAddress >= 0 && indexOrAddress < cclist.length) {
+          cclist.removeAt(indexOrAddress);
+        }
+      } else if (indexOrAddress is MailAddress) {
+        cclist.remove(indexOrAddress);
+      }
+      _markAsChanged();
+    } catch (e) {
+      debugPrint('Error removing from CC list: $e');
+    }
   }
 
-  /// Add email address to BCC list
-  void addToBcc(String email) {
+  /// Add email address to BCC list - supports both String and MailAddress
+  void addToBcc(dynamic emailOrAddress) {
     try {
-      final address = MailAddress.parse(email);
+      MailAddress address;
+      if (emailOrAddress is String) {
+        address = MailAddress.parse(emailOrAddress);
+      } else if (emailOrAddress is MailAddress) {
+        address = emailOrAddress;
+      } else {
+        debugPrint('Invalid parameter type for addToBcc');
+        return;
+      }
+
       if (!bcclist.any((addr) => addr.email == address.email)) {
         bcclist.add(address);
+        
+        // Remove from other lists if present
+        toList.removeWhere((addr) => addr.email == address.email);
+        cclist.removeWhere((addr) => addr.email == address.email);
+        
         _markAsChanged();
       }
     } catch (e) {
@@ -295,17 +337,31 @@ class ComposeController extends GetxController {
     }
   }
 
-  /// Remove email address from BCC list
-  void removeFromBccList(MailAddress address) {
-    bcclist.remove(address);
-    _markAsChanged();
+  /// Remove email address from BCC list - supports both index and MailAddress
+  void removeFromBccList(dynamic indexOrAddress) {
+    try {
+      if (indexOrAddress is int) {
+        if (indexOrAddress >= 0 && indexOrAddress < bcclist.length) {
+          bcclist.removeAt(indexOrAddress);
+        }
+      } else if (indexOrAddress is MailAddress) {
+        bcclist.remove(indexOrAddress);
+      }
+      _markAsChanged();
+    } catch (e) {
+      debugPrint('Error removing from BCC list: $e');
+    }
   }
 
-  // CONTENT MANAGEMENT METHODS
+  // CONTENT MANAGEMENT METHODS (CONSOLIDATED)
 
   /// Toggle between HTML and plain text editing
   Future<void> togglePlainHtml() async {
+    if (isBusy.value) return;
+
     try {
+      isBusy.value = true;
+      
       if (isHtml.value) {
         // Switching from HTML to plain text
         final htmlContent = await htmlController.getText();
@@ -321,12 +377,14 @@ class ComposeController extends GetxController {
       _markAsChanged();
     } catch (e) {
       debugPrint('Error toggling HTML/Plain text: $e');
+    } finally {
+      isBusy.value = false;
     }
   }
 
-  // ATTACHMENT METHODS
+  // ATTACHMENT METHODS (CONSOLIDATED - REMOVED DUPLICATES)
 
-  /// Pick files for attachment
+  /// Pick files for attachment (enhanced version)
   Future<void> pickFiles() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -348,30 +406,55 @@ class ComposeController extends GetxController {
     }
   }
 
-  /// Pick image for attachment
+  /// Pick image for attachment (enhanced version using FilePicker)
   Future<void> pickImage() async {
     try {
-      final picker = ImagePicker();
-      final image = await picker.pickImage(source: ImageSource.gallery);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+      );
 
-      if (image != null) {
-        attachments.add(File(image.path));
+      if (result != null && result.files.isNotEmpty) {
+        for (final file in result.files) {
+          if (file.path != null) {
+            attachments.add(File(file.path!));
+          }
+        }
         _markAsChanged();
       }
     } catch (e) {
-      debugPrint('Error picking image: $e');
-      _showErrorDialog('Error selecting image: $e');
+      debugPrint('Error picking images: $e');
+      _showErrorDialog('Error selecting images: $e');
     }
   }
 
-  // DRAFT MANAGEMENT METHODS
+  /// Take photo with camera
+  Future<void> takePhoto() async {
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.camera);
 
-  /// Save current email as draft
+      if (pickedFile != null) {
+        attachments.add(File(pickedFile.path));
+        _markAsChanged();
+      }
+    } catch (e) {
+      debugPrint('Error taking photo: $e');
+      _showErrorDialog('Error taking photo: $e');
+    }
+  }
+
+  // DRAFT MANAGEMENT METHODS (CONSOLIDATED - REMOVED DUPLICATES)
+
+  /// Save current email as draft (enhanced version)
   Future<void> saveAsDraft() async {
     if (isBusy.value) return;
 
     try {
       isBusy.value = true;
+      _draftStatus.value = 'saving_draft'.tr;
+      update();
+
       EasyLoading.show(status: 'saving_draft'.tr);
 
       // Get current content
@@ -382,50 +465,187 @@ class ComposeController extends GetxController {
         body = plainTextController.text;
       }
 
+      // Check if there's enough content to save
+      if (!_hasSaveableContent(body)) {
+        EasyLoading.dismiss();
+        EasyLoading.showInfo('nothing_to_save'.tr);
+        _draftStatus.value = '';
+        return;
+      }
+
+      // Add signature if needed
+      body += signature;
+
       // Create draft model
       final draft = _createDraftModel(body);
 
-      // Save to storage
+      // Save to local storage
       final storage = Get.find<SQLiteDraftRepository>();
-      final savedDraft = await storage.saveDraft(draft);
+      _currentDraft = await storage.saveDraft(draft);
 
-      // Update current draft reference
-      _currentDraft = savedDraft;
+      // Create message builder for server save
+      messageBuilder = MessageBuilder();
+
+      // Add attachments
+      for (final file in attachments) {
+        await messageBuilder.addFile(
+          file,
+          MediaType.guessFromFileName(file.path),
+        );
+      }
+
+      // Set message content
+      messageBuilder.addMultipartAlternative(
+        htmlText: isHtml.value ? body : null,
+        plainText: isHtml.value ? _removeHtmlTags(body) : body,
+      );
+
+      // Set message metadata
+      messageBuilder.to = toList.toList();
+      messageBuilder.cc = cclist.toList();
+      messageBuilder.bcc = bcclist.toList();
+      messageBuilder.subject = subjectController.text;
+      messageBuilder.from = [MailAddress(name, email)];
+      messageBuilder.date = DateTime.now();
+
+      // Add custom headers for enhanced draft features
+      messageBuilder.addHeader('X-Category', draft.category);
+      messageBuilder.addHeader('X-Priority', draft.priority.toString());
+      if (draft.tags.isNotEmpty) {
+        messageBuilder.addHeader('X-Tags', draft.tags.join(','));
+      }
+      messageBuilder.addHeader('X-Draft-Version', draft.version.toString());
+
+      // Build message
+      final draftMessage = messageBuilder.buildMimeMessage();
+
+      // Save to server
+      final box = await client.selectMailboxByFlag(MailboxFlag.drafts);
+      final code = await client.saveDraftMessage(draftMessage);
+
+      // Update draft with server info if successful
+      if (code != null && _currentDraft != null) {
+        await storage.markDraftSynced(_currentDraft!.id!, code.uidValidity ?? 0);
+      }
+
+      // Delete old draft if editing
+      if (msg != null && type == 'draft') {
+        await client.deleteMessage(msg!);
+      }
+
+      // Update state
       _hasUnsavedChanges.value = false;
       _draftStatus.value = 'draft_saved'.tr;
       _lastSavedTime.value = _formatSaveTime(DateTime.now());
+      _showDraftOptions.value = true;
+      canPop.value = true;
 
-      EasyLoading.showSuccess('draft_saved_successfully'.tr);
+      EasyLoading.dismiss();
+      EasyLoading.showSuccess('draft_saved'.tr);
 
     } catch (e) {
-      debugPrint('Save draft error: $e');
-      EasyLoading.showError('save_draft_error'.tr);
+      EasyLoading.dismiss();
+      _showErrorDialog(e.toString());
+      _draftStatus.value = 'save_error'.tr;
+
+      // Try to save locally even if server save failed
+      if (_currentDraft != null) {
+        final storage = Get.find<SQLiteDraftRepository>();
+        await storage.markDraftSyncError(_currentDraft!.id!, e.toString());
+      }
+    } finally {
+      isBusy.value = false;
+      update();
+    }
+  }
+
+  /// Schedule draft for later sending
+  Future<void> scheduleDraft(DateTime scheduledTime) async {
+    if (isBusy.value) return;
+
+    try {
+      isBusy.value = true;
+      _draftStatus.value = 'scheduling_draft'.tr;
+      update();
+
+      EasyLoading.show(status: 'scheduling_draft'.tr);
+
+      // Get current content
+      late String body;
+      if (isHtml.value) {
+        body = await htmlController.getText();
+      } else {
+        body = plainTextController.text;
+      }
+
+      // Check if there's enough content to save
+      if (!_hasSaveableContent(body)) {
+        EasyLoading.dismiss();
+        EasyLoading.showInfo('nothing_to_schedule'.tr);
+        _draftStatus.value = '';
+        return;
+      }
+
+      // Add signature if needed
+      body += signature;
+
+      // Create draft model with scheduling
+      final draft = _createDraftModel(body).copyWith(
+        isScheduled: true,
+        scheduledFor: scheduledTime,
+      );
+
+      // Save to local storage
+      final storage = Get.find<SQLiteDraftRepository>();
+      _currentDraft = await storage.saveDraft(draft);
+
+      // Update state
+      _hasUnsavedChanges.value = false;
+      _draftStatus.value = 'draft_scheduled'.tr;
+      _lastSavedTime.value = _formatSaveTime(DateTime.now());
+      _showDraftOptions.value = true;
+      canPop.value = true;
+
+      EasyLoading.dismiss();
+      EasyLoading.showSuccess('draft_scheduled'.tr);
+
+    } catch (e) {
+      EasyLoading.dismiss();
+      _showErrorDialog(e.toString());
+      _draftStatus.value = 'schedule_error'.tr;
+    } finally {
+      isBusy.value = false;
+      update();
+    }
+  }
+
+  /// Categorize draft with labels/folders
+  Future<void> categorizeDraft(String category) async {
+    if (_currentDraft == null || isBusy.value) return;
+
+    try {
+      isBusy.value = true;
+
+      // Update category in storage
+      final storage = Get.find<SQLiteDraftRepository>();
+      await storage.updateDraftCategory(_currentDraft!.id!, category);
+
+      // Update current draft reference
+      _currentDraft = _currentDraft!.copyWith(category: category);
+
+      EasyLoading.showSuccess('category_updated'.tr);
+    } catch (e) {
+      debugPrint('Error categorizing draft: $e');
+      EasyLoading.showError('category_update_error'.tr);
     } finally {
       isBusy.value = false;
     }
   }
 
-  /// Schedule draft for later sending
-  Future<void> scheduleDraft() async {
-    // Implementation for scheduling drafts
-    // This would integrate with a scheduling service
-    debugPrint('Schedule draft functionality - to be implemented');
-  }
-
-  /// Categorize draft with labels/folders
-  Future<void> categorizeDraft() async {
-    // Implementation for categorizing drafts
-    // This would integrate with folder/label management
-    debugPrint('Categorize draft functionality - to be implemented');
-  }
-
-  // EMAIL SENDING METHOD
-
-  /// Send email getter for UI binding
-  VoidCallback get sendEmail => _sendEmail;
+  // EMAIL SENDING METHOD (CONSOLIDATED)
 
   /// Send the composed email
-  Future<void> _sendEmail() async {
+  Future<void> sendEmail() async {
     if (isBusy.value) return;
 
     try {
@@ -435,7 +655,15 @@ class ComposeController extends GetxController {
         return;
       }
 
+      // Validate subject
+      if (subjectController.text.isEmpty) {
+        _showErrorDialog('valid_subject'.tr);
+        return;
+      }
+
       isBusy.value = true;
+      update();
+
       EasyLoading.show(status: 'sending_email'.tr);
 
       // Get current content
@@ -446,29 +674,73 @@ class ComposeController extends GetxController {
         body = plainTextController.text;
       }
 
+      // Add signature if needed
+      body += signature;
+
+      // Create message builder
+      messageBuilder = MessageBuilder();
+
+      // Add attachments
+      for (final file in attachments) {
+        await messageBuilder.addFile(
+          file,
+          MediaType.guessFromFileName(file.path),
+        );
+      }
+
+      // Set message content
+      messageBuilder.addMultipartAlternative(
+        htmlText: isHtml.value ? body : null,
+        plainText: isHtml.value ? _removeHtmlTags(body) : body,
+      );
+
+      // Set message metadata
+      messageBuilder.to = toList.toList();
+      messageBuilder.cc = cclist.toList();
+      messageBuilder.bcc = bcclist.toList();
+      messageBuilder.subject = subjectController.text;
+      messageBuilder.from = [MailAddress(name, email)];
+      messageBuilder.date = DateTime.now();
+
+      // Add read receipt if enabled
+      if (Get.find<SettingController>().readReceipts()) {
+        messageBuilder.requestReadReceipt();
+      }
+
       // Build message
-      await _buildMessage(body);
+      final message = messageBuilder.buildMimeMessage();
 
-      // Send via mail service
-      final mailService = MailService.instance;
-      await mailService.sendMessage(messageBuilder.buildMimeMessage());
+      // Send message
+      final boxController = Get.find<MailBoxController>();
+      await boxController.sendMail(message, msg);
 
-      // Clear draft if it was saved
-      if (_currentDraft != null) {
+      // Delete draft if editing
+      if (msg != null && type == 'draft' && _currentDraft != null) {
+        await client.deleteMessage(msg!);
         final storage = Get.find<SQLiteDraftRepository>();
         await storage.deleteDraft(_currentDraft!.id!);
       }
 
-      EasyLoading.showSuccess('email_sent_successfully'.tr);
+      // Update state
+      _hasUnsavedChanges.value = false;
+      canPop.value = true;
+
+      EasyLoading.dismiss();
+      EasyLoading.showSuccess('message_sent'.tr);
+
+      // Close compose screen
       Get.back();
 
     } catch (e) {
-      debugPrint('Send email error: $e');
-      EasyLoading.showError('send_email_error'.tr);
+      EasyLoading.dismiss();
+      _showErrorDialog(e.toString());
     } finally {
       isBusy.value = false;
+      update();
     }
   }
+
+  // HELPER METHODS (CONSOLIDATED - REMOVED DUPLICATES)
 
   // Mark content as changed and needing save
   void _markAsChanged() {
@@ -518,7 +790,6 @@ class ComposeController extends GetxController {
       // Check if there's enough content to save
       if (!_hasSaveableContent(body)) {
         _draftStatus.value = '';
-        _isAutosaving.value = false;
         return;
       }
 
@@ -577,7 +848,7 @@ class ComposeController extends GetxController {
     );
   }
 
-  // Format save time for display
+  // Format save time for display (consolidated version)
   String _formatSaveTime(DateTime time) {
     final now = DateTime.now();
     final difference = now.difference(time);
@@ -593,10 +864,10 @@ class ComposeController extends GetxController {
     }
   }
 
-  // Check if there's content to save as draft
+  // Check if there's content to save as draft (consolidated version)
   bool _hasSaveableContent(String body) {
-    return subjectController.text.isNotEmpty ||
-        body.isNotEmpty ||
+    return subjectController.text.trim().isNotEmpty ||
+        body.trim().isNotEmpty ||
         toList.isNotEmpty ||
         cclist.isNotEmpty ||
         bcclist.isNotEmpty ||
@@ -700,13 +971,11 @@ class ComposeController extends GetxController {
     _lastSavedTime.value = _formatSaveTime(draft.updatedAt);
     _showDraftOptions.value = true;
 
-    // Show toast
     EasyLoading.showSuccess('draft_recovered'.tr);
-
     update();
   }
 
-  // CRITICAL FIX: Clear all draft-related state
+  // Clear all draft-related state
   void _clearDraftState() {
     debugPrint('Clearing previous draft state');
     
@@ -756,12 +1025,12 @@ class ComposeController extends GetxController {
     }
   }
 
-  // CRITICAL FIX: Load draft from MimeMessage directly (server-based drafts)
+  // Load draft from MimeMessage directly (server-based drafts)
   Future<void> _loadDraftFromMessage(MimeMessage message) async {
     try {
       debugPrint('Loading draft: ${message.decodeSubject()}');
       
-      // FIXED: Load all draft data from MimeMessage
+      // Load all draft data from MimeMessage
       
       // 1. Load recipients
       toList.clear();
@@ -773,7 +1042,6 @@ class ComposeController extends GetxController {
         for (final address in message.to!) {
           toList.add(address);
         }
-        debugPrint('Draft recipients - To: ${toList.length}');
       }
       
       // Load CC recipients
@@ -781,7 +1049,6 @@ class ComposeController extends GetxController {
         for (final address in message.cc!) {
           cclist.add(address);
         }
-        debugPrint('Draft recipients - CC: ${cclist.length}');
       }
       
       // Load BCC recipients
@@ -789,80 +1056,59 @@ class ComposeController extends GetxController {
         for (final address in message.bcc!) {
           bcclist.add(address);
         }
-        debugPrint('Draft recipients - BCC: ${bcclist.length}');
       }
       
       // 2. Load subject
       final subject = message.decodeSubject() ?? '';
       subjectController.text = subject;
-      debugPrint('Draft subject loaded: $subject');
       
-      // 3. Load body content with enhanced debugging
+      // 3. Load body content
       String bodyContent = '';
       bool isHtmlContent = false;
       
-      debugPrint('DEBUG: Starting body content extraction...');
-      debugPrint('DEBUG: Message has parts: ${message.parts?.length ?? 0}');
-      debugPrint('DEBUG: Message media type: ${message.mediaType}');
-      
       // Try to get HTML content first
       final htmlContent = message.decodeTextHtmlPart();
-      debugPrint('DEBUG: HTML content extracted: ${htmlContent?.length ?? 0} characters');
       
       if (htmlContent != null && htmlContent.trim().isNotEmpty) {
         bodyContent = htmlContent;
         isHtmlContent = true;
-        debugPrint('Draft body type: HTML (${bodyContent.length} chars)');
       } else {
         final plainContent = message.decodeTextPlainPart();
-        debugPrint('DEBUG: Plain content extracted: ${plainContent?.length ?? 0} characters');
         
         if (plainContent != null && plainContent.trim().isNotEmpty) {
           bodyContent = plainContent;
           isHtmlContent = false;
-          debugPrint('Draft body type: Plain text (${bodyContent.length} chars)');
         } else {
           // Fallback: Try to extract from message body directly
-          debugPrint('DEBUG: Trying fallback body extraction...');
           try {
             final bodyText = message.decodeContentText();
             if (bodyText != null && bodyText.trim().isNotEmpty) {
               bodyContent = bodyText;
               isHtmlContent = false;
-              debugPrint('Draft body type: Fallback text (${bodyContent.length} chars)');
             }
           } catch (e) {
-            debugPrint('DEBUG: Fallback body extraction failed: $e');
+            debugPrint('Fallback body extraction failed: $e');
           }
         }
       }
       
-      debugPrint('DEBUG: Final body content length: ${bodyContent.length}');
-      debugPrint('DEBUG: Body content preview: ${bodyContent.length > 100 ? bodyContent.substring(0, 100) + "..." : bodyContent}');
-      
-      // Set the content in the appropriate editor with enhanced error handling
+      // Set the content in the appropriate editor
       if (isHtmlContent && bodyContent.isNotEmpty) {
         isHtml.value = true;
         bodyPart = bodyContent;
-        debugPrint('Setting HTML editor content: ${bodyContent.length} characters');
         
         try {
-          // Use setText method properly with await
           await htmlController.setText(bodyContent);
-          debugPrint('HTML editor content set successfully');
         } catch (e) {
-          debugPrint('ERROR: Failed to set HTML content: $e');
+          debugPrint('Failed to set HTML content: $e');
           // Fallback to plain text if HTML setting fails
           isHtml.value = false;
           plainTextController.text = bodyContent;
-          debugPrint('Fallback: Set as plain text instead');
         }
       } else if (bodyContent.isNotEmpty) {
         isHtml.value = false;
         plainTextController.text = bodyContent;
-        debugPrint('Plain text editor content set successfully');
       } else {
-        debugPrint('WARNING: No body content found in draft message');
         // Set empty content
         isHtml.value = false;
         plainTextController.text = '';
@@ -872,7 +1118,6 @@ class ComposeController extends GetxController {
       attachments.clear();
       if (message.hasAttachments()) {
         final attachmentInfos = message.findContentInfo(disposition: ContentDisposition.attachment);
-        debugPrint('Draft has ${attachmentInfos.length} attachments');
         
         for (final info in attachmentInfos) {
           try {
@@ -884,7 +1129,6 @@ class ComposeController extends GetxController {
             
             // TODO: Download attachment data and create local file if needed for editing
             // This would require implementing attachment download from the MimeMessage
-            // For now, we'll log the attachment info
             
           } catch (e) {
             debugPrint('Error processing attachment: $e');
@@ -908,81 +1152,6 @@ class ComposeController extends GetxController {
     }
   }
 
-  // Add recipient to To field
-  void addTo(MailAddress mailAddress) {
-    if (toList.any((e) => e.email == mailAddress.email)) {
-      return;
-    } else if (_isValidEmail(mailAddress.email)) {
-      toList.add(mailAddress);
-    }
-
-    if (bcclist.contains(mailAddress)) {
-      bcclist.remove(mailAddress);
-    }
-
-    if (cclist.contains(mailAddress)) {
-      cclist.remove(mailAddress);
-    }
-
-    _markAsChanged();
-  }
-
-  // Remove recipient from To field
-  void removeFromToList(int index) {
-    toList.removeAt(index);
-    _markAsChanged();
-  }
-
-  // Add recipient to CC field
-  void addToCC(MailAddress mailAddress) {
-    if (cclist.any((e) => e.email == mailAddress.email)) {
-      return;
-    } else if (_isValidEmail(mailAddress.email)) {
-      cclist.add(mailAddress);
-    }
-
-    if (toList.contains(mailAddress)) {
-      toList.remove(mailAddress);
-    }
-
-    if (bcclist.contains(mailAddress)) {
-      bcclist.remove(mailAddress);
-    }
-
-    _markAsChanged();
-  }
-
-  // Remove recipient from CC field
-  void removeFromCcList(int index) {
-    cclist.removeAt(index);
-    _markAsChanged();
-  }
-
-  // Add recipient to BCC field
-  void addToBcc(MailAddress mailAddress) {
-    if (bcclist.any((e) => e.email == mailAddress.email)) {
-      return;
-    } else if (_isValidEmail(mailAddress.email)) {
-      bcclist.add(mailAddress);
-    }
-
-    if (toList.contains(mailAddress)) {
-      toList.remove(mailAddress);
-    }
-
-    if (cclist.contains(mailAddress)) {
-      cclist.remove(mailAddress);
-    }
-
-    _markAsChanged();
-  }
-
-  // Remove recipient from BCC field
-  void removeFromBccList(int index) {
-    bcclist.removeAt(index);
-    _markAsChanged();
-  }
-
   // Validate email
   bool _isValidEmail(String email) {
     return RegExp(
@@ -990,448 +1159,11 @@ class ComposeController extends GetxController {
     ).hasMatch(email);
   }
 
-  // Pick files from device
-  Future<void> pickFiles() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.any,
-        allowMultiple: true,
-      );
-
-      if (result != null) {
-        for (final file in result.files) {
-          if (file.path != null) {
-            attachments.add(File(file.path!));
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error picking files: $e');
-    }
-  }
-
-  // Pick images from gallery
-  Future<void> pickImage() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: true,
-      );
-
-      if (result != null) {
-        for (final file in result.files) {
-          if (file.path != null) {
-            attachments.add(File(file.path!));
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error picking images: $e');
-    }
-  }
-
-  // Take photo with camera
-  Future<void> takePhoto() async {
-    try {
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: ImageSource.camera);
-
-      if (pickedFile != null) {
-        attachments.add(File(pickedFile.path));
-      }
-    } catch (e) {
-      debugPrint('Error taking photo: $e');
-    }
-  }
-
-  // Save draft with improved feedback
-  Future<void> saveAsDraft() async {
-    if (isBusy.value) return;
-
-    try {
-      isBusy.value = true;
-      _draftStatus.value = 'saving_draft'.tr;
-      update();
-
-      // Show loading indicator
-      EasyLoading.show(status: 'saving_draft'.tr);
-
-      // Get current content
-      late String body;
-      if (isHtml.value) {
-        body = await htmlController.getText();
-      } else {
-        body = plainTextController.text;
-      }
-
-      // Check if there's enough content to save
-      if (!_hasSaveableContent(body)) {
-        EasyLoading.dismiss();
-        EasyLoading.showInfo('nothing_to_save'.tr);
-        _draftStatus.value = '';
-        isBusy.value = false;
-        return;
-      }
-
-      // Add signature if needed
-      body += signature;
-
-      // Create draft model
-      final draft = _createDraftModel(body);
-
-      // Save to local storage
-      final storage = Get.find<SQLiteDraftRepository>();
-      _currentDraft = await storage.saveDraft(draft);
-
-      // Create message builder for server save
-      messageBuilder = MessageBuilder();
-
-      // Add attachments
-      for (final file in attachments) {
-        await messageBuilder.addFile(
-          file,
-          MediaType.guessFromFileName(file.path),
-        );
-      }
-
-      // Set message content
-      messageBuilder.addMultipartAlternative(
-        htmlText: isHtml.value ? body : null,
-        plainText: isHtml.value ? _removeHtmlTags(body) : body,
-      );
-
-      // Set message metadata
-      messageBuilder.to = toList.toList();
-      messageBuilder.cc = cclist.toList();
-      messageBuilder.bcc = bcclist.toList();
-      messageBuilder.subject = subjectController.text;
-      messageBuilder.from = [MailAddress(name, email)];
-      messageBuilder.date = DateTime.now();
-
-      // Add custom headers for enhanced draft features
-      messageBuilder.addHeader('X-Category', draft.category);
-      messageBuilder.addHeader('X-Priority', draft.priority.toString());
-      if (draft.tags.isNotEmpty) {
-        messageBuilder.addHeader('X-Tags', draft.tags.join(','));
-      }
-      messageBuilder.addHeader('X-Draft-Version', draft.version.toString());
-
-      // Build message
-      final draftMessage = messageBuilder.buildMimeMessage();
-
-      // Save to server
-      final box = await client.selectMailboxByFlag(MailboxFlag.drafts);
-      final code = await client.saveDraftMessage(draftMessage);
-
-      // Update draft with server info if successful
-      if (code != null && _currentDraft != null) {
-        await storage.markDraftSynced(_currentDraft!.id!, code.uidValidity ?? 0);
-      }
-
-      // Delete old draft if editing
-      if (msg != null && type == 'draft') {
-        await client.deleteMessage(msg!);
-      }
-
-      // Update state
-      _hasUnsavedChanges.value = false;
-      _draftStatus.value = 'draft_saved'.tr;
-      _lastSavedTime.value = _formatSaveTime(DateTime.now());
-      _showDraftOptions.value = true;
-      canPop.value = true;
-
-      // Show success message
-      EasyLoading.dismiss();
-      EasyLoading.showSuccess('draft_saved'.tr);
-
-    } catch (e) {
-      // Show error message
-      EasyLoading.dismiss();
-
-      AwesomeDialog(
-        context: Get.context!,
-        dialogType: DialogType.error,
-        title: 'error'.tr,
-        desc: e.toString(),
-        btnOk: ElevatedButton(
-          onPressed: () {
-            Get.back();
-          },
-          child: Text('ok'.tr),
-        ),
-      ).show();
-
-      _draftStatus.value = 'save_error'.tr;
-
-      // Try to save locally even if server save failed
-      if (_currentDraft != null) {
-        final storage = Get.find<SQLiteDraftRepository>();
-        await storage.markDraftSyncError(_currentDraft!.id!, e.toString());
-      }
-    } finally {
-      isBusy.value = false;
-      update();
-    }
-  }
-
-  // Schedule draft to be sent later
-  Future<void> scheduleDraft(DateTime scheduledTime) async {
-    if (isBusy.value) return;
-
-    try {
-      isBusy.value = true;
-      _draftStatus.value = 'scheduling_draft'.tr;
-      update();
-
-      // Show loading indicator
-      EasyLoading.show(status: 'scheduling_draft'.tr);
-
-      // Get current content
-      late String body;
-      if (isHtml.value) {
-        body = await htmlController.getText();
-      } else {
-        body = plainTextController.text;
-      }
-
-      // Check if there's enough content to save
-      if (!_hasSaveableContent(body)) {
-        EasyLoading.dismiss();
-        EasyLoading.showInfo('nothing_to_schedule'.tr);
-        _draftStatus.value = '';
-        isBusy.value = false;
-        return;
-      }
-
-      // Add signature if needed
-      body += signature;
-
-      // Create draft model with scheduling
-      final draft = _createDraftModel(body).copyWith(
-        isScheduled: true,
-        scheduledFor: scheduledTime,
-      );
-
-      // Save to local storage
-      final storage = Get.find<SQLiteDraftRepository>();
-      _currentDraft = await storage.saveDraft(draft);
-
-      // Update state
-      _hasUnsavedChanges.value = false;
-      _draftStatus.value = 'draft_scheduled'.tr;
-      _lastSavedTime.value = _formatSaveTime(DateTime.now());
-      _showDraftOptions.value = true;
-      canPop.value = true;
-
-      // Show success message
-      EasyLoading.dismiss();
-      EasyLoading.showSuccess('draft_scheduled'.tr);
-
-    } catch (e) {
-      // Show error message
-      EasyLoading.dismiss();
-
-      AwesomeDialog(
-        context: Get.context!,
-        dialogType: DialogType.error,
-        title: 'error'.tr,
-        desc: e.toString(),
-        btnOk: ElevatedButton(
-          onPressed: () {
-            Get.back();
-          },
-          child: Text('ok'.tr),
-        ),
-      ).show();
-
-      _draftStatus.value = 'schedule_error'.tr;
-    } finally {
-      isBusy.value = false;
-      update();
-    }
-  }
-
-  // Categorize draft
-  Future<void> categorizeDraft(String category) async {
-    if (_currentDraft == null || isBusy.value) return;
-
-    try {
-      isBusy.value = true;
-
-      // Update category in storage
-      final storage = Get.find<SQLiteDraftRepository>();
-      await storage.updateDraftCategory(_currentDraft!.id!, category);
-
-      // Update current draft reference
-      _currentDraft = _currentDraft!.copyWith(category: category);
-
-      // Show success message
-      EasyLoading.showSuccess('category_updated'.tr);
-    } catch (e) {
-      debugPrint('Error categorizing draft: $e');
-      EasyLoading.showError('category_update_error'.tr);
-    } finally {
-      isBusy.value = false;
-    }
-  }
-
-  // Send email
-  Future<void> sendEmail() async {
-    if (isBusy.value) return;
-
-    try {
-      isBusy.value = true;
-      update();
-
-      // Validate recipients
-      if (toList.isEmpty) {
-        AwesomeDialog(
-          context: Get.context!,
-          dialogType: DialogType.error,
-          title: 'error'.tr,
-          desc: 'add_a_recipient'.tr,
-        ).show();
-        return;
-      }
-
-      // Validate subject
-      if (subjectController.text.isEmpty) {
-        AwesomeDialog(
-          context: Get.context!,
-          dialogType: DialogType.error,
-          title: 'error'.tr,
-          desc: 'valid_subject'.tr,
-        ).show();
-        return;
-      }
-
-      // Show loading indicator
-      EasyLoading.show(status: 'sending_email'.tr);
-
-      // Get current content
-      late String body;
-      if (isHtml.value) {
-        body = await htmlController.getText();
-      } else {
-        body = plainTextController.text;
-      }
-
-      // Add signature if needed
-      body += signature;
-
-      // Create message builder
-      messageBuilder = MessageBuilder();
-
-      // Add attachments
-      for (final file in attachments) {
-        await messageBuilder.addFile(
-          file,
-          MediaType.guessFromFileName(file.path),
-        );
-      }
-
-      // Set message content
-      messageBuilder.addMultipartAlternative(
-        htmlText: isHtml.value ? body : null,
-        plainText: isHtml.value ? _removeHtmlTags(body) : body,
-      );
-
-      // Set message metadata
-      messageBuilder.to = toList.toList();
-      messageBuilder.cc = cclist.toList();
-      messageBuilder.bcc = bcclist.toList();
-      messageBuilder.subject = subjectController.text;
-      messageBuilder.from = [MailAddress(name, email)];
-      messageBuilder.date = DateTime.now();
-
-      // Add read receipt if enabled
-      if (Get.find<SettingController>().readReceipts()) {
-        messageBuilder.requestReadReceipt();
-      }
-
-      // Build message
-      final message = messageBuilder.buildMimeMessage();
-
-      // Send message
-      final boxController = Get.find<MailBoxController>();
-      await boxController.sendMail(message, msg);
-
-      // Delete draft if editing
-      if (msg != null && type == 'draft' && _currentDraft != null) {
-        await client.deleteMessage(msg!);
-        final storage = Get.find<SQLiteDraftRepository>();
-        await storage.deleteDraft(_currentDraft!.id!);
-      }
-
-      // Update state
-      _hasUnsavedChanges.value = false;
-      canPop.value = true;
-
-      // Show success message
-      EasyLoading.dismiss();
-      EasyLoading.showSuccess('message_sent'.tr);
-
-      // Close compose screen
-      Get.back();
-
-    } catch (e) {
-      // Show error message
-      EasyLoading.dismiss();
-
-      AwesomeDialog(
-        context: Get.context!,
-        dialogType: DialogType.error,
-        title: 'error'.tr,
-        desc: e.toString(),
-        btnOk: ElevatedButton(
-          onPressed: () {
-            Get.back();
-            sendEmail();
-          },
-          child: Text('try_again'.tr),
-        ),
-      ).show();
-    } finally {
-      isBusy.value = false;
-      update();
-    }
-  }
-
-  // Toggle HTML/plain text mode
-  Future<void> togglePlainHtml() async {
-    if (isBusy.value) return;
-
-    try {
-      isBusy.value = true;
-      update();
-
-      if (isHtml.value) {
-        // Switch from HTML to plain text
-        final htmlText = await htmlController.getText();
-        plainTextController.text = _removeHtmlTags(htmlText);
-      } else {
-        // Switch from plain text to HTML
-        final plainText = plainTextController.text;
-        // Use Future.delayed to ensure the HTML editor is initialized
-        htmlController.setText(plainText);
-      }
-
-      isHtml.toggle();
-      _markAsChanged();
-    } catch (e) {
-      debugPrint('Error toggling HTML mode: $e');
-    } finally {
-      isBusy.value = false;
-      update();
-    }
-  }
-
   // Insert link in HTML editor
   Future<void> insertLink() async {
     if (!isHtml.value) return;
 
     try {
-      // Fixed variable scope issue by initializing the map
       Map<String, String> linkData = {'text': '', 'url': ''};
 
       final result = await Get.dialog<Map<String, String>>(
@@ -1517,19 +1249,6 @@ class ComposeController extends GetxController {
     ).show();
   }
 
-  // Check if content is saveable
-  bool _hasSaveableContent(String body) {
-    return subjectController.text.trim().isNotEmpty ||
-           body.trim().isNotEmpty ||
-           toList.isNotEmpty ||
-           attachments.isNotEmpty;
-  }
-
-  // Format save time
-  String _formatSaveTime(DateTime time) {
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-  }
-
   // Build message for sending
   Future<void> _buildMessage(String body) async {
     messageBuilder.from = [MailAddress(account.name, account.email)];
@@ -1546,14 +1265,11 @@ class ComposeController extends GetxController {
 
     // Add attachments
     for (final file in attachments) {
-      await messageBuilder.addFile(file);
+      await messageBuilder.addFile(
+        file,
+        MediaType.guessFromFileName(file.path),
+      );
     }
-  }
-
-  // Check for recovery data
-  void _checkForRecovery() {
-    // Implementation for checking recovery data
-    // This would check for any unsaved drafts or recovery data
   }
 
   @override
@@ -1571,3 +1287,4 @@ class ComposeController extends GetxController {
     super.dispose();
   }
 }
+

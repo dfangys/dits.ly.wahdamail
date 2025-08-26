@@ -49,7 +49,7 @@ class EnhancedAttachmentViewer extends StatelessWidget {
         return contentInfo.toList();
       }
       
-      return contentInfo.take(maxAttachmentsToShow).toList();
+      return contentInfo.toList();
     } catch (e) {
       if (kDebugMode) {
         print('Error getting attachments: $e');
@@ -59,128 +59,53 @@ class EnhancedAttachmentViewer extends StatelessWidget {
   }
 
   Widget _buildAttachmentHeader(BuildContext context, int count) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withOpacity(0.1),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(8),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
           Icon(
-            Icons.attachment,
-            color: AppTheme.primaryColor,
+            Icons.attach_file,
             size: 20,
+            color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(width: 8),
           Text(
             'Attachments ($count)',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppTheme.primaryColor,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
-          const Spacer(),
-          if (count > 1)
-            TextButton.icon(
-              onPressed: () => _downloadAllAttachments(),
-              icon: const Icon(Icons.download, size: 16),
-              label: const Text('Download All'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.primaryColor,
-                textStyle: const TextStyle(fontSize: 12),
-              ),
-            ),
         ],
       ),
     );
   }
 
   Widget _buildAttachmentList(BuildContext context, List<ContentInfo> attachments) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(8),
-          bottomRight: Radius.circular(8),
-        ),
-      ),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: attachments.length,
-        separatorBuilder: (context, index) => Divider(
-          height: 1,
-          color: Colors.grey.shade200,
-        ),
-        itemBuilder: (context, index) {
-          return EnhancedAttachmentTile(
-            contentInfo: attachments[index],
-            mimeMessage: mimeMessage,
-          );
-        },
-      ),
+    final displayAttachments = attachments.take(maxAttachmentsToShow).toList();
+    
+    return Column(
+      children: [
+        ...displayAttachments.map((attachment) => EnhancedAttachmentTile(
+          contentInfo: attachment,
+          mimeMessage: mimeMessage,
+        )),
+        if (attachments.length > maxAttachmentsToShow)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              '... and ${attachments.length - maxAttachmentsToShow} more attachments',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+      ],
     );
-  }
-
-  Future<void> _downloadAllAttachments() async {
-    try {
-      // Request storage permission
-      final status = await Permission.storage.request();
-      if (!status.isGranted) {
-        if (kDebugMode) {
-          print('Storage permission denied');
-        }
-        return;
-      }
-
-      final attachments = _getAttachments();
-      final directory = await getApplicationDocumentsDirectory();
-      
-      for (final attachment in attachments) {
-        try {
-          await _downloadAttachment(attachment, directory);
-        } catch (e) {
-          if (kDebugMode) {
-            print('Error downloading attachment ${attachment.fileName}: $e');
-          }
-        }
-      }
-      
-      if (kDebugMode) {
-        print('All attachments downloaded to ${directory.path}');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error downloading all attachments: $e');
-      }
-    }
-  }
-
-  Future<void> _downloadAttachment(ContentInfo contentInfo, Directory directory) async {
-    try {
-      // Simplified approach - use basic ContentInfo functionality
-      final fileName = contentInfo.fileName ?? 'attachment_${DateTime.now().millisecondsSinceEpoch}';
-      final file = File('${directory.path}/$fileName');
-      
-      // For now, create a placeholder file - actual implementation would need proper data access
-      await file.writeAsString('Attachment: ${contentInfo.fileName ?? "Unknown"}');
-      
-      if (kDebugMode) {
-        print('Downloaded attachment: $fileName');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error downloading attachment: $e');
-      }
-    }
   }
 }
 
-/// Enhanced attachment tile with better UI and functionality
+/// Individual attachment tile with download and preview capabilities
 class EnhancedAttachmentTile extends StatefulWidget {
   const EnhancedAttachmentTile({
     super.key,
@@ -211,7 +136,7 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
         width: 48,
         height: 48,
         decoration: BoxDecoration(
-          color: _getFileColor(fileName).withOpacity(0.1),
+          color: _getFileColor(fileName).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
@@ -233,54 +158,47 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '$fileSize • $mimeType',
+            fileSize,
             style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
               fontSize: 12,
-              color: Colors.grey.shade600,
             ),
           ),
-          if (_isDownloaded)
-            Text(
-              'Downloaded',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.green.shade600,
-                fontWeight: FontWeight.w500,
-              ),
+          Text(
+            mimeType,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 11,
             ),
+          ),
         ],
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Preview button for images
-          if (_isImage(mimeType))
+          if (_canPreview(fileName))
             IconButton(
-              onPressed: () => _previewAttachment(),
               icon: const Icon(Icons.visibility, size: 20),
+              onPressed: _isDownloading ? null : _previewAttachment,
               tooltip: 'Preview',
             ),
-          
-          // Share button
           IconButton(
-            onPressed: _isDownloading ? null : () => _shareAttachment(),
             icon: const Icon(Icons.share, size: 20),
+            onPressed: _isDownloading ? null : _shareAttachment,
             tooltip: 'Share',
           ),
-          
-          // Download/Open button
           IconButton(
-            onPressed: _isDownloading ? null : () => _downloadAndOpenAttachment(),
             icon: _isDownloading
                 ? const SizedBox(
-                    width: 16,
-                    height: 16,
+                    width: 20,
+                    height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Icon(
                     _isDownloaded ? Icons.open_in_new : Icons.download,
                     size: 20,
                   ),
+            onPressed: _isDownloading ? null : _downloadAndOpenAttachment,
             tooltip: _isDownloaded ? 'Open' : 'Download',
           ),
         ],
@@ -288,8 +206,19 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
     );
   }
 
+  bool _canPreview(String fileName) {
+    final extension = fileName.toLowerCase().split('.').last;
+    const previewableExtensions = [
+      'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp',
+      'pdf', 'txt', 'md', 'html', 'htm',
+      'mp4', 'mov', 'avi', 'mkv',
+      'mp3', 'wav', 'aac', 'm4a',
+    ];
+    return previewableExtensions.contains(extension);
+  }
+
   IconData _getFileIcon(String fileName) {
-    final extension = fileName.split('.').last.toLowerCase();
+    final extension = fileName.toLowerCase().split('.').last;
     
     switch (extension) {
       case 'pdf':
@@ -308,29 +237,35 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
       case 'png':
       case 'gif':
       case 'bmp':
+      case 'webp':
         return FontAwesomeIcons.fileImage;
       case 'mp4':
-      case 'avi':
       case 'mov':
-      case 'wmv':
+      case 'avi':
+      case 'mkv':
         return FontAwesomeIcons.fileVideo;
       case 'mp3':
       case 'wav':
-      case 'flac':
+      case 'aac':
+      case 'm4a':
         return FontAwesomeIcons.fileAudio;
       case 'zip':
       case 'rar':
       case '7z':
         return FontAwesomeIcons.fileZipper;
       case 'txt':
+      case 'md':
         return FontAwesomeIcons.fileLines;
+      case 'html':
+      case 'htm':
+        return FontAwesomeIcons.fileCode;
       default:
         return FontAwesomeIcons.file;
     }
   }
 
   Color _getFileColor(String fileName) {
-    final extension = fileName.split('.').last.toLowerCase();
+    final extension = fileName.toLowerCase().split('.').last;
     
     switch (extension) {
       case 'pdf':
@@ -349,15 +284,17 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
       case 'png':
       case 'gif':
       case 'bmp':
+      case 'webp':
         return Colors.purple;
       case 'mp4':
-      case 'avi':
       case 'mov':
-      case 'wmv':
+      case 'avi':
+      case 'mkv':
         return Colors.indigo;
       case 'mp3':
       case 'wav':
-      case 'flac':
+      case 'aac':
+      case 'm4a':
         return Colors.teal;
       case 'zip':
       case 'rar':
@@ -383,14 +320,16 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
     return '${size.toStringAsFixed(size < 10 ? 1 : 0)} ${suffixes[suffixIndex]}';
   }
 
-  bool _isImage(String mimeType) {
-    return mimeType.startsWith('image/');
-  }
-
   Future<void> _previewAttachment() async {
     try {
-      // Get attachment data
-      final data = widget.contentInfo.fetchData();
+      // FIXED: Use correct API to fetch attachment data
+      final mimePart = widget.mimeMessage.getPart(widget.contentInfo.fetchId);
+      if (mimePart == null) {
+        throw Exception('Could not find attachment part');
+      }
+
+      // Get attachment data from the mime part
+      final data = mimePart.decodeContentBinary();
       if (data == null || data.isEmpty) {
         if (kDebugMode) {
           print('No attachment data available for preview');
@@ -416,19 +355,27 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
         print('Error previewing attachment: $e');
       }
       // Show error to user
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to preview attachment: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to preview attachment: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _shareAttachment() async {
     try {
-      // Get attachment data
-      final data = widget.contentInfo.fetchData();
+      // FIXED: Use correct API to fetch attachment data
+      final mimePart = widget.mimeMessage.getPart(widget.contentInfo.fetchId);
+      if (mimePart == null) {
+        throw Exception('Could not find attachment part');
+      }
+
+      // Get attachment data from the mime part
+      final data = mimePart.decodeContentBinary();
       if (data == null || data.isEmpty) {
         if (kDebugMode) {
           print('No attachment data available for sharing');
@@ -443,27 +390,32 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
       
       await file.writeAsBytes(data);
       
+      // FIXED: Use SharePlus instead of deprecated Share
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: 'Shared from email: ${widget.mimeMessage.decodeSubject() ?? "No Subject"}',
+        text: 'Sharing attachment: $fileName',
       );
+      
+      if (kDebugMode) {
+        print('Shared attachment: $fileName');
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error sharing attachment: $e');
       }
       // Show error to user
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to share attachment: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to share attachment: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _downloadAndOpenAttachment() async {
-    if (_isDownloading) return;
-
     setState(() {
       _isDownloading = true;
     });
@@ -478,8 +430,14 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
         return;
       }
 
-      // Get attachment data
-      final data = widget.contentInfo.fetchData();
+      // FIXED: Use correct API to fetch attachment data
+      final mimePart = widget.mimeMessage.getPart(widget.contentInfo.fetchId);
+      if (mimePart == null) {
+        throw Exception('Could not find attachment part');
+      }
+
+      // Get attachment data from the mime part
+      final data = mimePart.decodeContentBinary();
       if (data == null || data.isEmpty) {
         throw Exception('No attachment data available');
       }
@@ -508,10 +466,21 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
       if (kDebugMode) {
         print('Error downloading/opening attachment: $e');
       }
+      // Show error to user
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error downloading attachment: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isDownloading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isDownloading = false;
+        });
+      }
     }
   }
 }

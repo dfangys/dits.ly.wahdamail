@@ -147,7 +147,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     }
 
     // ENHANCED: Cache other computed values with better fallbacks
-    _hasAttachments = widget.message.hasAttachments == true;
+    _hasAttachments = widget.message.hasAttachments();
     
     // ENHANCED: Better date handling with comprehensive fallback chain
     DateTime? messageDate;
@@ -306,7 +306,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     }
     
     // 6. Fallback based on message characteristics
-    if (widget.message.isTextMessage == true) {
+    if (widget.message.isTextMessage()) {
       return "Text message";
     }
     
@@ -370,7 +370,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   color: _isProcessing 
-                      ? theme.colorScheme.primary.withOpacity(0.1)
+                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
                       : null,
                 ),
                 child: OptimizedMailTileContent(
