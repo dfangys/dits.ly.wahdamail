@@ -410,7 +410,12 @@ class MailBoxController extends GetxController {
       }
       
       if (mailbox.isInbox) {
-        BackgroundService.checkForNewMail(false);
+        try {
+          BackgroundService.checkForNewMail(false);
+        } catch (e) {
+          logger.w("Background service error: $e");
+          // Continue without background service
+        }
       }
       
       if (Get.isRegistered<MailCountController>()) {

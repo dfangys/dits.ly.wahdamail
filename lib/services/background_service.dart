@@ -27,57 +27,86 @@ class BackgroundService {
 
   /// Initialize the background service
   static Future<void> initializeService() async {
-    await GetStorage.init();
+    try {
+      await GetStorage.init();
 
-    // Initialize SQLite database
-    await SQLiteDatabaseHelper.instance.database;
+      // Initialize SQLite database
+      await SQLiteDatabaseHelper.instance.database;
 
-    // Initialize Workmanager for background tasks
-    if (Platform.isAndroid || Platform.isIOS) {
-      await Workmanager().initialize(
-        backgroundTaskCallback,
-        isInDebugMode: kDebugMode,
-      );
+      // Initialize Workmanager for background tasks (Android only)
+      if (Platform.isAndroid) {
+        await Workmanager().initialize(
+          backgroundTaskCallback,
+          isInDebugMode: kDebugMode,
+        );
+      } else if (Platform.isIOS) {
+        // iOS background processing is handled differently
+        debugPrint('Background service: iOS initialization - using app lifecycle events');
+      }
+    } catch (e) {
+      debugPrint('Background service initialization error: $e');
+      // Continue without background service if initialization fails
     }
   }
 
   /// Start the background service
   static Future<bool> startService() async {
-    // Register periodic task
-    if (Platform.isAndroid || Platform.isIOS) {
-      await Workmanager().registerPeriodicTask(
-        'com.wahda_bank.emailCheck',
-        'emailBackgroundCheck',
-        frequency: const Duration(minutes: 15),
-        constraints: Constraints(
-          networkType: NetworkType.connected,
-        ),
-        existingWorkPolicy: ExistingWorkPolicy.replace,
-        backoffPolicy: BackoffPolicy.linear,
-        backoffPolicyDelay: const Duration(minutes: 5),
-      );
+    try {
+      // Only register periodic tasks on Android
+      // iOS has different background processing limitations
+      if (Platform.isAndroid) {
+        await Workmanager().registerPeriodicTask(
+          'com.wahda_bank.emailCheck',
+          'emailBackgroundCheck',
+          frequency: const Duration(minutes: 15),
+          constraints: Constraints(
+            networkType: NetworkType.connected,
+          ),
+          existingWorkPolicy: ExistingWorkPolicy.replace,
+          backoffPolicy: BackoffPolicy.linear,
+          backoffPolicyDelay: const Duration(minutes: 5),
+        );
+      } else if (Platform.isIOS) {
+        // For iOS, we'll use app lifecycle events instead of periodic tasks
+        // iOS has strict background processing limitations
+        debugPrint('Background service: iOS detected, using app lifecycle events');
+      }
+
+      // Store service state
+      final storage = GetStorage();
+      await storage.write(keyBackgroundServiceEnabled, true);
+      await storage.write(keyBackgroundServiceLastRun, DateTime.now().toIso8601String());
+
+      return true;
+    } catch (e) {
+      debugPrint('Background service error: $e');
+      // Gracefully handle the error and continue without background service
+      final storage = GetStorage();
+      await storage.write(keyBackgroundServiceEnabled, false);
+      return false;
     }
-
-    // Store service state
-    final storage = GetStorage();
-    await storage.write(keyBackgroundServiceEnabled, true);
-    await storage.write(keyBackgroundServiceLastRun, DateTime.now().toIso8601String());
-
-    return true;
   }
 
   /// Stop the background service
   static Future<bool> stopService() async {
-    // Cancel all tasks
-    if (Platform.isAndroid || Platform.isIOS) {
-      await Workmanager().cancelAll();
+    try {
+      // Cancel all tasks (Android only)
+      if (Platform.isAndroid) {
+        await Workmanager().cancelAll();
+      }
+
+      // Store service state
+      final storage = GetStorage();
+      await storage.write(keyBackgroundServiceEnabled, false);
+
+      return true;
+    } catch (e) {
+      debugPrint('Background service stop error: $e');
+      // Still mark as disabled even if cancellation fails
+      final storage = GetStorage();
+      await storage.write(keyBackgroundServiceEnabled, false);
+      return false;
     }
-
-    // Store service state
-    final storage = GetStorage();
-    await storage.write(keyBackgroundServiceEnabled, false);
-
-    return true;
   }
 
   /// Check if the background service is enabled
