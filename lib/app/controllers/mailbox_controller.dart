@@ -976,12 +976,40 @@ class MailBoxController extends GetxController {
   }
 
   Future handleIncomingMail(MimeMessage message) async {
-    // detect the mailbox from the message
-    Mailbox? mailbox = mailboxes.firstWhereOrNull(
-          (element) => element.flags.any((e) => message.hasFlag(e.name)),
-    );
-    if (mailbox != null) {
-      await mailboxStorage[mailbox]!.saveMessageEnvelopes([message]);
+    try {
+      logger.i("📧 Handling incoming mail: ${message.decodeSubject()}");
+      
+      // Detect the mailbox from the message - default to INBOX if not found
+      Mailbox? mailbox = mailboxes.firstWhereOrNull(
+            (element) => element.flags.any((e) => message.hasFlag(e.name)),
+      );
+      
+      // Default to INBOX if no specific mailbox found
+      if (mailbox == null) {
+        mailbox = mailboxes.firstWhereOrNull((element) => element.name == 'INBOX');
+      }
+      
+      if (mailbox != null) {
+        // Save to storage
+        await mailboxStorage[mailbox]!.saveMessageEnvelopes([message]);
+        
+        // Add to UI list if it's the current mailbox
+        if (emails[mailbox] != null) {
+          emails[mailbox]!.insert(0, message);
+          emails.refresh();
+        }
+        
+        // Notify realtime service about new message
+        final realtimeService = RealtimeUpdateService.instance;
+        await realtimeService.notifyNewMessages([message]);
+        
+        logger.i("📧 Successfully processed incoming mail");
+      } else {
+        logger.w("📧 No suitable mailbox found for incoming message");
+      }
+    } catch (e) {
+      logger.e("📧 Error handling incoming mail: $e");
+      // Don't rethrow - just log the error to prevent crashes
     }
   }
 

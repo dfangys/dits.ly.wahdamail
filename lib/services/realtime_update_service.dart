@@ -383,14 +383,36 @@ class RealtimeUpdateService extends GetxService {
       final mailService = _mailService;
       if (mailService == null) {
         _errorStream.add('MailService not available for marking message as read');
-        return;
+        throw Exception('MailService not available');
+      }
+      
+      // Ensure we have a valid message identifier
+      if (message.uid == null && message.sequenceId == null) {
+        throw Exception('Message has no UID or sequence ID');
       }
       
       final sequence = MessageSequence.fromMessage(message);
+      
+      if (kDebugMode) {
+        print('📧 Marking message as read: UID=${message.uid}, SeqId=${message.sequenceId}');
+      }
+      
+      // Perform server operation
       await mailService.client.markSeen(sequence);
       
-      // Update local state
+      if (kDebugMode) {
+        print('📧 Successfully marked message as read on server');
+      }
+      
+      // Update local state only after server success
       message.isSeen = true;
+      
+      // Update unread counts
+      final mailboxKey = mailService.client.selectedMailbox?.name ?? 'INBOX';
+      if (_unreadCounts[mailboxKey] != null && _unreadCounts[mailboxKey]! > 0) {
+        _unreadCounts[mailboxKey] = _unreadCounts[mailboxKey]! - 1;
+        _unreadCountsStream.add(Map.from(_unreadCounts));
+      }
       
       // Update streams
       _messageUpdateStream.add(MessageUpdate(
@@ -398,18 +420,15 @@ class RealtimeUpdateService extends GetxService {
         type: MessageUpdateType.statusChanged,
       ));
       
-      // Update unread counts
-      for (final mailboxPath in _mailboxMessages.keys) {
-        await _updateUnreadCount(Mailbox(
-          encodedName: '',
-          encodedPath: mailboxPath,
-          flags: [],
-          pathSeparator: '/',
-        ));
-      }
+      // Refresh messages stream
+      _messagesStream.add(_mailboxMessages.values.expand((msgs) => msgs).toList());
       
     } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error marking message as read: $e');
+      }
       _errorStream.add('Failed to mark message as read: $e');
+      rethrow; // Rethrow to trigger rollback in UI
     }
   }
 
@@ -418,14 +437,34 @@ class RealtimeUpdateService extends GetxService {
       final mailService = _mailService;
       if (mailService == null) {
         _errorStream.add('MailService not available for marking message as unread');
-        return;
+        throw Exception('MailService not available');
+      }
+      
+      // Ensure we have a valid message identifier
+      if (message.uid == null && message.sequenceId == null) {
+        throw Exception('Message has no UID or sequence ID');
       }
       
       final sequence = MessageSequence.fromMessage(message);
+      
+      if (kDebugMode) {
+        print('📧 Marking message as unread: UID=${message.uid}, SeqId=${message.sequenceId}');
+      }
+      
+      // Perform server operation
       await mailService.client.markUnseen(sequence);
       
-      // Update local state
+      if (kDebugMode) {
+        print('📧 Successfully marked message as unread on server');
+      }
+      
+      // Update local state only after server success
       message.isSeen = false;
+      
+      // Update unread counts
+      final mailboxKey = mailService.client.selectedMailbox?.name ?? 'INBOX';
+      _unreadCounts[mailboxKey] = (_unreadCounts[mailboxKey] ?? 0) + 1;
+      _unreadCountsStream.add(Map.from(_unreadCounts));
       
       // Update streams
       _messageUpdateStream.add(MessageUpdate(
@@ -433,18 +472,15 @@ class RealtimeUpdateService extends GetxService {
         type: MessageUpdateType.statusChanged,
       ));
       
-      // Update unread counts
-      for (final mailboxPath in _mailboxMessages.keys) {
-        await _updateUnreadCount(Mailbox(
-          encodedName: '',
-          encodedPath: mailboxPath,
-          flags: [],
-          pathSeparator: '/',
-        ));
-      }
+      // Refresh messages stream
+      _messagesStream.add(_mailboxMessages.values.expand((msgs) => msgs).toList());
       
     } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error marking message as unread: $e');
+      }
       _errorStream.add('Failed to mark message as unread: $e');
+      rethrow; // Rethrow to trigger rollback in UI
     }
   }
 

@@ -1,13 +1,14 @@
-import 'package:enough_mail/enough_mail.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:get/get.dart';
+import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import '../app/controllers/selection_controller.dart';
-import '../app/controllers/settings_controller.dart';
+import 'package:wahda_bank/app/controllers/settings_controller.dart';
+import 'package:wahda_bank/app/controllers/selection_controller.dart';
+import 'package:wahda_bank/services/realtime_update_service.dart';
 import '../services/cache_manager.dart';
-import '../services/realtime_update_service.dart';
 
 class MailTile extends StatefulWidget {
   const MailTile({
@@ -235,10 +236,20 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       // Perform server action in background
       if (wasUnread) {
         await realtimeService.markMessageAsRead(widget.message);
+        if (kDebugMode) {
+          print('📧 Successfully marked as read: ${widget.message.decodeSubject()}');
+        }
       } else {
         await realtimeService.markMessageAsUnread(widget.message);
+        if (kDebugMode) {
+          print('📧 Successfully marked as unread: ${widget.message.decodeSubject()}');
+        }
       }
     } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error updating message status: $e');
+      }
+      
       // ROLLBACK: Revert optimistic update on error
       setState(() {
         widget.message.isSeen = wasUnread;
