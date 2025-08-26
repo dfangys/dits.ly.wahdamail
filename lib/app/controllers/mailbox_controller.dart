@@ -15,6 +15,8 @@ import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
+import 'package:wahda_bank/services/optimized_idle_service.dart';
+import 'package:wahda_bank/services/connection_manager.dart';
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
 import 'package:collection/collection.dart';
@@ -37,6 +39,10 @@ class MailBoxController extends GetxController {
   // Performance optimization services
   final CacheManager cacheManager = CacheManager.instance;
   final RealtimeUpdateService realtimeService = RealtimeUpdateService.instance;
+
+  // Stream subscriptions for real-time updates
+  StreamSubscription<MessageUpdate>? _messageUpdateSubscription;
+  StreamSubscription<MailboxUpdate>? _mailboxUpdateSubscription;
 
   // Replace Hive storage with SQLite storage
   final RxMap<Mailbox, SQLiteMailboxMimeStorage> mailboxStorage =
@@ -169,9 +175,217 @@ class MailBoxController extends GetxController {
       mailService = MailService.instance;
       await mailService.init();
       await loadMailBoxes();
+      
+      // CRITICAL FIX: Set up real-time update listeners
+      _setupRealtimeListeners();
+      
+      // NEW: Initialize optimized IDLE service for high-performance real-time updates
+      _initializeOptimizedIdleService();
+      
       super.onInit();
     } catch (e) {
       logger.e(e);
+    }
+  }
+
+  /// Set up real-time update listeners for UI refresh
+  void _setupRealtimeListeners() {
+    try {
+      // Listen for message updates (new messages, read/unread changes, etc.)
+      _messageUpdateSubscription = realtimeService.messageUpdateStream.listen((update) {
+        try {
+          if (kDebugMode) {
+            print('📧 Received message update: ${update.type}');
+          }
+          
+          switch (update.type) {
+            case MessageUpdateType.received:
+              _handleNewMessageReceived(update.message);
+              break;
+            case MessageUpdateType.readStatusChanged:
+              _handleReadStatusChanged(update.message);
+              break;
+            case MessageUpdateType.flagged:
+            case MessageUpdateType.unflagged:
+              _handleFlagChanged(update.message);
+              break;
+            case MessageUpdateType.deleted:
+              _handleMessageDeleted(update.message);
+              break;
+            case MessageUpdateType.statusChanged:
+              _handleReadStatusChanged(update.message);
+              break;
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('📧 Error handling message update: $e');
+          }
+        }
+      });
+
+      // Listen for mailbox updates (new messages added to mailbox)
+      _mailboxUpdateSubscription = realtimeService.mailboxUpdateStream.listen((update) {
+        try {
+          if (kDebugMode) {
+            print('📧 Received mailbox update: ${update.type}');
+          }
+          
+          if (update.type == MailboxUpdateType.messagesAdded && update.messages != null) {
+            _handleNewMessagesInMailbox(update.mailbox, update.messages!);
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('📧 Error handling mailbox update: $e');
+          }
+        }
+      });
+      
+      if (kDebugMode) {
+        print('📧 Real-time listeners set up successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error setting up real-time listeners: $e');
+      }
+    }
+  }
+
+  /// Handle new message received
+  void _handleNewMessageReceived(MimeMessage message) {
+    try {
+      // Add to inbox if it's the current mailbox
+      if (currentMailbox?.isInbox == true) {
+        final inboxMessages = emails[currentMailbox];
+        if (inboxMessages != null) {
+          // Check if message already exists
+          final exists = inboxMessages.any((m) => 
+            m.uid == message.uid || 
+            (m.sequenceId == message.sequenceId && message.sequenceId != null)
+          );
+          
+          if (!exists) {
+            inboxMessages.insert(0, message); // Add to beginning
+            update(); // Trigger UI update
+            
+            if (kDebugMode) {
+              print('📧 Added new message to UI: ${message.decodeSubject()}');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error handling new message: $e');
+      }
+    }
+  }
+
+  /// Handle read status change
+  void _handleReadStatusChanged(MimeMessage message) {
+    try {
+      // Find and update the message in current mailbox
+      final currentMessages = emails[currentMailbox];
+      if (currentMessages != null) {
+        final index = currentMessages.indexWhere((m) => 
+          m.uid == message.uid || 
+          (m.sequenceId == message.sequenceId && message.sequenceId != null)
+        );
+        
+        if (index != -1) {
+          currentMessages[index] = message; // Update with new read status
+          update(); // Trigger UI update
+          
+          if (kDebugMode) {
+            print('📧 Updated message read status: ${message.isSeen ? "read" : "unread"}');
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error handling read status change: $e');
+      }
+    }
+  }
+
+  /// Handle flag change
+  void _handleFlagChanged(MimeMessage message) {
+    try {
+      // Find and update the message in current mailbox
+      final currentMessages = emails[currentMailbox];
+      if (currentMessages != null) {
+        final index = currentMessages.indexWhere((m) => 
+          m.uid == message.uid || 
+          (m.sequenceId == message.sequenceId && message.sequenceId != null)
+        );
+        
+        if (index != -1) {
+          currentMessages[index] = message; // Update with new flag status
+          update(); // Trigger UI update
+          
+          if (kDebugMode) {
+            print('📧 Updated message flag status: ${message.isFlagged ? "flagged" : "unflagged"}');
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error handling flag change: $e');
+      }
+    }
+  }
+
+  /// Handle message deletion
+  void _handleMessageDeleted(MimeMessage message) {
+    try {
+      // Remove from current mailbox
+      final currentMessages = emails[currentMailbox];
+      if (currentMessages != null) {
+        currentMessages.removeWhere((m) => 
+          m.uid == message.uid || 
+          (m.sequenceId == message.sequenceId && message.sequenceId != null)
+        );
+        update(); // Trigger UI update
+        
+        if (kDebugMode) {
+          print('📧 Removed deleted message from UI');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error handling message deletion: $e');
+      }
+    }
+  }
+
+  /// Handle new messages added to mailbox
+  void _handleNewMessagesInMailbox(Mailbox mailbox, List<MimeMessage> newMessages) {
+    try {
+      // Only update if it's the current mailbox
+      if (currentMailbox?.name == mailbox.name) {
+        final currentMessages = emails[currentMailbox];
+        if (currentMessages != null) {
+          for (final message in newMessages) {
+            // Check if message already exists
+            final exists = currentMessages.any((m) => 
+              m.uid == message.uid || 
+              (m.sequenceId == message.sequenceId && message.sequenceId != null)
+            );
+            
+            if (!exists) {
+              currentMessages.insert(0, message); // Add to beginning
+            }
+          }
+          update(); // Trigger UI update
+          
+          if (kDebugMode) {
+            print('📧 Added ${newMessages.length} new messages to mailbox UI');
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error handling new messages in mailbox: $e');
+      }
     }
   }
 
@@ -812,10 +1026,67 @@ class MailBoxController extends GetxController {
 
   Future<List<MimeMessage>> queue(MessageSequence sequence) async {
     try {
-      return await mailService.client.fetchMessageSequence(
+      // CRITICAL FIX: Fetch envelope AND headers to get proper sender/subject information
+      final messages = await mailService.client.fetchMessageSequence(
         sequence,
         fetchPreference: FetchPreference.envelope,
       );
+      
+      // CRITICAL FIX: Ensure messages have proper envelope data
+      for (final message in messages) {
+        // If envelope is missing, try to reconstruct from headers
+        if (message.envelope == null && message.headers != null) {
+          try {
+            // Create basic envelope from headers
+            final fromHeader = message.getHeaderValue('from');
+            final toHeader = message.getHeaderValue('to');
+            final subjectHeader = message.getHeaderValue('subject');
+            final dateHeader = message.getHeaderValue('date');
+            
+            if (fromHeader != null || toHeader != null || subjectHeader != null) {
+              // Create a basic envelope structure
+              message.envelope = Envelope(
+                date: dateHeader != null ? DateTime.tryParse(dateHeader) : null,
+                subject: subjectHeader,
+                from: fromHeader != null ? [MailAddress.parse(fromHeader)] : null,
+                to: toHeader != null ? [MailAddress.parse(toHeader)] : null,
+              );
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('📧 Error reconstructing envelope: $e');
+            }
+          }
+        }
+        
+        // Ensure basic properties are set
+        if (message.from == null || message.from!.isEmpty) {
+          final fromHeader = message.getHeaderValue('from');
+          if (fromHeader != null) {
+            try {
+              message.from = [MailAddress.parse(fromHeader)];
+            } catch (e) {
+              if (kDebugMode) {
+                print('📧 Error parsing from header: $e');
+              }
+            }
+          }
+        }
+        
+        // Ensure subject is available
+        if (message.decodeSubject() == null) {
+          final subjectHeader = message.getHeaderValue('subject');
+          if (subjectHeader != null) {
+            message.setHeader('subject', subjectHeader);
+          }
+        }
+      }
+      
+      if (kDebugMode) {
+        print('📧 Fetched ${messages.length} messages with envelope data');
+      }
+      
+      return messages;
     } catch (e) {
       logger.e("Error in queue method: $e");
       return <MimeMessage>[];
@@ -1282,8 +1553,58 @@ class MailBoxController extends GetxController {
     }
   }
 
+  /// Initialize optimized IDLE service for high-performance real-time updates
+  void _initializeOptimizedIdleService() {
+    try {
+      if (kDebugMode) {
+        print('📧 🚀 Initializing optimized IDLE service');
+      }
+      
+      // Get the optimized IDLE service instance
+      final idleService = OptimizedIdleService.instance;
+      
+      // Start the optimized IDLE service for real-time email updates
+      idleService.startOptimizedIdle().then((_) {
+        if (kDebugMode) {
+          print('📧 ✅ Optimized IDLE service started successfully');
+        }
+      }).catchError((error) {
+        if (kDebugMode) {
+          print('📧 ❌ Failed to start optimized IDLE service: $error');
+        }
+      });
+      
+      // Also initialize connection manager
+      final connectionManager = ConnectionManager.instance;
+      if (kDebugMode) {
+        print('📧 🔌 Connection manager initialized');
+      }
+      
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 ❌ Error initializing optimized IDLE service: $e');
+      }
+    }
+  }
+
   @override
   void dispose() {
+    // Clean up stream subscriptions
+    _messageUpdateSubscription?.cancel();
+    _mailboxUpdateSubscription?.cancel();
+    
+    // Stop optimized IDLE service
+    try {
+      OptimizedIdleService.instance.stopOptimizedIdle();
+      if (kDebugMode) {
+        print('📧 🛑 Optimized IDLE service stopped');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 ⚠️ Error stopping optimized IDLE service: $e');
+      }
+    }
+    
     MailService.instance.dispose();
     super.dispose();
   }

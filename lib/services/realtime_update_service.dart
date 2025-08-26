@@ -594,7 +594,14 @@ class RealtimeUpdateService extends GetxService {
 // Enums and data classes
 enum ConnectionStatus { connected, disconnected, connecting, error }
 enum SyncStatus { idle, syncing, error }
-enum MessageUpdateType { statusChanged, deleted, moved, received }
+enum MessageUpdateType {
+  received,
+  deleted,
+  readStatusChanged,
+  flagged,
+  unflagged,
+  statusChanged,
+}
 enum MailboxUpdateType { newMessages, messagesRemoved, statusChanged, messagesAdded }
 
 class MessageUpdate {
