@@ -12,6 +12,7 @@ import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/utills/loaders/animation_loader.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
+import 'package:wahda_bank/views/box/mailbox_view.dart'; // Import for OptimizedEmailList
 
 class HomeScreen extends GetView<MailBoxController> {
   const HomeScreen({super.key});
@@ -74,60 +75,12 @@ class HomeScreen extends GetView<MailBoxController> {
             return Stack(
               children: [
                 Obx(() {
-                  // CRITICAL FIX: Home screen should ALWAYS show inbox, not current mailbox
-                  // This was the root cause - home screen was showing whatever mailbox user last visited
-                  final storage = controller.mailboxStorage[controller.mailBoxInbox];
-                  
-                  if (storage == null) {
-                    return const Center(
-                      child: Text('Mailbox not initialized'),
-                    );
-                  }
-                  
-                  return ValueListenableBuilder<List<MimeMessage>>(
-                    valueListenable: storage.dataNotifier,
-                    builder: (context, messages, child) {
-                      List<MimeMessage> rows = messages.toList()..sort((a, b) {
-                        final dateA = a.decodeDate();
-                        final dateB = b.decodeDate();
-                        if (dateA == null && dateB == null) return 0;
-                        if (dateA == null) return 1;
-                        if (dateB == null) return -1;
-                        return dateB.compareTo(dateA);
-                      });
-
-                      return RefreshIndicator(
-                        onRefresh: () async {
-                          // CRITICAL FIX: Always refresh inbox on home screen
-                          await controller.refreshMailbox(controller.mailBoxInbox);
-                        },
-                        child: ListView.builder(
-                          itemCount: rows.length,
-                          itemBuilder: (context, index) {
-                            return MailTile(
-                              onTap: () {
-                                // CRITICAL FIX: Always use inbox mailbox for home screen emails
-                                final message = rows[index];
-                                
-                                // DEBUGGING: Log navigation attempt
-                                print('=== HOME SCREEN EMAIL TAP DEBUG ===');
-                                print('Subject: ${message.decodeSubject()}');
-                                print('Mailbox: ${controller.mailBoxInbox.name} (ALWAYS INBOX)');
-                                print('===================================');
-                                
-                                // Navigate to email detail view - always use inbox mailbox
-                                Get.to(() => ShowMessage(
-                                  message: message,
-                                  mailbox: controller.mailBoxInbox,
-                                ));
-                              },
-                              message: rows[index],
-                              mailBox: controller.mailBoxInbox,
-                            );
-                          },
-                        ),
-                      );
-                    },
+                  // Use the advanced OptimizedEmailList for inbox with all features
+                  return OptimizedEmailList(
+                    mailBox: controller.mailBoxInbox,
+                    controller: controller,
+                    theme: Theme.of(context),
+                    isDarkMode: Theme.of(context).brightness == Brightness.dark,
                   );
                 }),
               ],
