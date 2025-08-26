@@ -17,6 +17,8 @@ import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
+import 'package:wahda_bank/views/compose/compose.dart';
+import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
@@ -226,6 +228,11 @@ class MailBoxController extends GetxController {
     final hasExistingEmails = emails[mailbox] != null && emails[mailbox]!.isNotEmpty;
     
     try {
+      // CRITICAL FIX: Add comprehensive logging for mailbox context
+      logger.i("Loading emails for mailbox: ${mailbox.name} (path: ${mailbox.path})");
+      logger.i("Has existing emails: $hasExistingEmails");
+      logger.i("Previous current mailbox: ${currentMailbox?.name}");
+      
       // Only show progress indicator if this is the first time loading (no cached emails)
       if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
         final progressController = Get.find<EmailDownloadProgressController>();
@@ -238,12 +245,18 @@ class MailBoxController extends GetxController {
 
       isBoxBusy(true);
       
-      // Set current mailbox to fix fetch error when switching
+      // CRITICAL FIX: Set current mailbox FIRST to ensure proper context isolation
       currentMailbox = mailbox;
+      logger.i("Set current mailbox to: ${currentMailbox?.name}");
+      
+      // CRITICAL FIX: Force UI update to reflect mailbox change immediately
+      update();
 
       // PERFORMANCE FIX: If emails already exist, just return them (use cache)
       if (hasExistingEmails) {
         logger.i("Using cached emails for ${mailbox.name} (${emails[mailbox]!.length} messages)");
+        // Still ensure current mailbox is set correctly even when using cache
+        currentMailbox = mailbox;
         return;
       }
 
@@ -984,15 +997,114 @@ class MailBoxController extends GetxController {
 
   Future navigatToMailBox(Mailbox mailbox) async {
     try {
-      // Reset current mailbox before navigation to fix fetch error
+      // CRITICAL FIX: Properly reset mailbox context and clear any stale state
+      logger.i("Navigating to mailbox: ${mailbox.name}");
+      
+      // Clear current mailbox context completely
       currentMailbox = null;
-
+      
+      // Force UI update to clear any cached state
+      update();
+      
+      // Navigate to the mailbox view
       Get.to(() => MailBoxView(mailBox: mailbox));
+      
+      // Load emails for the new mailbox with proper context setting
       await loadEmailsForBox(mailbox);
+      
+      // Ensure current mailbox is properly set after loading
+      currentMailbox = mailbox;
+      
+      logger.i("Successfully navigated to mailbox: ${mailbox.name}");
     } catch (e) {
       logger.e("Error in navigatToMailBox: $e");
       // Reset loading state in case of error
       isBoxBusy(false);
+      // Reset current mailbox on error
+      currentMailbox = null;
+    }
+  }
+
+  // CRITICAL FIX: Add method to validate message-mailbox consistency
+  bool validateMessageMailboxConsistency(MimeMessage message, Mailbox mailbox) {
+    try {
+      // Check if the message exists in the specified mailbox's email list
+      final mailboxEmails = emails[mailbox];
+      if (mailboxEmails == null) {
+        logger.w("Mailbox ${mailbox.name} has no loaded emails");
+        return false;
+      }
+      
+      // Check if the message is in the mailbox's email list
+      final messageExists = mailboxEmails.any((email) => 
+        email.uid == message.uid || 
+        email.sequenceId == message.sequenceId ||
+        (email.decodeSubject() == message.decodeSubject() && 
+         email.decodeDate()?.millisecondsSinceEpoch == message.decodeDate()?.millisecondsSinceEpoch)
+      );
+      
+      if (!messageExists) {
+        logger.w("Message '${message.decodeSubject()}' not found in mailbox ${mailbox.name}");
+        return false;
+      }
+      
+      return true;
+    } catch (e) {
+      logger.e("Error validating message-mailbox consistency: $e");
+      return false;
+    }
+  }
+
+  // CRITICAL FIX: Add method to safely navigate to message view with validation
+  Future<void> safeNavigateToMessage(MimeMessage message, Mailbox mailbox) async {
+    try {
+      logger.i("Safe navigation to message: ${message.decodeSubject()} in mailbox: ${mailbox.name}");
+      
+      // Validate message-mailbox consistency
+      if (!validateMessageMailboxConsistency(message, mailbox)) {
+        logger.e("Message-mailbox consistency check failed");
+        Get.snackbar(
+          'Error',
+          'The selected email is not available in the current mailbox. Please refresh and try again.',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+        return;
+      }
+      
+      // Ensure current mailbox is set correctly
+      currentMailbox = mailbox;
+      
+      // Navigate based on message type
+      final isDraft = message.flags?.contains(MessageFlags.draft) ?? false;
+      final isInDraftsMailbox = mailbox.isDrafts;
+      final isDraftsMailboxByName = mailbox.name.toLowerCase().contains('draft');
+      
+      logger.i("Message navigation decision - isDraft: $isDraft, isInDraftsMailbox: $isInDraftsMailbox, isDraftsMailboxByName: $isDraftsMailboxByName");
+      
+      if (isDraft || isInDraftsMailbox || isDraftsMailboxByName) {
+        logger.i("Navigating to compose screen for draft message");
+        Get.to(() => const ComposeScreen(), arguments: {
+          'type': 'draft',
+          'message': message,
+        });
+      } else {
+        logger.i("Navigating to show message screen for regular email");
+        Get.to(() => ShowMessage(
+          message: message,
+          mailbox: mailbox,
+        ));
+      }
+    } catch (e) {
+      logger.e("Error in safeNavigateToMessage: $e");
+      Get.snackbar(
+        'Navigation Error',
+        'Failed to open the selected email. Please try again.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
     }
   }
 

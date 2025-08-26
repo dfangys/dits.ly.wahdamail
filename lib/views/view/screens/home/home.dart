@@ -75,37 +75,19 @@ class HomeScreen extends GetView<MailBoxController> {
                           itemBuilder: (context, index) {
                             return MailTile(
                               onTap: () {
-                                // CRITICAL FIX: Route drafts to compose screen, regular emails to show message
+                                // CRITICAL FIX: Use safe navigation method with validation
                                 final message = rows[index];
-                                final isDraft = message.flags?.contains(MessageFlags.draft) ?? false;
-                                final isInDraftsMailbox = currentMailbox.isDrafts;
+                                final currentMailbox = controller.currentMailbox ?? controller.mailBoxInbox;
                                 
-                                // DEBUGGING: Log draft detection
-                                print('=== EMAIL TAP DEBUG ===');
+                                // DEBUGGING: Log navigation attempt
+                                print('=== HOME SCREEN EMAIL TAP DEBUG ===');
                                 print('Subject: ${message.decodeSubject()}');
-                                print('Flags: ${message.flags}');
-                                print('Is Draft (by flag): $isDraft');
                                 print('Current Mailbox: ${currentMailbox.name}');
-                                print('Is Drafts Mailbox: $isInDraftsMailbox');
-                                print('Final Decision: ${isDraft || isInDraftsMailbox ? "COMPOSE" : "SHOW MESSAGE"}');
-                                print('=====================');
+                                print('Using safe navigation method');
+                                print('===================================');
                                 
-                                // ENHANCED LOGIC: If in drafts mailbox OR has draft flag, open in compose mode
-                                if (isDraft || isInDraftsMailbox) {
-                                  // Navigate to compose screen for draft editing
-                                  print('NAVIGATING TO COMPOSE SCREEN FOR DRAFT');
-                                  Get.to(() => const ComposeScreen(), arguments: {
-                                    'type': 'draft',
-                                    'message': message,
-                                  });
-                                } else {
-                                  // Navigate to email detail view for regular emails
-                                  print('NAVIGATING TO SHOW MESSAGE FOR REGULAR EMAIL');
-                                  Get.to(() => ShowMessage(
-                                    message: message,
-                                    mailbox: currentMailbox,
-                                  ));
-                                }
+                                // Use the new safe navigation method
+                                controller.safeNavigateToMessage(message, currentMailbox);
                               },
                               message: rows[index],
                               mailBox: currentMailbox,
