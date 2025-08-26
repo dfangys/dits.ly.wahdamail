@@ -79,62 +79,132 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   }
 
   void _computeCachedValues() {
-    // Compute sender information
+    // ENHANCED: Compute sender information with better envelope handling
     if ((["sent", "drafts"].contains(widget.mailBox.name.toLowerCase())) &&
         widget.message.to != null &&
         widget.message.to!.isNotEmpty) {
-      _senderName = widget.message.to!.first.personalName ?? 
-                   widget.message.to!.first.email.split('@').first;
-      _senderEmail = widget.message.to!.first.email;
-    } else if (widget.message.from != null && widget.message.from!.isNotEmpty) {
-      _senderName = widget.message.from!.first.personalName ?? 
-                   widget.message.from!.first.email.split('@').first;
-      _senderEmail = widget.message.from!.first.email;
+      // For sent/drafts, show recipient
+      final recipient = widget.message.to!.first;
+      _senderName = recipient.personalName?.isNotEmpty == true 
+          ? recipient.personalName! 
+          : (recipient.email.isNotEmpty 
+              ? recipient.email.split('@').first 
+              : 'Unknown Recipient');
+      _senderEmail = recipient.email;
     } else {
-      _senderName = "Unknown";
-      _senderEmail = "";
-    }
-
-    // Cache other computed values
-    _hasAttachments = widget.message.hasAttachments();
-    _messageDate = widget.message.decodeDate();
-    _subject = widget.message.decodeSubject() ?? 'No Subject';
-    _preview = _generatePreview();
-  }
-
-  String _generatePreview() {
-    // Try cached content first
-    final cachedContent = cacheManager.getCachedMessageContent(widget.message);
-    if (cachedContent != null && cachedContent.isNotEmpty) {
-      return _extractPreviewFromContent(cachedContent);
-    }
-
-    // Try to get text content from message
-    try {
-      // Try plain text first
-      final textPart = widget.message.decodeTextPlainPart();
-      if (textPart != null && textPart.trim().isNotEmpty) {
-        return _extractPreviewFromContent(textPart);
+      // For inbox and other folders, show sender
+      MailAddress? sender;
+      
+      // Try envelope first (most reliable)
+      if (widget.message.envelope?.from != null && widget.message.envelope!.from!.isNotEmpty) {
+        sender = widget.message.envelope!.from!.first;
       }
-
-      // Try HTML content
-      final htmlPart = widget.message.decodeTextHtmlPart();
-      if (htmlPart != null && htmlPart.trim().isNotEmpty) {
-        return _extractPreviewFromContent(htmlPart);
+      // Fallback to message.from
+      else if (widget.message.from != null && widget.message.from!.isNotEmpty) {
+        sender = widget.message.from!.first;
       }
-
-      // Try to extract from message body parts
-      if (widget.message.body != null) {
-        final bodyText = widget.message.body.toString();
-        if (bodyText.isNotEmpty) {
-          return _extractPreviewFromContent(bodyText);
+      // Last resort: try to parse from headers
+      else {
+        final fromHeader = widget.message.getHeaderValue('from');
+        if (fromHeader != null && fromHeader.isNotEmpty) {
+          try {
+            sender = MailAddress.parse(fromHeader);
+          } catch (e) {
+            // If parsing fails, create a basic MailAddress
+            sender = MailAddress('', fromHeader);
+          }
         }
       }
+      
+      if (sender != null) {
+        _senderName = sender.personalName?.isNotEmpty == true 
+            ? sender.personalName! 
+            : (sender.email.isNotEmpty 
+                ? sender.email.split('@').first 
+                : 'Unknown Sender');
+        _senderEmail = sender.email;
+      } else {
+        _senderName = "Unknown Sender";
+        _senderEmail = "unknown@unknown.com";
+      }
+    }
 
-      // Don't use subject as fallback to avoid duplication
-      // Subject is already displayed separately in the UI
-    } catch (e) {
-      // If all else fails, return a default message
+    // ENHANCED: Cache other computed values with better fallbacks
+    _hasAttachments = widget.message.hasAttachments();
+    
+    // Better date handling
+    _messageDate = widget.message.decodeDate() ?? 
+                   widget.message.envelope?.date ?? 
+                   DateTime.now();
+    
+    // ENHANCED: Better subject handling with envelope fallback
+    String? subject = widget.message.decodeSubject();
+    if (subject == null || subject.isEmpty) {
+      subject = widget.message.envelope?.subject;
+    }
+    if (subject == null || subject.isEmpty) {
+      subject = widget.message.getHeaderValue('subject');
+    }
+    _subject = subject?.isNotEmpty == true ? subject! : 'No Subject';
+    
+    _preview = _generatePreview();
+    
+    if (kDebugMode) {
+      print('📧 Mail tile computed: sender="$_senderName", subject="$_subject", date=$_messageDate');
+    }
+  }
+  String _generatePreview() {
+    // ENHANCED: Try multiple sources for preview content
+    
+    // 1. Try cached content first
+    final cachedContent = cacheManager.getCachedMessageContent(widget.message);
+    if (cachedContent != null && cachedContent.isNotEmpty) {
+      final preview = _extractPreviewFromContent(cachedContent);
+      if (preview.isNotEmpty && preview != 'No preview available') {
+        return preview;
+      }
+    }
+
+    // 2. Try to extract from message body if available
+    if (widget.message.body != null) {
+      try {
+        final bodyText = widget.message.decodeTextPlainPart();
+        if (bodyText != null && bodyText.isNotEmpty) {
+          return _extractPreviewFromContent(bodyText);
+        }
+        
+        final bodyHtml = widget.message.decodeTextHtmlPart();
+        if (bodyHtml != null && bodyHtml.isNotEmpty) {
+          // Strip HTML tags for preview
+          final plainText = bodyHtml
+              .replaceAll(RegExp(r'<[^>]*>'), ' ')
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .trim();
+          if (plainText.isNotEmpty) {
+            return _extractPreviewFromContent(plainText);
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('📧 Error extracting body preview: $e');
+        }
+      }
+    }
+
+    // 3. Try envelope or headers for any preview hints
+    if (widget.message.envelope != null) {
+      // Some servers include preview in custom headers
+      final previewHeader = widget.message.getHeaderValue('x-preview') ??
+                           widget.message.getHeaderValue('x-microsoft-exchange-diagnostics');
+      if (previewHeader != null && previewHeader.isNotEmpty) {
+        return _extractPreviewFromContent(previewHeader);
+      }
+    }
+
+    // 4. Fallback: return a meaningful message based on content type
+    if (widget.message.hasAttachments()) {
+      // Simple attachment count - just use the hasAttachments result
+      return 'Message with attachments';
     }
 
     return 'No preview available';
@@ -462,15 +532,28 @@ class OptimizedMailTileContent extends StatelessWidget {
     final now = DateTime.now();
     final difference = now.difference(date);
     
+    // Today: show time
     if (difference.inDays == 0) {
       return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    } else if (difference.inDays == 1) {
+    } 
+    // Yesterday
+    else if (difference.inDays == 1) {
       return 'Yesterday';
-    } else if (difference.inDays < 7) {
+    } 
+    // This week: show day name
+    else if (difference.inDays < 7) {
       const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       return weekdays[date.weekday - 1];
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
+    } 
+    // This year: show month and day
+    else if (date.year == now.year) {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}';
+    } 
+    // Previous years: show full date
+    else {
+      return '${date.day}/${date.month}/${date.year.toString().substring(2)}';
     }
   }
 
@@ -554,7 +637,7 @@ class OptimizedMailTileContent extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         
-                        // Subject line
+                        // Subject line with indicators
                         Row(
                           children: [
                             Expanded(
@@ -569,18 +652,38 @@ class OptimizedMailTileContent extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (hasAttachments)
-                              Icon(
-                                Icons.attach_file,
-                                size: 16,
-                                color: theme.primaryColor,
+                            // Attachment indicator
+                            if (hasAttachments) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: theme.primaryColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Icon(
+                                  Icons.attach_file,
+                                  size: 14,
+                                  color: theme.primaryColor,
+                                ),
                               ),
-                            if (hasFlagged)
-                              Icon(
-                                Icons.flag,
-                                size: 16,
-                                color: Colors.orange,
+                            ],
+                            // Flag indicator
+                            if (hasFlagged) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Icon(
+                                  Icons.flag,
+                                  size: 14,
+                                  color: Colors.orange,
+                                ),
                               ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 4),

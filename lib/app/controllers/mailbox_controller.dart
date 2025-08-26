@@ -1029,67 +1029,129 @@ class MailBoxController extends GetxController {
       // CRITICAL FIX: Fetch envelope AND headers to get proper sender/subject information
       final messages = await mailService.client.fetchMessageSequence(
         sequence,
-        fetchPreference: FetchPreference.envelope,
+        fetchPreference: FetchPreference.fullWhenWithinSize, // Get full message data for better parsing
       );
       
-      // CRITICAL FIX: Ensure messages have proper envelope data
+      // ENHANCED FIX: Ensure messages have complete data for display
       for (final message in messages) {
-        // If envelope is missing, try to reconstruct from headers
-        if (message.envelope == null && message.headers != null) {
-          try {
-            // Create basic envelope from headers
-            final fromHeader = message.getHeaderValue('from');
-            final toHeader = message.getHeaderValue('to');
-            final subjectHeader = message.getHeaderValue('subject');
-            final dateHeader = message.getHeaderValue('date');
-            
-            if (fromHeader != null || toHeader != null || subjectHeader != null) {
-              // Create a basic envelope structure
-              message.envelope = Envelope(
-                date: dateHeader != null ? DateTime.tryParse(dateHeader) : null,
-                subject: subjectHeader,
-                from: fromHeader != null ? [MailAddress.parse(fromHeader)] : null,
-                to: toHeader != null ? [MailAddress.parse(toHeader)] : null,
-              );
-            }
-          } catch (e) {
-            if (kDebugMode) {
-              print('📧 Error reconstructing envelope: $e');
-            }
-          }
-        }
-        
-        // Ensure basic properties are set
-        if (message.from == null || message.from!.isEmpty) {
-          final fromHeader = message.getHeaderValue('from');
-          if (fromHeader != null) {
+        try {
+          // Ensure envelope exists and is properly populated
+          if (message.envelope == null) {
+            // Force fetch envelope if missing - use fetchMessageSequence instead
             try {
-              message.from = [MailAddress.parse(fromHeader)];
+              final singleSequence = MessageSequence.fromId(message.sequenceId!);
+              final fullMessages = await mailService.client.fetchMessageSequence(
+                singleSequence,
+                fetchPreference: FetchPreference.envelope,
+              );
+              if (fullMessages.isNotEmpty) {
+                message.envelope = fullMessages.first.envelope;
+                // Skip header copying due to type mismatch - envelope data is sufficient
+                // Headers will be available through message.getHeaderValue() method
+              }
             } catch (e) {
               if (kDebugMode) {
-                print('📧 Error parsing from header: $e');
+                print('📧 Error fetching envelope for message ${message.sequenceId}: $e');
               }
             }
           }
-        }
-        
-        // Ensure subject is available
-        if (message.decodeSubject() == null) {
-          final subjectHeader = message.getHeaderValue('subject');
-          if (subjectHeader != null) {
-            message.setHeader('subject', subjectHeader);
+          
+          // Reconstruct envelope from headers if still missing
+          if (message.envelope == null && message.headers != null) {
+            try {
+              final fromHeader = message.getHeaderValue('from');
+              final toHeader = message.getHeaderValue('to');
+              final subjectHeader = message.getHeaderValue('subject');
+              final dateHeader = message.getHeaderValue('date');
+              
+              // Parse date properly
+              DateTime? parsedDate;
+              if (dateHeader != null) {
+                try {
+                  parsedDate = DateCodec.decodeDate(dateHeader);
+                } catch (e) {
+                  parsedDate = DateTime.tryParse(dateHeader);
+                }
+              }
+              
+              // Parse addresses properly
+              List<MailAddress>? fromAddresses;
+              if (fromHeader != null) {
+                try {
+                  // Use MailAddress.parse for single address
+                  fromAddresses = [MailAddress.parse(fromHeader)];
+                } catch (e) {
+                  try {
+                    // Fallback: create basic MailAddress
+                    fromAddresses = [MailAddress('Unknown', fromHeader)];
+                  } catch (e2) {
+                    fromAddresses = [MailAddress('Unknown', 'unknown@unknown.com')];
+                  }
+                }
+              }
+              
+              List<MailAddress>? toAddresses;
+              if (toHeader != null) {
+                try {
+                  // Use MailAddress.parse for single address
+                  toAddresses = [MailAddress.parse(toHeader)];
+                } catch (e) {
+                  try {
+                    // Fallback: create basic MailAddress
+                    toAddresses = [MailAddress('', toHeader)];
+                  } catch (e2) {
+                    toAddresses = [MailAddress('', 'unknown@unknown.com')];
+                  }
+                }
+              }
+              
+              // Create proper envelope
+              message.envelope = Envelope(
+                date: parsedDate ?? DateTime.now(),
+                subject: subjectHeader ?? 'No Subject',
+                from: fromAddresses ?? [MailAddress('Unknown', 'unknown@unknown.com')],
+                to: toAddresses,
+                sender: fromAddresses?.first, // Use first address, not list
+                replyTo: fromAddresses,
+              );
+              
+              if (kDebugMode) {
+                print('📧 ✅ Reconstructed envelope for message: ${message.envelope?.subject}');
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('📧 ❌ Error reconstructing envelope: $e');
+              }
+              
+              // Create minimal envelope as fallback
+              message.envelope = Envelope(
+                date: DateTime.now(),
+                subject: 'No Subject',
+                from: [MailAddress('Unknown', 'unknown@unknown.com')],
+              );
+            }
+          }
+          
+          // Ensure message has proper flags for UI display (skip if type mismatch)
+          // message.flags initialization is handled by enough_mail internally
+          
+          // Ensure message has sequence ID for operations
+          if (message.sequenceId == null && message.uid != null) {
+            // Try to get sequence ID from UID if available
+            message.sequenceId = message.uid;
+          }
+          
+        } catch (e) {
+          if (kDebugMode) {
+            print('📧 ❌ Error processing message ${message.sequenceId}: $e');
           }
         }
       }
-      
-      if (kDebugMode) {
-        print('📧 Fetched ${messages.length} messages with envelope data');
-      }
-      
+
       return messages;
     } catch (e) {
       logger.e("Error in queue method: $e");
-      return <MimeMessage>[];
+      return [];
     }
   }
 
