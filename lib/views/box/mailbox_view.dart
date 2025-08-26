@@ -11,6 +11,7 @@ import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/utills/funtions.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
+import 'package:wahda_bank/views/box/enhanced_mailbox_view.dart';
 
 class MailBoxView extends GetView<MailBoxController> {
   const MailBoxView({super.key, required this.mailBox});
@@ -109,9 +110,8 @@ class MailBoxView extends GetView<MailBoxController> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                      child: OptimizedEmailList(
-                        mailBox: mailBox,
-                        controller: controller,
+                      child: EnhancedMailboxView(
+                        mailbox: mailBox,
                         theme: theme,
                         isDarkMode: isDarkMode,
                       ),
