@@ -1,0 +1,448 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:enough_mail/enough_mail.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/controllers/selection_controller.dart';
+import 'package:wahda_bank/widgets/mail_tile.dart';
+import 'package:wahda_bank/utills/theme/app_theme.dart';
+import 'package:wahda_bank/views/view/showmessage/show_message.dart';
+
+class HomeEmailList extends StatefulWidget {
+  const HomeEmailList({super.key});
+
+  @override
+  State<HomeEmailList> createState() => _HomeEmailListState();
+}
+
+class _HomeEmailListState extends State<HomeEmailList> {
+  final ScrollController _scrollController = ScrollController();
+  final MailBoxController controller = Get.find<MailBoxController>();
+  final SelectionController selectionController = Get.find<SelectionController>();
+  
+  bool _isLoadingMore = false;
+  bool _allMessagesLoaded = false;
+  int _currentPage = 1;
+  
+  // Track processed messages to avoid duplicates
+  final Set<int> _processedUIDs = <int>{};
+  Map<DateTime, List<MimeMessage>> _groupedMessages = {};
+  List<DateTime> _dateKeys = [];
+  int _lastProcessedCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    
+    // Initialize email loading for home screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeHomeEmails();
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _initializeHomeEmails() async {
+    // Ensure inbox is initialized and emails are loaded
+    if (controller.mailBoxInbox.messagesExists == 0) {
+      await controller.initInbox();
+    }
+    
+    // Load initial emails if not already loaded
+    if (controller.boxMails.isEmpty) {
+      await controller.loadEmailsForBox(controller.mailBoxInbox);
+    }
+    
+    // Process the loaded messages
+    _processMessages(controller.boxMails);
+  }
+
+  void _onScroll() {
+    // Enhanced scroll detection for home screen
+    if (!_scrollController.hasClients || _isLoadingMore || _allMessagesLoaded) return;
+    
+    final position = _scrollController.position;
+    final maxScroll = position.maxScrollExtent;
+    final currentScroll = position.pixels;
+    
+    // Trigger loading when user is within 500px of bottom for home screen
+    if (currentScroll >= maxScroll - 500 && 
+        currentScroll < maxScroll - 50 && 
+        maxScroll > 0) {
+      
+      // Add haptic feedback
+      try {
+        HapticFeedback.selectionClick();
+      } catch (e) {
+        // Ignore haptic feedback errors
+      }
+      
+      _loadMoreMessages();
+    }
+  }
+
+  void _processMessages(List<MimeMessage> messages) {
+    // Skip processing if messages haven't changed
+    if (messages.length == _lastProcessedCount && _groupedMessages.isNotEmpty) {
+      return;
+    }
+    
+    // Process ALL messages for home screen
+    final allUniqueMessages = <MimeMessage>[];
+    final allUIDs = <int>{};
+    
+    for (final message in messages) {
+      final uid = message.uid ?? message.sequenceId ?? 0;
+      if (uid > 0 && !allUIDs.contains(uid)) {
+        allUniqueMessages.add(message);
+        allUIDs.add(uid);
+      }
+    }
+    
+    // If no messages, clear everything
+    if (allUniqueMessages.isEmpty) {
+      _groupedMessages.clear();
+      _dateKeys.clear();
+      _processedUIDs.clear();
+      _lastProcessedCount = 0;
+      if (mounted) setState(() {});
+      return;
+    }
+    
+    // Update processed UIDs and count
+    _processedUIDs.clear();
+    _processedUIDs.addAll(allUIDs);
+    _lastProcessedCount = messages.length;
+    
+    // Clear and rebuild with ALL unique messages
+    _groupedMessages.clear();
+    _dateKeys.clear();
+
+    // Sort ALL unique messages
+    allUniqueMessages.sort((a, b) {
+      final dateA = _getMessageDate(a);
+      final dateB = _getMessageDate(b);
+      return dateB.compareTo(dateA); // Newest first
+    });
+
+    // Group ALL messages by date
+    for (final message in allUniqueMessages) {
+      final date = _getMessageDate(message);
+      final dateKey = DateTime(date.year, date.month, date.day);
+      
+      if (!_groupedMessages.containsKey(dateKey)) {
+        _groupedMessages[dateKey] = [];
+        _dateKeys.add(dateKey);
+      }
+      _groupedMessages[dateKey]!.add(message);
+    }
+
+    // Sort date keys
+    _dateKeys.sort((a, b) => b.compareTo(a)); // Newest dates first
+    
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  DateTime _getMessageDate(MimeMessage message) {
+    try {
+      return message.decodeDate() ?? 
+             message.envelope?.date ?? 
+             DateTime.now();
+    } catch (e) {
+      return DateTime.now();
+    }
+  }
+
+  void _loadMoreMessages() async {
+    if (_isLoadingMore || !mounted || _allMessagesLoaded) return;
+    
+    final totalMessages = controller.boxMails.length;
+    final currentlyDisplayed = _processedUIDs.length;
+    
+    // Check if we've reached the end
+    final mailboxMessageCount = controller.mailBoxInbox.messagesExists;
+    if (currentlyDisplayed >= mailboxMessageCount && mailboxMessageCount > 0) {
+      _allMessagesLoaded = true;
+      return;
+    }
+    
+    setState(() {
+      _isLoadingMore = true;
+    });
+    
+    try {
+      if (currentlyDisplayed >= totalMessages) {
+        // Load more from server
+        final previousCount = totalMessages;
+        await controller.loadMoreEmails(controller.mailBoxInbox, _currentPage + 1);
+        
+        final newTotalMessages = controller.boxMails.length;
+        if (newTotalMessages > previousCount) {
+          _currentPage++;
+          _processMessages(controller.boxMails);
+        } else {
+          _allMessagesLoaded = true;
+        }
+      } else {
+        // Display more local messages
+        await Future.delayed(const Duration(milliseconds: 50));
+        _processMessages(controller.boxMails);
+      }
+    } catch (e) {
+      print('Error loading more messages: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
+    return Obx(() {
+      // Listen to controller changes
+      final messages = controller.boxMails;
+      
+      // Update messages when controller changes
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (messages.length != _lastProcessedCount) {
+          _processMessages(messages);
+        }
+      });
+      
+      if (_groupedMessages.isEmpty && !_isLoadingMore) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.inbox_outlined,
+                size: 64,
+                color: isDarkMode ? Colors.white38 : Colors.grey.shade400,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No emails found',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: isDarkMode ? Colors.white60 : Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Pull to refresh or check your connection',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDarkMode ? Colors.white50 : Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return RefreshIndicator(
+        onRefresh: () async {
+          await controller.refreshInbox();
+          _processMessages(controller.boxMails);
+        },
+        child: ListView.builder(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: _dateKeys.length + 1, // +1 for loading indicator
+          itemBuilder: (context, index) {
+            // Loading indicator at the bottom
+            if (index == _dateKeys.length) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                child: _allMessagesLoaded
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            color: isDarkMode 
+                                  ? Colors.green.shade300 
+                                  : Colors.green.shade600,
+                            size: 24,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'All emails loaded',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDarkMode 
+                                    ? Colors.green.shade300 
+                                    : Colors.green.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_processedUIDs.length} emails total',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDarkMode 
+                                    ? Colors.green.shade400 
+                                    : Colors.green.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _isLoadingMore
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: isDarkMode 
+                                ? Colors.grey.shade800.withValues(alpha: 0.3)
+                                : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: isDarkMode 
+                                    ? Colors.black26 
+                                    : Colors.grey.shade300,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppTheme.primaryColor,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Loading more emails...',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: isDarkMode 
+                                          ? Colors.white87 
+                                          : Colors.grey.shade700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Fetching from server',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDarkMode 
+                                          ? Colors.white60 
+                                          : Colors.grey.shade600,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  '${_processedUIDs.length} emails loaded',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isDarkMode 
+                                          ? Colors.white50 
+                                          : Colors.grey.shade500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              );
+            }
+
+            final dateKey = _dateKeys[index];
+            final messagesForDate = _groupedMessages[dateKey] ?? [];
+
+            return _buildDateGroup(dateKey, messagesForDate, isDarkMode);
+          },
+        ),
+      );
+    });
+  }
+
+  Widget _buildDateGroup(DateTime date, List<MimeMessage> messages, bool isDarkMode) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Date header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Text(
+            _formatDate(date),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isDarkMode ? Colors.white70 : Colors.grey.shade600,
+            ),
+          ),
+        ),
+        // Messages for this date
+        ...messages.map((message) => _buildMessageTile(message)),
+      ],
+    );
+  }
+
+  Widget _buildMessageTile(MimeMessage message) {
+    return Obx(() => MailTile(
+      message: message,
+      isSelected: selectionController.selectedMessages.contains(message),
+      onTap: () {
+        if (selectionController.isSelecting) {
+          selectionController.toggleSelection(message);
+        } else {
+          Get.to(() => ShowMessage(message: message));
+        }
+      },
+      onLongPress: () {
+        selectionController.toggleSelection(message);
+      },
+    ));
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final messageDate = DateTime(date.year, date.month, date.day);
+
+    if (messageDate == today) {
+      return 'Today';
+    } else if (messageDate == yesterday) {
+      return 'Yesterday';
+    } else if (now.difference(messageDate).inDays < 7) {
+      const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      return weekdays[date.weekday - 1];
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+}
+

@@ -5,14 +5,11 @@ import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/view/screens/home/widgets/appbar.dart';
-import 'package:wahda_bank/views/view/showmessage/show_message.dart';
+import 'package:wahda_bank/views/view/screens/home/widgets/home_email_list.dart'; // New dedicated home email list
 import 'package:wahda_bank/widgets/bottomnavs/selection_botttom_nav.dart';
 import 'package:wahda_bank/widgets/drawer/drawer.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/utills/loaders/animation_loader.dart';
-import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/widgets/mail_tile.dart';
-import 'package:wahda_bank/views/box/mailbox_view.dart'; // Import for OptimizedEmailList
 
 class HomeScreen extends GetView<MailBoxController> {
   const HomeScreen({super.key});
@@ -78,13 +75,8 @@ class HomeScreen extends GetView<MailBoxController> {
             
             return Stack(
               children: [
-                // Remove unnecessary Obx wrapper - OptimizedEmailList handles its own reactivity
-                OptimizedEmailList(
-                  mailBox: controller.mailBoxInbox,
-                  controller: controller,
-                  theme: Theme.of(context),
-                  isDarkMode: Theme.of(context).brightness == Brightness.dark,
-                ),
+                // Use dedicated HomeEmailList for better home screen loading
+                const HomeEmailList(),
               ],
             );
           }),
