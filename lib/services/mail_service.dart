@@ -151,11 +151,38 @@ class MailService {
     printInfo(info: 'Subscribing to events');
     _mailLoadEventSubscription =
         client.eventBus.on<MailLoadEvent>().listen((event) {
-          if (event.mailClient == client) {
-            printError(info: 'MailLoadEvent');
-            if (Get.isRegistered<MailBoxController>()) {
-              Get.find<MailBoxController>().handleIncomingMail(event.message);
+          try {
+            if (event.mailClient == client) {
+              if (kDebugMode) {
+                print('📧 MailLoadEvent received for: ${event.message?.decodeSubject() ?? "Unknown"}');
+              }
+              
+              if (Get.isRegistered<MailBoxController>()) {
+                // Use async execution to prevent blocking the event stream
+                Future.microtask(() async {
+                  try {
+                    await Get.find<MailBoxController>().handleIncomingMail(event.message);
+                  } catch (e) {
+                    if (kDebugMode) {
+                      print('📧 Error in handleIncomingMail: $e');
+                    }
+                  }
+                });
+              } else {
+                if (kDebugMode) {
+                  print('📧 MailBoxController not registered, skipping event');
+                }
+              }
             }
+          } catch (e) {
+            if (kDebugMode) {
+              print('📧 Error processing MailLoadEvent: $e');
+            }
+            // Don't rethrow - just log the error to prevent stream crashes
+          }
+        }, onError: (error) {
+          if (kDebugMode) {
+            print('📧 MailLoadEvent stream error: $error');
           }
         });
     _mailVanishedEventSubscription =

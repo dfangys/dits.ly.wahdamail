@@ -977,7 +977,9 @@ class MailBoxController extends GetxController {
 
   Future handleIncomingMail(MimeMessage message) async {
     try {
-      logger.i("📧 Handling incoming mail: ${message.decodeSubject()}");
+      if (kDebugMode) {
+        print("📧 Processing incoming mail: ${message.decodeSubject()}");
+      }
       
       // Detect the mailbox from the message - default to INBOX if not found
       Mailbox? mailbox = mailboxes.firstWhereOrNull(
@@ -989,27 +991,80 @@ class MailBoxController extends GetxController {
         mailbox = mailboxes.firstWhereOrNull((element) => element.name == 'INBOX');
       }
       
-      if (mailbox != null) {
-        // Save to storage
-        await mailboxStorage[mailbox]!.saveMessageEnvelopes([message]);
-        
-        // Add to UI list if it's the current mailbox
-        if (emails[mailbox] != null) {
-          emails[mailbox]!.insert(0, message);
-          emails.refresh();
+      if (mailbox != null && mailboxStorage[mailbox] != null) {
+        // Save to storage with error handling
+        try {
+          await mailboxStorage[mailbox]!.saveMessageEnvelopes([message]);
+          
+          if (kDebugMode) {
+            print("📧 Message saved to storage successfully");
+          }
+        } catch (storageError) {
+          if (kDebugMode) {
+            print("📧 Storage error: $storageError");
+          }
+          // Continue processing even if storage fails
         }
         
-        // Notify realtime service about new message
-        final realtimeService = RealtimeUpdateService.instance;
-        await realtimeService.notifyNewMessages([message]);
+        // Add to UI list if it's the current mailbox (with safety checks)
+        try {
+          if (emails[mailbox] != null) {
+            // Check if message already exists to prevent duplicates
+            final existingMessage = emails[mailbox]!.firstWhereOrNull(
+              (msg) => msg.uid == message.uid || 
+                      (msg.sequenceId == message.sequenceId && message.sequenceId != null)
+            );
+            
+            if (existingMessage == null) {
+              emails[mailbox]!.insert(0, message);
+              emails.refresh();
+              
+              if (kDebugMode) {
+                print("📧 Message added to UI list");
+              }
+            } else {
+              if (kDebugMode) {
+                print("📧 Message already exists in UI list, skipping");
+              }
+            }
+          }
+        } catch (uiError) {
+          if (kDebugMode) {
+            print("📧 UI update error: $uiError");
+          }
+          // Continue processing even if UI update fails
+        }
         
-        logger.i("📧 Successfully processed incoming mail");
+        // Notify realtime service about new message (with error handling)
+        try {
+          final realtimeService = RealtimeUpdateService.instance;
+          await realtimeService.notifyNewMessages([message]);
+          
+          if (kDebugMode) {
+            print("📧 Realtime service notified successfully");
+          }
+        } catch (realtimeError) {
+          if (kDebugMode) {
+            print("📧 Realtime service error: $realtimeError");
+          }
+          // Continue processing even if realtime notification fails
+        }
+        
+        if (kDebugMode) {
+          print("📧 Successfully processed incoming mail");
+        }
       } else {
-        logger.w("📧 No suitable mailbox found for incoming message");
+        if (kDebugMode) {
+          print("📧 No suitable mailbox found or storage not available for incoming message");
+        }
       }
     } catch (e) {
-      logger.e("📧 Error handling incoming mail: $e");
-      // Don't rethrow - just log the error to prevent crashes
+      if (kDebugMode) {
+        print("📧 Critical error handling incoming mail: $e");
+        print("📧 Stack trace: ${StackTrace.current}");
+      }
+      // Don't rethrow - just log the error to prevent GetX crashes
+      // The error is already logged, and we don't want to break the event stream
     }
   }
 
