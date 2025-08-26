@@ -226,8 +226,8 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
         _isLoadingMore = true;
       });
       
-      // Simulate brief loading for smooth UX
-      await Future.delayed(const Duration(milliseconds: 200));
+      // Simulate brief loading for smooth UX (reduced delay for better performance)
+      await Future.delayed(const Duration(milliseconds: 100));
       
       final allMessages = widget.controller.boxMails;
       _processMessages(allMessages);
@@ -357,24 +357,30 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                   if (index >= _dateKeys.length) {
                     return _isLoadingMore
                         ? Container(
-                            padding: const EdgeInsets.all(24.0),
+                            padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
                             child: Center(
-                              child: Column(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  CircularProgressIndicator(
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      widget.theme.colorScheme.primary,
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        widget.theme.colorScheme.primary,
+                                      ),
+                                      strokeWidth: 2.0,
                                     ),
-                                    strokeWidth: 2.5,
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(width: 12),
                                   Text(
-                                    'Loading more emails...',
+                                    'Loading...',
                                     style: TextStyle(
-                                      fontSize: 14,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w400,
                                       color: widget.isDarkMode 
-                                          ? Colors.white70 
+                                          ? Colors.white60 
                                           : Colors.grey.shade600,
                                     ),
                                   ),

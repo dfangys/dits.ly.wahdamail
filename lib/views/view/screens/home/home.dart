@@ -33,34 +33,38 @@ class HomeScreen extends GetView<MailBoxController> {
           Obx(() {
             if (controller.isBusy()) {
               return AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 200),
                 child: Center(
                   key: const ValueKey('home_loading'),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.primaryColor,
+                      SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppTheme.primaryColor,
+                          ),
+                          strokeWidth: 2.5,
                         ),
-                        strokeWidth: 3.0,
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                       Text(
-                        'Loading your inbox...',
+                        'Loading inbox...',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 16,
                           fontWeight: FontWeight.w500,
                           color: Theme.of(context).brightness == Brightness.dark 
                               ? Colors.white70 
                               : Colors.grey.shade700,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
-                        'Please wait while we fetch your messages',
+                        'Please wait',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           color: Theme.of(context).brightness == Brightness.dark 
                               ? Colors.white54 
                               : Colors.grey.shade600,
