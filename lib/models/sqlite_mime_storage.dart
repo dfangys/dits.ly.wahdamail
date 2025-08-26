@@ -142,7 +142,7 @@ class SQLiteMailboxMimeStorage {
               SQLiteDatabaseHelper.columnMailboxId: cachedMailboxId,
               SQLiteDatabaseHelper.columnUid: message.uid,
               SQLiteDatabaseHelper.columnSequenceId: message.sequenceId,
-              SQLiteDatabaseHelper.columnFlags: message.flags?.map((f) => f.toString()).join(',') ?? '',
+              SQLiteDatabaseHelper.columnEmailFlags: message.flags?.map((f) => f.toString()).join(',') ?? '',
               SQLiteDatabaseHelper.columnEnvelope: jsonEncode(_envelopeToMap(message.envelope)),
               SQLiteDatabaseHelper.columnSize: message.size ?? 0,
               SQLiteDatabaseHelper.columnDate: message.decodeDate()?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,

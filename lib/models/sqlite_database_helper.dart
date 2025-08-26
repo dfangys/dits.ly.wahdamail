@@ -19,7 +19,7 @@ class SQLiteDatabaseHelper {
   }
 
   // Database version - increment when schema changes
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 2;
 
   // Table names
   static const String tableEmails = 'emails';
@@ -53,6 +53,7 @@ class SQLiteDatabaseHelper {
   static const String columnEnvelope = 'envelope';
   static const String columnSequenceId = 'sequence_id';
   static const String columnModSeq = 'mod_seq';
+  static const String columnEmailFlags = 'flags';
 
   // Mailbox table columns
   static const String columnName = 'name';
@@ -140,6 +141,7 @@ class SQLiteDatabaseHelper {
         $columnEnvelope BLOB,
         $columnSequenceId INTEGER,
         $columnModSeq INTEGER,
+        $columnEmailFlags TEXT,
         FOREIGN KEY ($columnMailboxId) REFERENCES $tableMailboxes($columnId) ON DELETE CASCADE,
         UNIQUE($columnMailboxId, $columnUid)
       )
@@ -183,7 +185,11 @@ class SQLiteDatabaseHelper {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     // Handle database migrations for future versions
     if (oldVersion < 2) {
-      // Add any new tables or columns for version 2
+      // Add flags column to emails table (version 1 -> 2)
+      await db.execute('ALTER TABLE $tableEmails ADD COLUMN $columnEmailFlags TEXT');
+      if (kDebugMode) {
+        print('📧 Database upgraded: Added flags column to emails table');
+      }
     }
   }
 
