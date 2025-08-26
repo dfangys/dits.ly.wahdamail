@@ -170,8 +170,15 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   }
 
   void _onScroll() {
-    // Trigger loading when user is 300 pixels from the bottom
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
+    // Enhanced scroll detection for better performance
+    if (!_scrollController.hasClients || _isLoadingMore) return;
+    
+    final position = _scrollController.position;
+    final maxScroll = position.maxScrollExtent;
+    final currentScroll = position.pixels;
+    
+    // Trigger loading when user is 400 pixels from the bottom (increased threshold)
+    if (currentScroll >= maxScroll - 400) {
       _loadMoreMessages();
     }
   }
@@ -181,25 +188,55 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     _processMessages(messages);
   }
 
-  Future<void> _loadMoreMessages() async {
-    if (_isLoadingMore) return;
+  void _loadMoreMessages() async {
+    if (_isLoadingMore || !mounted) return;
     
-    setState(() {
-      _isLoadingMore = true;
-    });
-
-    try {
-      await widget.controller.loadMoreEmails(widget.mailBox, _currentPage + 1);
-      _currentPage++;
-      
-      final messages = widget.controller.boxMails;
-      _processMessages(messages);
-    } catch (e) {
-      // Handle error
-    } finally {
+    final totalMessages = widget.controller.boxMails.length;
+    final currentlyDisplayed = _groupedMessages.values.fold<int>(0, (sum, list) => sum + list.length);
+    
+    // Check if we have more messages to display
+    if (currentlyDisplayed >= totalMessages) {
+      // Try to load more from server
+      try {
+        setState(() {
+          _isLoadingMore = true;
+        });
+        
+        await widget.controller.loadMoreEmails(widget.mailBox, _currentPage + 1);
+        _currentPage++; // Increment page after successful load
+        
+        // Refresh the display with new messages
+        final allMessages = widget.controller.boxMails;
+        if (allMessages.length > totalMessages) {
+          _processMessages(allMessages);
+        }
+      } catch (e) {
+        // Handle error silently or show user feedback
+        print('Error loading more emails: $e');
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoadingMore = false;
+          });
+        }
+      }
+    } else {
+      // We have more messages locally, just display them
       setState(() {
-        _isLoadingMore = false;
+        _isLoadingMore = true;
       });
+      
+      // Simulate brief loading for smooth UX
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      final allMessages = widget.controller.boxMails;
+      _processMessages(allMessages);
+      
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -207,21 +244,17 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     _groupedMessages.clear();
     _dateKeys.clear();
 
-    for (final message in messages) {
-      // Use the enhanced date parsing from mail tile
-      DateTime? messageDate;
-      
-      // Try multiple date sources in order of preference
-      try {
-        messageDate = message.decodeDate();
-      } catch (e) {
-        // Fallback to envelope date
-        messageDate = message.envelope?.date;
-      }
-      
-      // Final fallback to current date if all else fails
-      final date = messageDate ?? DateTime.now();
-      final dateKey = DateTime(date.year, date.month, date.day);
+    // Sort all messages first by date (newest first) for consistent ordering
+    final sortedMessages = List<MimeMessage>.from(messages);
+    sortedMessages.sort((a, b) {
+      final dateA = _getMessageDate(a);
+      final dateB = _getMessageDate(b);
+      return dateB.compareTo(dateA);
+    });
+
+    for (final message in sortedMessages) {
+      final messageDate = _getMessageDate(message);
+      final dateKey = DateTime(messageDate.year, messageDate.month, messageDate.day);
       
       if (!_groupedMessages.containsKey(dateKey)) {
         _groupedMessages[dateKey] = [];
@@ -233,18 +266,46 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     // Sort dates in descending order (newest first)
     _dateKeys.sort((a, b) => b.compareTo(a));
     
-    // Sort messages within each date group by time (newest first)
-    for (final dateKey in _dateKeys) {
-      _groupedMessages[dateKey]!.sort((a, b) {
-        final dateA = a.decodeDate() ?? a.envelope?.date ?? DateTime.now();
-        final dateB = b.decodeDate() ?? b.envelope?.date ?? DateTime.now();
-        return dateB.compareTo(dateA);
-      });
-    }
+    // Messages within each group are already sorted from the initial sort
     
     if (mounted) {
       setState(() {});
     }
+  }
+
+  DateTime _getMessageDate(MimeMessage message) {
+    // Enhanced date extraction with multiple fallbacks
+    DateTime? messageDate;
+    
+    try {
+      // Primary: Use decodeDate() method
+      messageDate = message.decodeDate();
+      if (messageDate != null) return messageDate;
+    } catch (e) {
+      // Continue to next fallback
+    }
+    
+    try {
+      // Secondary: Use envelope date
+      messageDate = message.envelope?.date;
+      if (messageDate != null) return messageDate;
+    } catch (e) {
+      // Continue to next fallback
+    }
+    
+    try {
+      // Tertiary: Parse date from headers
+      final dateHeader = message.getHeaderValue('date');
+      if (dateHeader != null) {
+        messageDate = DateTime.tryParse(dateHeader);
+        if (messageDate != null) return messageDate;
+      }
+    } catch (e) {
+      // Continue to final fallback
+    }
+    
+    // Final fallback: Use current time (should rarely happen)
+    return DateTime.now();
   }
 
   @override
@@ -420,6 +481,7 @@ class OptimizedDateGroup extends StatelessWidget {
     final yesterday = today.subtract(const Duration(days: 1));
     final dateOnly = DateTime(date.year, date.month, date.day);
     final weekAgo = today.subtract(const Duration(days: 7));
+    final monthAgo = today.subtract(const Duration(days: 30));
 
     if (dateOnly == today) {
       return 'Today';
@@ -429,6 +491,11 @@ class OptimizedDateGroup extends StatelessWidget {
       // This week - show day name
       const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       return days[date.weekday - 1];
+    } else if (dateOnly.isAfter(monthAgo) && date.year == now.year) {
+      // This month - show "Week of" format for better organization
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}';
     } else if (date.year == now.year) {
       // This year - show month and day
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
