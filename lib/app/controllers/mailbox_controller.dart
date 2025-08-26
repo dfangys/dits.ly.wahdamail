@@ -170,6 +170,12 @@ class MailBoxController extends GetxController {
       // Set current mailbox to fix fetch error when switching
       currentMailbox = mailbox;
 
+      // PERFORMANCE FIX: If emails already exist, just return them (use cache)
+      if (hasExistingEmails) {
+        logger.i("Using cached emails for ${mailbox.name} (${emails[mailbox]!.length} messages)");
+        return;
+      }
+
       // Check connection with shorter timeout
       if (!mailService.client.isConnected) {
         if (!hasExistingEmails && Get.isRegistered<EmailDownloadProgressController>()) {
@@ -237,7 +243,8 @@ class MailBoxController extends GetxController {
             },
           );
           
-          await fetchMailbox(mailbox).timeout(
+          // PERFORMANCE FIX: Use forceRefresh on retry to ensure fresh data
+          await fetchMailbox(mailbox, forceRefresh: true).timeout(
             const Duration(seconds: 30),
             onTimeout: () {
               logger.e("Timeout while fetching mailbox on retry: ${mailbox.name}");
@@ -283,7 +290,7 @@ class MailBoxController extends GetxController {
   int page = 1;
   int pageSize = 10; // Reduced from 20 to prevent timeouts
 
-  Future<void> fetchMailbox(Mailbox mailbox) async {
+  Future<void> fetchMailbox(Mailbox mailbox, {bool forceRefresh = false}) async {
     try {
       // Ensure we're working with the correct mailbox
       if (currentMailbox != mailbox) {
@@ -303,19 +310,34 @@ class MailBoxController extends GetxController {
           mailbox.uidNext,
         );
       }
+      
       if (max == 0) {
         // No messages, but still update the storage to trigger UI update
+        if (emails[mailbox] == null) {
+          emails[mailbox] = <MimeMessage>[];
+        }
         if (mailboxStorage[mailbox] != null) {
           await mailboxStorage[mailbox]!.saveMessageEnvelopes([]);
         }
         return;
       }
       
+      // Initialize emails list if not exists
       if (emails[mailbox] == null) {
         emails[mailbox] = <MimeMessage>[];
       }
-      page = 1;
-      emails[mailbox]!.clear();
+
+      // PERFORMANCE FIX: Only clear and refetch if forced or no emails cached
+      if (!forceRefresh && emails[mailbox]!.isNotEmpty) {
+        logger.i("Using cached emails for ${mailbox.name} (${emails[mailbox]!.length} messages)");
+        return; // Use cached emails
+      }
+
+      // Clear only when actually refreshing
+      if (forceRefresh) {
+        emails[mailbox]!.clear();
+        logger.i("Force refresh: cleared cached emails for ${mailbox.name}");
+      }
 
       // Initialize storage with timeout
       if (mailboxStorage[mailbox] == null) {
@@ -331,26 +353,27 @@ class MailBoxController extends GetxController {
         );
       }
 
-      // Load messages in smaller batches to avoid sequence issues and database locks
+      // PERFORMANCE OPTIMIZATION: Use larger batch sizes and fewer requests
       int loaded = 0;
-      int maxToLoad = max > 200 ? 200 : max; // Load up to 200 recent messages
+      int maxToLoad = max > 100 ? 100 : max; // Load up to 100 recent messages
+      int batchSize = 50; // Increased from 10 to 50 for better performance
       
       while (loaded < maxToLoad) {
-        int batchSize = pageSize;
-        if (loaded + batchSize > maxToLoad) {
-          batchSize = maxToLoad - loaded;
+        int currentBatchSize = batchSize;
+        if (loaded + currentBatchSize > maxToLoad) {
+          currentBatchSize = maxToLoad - loaded;
         }
         
         // Load from the most recent messages (highest sequence numbers)
-        int start = max - loaded - batchSize + 1;
+        int start = max - loaded - currentBatchSize + 1;
         int end = max - loaded;
         
-        // Create a safe sequence
+        // Ensure valid range
+        if (start < 1) start = 1;
+        if (end < start) break;
+        
         MessageSequence sequence;
         try {
-          if (end > maxToLoad) {
-            end = maxToLoad;
-          }
           sequence = MessageSequence.fromRange(start, end);
         } catch (e) {
           logger.e("Error creating sequence for range $start:$end: $e");
@@ -358,62 +381,65 @@ class MailBoxController extends GetxController {
         }
         
         try {
-          // Add small delay to prevent database locking
-          if (loaded > 0) {
-            await Future.delayed(const Duration(milliseconds: 100));
+          // PERFORMANCE FIX: Try database first, then network if needed
+          List<MimeMessage> messages = [];
+          
+          // Try to load from database first
+          try {
+            messages = await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence).timeout(
+              const Duration(seconds: 10),
+            );
+          } catch (e) {
+            logger.w("Database load failed, trying network: $e");
           }
           
-          final messages = await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence).timeout(
-            const Duration(seconds: 15),
-            onTimeout: () {
-              throw TimeoutException("Database load timeout", const Duration(seconds: 15));
-            },
-          );
+          // If not in database, fetch from network
+          if (messages.isEmpty) {
+            messages = await queue(sequence).timeout(
+              const Duration(seconds: 30),
+              onTimeout: () {
+                throw TimeoutException("Network fetch timeout", const Duration(seconds: 30));
+              },
+            );
+            
+            // Save to database for future use (fire and forget)
+            if (messages.isNotEmpty) {
+              mailboxStorage[mailbox]!.saveMessageEnvelopes(messages).catchError((e) {
+                logger.w("Database save failed: $e");
+              });
+            }
+          }
           
           if (messages.isNotEmpty) {
             emails[mailbox]!.addAll(messages);
             loaded += messages.length;
+            logger.i("Loaded batch: ${messages.length} messages (total: ${emails[mailbox]!.length})");
           } else {
-            List<MimeMessage> newMessages = await queue(sequence).timeout(
-              const Duration(seconds: 20),
-              onTimeout: () {
-                throw TimeoutException("Network fetch timeout", const Duration(seconds: 20));
-              },
-            );
-            
-            if (newMessages.isNotEmpty) {
-              emails[mailbox]!.addAll(newMessages);
-              
-              // Save with timeout and delay to prevent database locking
-              await Future.delayed(const Duration(milliseconds: 50));
-              await mailboxStorage[mailbox]!.saveMessageEnvelopes(newMessages).timeout(
-                const Duration(seconds: 10),
-                onTimeout: () {
-                  logger.w("Database save timeout - continuing without saving");
-                },
-              );
-              
-              loaded += newMessages.length;
-            } else {
-              // No more messages to load
-              break;
-            }
+            // No more messages to load
+            break;
           }
         } catch (e) {
           logger.e("Error loading messages for sequence $start:$end: $e");
-          // Try to continue with next batch instead of failing completely
-          loaded += batchSize;
-          
-          // Add delay before next attempt
-          await Future.delayed(const Duration(milliseconds: 200));
-        }
-        
-        // Prevent infinite loop
-        if (loaded >= maxToLoad || batchSize == 0) {
-          break;
+          // Continue with next batch instead of failing completely
+          loaded += currentBatchSize;
         }
       }
       
+      // Sort messages by date (newest first) for better UX
+      if (emails[mailbox]!.isNotEmpty) {
+        emails[mailbox]!.sort((a, b) {
+          final dateA = a.decodeDate();
+          final dateB = b.decodeDate();
+          if (dateA == null && dateB == null) return 0;
+          if (dateA == null) return 1;
+          if (dateB == null) return -1;
+          return dateB.compareTo(dateA); // Newest first
+        });
+      }
+      
+      logger.i("Finished loading ${emails[mailbox]!.length} emails for ${mailbox.name}");
+      
+      // Update background service for inbox
       if (mailbox.isInbox) {
         try {
           BackgroundService.checkForNewMail(false);
@@ -423,6 +449,7 @@ class MailBoxController extends GetxController {
         }
       }
       
+      // Update unread count
       if (Get.isRegistered<MailCountController>()) {
         final countControll = Get.find<MailCountController>();
         String key = "${mailbox.name.toLowerCase()}_count";
@@ -442,16 +469,11 @@ class MailBoxController extends GetxController {
     try {
       isBoxBusy(true);
       
-      // Clear current data
-      if (emails[mailbox] != null) {
-        emails[mailbox]!.clear();
-      }
-      
       // Reset pagination
       page = 1;
       
-      // Reload emails
-      await loadEmailsForBox(mailbox);
+      // PERFORMANCE FIX: Use forceRefresh parameter instead of manual clearing
+      await fetchMailbox(mailbox, forceRefresh: true);
     } catch (e) {
       logger.e("Error refreshing mailbox: $e");
       Get.snackbar(
