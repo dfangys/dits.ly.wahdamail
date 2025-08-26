@@ -419,7 +419,7 @@ class _HomeEmailListState extends State<HomeEmailList> {
           // Use the correct method to toggle selection
           selectionController.toggle(message);
         } else {
-          Get.to(() => ShowMessage(message: message));
+          Get.to(() => ShowMessage(message: message, mailbox: controller.mailBoxInbox));
         }
       },
     ));
