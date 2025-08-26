@@ -508,35 +508,106 @@ class ComposeController extends GetxController {
   // CRITICAL FIX: Load draft from MimeMessage directly (server-based drafts)
   Future<void> _loadDraftFromMessage(MimeMessage message) async {
     try {
-      // FIXED: Since drafts are now loaded from server, extract data directly from MimeMessage
-      // No need to query SQLiteDraftRepository as all data is in the message
+      debugPrint('Loading draft: ${message.decodeSubject()}');
       
-      // Set draft metadata
-      _showDraftOptions.value = true;
-      _lastSavedTime.value = _formatSaveTime(DateTime.now());
+      // FIXED: Load all draft data from MimeMessage
       
-      // Load attachments from the MimeMessage
+      // 1. Load recipients
+      toList.clear();
+      cclist.clear();
+      bcclist.clear();
+      
+      // Load To recipients
+      if (message.to != null) {
+        for (final address in message.to!) {
+          toList.add(address);
+        }
+        debugPrint('Draft recipients - To: ${toList.length}');
+      }
+      
+      // Load CC recipients
+      if (message.cc != null) {
+        for (final address in message.cc!) {
+          cclist.add(address);
+        }
+        debugPrint('Draft recipients - CC: ${cclist.length}');
+      }
+      
+      // Load BCC recipients
+      if (message.bcc != null) {
+        for (final address in message.bcc!) {
+          bcclist.add(address);
+        }
+        debugPrint('Draft recipients - BCC: ${bcclist.length}');
+      }
+      
+      // 2. Load subject
+      final subject = message.decodeSubject() ?? '';
+      subjectController.text = subject;
+      debugPrint('Draft subject loaded: $subject');
+      
+      // 3. Load body content
+      String bodyContent = '';
+      bool isHtmlContent = false;
+      
+      // Try to get HTML content first
+      if (message.hasTextHtmlPart()) {
+        bodyContent = message.decodeTextHtmlPart() ?? '';
+        isHtmlContent = true;
+        debugPrint('Draft body type: HTML');
+      } else if (message.hasTextPlainPart()) {
+        bodyContent = message.decodeTextPlainPart() ?? '';
+        isHtmlContent = false;
+        debugPrint('Draft body type: Plain text');
+      }
+      
+      debugPrint('Draft body content length: ${bodyContent.length}');
+      
+      // Set the content in the appropriate editor
+      if (isHtmlContent && bodyContent.isNotEmpty) {
+        isHtml.value = true;
+        bodyPart = bodyContent;
+        debugPrint('Setting HTML editor content: ${bodyContent.length} characters');
+        await htmlController.setText(bodyContent);
+        debugPrint('HTML editor content set successfully');
+      } else if (bodyContent.isNotEmpty) {
+        isHtml.value = false;
+        plainTextController.text = bodyContent;
+        debugPrint('Plain text editor content set successfully');
+      }
+      
+      // 4. Load attachments from the MimeMessage
+      attachments.clear();
       if (message.hasAttachments()) {
         final attachmentInfos = message.findContentInfo(disposition: ContentDisposition.attachment);
+        debugPrint('Draft has ${attachmentInfos.length} attachments');
+        
         for (final info in attachmentInfos) {
           try {
             // Extract attachment info from the content info
             final filename = info.fileName ?? 'attachment';
             final contentType = info.contentType?.toString() ?? 'application/octet-stream';
             
-            // Note: For server-based drafts, attachments are embedded in the message
-            // We would need to download and save them locally if editing is required
-            // For now, we'll log the attachment info
             debugPrint('Draft has attachment: $filename ($contentType)');
             
             // TODO: Download attachment data and create local file if needed for editing
             // This would require implementing attachment download from the MimeMessage
+            // For now, we'll log the attachment info
             
           } catch (e) {
             debugPrint('Error processing attachment: $e');
           }
         }
       }
+      
+      // 5. Set draft metadata
+      _showDraftOptions.value = true;
+      _lastSavedTime.value = _formatSaveTime(DateTime.now());
+      _hasUnsavedChanges.value = false;
+      _draftStatus.value = 'draft_loaded'.tr;
+      
+      // Force UI update
+      update();
       
       debugPrint('Successfully loaded draft from server: ${message.decodeSubject()}');
       
