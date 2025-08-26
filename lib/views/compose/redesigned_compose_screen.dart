@@ -6,6 +6,7 @@ import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/redesigned_compose_view.dart';
+import 'package:wahda_bank/views/compose/widgets/modern_draft_options_sheet.dart';
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
 import 'package:intl/intl.dart';
 
@@ -198,49 +199,92 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
         ),
       ),
       actions: [
-        // Save as draft button
+        // Draft status indicator with color coding (like original)
+        Obx(() => controller.draftStatus.isNotEmpty
+            ? Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getDraftStatusColor().withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _getDraftStatusColor().withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (controller.draftStatus == 'saving_draft'.tr) ...[
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: _getDraftStatusColor(),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ] else ...[
+                      Icon(
+                        _getDraftStatusIcon(),
+                        size: 12,
+                        color: _getDraftStatusColor(),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      controller.draftStatus,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _getDraftStatusColor(),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : const SizedBox.shrink()),
+        
+        // Send button
         Obx(() => IconButton(
-          icon: Icon(
-            Icons.save_outlined,
-            color: controller.hasUnsavedChanges
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurfaceVariant,
-          ),
-          onPressed: controller.hasUnsavedChanges
-              ? () => _saveDraft()
-              : null,
-          tooltip: 'save_draft'.tr,
+          onPressed: controller.isSending.value ? null : _sendEmail,
+          icon: controller.isSending.value
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme.colorScheme.primary,
+                  ),
+                )
+              : Icon(
+                  Icons.send_rounded,
+                  color: theme.colorScheme.primary,
+                  size: 22,
+                ),
+          tooltip: 'send_email'.tr,
         )),
         
-        // More options
-        PopupMenuButton<String>(
+        // Attachment button
+        IconButton(
+          onPressed: _showAttachmentOptions,
+          icon: Icon(
+            Icons.attach_file_rounded,
+            color: theme.colorScheme.onSurfaceVariant,
+            size: 22,
+          ),
+          tooltip: 'attach_file'.tr,
+        ),
+        
+        // More options button
+        IconButton(
+          onPressed: _showMoreOptions,
           icon: Icon(
             Icons.more_vert_rounded,
-            color: theme.colorScheme.onSurface,
+            color: theme.colorScheme.onSurfaceVariant,
+            size: 22,
           ),
-          onSelected: _handleMenuAction,
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 'schedule',
-              child: Row(
-                children: [
-                  Icon(Icons.schedule_outlined, size: 20),
-                  const SizedBox(width: 12),
-                  Text('schedule_send'.tr),
-                ],
-              ),
-            ),
-            PopupMenuItem(
-              value: 'discard',
-              child: Row(
-                children: [
-                  Icon(Icons.delete_outline, size: 20, color: theme.colorScheme.error),
-                  const SizedBox(width: 12),
-                  Text('discard_draft'.tr, style: TextStyle(color: theme.colorScheme.error)),
-                ],
-              ),
-            ),
-          ],
+          tooltip: 'more_options'.tr,
         ),
       ],
     );
@@ -464,6 +508,112 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
           ),
         ],
       ),
+    );
+  }
+
+  // Draft status color coding (like original implementation)
+  Color _getDraftStatusColor() {
+    if (controller.draftStatus == 'draft_saved'.tr) {
+      return Colors.green;
+    } else if (controller.draftStatus == 'saving_draft'.tr) {
+      return Colors.orange;
+    } else if (controller.draftStatus == 'unsaved_changes'.tr) {
+      return Colors.red;
+    } else {
+      return Colors.grey;
+    }
+  }
+
+  IconData _getDraftStatusIcon() {
+    if (controller.draftStatus == 'draft_saved'.tr) {
+      return Icons.check_circle_outline;
+    } else if (controller.draftStatus == 'unsaved_changes'.tr) {
+      return Icons.circle;
+    } else {
+      return Icons.info_outline;
+    }
+  }
+
+  void _showAttachmentOptions() {
+    final theme = Theme.of(context);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 20),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            
+            Text(
+              'attach_file'.tr,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // Options
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.folder_outlined, color: Colors.blue),
+              ),
+              title: Text('from_files'.tr),
+              onTap: () {
+                Get.back();
+                controller.pickFiles();
+              },
+            ),
+            
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.photo_outlined, color: Colors.green),
+              ),
+              title: Text('from_gallery'.tr),
+              onTap: () {
+                Get.back();
+                controller.pickImage();
+              },
+            ),
+            
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMoreOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => ModernDraftOptionsSheet(),
     );
   }
 }

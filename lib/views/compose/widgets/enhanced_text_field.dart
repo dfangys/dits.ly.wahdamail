@@ -374,10 +374,74 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
                 color: theme.colorScheme.onSurfaceVariant,
                 size: 20,
               ),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Contact picker button
+                  IconButton(
+                    onPressed: () async {
+                      try {
+                        if (await FlutterContacts.requestPermission(readonly: true)) {
+                          final contact = await FlutterContacts.openExternalPick();
+                          if (contact != null && contact.emails.isNotEmpty) {
+                            widget.onInsert(
+                              MailAddress(
+                                contact.displayName,
+                                contact.emails.first.address,
+                              ),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        // Handle permission denied or other errors
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('contact_picker_error'.tr),
+                            backgroundColor: theme.colorScheme.error,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    icon: Icon(
+                      Icons.contacts_outlined,
+                      color: theme.colorScheme.primary.withValues(alpha: 0.8),
+                      size: 20,
+                    ),
+                    tooltip: 'select_from_contacts'.tr,
+                  ),
+                ],
+              ),
             ),
             style: theme.textTheme.bodyMedium,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.done,
+            onChanged: (value) {
+              // Auto-insert on space or comma (like original implementation)
+              if ((value.trim().endsWith(' ') || value.trim().endsWith(',')) && 
+                  value.trim().length > 1) {
+                final email = value.trim().replaceAll(RegExp(r'[, ]+$'), '');
+                if (email.isNotEmpty && email.contains('@')) {
+                  final mailAddress = MailAddress('', email);
+                  widget.onInsert(mailAddress);
+                  controller.clear();
+                }
+              }
+            },
+            onEditingComplete: () {
+              // Handle editing complete (like original implementation)
+              if (controller.text.trim().isNotEmpty) {
+                final email = controller.text.trim();
+                if (email.contains('@')) {
+                  final mailAddress = MailAddress('', email);
+                  widget.onInsert(mailAddress);
+                  controller.clear();
+                }
+              }
+            },
             onSubmitted: (value) {
               if (value.trim().isNotEmpty && value.contains('@')) {
                 final mailAddress = MailAddress('', value.trim());
