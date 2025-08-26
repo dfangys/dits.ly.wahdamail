@@ -388,20 +388,60 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
   }
 
   Future<void> _previewAttachment() async {
-    // TODO: Implement image preview
-    if (kDebugMode) {
-      print('Preview attachment: ${widget.contentInfo.fileName}');
+    try {
+      // Get attachment data
+      final data = widget.contentInfo.fetchData();
+      if (data == null || data.isEmpty) {
+        if (kDebugMode) {
+          print('No attachment data available for preview');
+        }
+        return;
+      }
+
+      // Create temporary file for preview
+      final directory = await getTemporaryDirectory();
+      final fileName = widget.contentInfo.fileName ?? 'attachment_${DateTime.now().millisecondsSinceEpoch}';
+      final file = File('${directory.path}/$fileName');
+      
+      await file.writeAsBytes(data);
+      
+      // Open the file for preview
+      final result = await OpenAppFile.open(file.path);
+      
+      if (kDebugMode) {
+        print('Preview attachment result: ${result.type} - ${result.message}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error previewing attachment: $e');
+      }
+      // Show error to user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to preview attachment: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   Future<void> _shareAttachment() async {
     try {
-      // Simplified approach - create a text file with attachment info
+      // Get attachment data
+      final data = widget.contentInfo.fetchData();
+      if (data == null || data.isEmpty) {
+        if (kDebugMode) {
+          print('No attachment data available for sharing');
+        }
+        return;
+      }
+
+      // Create temporary file for sharing
       final directory = await getTemporaryDirectory();
-      final fileName = widget.contentInfo.fileName ?? 'attachment';
-      final file = File('${directory.path}/$fileName.txt');
+      final fileName = widget.contentInfo.fileName ?? 'attachment_${DateTime.now().millisecondsSinceEpoch}';
+      final file = File('${directory.path}/$fileName');
       
-      await file.writeAsString('Email Attachment: ${widget.contentInfo.fileName ?? "Unknown"}');
+      await file.writeAsBytes(data);
       
       await Share.shareXFiles(
         [XFile(file.path)],
@@ -411,6 +451,13 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
       if (kDebugMode) {
         print('Error sharing attachment: $e');
       }
+      // Show error to user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to share attachment: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -431,12 +478,17 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
         return;
       }
 
-      // Simplified approach - create a placeholder file
+      // Get attachment data
+      final data = widget.contentInfo.fetchData();
+      if (data == null || data.isEmpty) {
+        throw Exception('No attachment data available');
+      }
+
       final directory = await getApplicationDocumentsDirectory();
       final fileName = widget.contentInfo.fileName ?? 'attachment_${DateTime.now().millisecondsSinceEpoch}';
-      final file = File('${directory.path}/$fileName.txt');
+      final file = File('${directory.path}/$fileName');
       
-      await file.writeAsString('Email Attachment: ${widget.contentInfo.fileName ?? "Unknown"}');
+      await file.writeAsBytes(data);
       
       if (kDebugMode) {
         print('Downloaded attachment: $fileName');

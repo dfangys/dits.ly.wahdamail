@@ -162,22 +162,16 @@ class ComposeController extends GetxController {
               : '';
           messageBuilder = MessageBuilder.prepareFromDraft(msg!);
 
-          // Load draft from storage
-          _loadDraftFromMessage(msg!);
+          // Load draft from storage with comprehensive debugging
+          await _loadDraftFromMessage(msg!);
           
           // DEBUGGING: Log draft loading info
           debugPrint('Loading draft: ${msg!.decodeSubject()}');
           debugPrint('Draft recipients - To: ${msg!.to?.length ?? 0}, CC: ${msg!.cc?.length ?? 0}, BCC: ${msg!.bcc?.length ?? 0}');
         }
 
-        bodyPart = msg!.decodeTextHtmlPart() ?? msg!.decodeTextPlainPart() ?? '';
-        
-        // DEBUGGING: Log body content loading
-        debugPrint('Draft body content length: ${bodyPart.length}');
-        if (bodyPart.isNotEmpty) {
-          debugPrint('Draft body preview: ${bodyPart.substring(0, bodyPart.length > 100 ? 100 : bodyPart.length)}...');
-        } else {
-          debugPrint('WARNING: Draft body is empty!');
+        // NOTE: Body content is now handled in _loadDraftFromMessage method
+        // Removed duplicate body loading logic to prevent conflicts
         }
       } else {
         final settingController = Get.find<SettingController>();
@@ -582,39 +576,75 @@ class ComposeController extends GetxController {
       subjectController.text = subject;
       debugPrint('Draft subject loaded: $subject');
       
-      // 3. Load body content
+      // 3. Load body content with enhanced debugging
       String bodyContent = '';
       bool isHtmlContent = false;
       
+      debugPrint('DEBUG: Starting body content extraction...');
+      debugPrint('DEBUG: Message has parts: ${message.parts?.length ?? 0}');
+      debugPrint('DEBUG: Message media type: ${message.mediaType}');
+      
       // Try to get HTML content first
       final htmlContent = message.decodeTextHtmlPart();
-      if (htmlContent != null && htmlContent.isNotEmpty) {
+      debugPrint('DEBUG: HTML content extracted: ${htmlContent?.length ?? 0} characters');
+      
+      if (htmlContent != null && htmlContent.trim().isNotEmpty) {
         bodyContent = htmlContent;
         isHtmlContent = true;
-        debugPrint('Draft body type: HTML');
+        debugPrint('Draft body type: HTML (${bodyContent.length} chars)');
       } else {
         final plainContent = message.decodeTextPlainPart();
-        if (plainContent != null && plainContent.isNotEmpty) {
+        debugPrint('DEBUG: Plain content extracted: ${plainContent?.length ?? 0} characters');
+        
+        if (plainContent != null && plainContent.trim().isNotEmpty) {
           bodyContent = plainContent;
           isHtmlContent = false;
-          debugPrint('Draft body type: Plain text');
+          debugPrint('Draft body type: Plain text (${bodyContent.length} chars)');
+        } else {
+          // Fallback: Try to extract from message body directly
+          debugPrint('DEBUG: Trying fallback body extraction...');
+          try {
+            final bodyText = message.decodeContentText();
+            if (bodyText != null && bodyText.trim().isNotEmpty) {
+              bodyContent = bodyText;
+              isHtmlContent = false;
+              debugPrint('Draft body type: Fallback text (${bodyContent.length} chars)');
+            }
+          } catch (e) {
+            debugPrint('DEBUG: Fallback body extraction failed: $e');
+          }
         }
       }
       
-      debugPrint('Draft body content length: ${bodyContent.length}');
+      debugPrint('DEBUG: Final body content length: ${bodyContent.length}');
+      debugPrint('DEBUG: Body content preview: ${bodyContent.length > 100 ? bodyContent.substring(0, 100) + "..." : bodyContent}');
       
-      // Set the content in the appropriate editor
+      // Set the content in the appropriate editor with enhanced error handling
       if (isHtmlContent && bodyContent.isNotEmpty) {
         isHtml.value = true;
         bodyPart = bodyContent;
         debugPrint('Setting HTML editor content: ${bodyContent.length} characters');
-        // Use setText method properly
-        htmlController.setText(bodyContent);
-        debugPrint('HTML editor content set successfully');
+        
+        try {
+          // Use setText method properly with await
+          await htmlController.setText(bodyContent);
+          debugPrint('HTML editor content set successfully');
+        } catch (e) {
+          debugPrint('ERROR: Failed to set HTML content: $e');
+          // Fallback to plain text if HTML setting fails
+          isHtml.value = false;
+          plainTextController.text = bodyContent;
+          debugPrint('Fallback: Set as plain text instead');
+        }
       } else if (bodyContent.isNotEmpty) {
         isHtml.value = false;
         plainTextController.text = bodyContent;
         debugPrint('Plain text editor content set successfully');
+      } else {
+        debugPrint('WARNING: No body content found in draft message');
+        // Set empty content
+        isHtml.value = false;
+        plainTextController.text = '';
       }
       
       // 4. Load attachments from the MimeMessage

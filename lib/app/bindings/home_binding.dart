@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/auth_controller.dart';
 import 'package:wahda_bank/models/sqlite_mime_storage.dart';
+import 'package:wahda_bank/models/sqlite_draft_repository.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
@@ -16,6 +17,9 @@ class HomeBinding extends Bindings {
   void dependencies() {
     // Register MailService first as it's required by other services
     Get.put<MailService>(MailService.instance, permanent: true);
+    
+    // Register SQLiteDraftRepository for draft functionality
+    Get.put<SQLiteDraftRepository>(SQLiteDraftRepository.instance, permanent: true);
     
     // Register performance optimization services
     Get.put<CacheManager>(CacheManager(), permanent: true);
