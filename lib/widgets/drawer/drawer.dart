@@ -181,7 +181,7 @@ class Drawer1 extends StatelessWidget {
 
   Widget _buildDrawerHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 48, 20, 24),
+      padding: const EdgeInsets.fromLTRB(14, 48, 20, 24),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -240,14 +240,14 @@ class Drawer1 extends StatelessWidget {
           children: [
             const Icon(
               Iconsax.edit,
-              color: Colors.green,
+              color: Colors.blue,
               size: 20,
             ),
             const SizedBox(width: 8),
             Text(
               'compose'.tr,
               style: const TextStyle(
-                color: Colors.green,
+                color: Colors.blue,
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
               ),
