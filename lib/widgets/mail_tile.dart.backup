@@ -197,10 +197,6 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
                   onTap: widget.onTap,
                   theme: theme,
                   isDarkMode: isDarkMode,
-                  onMarkAsRead: _markAsRead,
-                  onToggleFlag: _toggleFlag,
-                  onDeleteMessage: _deleteMessage,
-                  onArchiveMessage: _archiveMessage,
                 ),
               ),
             ),
@@ -208,200 +204,6 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
         },
       );
     });
-  }
-
-  // Action methods for email operations with optimistic updates
-  void _markAsRead() async {
-    final realtimeService = RealtimeUpdateService.instance;
-    
-    // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
-    final wasUnread = !widget.message.isSeen;
-    setState(() {
-      if (wasUnread) {
-        widget.message.isSeen = true;
-      } else {
-        widget.message.isSeen = false;
-      }
-    });
-    
-    // Show immediate visual feedback
-    _showActionFeedback(
-      wasUnread ? 'Marked as read' : 'Marked as unread',
-      wasUnread ? Icons.mark_email_read : Icons.mark_email_unread,
-      Colors.blue,
-    );
-    
-    try {
-      // Perform server action in background
-      if (wasUnread) {
-        await realtimeService.markMessageAsRead(widget.message);
-      } else {
-        await realtimeService.markMessageAsUnread(widget.message);
-      }
-    } catch (e) {
-      // ROLLBACK: Revert optimistic update on error
-      setState(() {
-        widget.message.isSeen = wasUnread;
-      });
-      
-      Get.snackbar(
-        'Error',
-        'Failed to update message: ${e.toString()}',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-      );
-    }
-  }
-
-  void _toggleFlag() async {
-    final realtimeService = RealtimeUpdateService.instance;
-    
-    // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
-    final wasFlagged = widget.message.isFlagged;
-    setState(() {
-      if (wasFlagged) {
-        widget.message.isFlagged = false;
-      } else {
-        widget.message.isFlagged = true;
-      }
-    });
-    
-    // Show immediate visual feedback
-    _showActionFeedback(
-      wasFlagged ? 'Unflagged' : 'Flagged',
-      wasFlagged ? Icons.flag_outlined : Icons.flag,
-      Colors.orange,
-    );
-    
-    try {
-      // Perform server action in background
-      if (wasFlagged) {
-        await realtimeService.unflagMessage(widget.message);
-      } else {
-        await realtimeService.flagMessage(widget.message);
-      }
-    } catch (e) {
-      // ROLLBACK: Revert optimistic update on error
-      setState(() {
-        widget.message.isFlagged = wasFlagged;
-      });
-      
-      Get.snackbar(
-        'Error',
-        'Failed to update flag: ${e.toString()}',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-      );
-    }
-  }
-
-  void _deleteMessage() async {
-    final realtimeService = RealtimeUpdateService.instance;
-    
-    // Show immediate visual feedback with animation
-    _showActionFeedback(
-      'Deleting...',
-      Icons.delete,
-      Colors.red,
-    );
-    
-    // OPTIMISTIC UPDATE: Start fade-out animation immediately
-    setState(() {
-      _isDeleting = true;
-    });
-    
-    try {
-      // Perform server action
-      await realtimeService.deleteMessage(widget.message);
-      
-      // Success feedback
-      _showActionFeedback(
-        'Message deleted',
-        Icons.check,
-        Colors.green,
-      );
-      
-      // Remove from UI after animation
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) {
-          // Notify parent to remove from list
-          mailboxController.removeMessageFromUI(widget.message, widget.mailBox);
-        }
-      });
-      
-    } catch (e) {
-      // ROLLBACK: Revert optimistic update on error
-      setState(() {
-        _isDeleting = false;
-      });
-      
-      Get.snackbar(
-        'Error',
-        'Failed to delete message: ${e.toString()}',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-      );
-    }
-  }
-
-  void _archiveMessage() async {
-    // Archive functionality - move to archive folder
-    try {
-      Get.snackbar(
-        'Info',
-        'Archive functionality coming soon',
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-      );
-    } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to archive message',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
-    }
-  }
-
-  // Visual feedback method for smooth user experience
-  void _showActionFeedback(String message, IconData icon, Color color) {
-    // Trigger haptic feedback
-    HapticFeedback.lightImpact();
-    
-    // Show subtle animation
-    _feedbackController.forward().then((_) {
-      _feedbackController.reverse();
-    });
-    
-    // Show toast-like feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white, size: 16),
-            const SizedBox(width: 8),
-            Text(message, style: const TextStyle(fontSize: 14)),
-          ],
-        ),
-        backgroundColor: color,
-        duration: const Duration(milliseconds: 1500),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _feedbackController.dispose();
-    super.dispose();
   }
 }
 
@@ -422,10 +224,6 @@ class OptimizedMailTileContent extends StatelessWidget {
     required this.onTap,
     required this.theme,
     required this.isDarkMode,
-    required this.onMarkAsRead,
-    required this.onToggleFlag,
-    required this.onDeleteMessage,
-    required this.onArchiveMessage,
   });
 
   final MimeMessage message;
@@ -442,10 +240,6 @@ class OptimizedMailTileContent extends StatelessWidget {
   final VoidCallback? onTap;
   final ThemeData theme;
   final bool isDarkMode;
-  final VoidCallback onMarkAsRead;
-  final VoidCallback onToggleFlag;
-  final VoidCallback onDeleteMessage;
-  final VoidCallback onArchiveMessage;
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
@@ -672,7 +466,7 @@ class OptimizedMailTileContent extends StatelessWidget {
     switch (actionType) {
       case 'read_unread':
         return SlidableAction(
-          onPressed: (context) => onMarkAsRead(),
+          onPressed: (context) => _markAsRead(),
           backgroundColor: Colors.blue,
           foregroundColor: Colors.white,
           icon: isUnread ? Icons.mark_email_read : Icons.mark_email_unread,
@@ -680,7 +474,7 @@ class OptimizedMailTileContent extends StatelessWidget {
         );
       case 'flag':
         return SlidableAction(
-          onPressed: (context) => onToggleFlag(),
+          onPressed: (context) => _toggleFlag(),
           backgroundColor: Colors.orange,
           foregroundColor: Colors.white,
           icon: hasFlagged ? Icons.flag : Icons.flag_outlined,
@@ -688,7 +482,7 @@ class OptimizedMailTileContent extends StatelessWidget {
         );
       case 'delete':
         return SlidableAction(
-          onPressed: (context) => onDeleteMessage(),
+          onPressed: (context) => _deleteMessage(),
           backgroundColor: Colors.red,
           foregroundColor: Colors.white,
           icon: Icons.delete,
@@ -696,7 +490,7 @@ class OptimizedMailTileContent extends StatelessWidget {
         );
       case 'archive':
         return SlidableAction(
-          onPressed: (context) => onArchiveMessage(),
+          onPressed: (context) => _archiveMessage(),
           backgroundColor: Colors.green,
           foregroundColor: Colors.white,
           icon: Icons.archive,
@@ -704,7 +498,7 @@ class OptimizedMailTileContent extends StatelessWidget {
         );
       default:
         return SlidableAction(
-          onPressed: (context) => onMarkAsRead(),
+          onPressed: (context) => _markAsRead(),
           backgroundColor: Colors.blue,
           foregroundColor: Colors.white,
           icon: isUnread ? Icons.mark_email_read : Icons.mark_email_unread,
@@ -713,5 +507,196 @@ class OptimizedMailTileContent extends StatelessWidget {
     }
   }
 
-}
+  void _markAsRead() async {
+    final realtimeService = RealtimeUpdateService.instance;
+    
+    // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
+    final wasUnread = isUnread;
+    setState(() {
+      if (wasUnread) {
+        widget.message.isSeen = true;
+      } else {
+        widget.message.isSeen = false;
+      }
+    });
+    
+    // Show immediate visual feedback
+    _showActionFeedback(
+      wasUnread ? 'Marked as read' : 'Marked as unread',
+      wasUnread ? Icons.mark_email_read : Icons.mark_email_unread,
+      Colors.blue,
+    );
+    
+    try {
+      // Perform server action in background
+      if (wasUnread) {
+        await realtimeService.markMessageAsRead(widget.message);
+      } else {
+        await realtimeService.markMessageAsUnread(widget.message);
+      }
+    } catch (e) {
+      // ROLLBACK: Revert optimistic update on error
+      setState(() {
+        widget.message.isSeen = wasUnread;
+      });
+      
+      Get.snackbar(
+        'Error',
+        'Failed to update message: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    }
+  }
 
+  void _toggleFlag() async {
+    final realtimeService = RealtimeUpdateService.instance;
+    
+    // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
+    final wasFlagged = hasFlagged;
+    setState(() {
+      if (wasFlagged) {
+        widget.message.isFlagged = false;
+      } else {
+        widget.message.isFlagged = true;
+      }
+    });
+    
+    // Show immediate visual feedback
+    _showActionFeedback(
+      wasFlagged ? 'Unflagged' : 'Flagged',
+      wasFlagged ? Icons.flag_outlined : Icons.flag,
+      Colors.orange,
+    );
+    
+    try {
+      // Perform server action in background
+      if (wasFlagged) {
+        await realtimeService.unflagMessage(widget.message);
+      } else {
+        await realtimeService.flagMessage(widget.message);
+      }
+    } catch (e) {
+      // ROLLBACK: Revert optimistic update on error
+      setState(() {
+        widget.message.isFlagged = wasFlagged;
+      });
+      
+      Get.snackbar(
+        'Error',
+        'Failed to update flag: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    }
+  }
+
+  void _deleteMessage() async {
+    final realtimeService = RealtimeUpdateService.instance;
+    
+    // Show immediate visual feedback with animation
+    _showActionFeedback(
+      'Deleting...',
+      Icons.delete,
+      Colors.red,
+    );
+    
+    // OPTIMISTIC UPDATE: Start fade-out animation immediately
+    setState(() {
+      _isDeleting = true;
+    });
+    
+    try {
+      // Perform server action
+      await realtimeService.deleteMessage(widget.message);
+      
+      // Success feedback
+      _showActionFeedback(
+        'Message deleted',
+        Icons.check,
+        Colors.green,
+      );
+      
+      // Remove from UI after animation
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          // Notify parent to remove from list
+          mailboxController.removeMessageFromUI(widget.message, widget.mailBox);
+        }
+      });
+      
+    } catch (e) {
+      // ROLLBACK: Revert optimistic update on error
+      setState(() {
+        _isDeleting = false;
+      });
+      
+      Get.snackbar(
+        'Error',
+        'Failed to delete message: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
+    }
+  }
+
+  void _archiveMessage() async {
+    // Archive functionality - move to archive folder
+    try {
+      Get.snackbar(
+        'Info',
+        'Archive functionality coming soon',
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to archive message',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _feedbackController.dispose();
+    super.dispose();
+  }
+
+  // Visual feedback method for smooth user experience
+  void _showActionFeedback(String message, IconData icon, Color color) {
+    // Trigger haptic feedback
+    HapticFeedback.lightImpact();
+    
+    // Show subtle animation
+    _feedbackController.forward().then((_) {
+      _feedbackController.reverse();
+    });
+    
+    // Show toast-like feedback
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 16),
+            const SizedBox(width: 8),
+            Text(message, style: const TextStyle(fontSize: 14)),
+          ],
+        ),
+        backgroundColor: color,
+        duration: const Duration(milliseconds: 1500),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+}

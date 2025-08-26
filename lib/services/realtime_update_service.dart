@@ -558,8 +558,8 @@ class RealtimeUpdateService extends GetxService {
 // Enums and data classes
 enum ConnectionStatus { connected, disconnected, connecting, error }
 enum SyncStatus { idle, syncing, error }
-enum MessageUpdateType { statusChanged, deleted, moved }
-enum MailboxUpdateType { newMessages, messagesRemoved, statusChanged }
+enum MessageUpdateType { statusChanged, deleted, moved, received }
+enum MailboxUpdateType { newMessages, messagesRemoved, statusChanged, messagesAdded }
 
 class MessageUpdate {
   final MimeMessage message;
@@ -585,5 +585,64 @@ class MailboxUpdate {
     this.messages,
     this.metadata,
   });
+}
+
+/// Extension to RealtimeUpdateService for incoming email notifications
+extension IncomingEmailExtension on RealtimeUpdateService {
+  /// Notify about new incoming messages
+  Future<void> notifyNewMessages(List<MimeMessage> newMessages) async {
+    try {
+      // Update internal state
+      for (final message in newMessages) {
+        // Add to appropriate mailbox
+        final mailboxKey = 'INBOX'; // Assuming new messages go to inbox
+        if (_mailboxMessages[mailboxKey] == null) {
+          _mailboxMessages[mailboxKey] = [];
+        }
+        _mailboxMessages[mailboxKey]!.insert(0, message); // Add to beginning
+        
+        // Update unread count if message is unread
+        if (!message.isSeen) {
+          _unreadCounts[mailboxKey] = (_unreadCounts[mailboxKey] ?? 0) + 1;
+        }
+        
+        // Update flagged messages if flagged
+        if (message.isFlagged) {
+          final messageKey = '${message.uid ?? message.sequenceId}';
+          _flaggedMessages.add(messageKey);
+        }
+      }
+      
+      // Emit updates
+      _messagesStream.add(_mailboxMessages.values.expand((msgs) => msgs).toList());
+      _unreadCountsStream.add(Map.from(_unreadCounts));
+      _flaggedMessagesStream.add(Set.from(_flaggedMessages));
+      
+      // Emit individual message updates
+      for (final message in newMessages) {
+        _messageUpdateStream.add(MessageUpdate(
+          message: message,
+          type: MessageUpdateType.received,
+        ));
+      }
+      
+      // Emit mailbox update
+      _mailboxUpdateStream.add(MailboxUpdate(
+        mailbox: Mailbox(encodedName: 'INBOX', encodedPath: 'INBOX', flags: [], pathSeparator: '/'),
+        type: MailboxUpdateType.messagesAdded,
+        messages: newMessages,
+      ));
+      
+      if (kDebugMode) {
+        print('📧 Notified about ${newMessages.length} new messages');
+      }
+      
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error notifying new messages: $e');
+      }
+      _errorStream.add('Failed to process new messages: $e');
+    }
+  }
 }
 

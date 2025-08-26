@@ -1178,6 +1178,26 @@ class MailBoxController extends GetxController {
     }
   }
 
+  /// Remove message from UI after successful deletion
+  void removeMessageFromUI(MimeMessage message, Mailbox mailbox) {
+    try {
+      final mailboxEmails = emails[mailbox];
+      if (mailboxEmails != null) {
+        mailboxEmails.removeWhere((m) => 
+          (m.uid != null && m.uid == message.uid) ||
+          (m.sequenceId != null && m.sequenceId == message.sequenceId)
+        );
+        
+        // Trigger UI update
+        emails.refresh();
+        
+        logger.i("Removed message from UI: ${message.decodeSubject()}");
+      }
+    } catch (e) {
+      logger.e("Error removing message from UI: $e");
+    }
+  }
+
   @override
   void dispose() {
     MailService.instance.dispose();
