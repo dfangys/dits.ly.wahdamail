@@ -32,6 +32,9 @@ import '../../views/authantication/screens/login/login.dart';
 import '../../views/view/models/box_model.dart';
 
 class MailBoxController extends GetxController {
+  // ENHANCED: Add IndexedCache for high-performance message caching
+  late final IndexedCache<int, MimeMessage> _messageCache;
+  static const int _maxCacheSize = 200; // Optimized for mobile devices
   late MailService mailService;
   final RxBool isBusy = true.obs;
   final RxBool isBoxBusy = true.obs;
@@ -173,6 +176,9 @@ class MailBoxController extends GetxController {
   @override
   void onInit() async {
     try {
+      // ENHANCED: Initialize IndexedCache for high-performance message caching
+      _messageCache = IndexedCache<int, MimeMessage>(_maxCacheSize);
+      
       mailService = MailService.instance;
       await mailService.init();
       await loadMailBoxes();
@@ -1027,14 +1033,55 @@ class MailBoxController extends GetxController {
 
   Future<List<MimeMessage>> queue(MessageSequence sequence) async {
     try {
-      // CRITICAL FIX: Fetch envelope AND headers to get proper sender/subject information
-      final messages = await mailService.client.fetchMessageSequence(
-        sequence,
-        fetchPreference: FetchPreference.fullWhenWithinSize, // Get full message data for better parsing
-      );
+      // ENHANCED: Check cache first for performance optimization
+      final List<MimeMessage> cachedMessages = [];
+      final List<int> uncachedIds = [];
+      
+      // Check which messages are already cached
+      for (final id in sequence.toList()) {
+        final cached = _messageCache.get(id);
+        if (cached != null) {
+          cachedMessages.add(cached);
+          if (kDebugMode) {
+            print('📧 Cache HIT for message $id');
+          }
+        } else {
+          uncachedIds.add(id);
+        }
+      }
+      
+      // Fetch only uncached messages from server
+      List<MimeMessage> fetchedMessages = [];
+      if (uncachedIds.isNotEmpty) {
+        final uncachedSequence = MessageSequence.fromIds(uncachedIds);
+        
+        // CRITICAL FIX: Fetch envelope AND headers to get proper sender/subject information
+        fetchedMessages = await mailService.client.fetchMessageSequence(
+          uncachedSequence,
+          fetchPreference: FetchPreference.fullWhenWithinSize, // Get full message data for better parsing
+        );
+        
+        // ENHANCED: Cache fetched messages for future use
+        for (final message in fetchedMessages) {
+          if (message.sequenceId != null) {
+            _messageCache.put(message.sequenceId!, message);
+            if (kDebugMode) {
+              print('📧 Cached message ${message.sequenceId}');
+            }
+          }
+        }
+        
+        if (kDebugMode) {
+          print('📧 Cache MISS: Fetched ${fetchedMessages.length} messages from server');
+          print('📧 Cache stats: ${_messageCache.getStats()}');
+        }
+      }
+      
+      // Combine cached and fetched messages
+      final allMessages = [...cachedMessages, ...fetchedMessages];
       
       // ENHANCED FIX: Ensure messages have complete data for display
-      for (final message in messages) {
+      for (final message in allMessages) {
         try {
           // Ensure envelope exists and is properly populated
           if (message.envelope == null) {
@@ -1149,7 +1196,7 @@ class MailBoxController extends GetxController {
         }
       }
 
-      return messages;
+      return allMessages;
     } catch (e) {
       logger.e("Error in queue method: $e");
       return [];

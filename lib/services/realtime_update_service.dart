@@ -5,12 +5,15 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:logger/logger.dart';
 
 import 'cache_manager.dart';
 import 'mail_service.dart';
 
-/// Real-time update service for reactive UI updates
+/// ENHANCED: Real-time update service with event-driven architecture
+/// Based on enough_mail_app patterns for high-performance reactive updates
 class RealtimeUpdateService extends GetxService {
+  static final Logger _logger = Logger();
   static RealtimeUpdateService? _instance;
   static RealtimeUpdateService get instance => _instance ??= RealtimeUpdateService._();
   
@@ -633,21 +636,73 @@ class MailboxUpdate {
 /// Extension to RealtimeUpdateService for incoming email notifications
 extension IncomingEmailExtension on RealtimeUpdateService {
   /// Notify about new incoming messages
+  /// ENHANCED: Notify about new messages with event-driven architecture
   Future<void> notifyNewMessages(List<MimeMessage> newMessages) async {
     try {
-      // Update internal state
+      _logger.i('📧 Processing ${newMessages.length} new messages');
+      
+      // Batch process messages for performance
+      final Map<String, List<MimeMessage>> messagesByMailbox = {};
+      final Map<String, int> unreadCountChanges = {};
+      
       for (final message in newMessages) {
-        // Add to appropriate mailbox
-        final mailboxKey = 'INBOX'; // Assuming new messages go to inbox
+        // Determine target mailbox (usually INBOX for new messages)
+        final mailboxKey = 'INBOX';
+        
+        // Group messages by mailbox for batch processing
+        messagesByMailbox.putIfAbsent(mailboxKey, () => []).add(message);
+        
+        // Track unread count changes
+        if (!message.isSeen) {
+          unreadCountChanges[mailboxKey] = (unreadCountChanges[mailboxKey] ?? 0) + 1;
+        }
+        
+        // Update internal state
         if (_mailboxMessages[mailboxKey] == null) {
           _mailboxMessages[mailboxKey] = [];
         }
         _mailboxMessages[mailboxKey]!.insert(0, message); // Add to beginning
+      }
+      
+      // Batch update unread counts
+      for (final entry in unreadCountChanges.entries) {
+        _unreadCounts[entry.key] = (_unreadCounts[entry.key] ?? 0) + entry.value;
+      }
+      
+      // Emit batched updates for better performance
+      for (final entry in messagesByMailbox.entries) {
+        final mailboxKey = entry.key;
+        final messages = entry.value;
         
-        // Update unread count if message is unread
-        if (!message.isSeen) {
-          _unreadCounts[mailboxKey] = (_unreadCounts[mailboxKey] ?? 0) + 1;
+        // Emit mailbox update event
+        _mailboxUpdateStream.add(MailboxUpdate(
+          mailboxName: mailboxKey,
+          type: MailboxUpdateType.newMessages,
+          messages: messages,
+          unreadCount: _unreadCounts[mailboxKey] ?? 0,
+        ));
+        
+        // Emit individual message events for UI reactivity
+        for (final message in messages) {
+          _messageUpdateStream.add(MessageUpdate(
+            message: message,
+            type: MessageUpdateType.added,
+            mailboxName: mailboxKey,
+          ));
         }
+      }
+      
+      // Update reactive streams
+      _messagesStream.add(_mailboxMessages['INBOX'] ?? []);
+      _unreadCountsStream.add(Map.from(_unreadCounts));
+      
+      _logger.i('📧 Successfully processed ${newMessages.length} new messages');
+      
+    } catch (e) {
+      _logger.e('📧 Error processing new messages: $e');
+      _errorStream.add('Failed to process new messages: $e');
+    }
+  }
         
         // Update flagged messages if flagged
         if (message.isFlagged) {
@@ -656,34 +711,14 @@ extension IncomingEmailExtension on RealtimeUpdateService {
         }
       }
       
-      // Emit updates
-      _messagesStream.add(_mailboxMessages.values.expand((msgs) => msgs).toList());
+      // Update reactive streams
+      _messagesStream.add(_mailboxMessages['INBOX'] ?? []);
       _unreadCountsStream.add(Map.from(_unreadCounts));
-      _flaggedMessagesStream.add(Set.from(_flaggedMessages));
       
-      // Emit individual message updates
-      for (final message in newMessages) {
-        _messageUpdateStream.add(MessageUpdate(
-          message: message,
-          type: MessageUpdateType.received,
-        ));
-      }
-      
-      // Emit mailbox update
-      _mailboxUpdateStream.add(MailboxUpdate(
-        mailbox: Mailbox(encodedName: 'INBOX', encodedPath: 'INBOX', flags: [], pathSeparator: '/'),
-        type: MailboxUpdateType.messagesAdded,
-        messages: newMessages,
-      ));
-      
-      if (kDebugMode) {
-        print('📧 Notified about ${newMessages.length} new messages');
-      }
+      _logger.i('📧 Successfully processed ${newMessages.length} new messages');
       
     } catch (e) {
-      if (kDebugMode) {
-        print('📧 Error notifying new messages: $e');
-      }
+      _logger.e('📧 Error processing new messages: $e');
       _errorStream.add('Failed to process new messages: $e');
     }
   }

@@ -177,7 +177,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   bool _isSentMessage() {
     // Determine if this is a sent message based on mailbox context
     final controller = Get.find<MailBoxController>();
-    final currentMailbox = controller.currentMailbox ?? controller.selectedMailbox;
+    final currentMailbox = controller.currentMailbox;
     
     if (currentMailbox?.name.toLowerCase().contains('sent') == true) {
       return true;
@@ -192,60 +192,87 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   }
 
   String _generatePreview() {
-    // ENHANCED: Try multiple sources for preview content
+    // ENHANCED: Use enough_mail_app pattern for rich preview generation
     
-    // 1. Try cached content first
-    final cachedContent = cacheManager.getCachedMessageContent(widget.message);
-    if (cachedContent != null && cachedContent.isNotEmpty) {
-      final preview = _extractPreviewFromContent(cachedContent);
-      if (preview.isNotEmpty && preview != 'No preview available') {
-        return preview;
+    // 1. Try plain text content first (most reliable)
+    try {
+      final plainText = widget.message.decodeTextPlainPart();
+      if (plainText?.isNotEmpty == true) {
+        return _cleanPreviewText(plainText!);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error decoding plain text: $e');
       }
     }
-
-    // 2. Try to extract from message body if available
-    if (widget.message.body != null) {
-      try {
-        final bodyText = widget.message.decodeTextPlainPart();
-        if (bodyText != null && bodyText.isNotEmpty) {
-          return _extractPreviewFromContent(bodyText);
-        }
-        
-        final bodyHtml = widget.message.decodeTextHtmlPart();
-        if (bodyHtml != null && bodyHtml.isNotEmpty) {
-          // Strip HTML tags for preview
-          final plainText = bodyHtml
-              .replaceAll(RegExp(r'<[^>]*>'), ' ')
-              .replaceAll(RegExp(r'\s+'), ' ')
-              .trim();
-          if (plainText.isNotEmpty) {
-            return _extractPreviewFromContent(plainText);
-          }
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print('📧 Error extracting body preview: $e');
+    
+    // 2. Try HTML content and strip tags
+    try {
+      final htmlContent = widget.message.decodeTextHtmlPart();
+      if (htmlContent?.isNotEmpty == true) {
+        final cleanHtml = _stripHtmlTags(htmlContent!);
+        if (cleanHtml.isNotEmpty) {
+          return _cleanPreviewText(cleanHtml);
         }
       }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error decoding HTML: $e');
+      }
     }
-
-    // 3. Try envelope or headers for any preview hints
+    
+    // 3. Try cached content from cache manager
+    try {
+      final cachedContent = cacheManager.getCachedMessageContent(widget.message);
+      if (cachedContent != null && cachedContent.isNotEmpty) {
+        final preview = _extractPreviewFromContent(cachedContent);
+        if (preview.isNotEmpty && preview != 'No preview available') {
+          return preview;
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error getting cached content: $e');
+      }
+    }
+    
+    // 4. Check for attachments and provide meaningful preview
+    if (_hasAttachments) {
+      return "📎 Message with attachments";
+    }
+    
+    // 5. Try envelope or headers for preview hints
     if (widget.message.envelope != null) {
-      // Some servers include preview in custom headers
       final previewHeader = widget.message.getHeaderValue('x-preview') ??
                            widget.message.getHeaderValue('x-microsoft-exchange-diagnostics');
       if (previewHeader != null && previewHeader.isNotEmpty) {
-        return _extractPreviewFromContent(previewHeader);
+        return _cleanPreviewText(previewHeader);
       }
     }
-
-    // 4. Fallback: return a meaningful message based on content type
-    if (widget.message.hasAttachments()) {
-      // Simple attachment count - just use the hasAttachments result
-      return 'Message with attachments';
+    
+    // 6. Fallback based on message characteristics
+    if (widget.message.isTextMessage == true) {
+      return "Text message";
     }
+    
+    return "No preview available";
+  }
 
-    return 'No preview available';
+  String _cleanPreviewText(String text) {
+    // Clean and format preview text following enough_mail_app patterns
+    return text
+        .replaceAll(RegExp(r'\s+'), ' ') // Normalize whitespace
+        .replaceAll(RegExp(r'[\r\n]+'), ' ') // Remove line breaks
+        .trim()
+        .substring(0, text.length > 100 ? 100 : text.length); // Limit length
+  }
+
+  String _stripHtmlTags(String html) {
+    // Simple HTML tag stripping for preview
+    return html
+        .replaceAll(RegExp(r'<[^>]*>'), '') // Remove HTML tags
+        .replaceAll(RegExp(r'&[a-zA-Z0-9#]+;'), ' ') // Remove HTML entities
+        .trim();
   }
 
   String _extractPreviewFromContent(String content) {
