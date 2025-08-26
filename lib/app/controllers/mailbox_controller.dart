@@ -64,6 +64,37 @@ class MailBoxController extends GetxController {
   final Logger logger = Logger();
   RxList<Mailbox> mailboxes = <Mailbox>[].obs;
 
+  // CRITICAL FIX: Add getter for drafts mailbox
+  Mailbox? get draftsMailbox {
+    try {
+      return mailboxes.firstWhere(
+        (mailbox) => mailbox.name.toLowerCase() == 'drafts' || 
+                     mailbox.name.toLowerCase() == 'draft',
+      );
+    } catch (e) {
+      logger.w("Drafts mailbox not found: $e");
+      return null;
+    }
+  }
+
+  // CRITICAL FIX: Add method to switch to drafts
+  Future<void> switchToDrafts() async {
+    final drafts = draftsMailbox;
+    if (drafts != null) {
+      currentMailbox = drafts;
+      await loadEmailsForBox(drafts);
+      update(); // Force UI update
+    } else {
+      logger.e("Cannot switch to drafts: mailbox not found");
+      Get.snackbar(
+        'Error',
+        'Drafts mailbox not found',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
   List<String> predefinedOrder = [
     'inbox',
     'sent',
@@ -592,6 +623,11 @@ class MailBoxController extends GetxController {
 
   Future<void> _loadDraftsFromLocal(Mailbox mailbox) async {
     try {
+      // CRITICAL FIX: Initialize emails list for draft mailbox
+      if (emails[mailbox] == null) {
+        emails[mailbox] = <MimeMessage>[];
+      }
+      
       // Initialize storage for drafts if not exists
       if (mailboxStorage[mailbox] == null) {
         mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
@@ -613,9 +649,14 @@ class MailBoxController extends GetxController {
       final drafts = await draftRepository.getAllDrafts();
       logger.i("Found ${drafts.length} drafts in local database");
 
+      // PERFORMANCE FIX: Clear existing drafts before adding new ones
+      emails[mailbox]!.clear();
+
       if (drafts.isEmpty) {
         logger.i("No drafts found in local database");
-        // Still update UI to show empty state
+        // Update storage with empty list to trigger UI update
+        await mailboxStorage[mailbox]!.saveMessageEnvelopes([]);
+        // Force UI update
         update();
         return;
       }
@@ -626,29 +667,35 @@ class MailBoxController extends GetxController {
         try {
           final mimeMessage = _convertDraftToMimeMessage(draft);
           draftMessages.add(mimeMessage);
+          logger.d("Converted draft: ${draft.subject}");
         } catch (e) {
           logger.e("Error converting draft to MimeMessage: $e");
         }
       }
 
+      // Add drafts to emails list
       emails[mailbox]!.addAll(draftMessages);
       
-      // Save to storage and notify listeners
+      // CRITICAL FIX: Save to storage and notify listeners properly
       await mailboxStorage[mailbox]!.saveMessageEnvelopes(draftMessages);
+      
+      // Update unread count for drafts
+      if (Get.isRegistered<MailCountController>()) {
+        final countController = Get.find<MailCountController>();
+        String key = "${mailbox.name.toLowerCase()}_count";
+        countController.counts[key] = draftMessages.length; // All drafts are "unread"
+      }
       
       // Force UI update by triggering the observable
       update();
       
-      if (Get.isRegistered<MailCountController>()) {
-        final countControll = Get.find<MailCountController>();
-        String key = "${mailbox.name.toLowerCase()}_count";
-        countControll.counts[key] = draftMessages.length;
-      }
-      
-      logger.i("Loaded ${draftMessages.length} drafts for mailbox: ${mailbox.name}");
+      logger.i("Successfully loaded ${draftMessages.length} drafts for ${mailbox.name}");
     } catch (e) {
       logger.e("Error loading drafts from local: $e");
-      // Still update UI even on error
+      // Ensure UI shows empty state on error
+      if (emails[mailbox] == null) {
+        emails[mailbox] = <MimeMessage>[];
+      }
       update();
     }
   }

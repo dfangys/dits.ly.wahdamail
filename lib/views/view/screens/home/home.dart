@@ -42,41 +42,54 @@ class HomeScreen extends GetView<MailBoxController> {
             
             return Stack(
               children: [
-                ValueListenableBuilder<List<MimeMessage>>(
-                  valueListenable: controller.mailboxStorage[controller.mailBoxInbox]!.dataNotifier,
-                  builder: (context, messages, child) {
-                    List<MimeMessage> rows = messages.toList()..sort((a, b) {
-                      final dateA = a.decodeDate();
-                      final dateB = b.decodeDate();
-                      if (dateA == null && dateB == null) return 0;
-                      if (dateA == null) return 1;
-                      if (dateB == null) return -1;
-                      return dateB.compareTo(dateA);
-                    });
-
-                    return RefreshIndicator(
-                      onRefresh: () async {
-                        await controller.loadEmailsForBox(controller.mailBoxInbox);
-                      },
-                      child: ListView.builder(
-                        itemCount: rows.length,
-                        itemBuilder: (context, index) {
-                          return MailTile(
-                            onTap: () {
-                              // Navigate to email detail view
-                              Get.to(() => ShowMessage(
-                                message: rows[index],
-                                mailbox: controller.mailBoxInbox,
-                              ));
-                            },
-                            message: rows[index],
-                            mailBox: controller.mailBoxInbox,
-                          );
-                        },
-                      ),
+                Obx(() {
+                  // CRITICAL FIX: Show current mailbox instead of hardcoded inbox
+                  final currentMailbox = controller.currentMailbox ?? controller.mailBoxInbox;
+                  final storage = controller.mailboxStorage[currentMailbox];
+                  
+                  if (storage == null) {
+                    return const Center(
+                      child: Text('Mailbox not initialized'),
                     );
-                  },
-                ),
+                  }
+                  
+                  return ValueListenableBuilder<List<MimeMessage>>(
+                    valueListenable: storage.dataNotifier,
+                    builder: (context, messages, child) {
+                      List<MimeMessage> rows = messages.toList()..sort((a, b) {
+                        final dateA = a.decodeDate();
+                        final dateB = b.decodeDate();
+                        if (dateA == null && dateB == null) return 0;
+                        if (dateA == null) return 1;
+                        if (dateB == null) return -1;
+                        return dateB.compareTo(dateA);
+                      });
+
+                      return RefreshIndicator(
+                        onRefresh: () async {
+                          // PERFORMANCE FIX: Use refreshMailbox for proper refresh
+                          await controller.refreshMailbox(currentMailbox);
+                        },
+                        child: ListView.builder(
+                          itemCount: rows.length,
+                          itemBuilder: (context, index) {
+                            return MailTile(
+                              onTap: () {
+                                // Navigate to email detail view
+                                Get.to(() => ShowMessage(
+                                  message: rows[index],
+                                  mailbox: currentMailbox,
+                                ));
+                              },
+                              message: rows[index],
+                              mailBox: currentMailbox,
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  );
+                }),
               ],
             );
           }),
