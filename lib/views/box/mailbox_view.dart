@@ -555,7 +555,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
 class OptimizedDateGroup extends StatelessWidget {
   final DateTime date;
   final List<MimeMessage> messages;
-  final Mailbox mailbox;
+  final Mailbox mailBox;
   final ThemeData theme;
   final bool isDarkMode;
 
@@ -563,7 +563,7 @@ class OptimizedDateGroup extends StatelessWidget {
     super.key,
     required this.date,
     required this.messages,
-    required this.mailbox,
+    required this.mailBox,
     required this.theme,
     required this.isDarkMode,
   });
@@ -598,7 +598,7 @@ class OptimizedDateGroup extends StatelessWidget {
             final message = messages[index];
             return OptimizedMailTile(
               message: message,
-              mailBox: mailbox,
+              mailBox: mailBox,
               onTap: () {
                 // CRITICAL FIX: Use safe navigation method with validation
                 final mailboxController = Get.find<MailBoxController>();
@@ -606,12 +606,12 @@ class OptimizedDateGroup extends StatelessWidget {
                 print('=== MAILBOX VIEW EMAIL TAP DEBUG ===');
                 print('MailBoxView.dart onTap called!');
                 print('Subject: ${message.decodeSubject()}');
-                print('Current Mailbox: ${mailbox.name}');
+                print('Current Mailbox: ${mailBox.name}');
                 print('Using safe navigation method');
                 print('====================================');
                 
                 // Use the new safe navigation method from the controller
-                mailboxController.safeNavigateToMessage(message, mailbox);
+                mailboxController.safeNavigateToMessage(message, mailBox);
               },
             );
           },

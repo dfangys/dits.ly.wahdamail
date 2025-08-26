@@ -1537,7 +1537,7 @@ class MailBoxController extends GetxController {
       update();
       
       // Navigate to the mailbox view
-      Get.to(() => MailBoxView(mailBox: mailbox));
+      Get.to(() => MailBoxView(mailbox: mailbox));
       
       // Load emails for the new mailbox with proper context setting
       await loadEmailsForBox(mailbox);

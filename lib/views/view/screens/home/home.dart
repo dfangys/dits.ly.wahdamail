@@ -72,8 +72,8 @@ class HomeScreen extends GetView<MailBoxController> {
           );
         }
         
-        // Use existing MailboxView for inbox
-        return MailboxView(
+        // Use existing MailBoxView for inbox
+        return MailBoxView(
           mailbox: controller.mailBoxInbox,
           isDarkMode: Theme.of(context).brightness == Brightness.dark,
         );
