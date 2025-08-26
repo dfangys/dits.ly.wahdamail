@@ -5,6 +5,7 @@ import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/views/view/screens/home/widgets/appbar.dart';
+import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/widgets/bottomnavs/selection_botttom_nav.dart';
 import 'package:wahda_bank/widgets/drawer/drawer.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
@@ -62,7 +63,11 @@ class HomeScreen extends GetView<MailBoxController> {
                         itemBuilder: (context, index) {
                           return MailTile(
                             onTap: () {
-                              // Handle email tap - navigate to email detail view
+                              // Navigate to email detail view
+                              Get.to(() => ShowMessage(
+                                message: rows[index],
+                                mailbox: controller.mailBoxInbox,
+                              ));
                             },
                             message: rows[index],
                             mailBox: controller.mailBoxInbox,
