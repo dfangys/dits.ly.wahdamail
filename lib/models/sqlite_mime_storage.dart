@@ -32,6 +32,9 @@ class SQLiteMailboxMimeStorage {
       // Ensure mailbox is registered in database
       await _ensureMailboxExists();
 
+      // CRITICAL FIX: Check if we need to migrate address format
+      await _migrateAddressFormatIfNeeded();
+
       // Load initial data
       final messages = await loadAllMessages();
       dataNotifier.value = messages;
@@ -39,6 +42,66 @@ class SQLiteMailboxMimeStorage {
     } catch (e) {
       if (kDebugMode) {
         print('📧 Error initializing SQLite storage: $e');
+      }
+    }
+  }
+
+  /// Migrate address format if needed (clear old data with string-based addresses)
+  Future<void> _migrateAddressFormatIfNeeded() async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      
+      // Check if we have any messages with old address format
+      final result = await db.query(
+        SQLiteDatabaseHelper.tableEmails,
+        columns: [SQLiteDatabaseHelper.columnEnvelope],
+        limit: 1,
+      );
+      
+      if (result.isNotEmpty) {
+        final envelopeJson = result.first[SQLiteDatabaseHelper.columnEnvelope];
+        if (envelopeJson != null && envelopeJson is String && envelopeJson.isNotEmpty) {
+          try {
+            final envelopeMap = jsonDecode(envelopeJson as String);
+            
+            // Check if addresses are in old string format
+            if (envelopeMap['from'] != null && envelopeMap['from'] is List) {
+              final fromList = envelopeMap['from'] as List;
+              if (fromList.isNotEmpty && fromList.first is String) {
+                // Old format detected - clear all messages to force re-fetch
+                if (kDebugMode) {
+                  print('📧 Old address format detected - clearing database for migration');
+                }
+                
+                final mailboxId = await _getMailboxId();
+                await db.delete(
+                  SQLiteDatabaseHelper.tableEmails,
+                  where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+                  whereArgs: [mailboxId],
+                );
+                
+                if (kDebugMode) {
+                  print('📧 Database cleared - messages will be re-fetched with new address format');
+                }
+              }
+            }
+          } catch (e) {
+            // If we can't parse the envelope, it's probably corrupted - clear it
+            if (kDebugMode) {
+              print('📧 Corrupted envelope data detected - clearing database');
+            }
+            final mailboxId = await _getMailboxId();
+            await db.delete(
+              SQLiteDatabaseHelper.tableEmails,
+              where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+              whereArgs: [mailboxId],
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error during address format migration: $e');
       }
     }
   }
@@ -195,10 +258,22 @@ class SQLiteMailboxMimeStorage {
     return {
       'date': envelope.date?.millisecondsSinceEpoch,
       'subject': envelope.subject,
-      'from': envelope.from?.map((addr) => addr.toString()).toList(),
-      'to': envelope.to?.map((addr) => addr.toString()).toList(),
-      'cc': envelope.cc?.map((addr) => addr.toString()).toList(),
-      'bcc': envelope.bcc?.map((addr) => addr.toString()).toList(),
+      'from': envelope.from?.map((addr) => {
+        'email': addr.email,
+        'personalName': addr.personalName,
+      }).toList(),
+      'to': envelope.to?.map((addr) => {
+        'email': addr.email,
+        'personalName': addr.personalName,
+      }).toList(),
+      'cc': envelope.cc?.map((addr) => {
+        'email': addr.email,
+        'personalName': addr.personalName,
+      }).toList(),
+      'bcc': envelope.bcc?.map((addr) => {
+        'email': addr.email,
+        'personalName': addr.personalName,
+      }).toList(),
       'messageId': envelope.messageId,
       'inReplyTo': envelope.inReplyTo,
     };
@@ -420,18 +495,78 @@ class SQLiteMailboxMimeStorage {
     envelope.messageId = map['messageId'];
     envelope.inReplyTo = map['inReplyTo'];
     
-    // Convert address lists
+    // Convert address lists with improved parsing
     if (map['from'] != null) {
-      envelope.from = (map['from'] as List).map((addr) => MailAddress.parse(addr)).toList();
+      envelope.from = (map['from'] as List).map((addrData) {
+        if (addrData is Map<String, dynamic>) {
+          // New format: {email: "...", personalName: "..."}
+          return MailAddress(
+            addrData['personalName'] ?? '',
+            addrData['email'] ?? '',
+          );
+        } else {
+          // Fallback for old format: string representation
+          try {
+            return MailAddress.parse(addrData.toString());
+          } catch (e) {
+            if (kDebugMode) {
+              print('📧 Error parsing address: $addrData, error: $e');
+            }
+            return MailAddress('', addrData.toString());
+          }
+        }
+      }).toList();
     }
+    
     if (map['to'] != null) {
-      envelope.to = (map['to'] as List).map((addr) => MailAddress.parse(addr)).toList();
+      envelope.to = (map['to'] as List).map((addrData) {
+        if (addrData is Map<String, dynamic>) {
+          return MailAddress(
+            addrData['personalName'] ?? '',
+            addrData['email'] ?? '',
+          );
+        } else {
+          try {
+            return MailAddress.parse(addrData.toString());
+          } catch (e) {
+            return MailAddress('', addrData.toString());
+          }
+        }
+      }).toList();
     }
+    
     if (map['cc'] != null) {
-      envelope.cc = (map['cc'] as List).map((addr) => MailAddress.parse(addr)).toList();
+      envelope.cc = (map['cc'] as List).map((addrData) {
+        if (addrData is Map<String, dynamic>) {
+          return MailAddress(
+            addrData['personalName'] ?? '',
+            addrData['email'] ?? '',
+          );
+        } else {
+          try {
+            return MailAddress.parse(addrData.toString());
+          } catch (e) {
+            return MailAddress('', addrData.toString());
+          }
+        }
+      }).toList();
     }
+    
     if (map['bcc'] != null) {
-      envelope.bcc = (map['bcc'] as List).map((addr) => MailAddress.parse(addr)).toList();
+      envelope.bcc = (map['bcc'] as List).map((addrData) {
+        if (addrData is Map<String, dynamic>) {
+          return MailAddress(
+            addrData['personalName'] ?? '',
+            addrData['email'] ?? '',
+          );
+        } else {
+          try {
+            return MailAddress.parse(addrData.toString());
+          } catch (e) {
+            return MailAddress('', addrData.toString());
+          }
+        }
+      }).toList();
     }
     
     return envelope;
