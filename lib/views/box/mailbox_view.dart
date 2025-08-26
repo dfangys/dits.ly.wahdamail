@@ -110,7 +110,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   final List<DateTime> _dateKeys = [];
   bool _isLoadingMore = false;
   int _currentPage = 0;
-  static const int _pageSize = 20;
+  static const int _pageSize = 50; // Increased from 20 to match controller
 
   @override
   void initState() {
@@ -125,7 +125,8 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    // Trigger loading when user is 300 pixels from the bottom
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
       _loadMoreMessages();
     }
   }
@@ -162,7 +163,19 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     _dateKeys.clear();
 
     for (final message in messages) {
-      final date = message.decodeDate() ?? DateTime.now();
+      // Use the enhanced date parsing from mail tile
+      DateTime? messageDate;
+      
+      // Try multiple date sources in order of preference
+      try {
+        messageDate = message.decodeDate();
+      } catch (e) {
+        // Fallback to envelope date
+        messageDate = message.envelope?.date;
+      }
+      
+      // Final fallback to current date if all else fails
+      final date = messageDate ?? DateTime.now();
       final dateKey = DateTime(date.year, date.month, date.day);
       
       if (!_groupedMessages.containsKey(dateKey)) {
@@ -172,7 +185,17 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
       _groupedMessages[dateKey]!.add(message);
     }
 
+    // Sort dates in descending order (newest first)
     _dateKeys.sort((a, b) => b.compareTo(a));
+    
+    // Sort messages within each date group by time (newest first)
+    for (final dateKey in _dateKeys) {
+      _groupedMessages[dateKey]!.sort((a, b) {
+        final dateA = a.decodeDate() ?? a.envelope?.date ?? DateTime.now();
+        final dateB = b.decodeDate() ?? b.envelope?.date ?? DateTime.now();
+        return dateB.compareTo(dateA);
+      });
+    }
     
     if (mounted) {
       setState(() {});
@@ -329,13 +352,26 @@ class OptimizedDateGroup extends StatelessWidget {
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
     final dateOnly = DateTime(date.year, date.month, date.day);
+    final weekAgo = today.subtract(const Duration(days: 7));
 
     if (dateOnly == today) {
       return 'Today';
     } else if (dateOnly == yesterday) {
       return 'Yesterday';
+    } else if (dateOnly.isAfter(weekAgo)) {
+      // This week - show day name
+      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      return days[date.weekday - 1];
+    } else if (date.year == now.year) {
+      // This year - show month and day
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}';
     } else {
-      return '${date.day}/${date.month}/${date.year}';
+      // Different year - show full date
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${months[date.month - 1]} ${date.day}, ${date.year}';
     }
   }
 }

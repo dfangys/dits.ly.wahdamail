@@ -594,7 +594,7 @@ class MailBoxController extends GetxController {
 
   // Pagination for emails
   int page = 1;
-  int pageSize = 10; // Reduced from 20 to prevent timeouts
+  int pageSize = 50; // Increased from 10 to 50 for better email loading performance
 
   Future<void> fetchMailbox(Mailbox mailbox, {bool forceRefresh = false}) async {
     try {
@@ -798,6 +798,17 @@ class MailBoxController extends GetxController {
   Future<void> loadMoreEmails(Mailbox mailbox, int pageNumber) async {
     try {
       if (isBoxBusy.value) return; // Prevent multiple simultaneous loads
+      
+      // Check if we have more messages to load
+      final currentCount = emails[mailbox]?.length ?? 0;
+      final totalMessages = mailbox.messagesExists;
+      
+      if (currentCount >= totalMessages) {
+        logger.i("All messages already loaded for ${mailbox.name} ($currentCount/$totalMessages)");
+        return;
+      }
+      
+      logger.i("Loading more emails for ${mailbox.name}, page: $pageNumber (current: $currentCount/$totalMessages)");
       
       // Set current mailbox
       currentMailbox = mailbox;
