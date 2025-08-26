@@ -517,12 +517,12 @@ class ComposeController extends GetxController {
       
       // Load attachments from the MimeMessage
       if (message.hasAttachments()) {
-        final attachmentParts = message.allPartsWithDisposition(ContentDisposition.attachment);
-        for (final part in attachmentParts) {
+        final attachmentInfos = message.findContentInfo(disposition: ContentDisposition.attachment);
+        for (final info in attachmentInfos) {
           try {
-            // Extract attachment info from the message part
-            final filename = part.decodeFileName() ?? 'attachment';
-            final contentType = part.mediaType?.toString() ?? 'application/octet-stream';
+            // Extract attachment info from the content info
+            final filename = info.fileName ?? 'attachment';
+            final contentType = info.contentType?.toString() ?? 'application/octet-stream';
             
             // Note: For server-based drafts, attachments are embedded in the message
             // We would need to download and save them locally if editing is required

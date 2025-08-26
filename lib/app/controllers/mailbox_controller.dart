@@ -111,7 +111,7 @@ class MailBoxController extends GetxController {
       );
 
       if (result != null) {
-        logger.i("Draft saved successfully with UID: ${result.uid}");
+        logger.i("Draft saved successfully with target sequence: ${result.targetSequence}");
         
         // Refresh drafts to show the new draft
         if (currentMailbox?.isDrafts == true) {
@@ -120,7 +120,7 @@ class MailBoxController extends GetxController {
         
         return true;
       } else {
-        logger.e("Failed to save draft: no UID returned");
+        logger.e("Failed to save draft: no response code returned");
         return false;
       }
     } catch (e) {
