@@ -187,9 +187,9 @@ class DraftModel {
       'subject': subject,
       'body': body,
       'is_html': isHtml ? 1 : 0,
-      'to': to.join('||'),
-      'cc': cc.join('||'),
-      'bcc': bcc.join('||'),
+      'to_address': to.join('||'),
+      'cc_address': cc.join('||'),
+      'bcc_address': bcc.join('||'),
       'attachment_paths': attachmentPaths.join('||'),
       'created_at': createdAt.millisecondsSinceEpoch,
       'updated_at': updatedAt.millisecondsSinceEpoch,
@@ -214,14 +214,14 @@ class DraftModel {
       subject: map['subject'] ?? '',
       body: map['body'] ?? '',
       isHtml: map['is_html'] == 1,
-      to: map['to'] != null && map['to'].isNotEmpty
-          ? map['to'].split('||')
+      to: map['to_address'] != null && map['to_address'].isNotEmpty
+          ? map['to_address'].split('||')
           : <String>[],
-      cc: map['cc'] != null && map['cc'].isNotEmpty
-          ? map['cc'].split('||')
+      cc: map['cc_address'] != null && map['cc_address'].isNotEmpty
+          ? map['cc_address'].split('||')
           : <String>[],
-      bcc: map['bcc'] != null && map['bcc'].isNotEmpty
-          ? map['bcc'].split('||')
+      bcc: map['bcc_address'] != null && map['bcc_address'].isNotEmpty
+          ? map['bcc_address'].split('||')
           : <String>[],
       attachmentPaths: map['attachment_paths'] != null && map['attachment_paths'].isNotEmpty
           ? map['attachment_paths'].split('||')
