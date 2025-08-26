@@ -78,6 +78,12 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
 
   Widget _buildContent() {
     try {
+      if (kDebugMode) {
+        print('DEBUG: Building message content');
+        print('DEBUG: Message parts count: ${widget.mimeMessage.parts?.length ?? 0}');
+        print('DEBUG: Message content type: ${widget.mimeMessage.mediaType}');
+      }
+      
       // Enhanced MimeMessageViewer with proper configuration
       return MimeMessageViewer(
         mimeMessage: widget.mimeMessage,

@@ -23,6 +23,13 @@ class MailAttachments extends StatelessWidget {
 
   Future<MimeMessage> _fetchMessageContent() async {
     try {
+      if (kDebugMode) {
+        print('DEBUG: Fetching message content for UID: ${message.uid}');
+        print('DEBUG: Message has envelope: ${message.envelope != null}');
+        print('DEBUG: Message subject: ${message.decodeSubject()}');
+        print('DEBUG: Message date: ${message.decodeDate()}');
+      }
+      
       // Initialize cache service
       await EmailCacheService.instance.initialize();
       
@@ -41,7 +48,11 @@ class MailAttachments extends StatelessWidget {
       
       // CRITICAL FIX: Validate message UID before fetching
       if (message.uid == null) {
-        throw Exception('Message UID is null, cannot fetch content');
+        if (kDebugMode) {
+          print('DEBUG: Message UID is null, returning original message');
+        }
+        // Return the original message if UID is null
+        return message;
       }
       
       // Ensure we're connected with retry logic

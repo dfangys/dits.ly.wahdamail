@@ -1,5 +1,6 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/inbox_app_bar.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/inbox_bottom_navbar.dart';
@@ -16,7 +17,17 @@ class ShowMessage extends StatelessWidget {
   // Enhanced subject with proper fallback handling (enough_mail best practice)
   String get subject {
     final decodedSubject = message.decodeSubject();
+    if (kDebugMode) {
+      print('DEBUG: Subject - decodedSubject: $decodedSubject');
+      print('DEBUG: Subject - envelope.subject: ${message.envelope?.subject}');
+      print('DEBUG: Subject - headers: ${message.headers}');
+    }
+    
     if (decodedSubject == null || decodedSubject.trim().isEmpty) {
+      // Try envelope subject as fallback
+      if (message.envelope?.subject != null && message.envelope!.subject!.trim().isNotEmpty) {
+        return message.envelope!.subject!.trim();
+      }
       return 'No Subject';
     }
     return decodedSubject.trim();
@@ -102,7 +113,31 @@ class ShowMessage extends StatelessWidget {
   // Enhanced detailed date for header display
   String get detailedDate {
     final messageDate = message.decodeDate();
+    if (kDebugMode) {
+      print('DEBUG: Date - decodeDate: $messageDate');
+      print('DEBUG: Date - envelope.date: ${message.envelope?.date}');
+      print('DEBUG: Date - headers date: ${message.getHeaderValue("date")}');
+    }
+    
     if (messageDate == null) {
+      // Try envelope date as fallback
+      if (message.envelope?.date != null) {
+        return DateFormat("EEE, MMM d, yyyy 'at' h:mm a").format(message.envelope!.date!);
+      }
+      
+      // Try header date as fallback
+      final headerDate = message.getHeaderValue("date");
+      if (headerDate != null) {
+        try {
+          final parsedDate = DateTime.parse(headerDate);
+          return DateFormat("EEE, MMM d, yyyy 'at' h:mm a").format(parsedDate);
+        } catch (e) {
+          if (kDebugMode) {
+            print('DEBUG: Failed to parse header date: $headerDate');
+          }
+        }
+      }
+      
       return "Date unknown";
     }
     
