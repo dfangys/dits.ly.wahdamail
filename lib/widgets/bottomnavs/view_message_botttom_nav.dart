@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/views/compose/compose.dart';
+import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 
 class InboxBottomNavBar extends StatelessWidget {
   const InboxBottomNavBar({
@@ -51,7 +51,7 @@ class InboxBottomNavBar extends StatelessWidget {
           IconButtons(
             icon: CupertinoIcons.pencil_outline,
             isImage: false,
-            onTap: () => Get.to(() => const ComposeScreen()),
+            onTap: () => Get.to(() => const RedesignedComposeScreen()),
           )
         ],
       ),

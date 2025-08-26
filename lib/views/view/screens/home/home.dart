@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
-import 'package:wahda_bank/views/compose/compose.dart';
+import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/view/screens/home/widgets/appbar.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/widgets/bottomnavs/selection_botttom_nav.dart';
@@ -110,7 +110,7 @@ class HomeScreen extends GetView<MailBoxController> {
           ? const SizedBox.shrink()
           : FloatingActionButton(
               onPressed: () {
-                Get.to(() => const ComposeScreen());
+                Get.to(() => const RedesignedComposeScreen());
               },
               backgroundColor: AppTheme.primaryColor,
               child: const Icon(Icons.edit_outlined, color: Colors.white),

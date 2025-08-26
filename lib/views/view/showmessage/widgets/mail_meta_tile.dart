@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:wahda_bank/views/compose/compose.dart';
+import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/widgets/search/search.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 
@@ -160,7 +160,7 @@ void _showEmailOptions(String email) {
         CupertinoActionSheetAction(
           onPressed: () {
             Get.back();
-            Get.to(() => const ComposeScreen(), arguments: {
+            Get.to(() => const RedesignedComposeScreen(), arguments: {
               "to": email,
             });
           },

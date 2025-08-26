@@ -21,7 +21,7 @@ import 'package:wahda_bank/services/connection_manager.dart';
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
 import 'package:collection/collection.dart';
-import 'package:wahda_bank/views/compose/compose.dart';
+import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
@@ -1613,7 +1613,7 @@ class MailBoxController extends GetxController {
       
       if (isDraft || isInDraftsMailbox || isDraftsMailboxByName) {
         logger.i("Navigating to compose screen for draft message");
-        Get.to(() => const ComposeScreen(), arguments: {
+        Get.to(() => const RedesignedComposeScreen(), arguments: {
           'type': 'draft',
           'message': message,
         });

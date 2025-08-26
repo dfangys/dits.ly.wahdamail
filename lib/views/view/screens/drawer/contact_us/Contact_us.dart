@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:wahda_bank/widgets/custom_loading_button.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
-import 'package:wahda_bank/views/compose/compose.dart';
+import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -135,7 +135,7 @@ class ContactUsScreen extends StatelessWidget {
                         label: const Text("Send Email"),
                         onPressed: () {
                           Get.to(
-                                () => const ComposeScreen(),
+                                () => const RedesignedComposeScreen(),
                             arguments: {'support': 'info@wahdabank.com'},
                           );
                         },
