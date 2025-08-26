@@ -31,12 +31,43 @@ class HomeScreen extends GetView<MailBoxController> {
         children: [
           Obx(() {
             if (controller.isBusy()) {
-              return WAnimationLoaderWidget(
-                text: 'Searching for emails',
-                animation: 'assets/lottie/search.json',
-                showAction: false,
-                actionText: 'try_again'.tr,
-                onActionPressed: () {},
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Center(
+                  key: const ValueKey('home_loading'),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.primaryColor,
+                        ),
+                        strokeWidth: 3.0,
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Loading your inbox...',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          color: Theme.of(context).brightness == Brightness.dark 
+                              ? Colors.white70 
+                              : Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Please wait while we fetch your messages',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).brightness == Brightness.dark 
+                              ? Colors.white54 
+                              : Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               );
             }
             

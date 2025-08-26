@@ -61,19 +61,64 @@ class MailBoxView extends GetView<MailBoxController> {
                     : [Colors.grey.shade50, Colors.white],
               ),
             ),
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                  child: OptimizedEmailList(
-                    mailBox: mailBox,
-                    controller: controller,
-                    theme: theme,
-                    isDarkMode: isDarkMode,
+            child: Obx(() {
+              // Show centered loading indicator when initially loading emails
+              if (controller.isBoxBusy() && controller.boxMails.isEmpty) {
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: Center(
+                    key: const ValueKey('loading'),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            theme.colorScheme.primary,
+                          ),
+                          strokeWidth: 3.0,
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Loading emails...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: isDarkMode ? Colors.white70 : Colors.grey.shade700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Please wait while we fetch your messages',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDarkMode ? Colors.white54 : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                );
+              }
+              
+              // Show email list when emails are loaded
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Stack(
+                  key: const ValueKey('email_list'),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                      child: OptimizedEmailList(
+                        mailBox: mailBox,
+                        controller: controller,
+                        theme: theme,
+                        isDarkMode: isDarkMode,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            }),
           ),
         ),
         bottomNavigationBar: Obx(() {
@@ -250,9 +295,31 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                 (context, index) {
                   if (index >= _dateKeys.length) {
                     return _isLoadingMore
-                        ? const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Center(child: CircularProgressIndicator()),
+                        ? Container(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      widget.theme.colorScheme.primary,
+                                    ),
+                                    strokeWidth: 2.5,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Loading more emails...',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: widget.isDarkMode 
+                                          ? Colors.white70 
+                                          : Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           )
                         : const SizedBox.shrink();
                   }
