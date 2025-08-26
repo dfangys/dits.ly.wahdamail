@@ -562,7 +562,7 @@ class MailBoxController extends GetxController {
       // Initialize storage for drafts if not exists
       if (mailboxStorage[mailbox] == null) {
         mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
-          mailAccount: _mailService.account,
+          mailAccount: mailService.account,
           mailbox: mailbox,
         );
         await mailboxStorage[mailbox]!.init();
@@ -681,7 +681,7 @@ class MailBoxController extends GetxController {
         await mailboxStorage[box]!.saveMessageEnvelopes([message]);
       }
     }
-    if (!InternetService.instance.connected) {
+    if (!mailService.client.isConnected) {
       return;
     }
     // set on server
