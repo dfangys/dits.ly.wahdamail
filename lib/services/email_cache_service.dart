@@ -106,9 +106,10 @@ class EmailCacheService {
       final message = MimeMessage();
       message.uid = cacheEntry['uid'] as int?;
       
-      // Set basic properties
+      // Set basic properties with proper encoding for decoding
       if (cacheEntry['subject'] != null) {
-        message.setHeader('subject', cacheEntry['subject'] as String);
+        final subject = cacheEntry['subject'] as String;
+        message.setHeader('subject', subject);
       }
       
       if (cacheEntry['from'] != null) {
@@ -129,7 +130,8 @@ class EmailCacheService {
       
       if (cacheEntry['date'] != null) {
         final dateMs = cacheEntry['date'] as int;
-        message.setHeader('date', DateTime.fromMillisecondsSinceEpoch(dateMs).toIso8601String());
+        final date = DateTime.fromMillisecondsSinceEpoch(dateMs);
+        message.setHeader('date', date.toUtc().toString());
       }
 
       // Set flags
@@ -150,12 +152,29 @@ class EmailCacheService {
         message.flags = [...(message.flags ?? []), MessageFlags.seen];
       }
 
-      // Set content - simplified approach (content reconstruction skipped for now)
-      // Note: Full content reconstruction requires more complex API usage
-      // For now, we'll cache and retrieve basic message metadata only
+      // Set content from cache
+      if (cacheEntry['plainText'] != null || cacheEntry['htmlText'] != null) {
+        // Create a simple MIME structure for the content
+        final plainText = cacheEntry['plainText'] as String?;
+        final htmlText = cacheEntry['htmlText'] as String?;
+        
+        if (htmlText != null && htmlText.isNotEmpty) {
+          // Create HTML part
+          final htmlPart = MimePart();
+          htmlPart.setHeader('content-type', 'text/html; charset=utf-8');
+          htmlPart.mimeData = TextMimeData(htmlText, containsHeader: false);
+          message.addPart(htmlPart);
+        } else if (plainText != null && plainText.isNotEmpty) {
+          // Create plain text part
+          final textPart = MimePart();
+          textPart.setHeader('content-type', 'text/plain; charset=utf-8');
+          textPart.mimeData = TextMimeData(plainText, containsHeader: false);
+          message.addPart(textPart);
+        }
+      }
       
       if (kDebugMode) {
-        print('Retrieved cached email UID $uid (content reconstruction simplified)');
+        print('Retrieved cached email UID $uid with content reconstruction');
       }
 
       return message;
