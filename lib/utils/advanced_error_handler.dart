@@ -9,9 +9,7 @@ import 'package:get/get.dart';
 /// ENHANCED: Advanced Error Handling System based on enough_mail_app patterns
 /// Provides comprehensive error categorization, recovery strategies, and user feedback
 class AdvancedErrorHandler {
-  static final Logger _logger = Logger(
-    printer: PrettyPrinter(),
-  );
+  static final Logger _logger = Logger();
   
   // Error categorization for better handling
   static const Map<Type, ErrorCategory> _errorCategories = {

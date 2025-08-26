@@ -34,15 +34,14 @@ class ImapPerformanceOptimizer {
       for (int i = 0; i < connectionPoolSize; i++) {
         final client = ImapClient(isLogEnabled: kDebugMode);
         await client.connectToServer(
-          account.incoming.serverName,
+          account.incoming.hostname,
           account.incoming.port,
-          isSecure: account.incoming.isSecureSocket,
+          isSecure: account.incoming.isSecure,
         );
         
-        await client.authenticate(
+        await client.login(
           account.userName,
           account.password,
-          account.incoming.authentication,
         );
         
         _connectionPool.add(client);
@@ -103,7 +102,7 @@ class ImapPerformanceOptimizer {
       // ENHANCED: Use size-based fetching strategy from enough_mail_app
       final fetchPreference = preference ?? _determineFetchPreference(sequence);
       
-      final messages = await client.fetchMessageSequence(
+      final messages = await client.fetchMessages(
         sequence,
         fetchPreference: fetchPreference,
       );
@@ -137,7 +136,7 @@ class ImapPerformanceOptimizer {
     
     // For medium batches, fetch envelope and structure
     if (sequence.length <= 15) {
-      return FetchPreference.envelopeAndBodystructure;
+      return FetchPreference.envelope;
     }
     
     // For large batches, fetch envelope only
@@ -176,7 +175,7 @@ class ImapPerformanceOptimizer {
     
     try {
       final sequence = MessageSequence.fromId(message.sequenceId!);
-      final envelopeMessages = await client.fetchMessageSequence(
+      final envelopeMessages = await client.fetchMessages(
         sequence,
         fetchPreference: FetchPreference.envelope,
       );
@@ -191,8 +190,8 @@ class ImapPerformanceOptimizer {
   
   /// Optimize message structure for better display performance
   void _optimizeMessageStructure(MimeMessage message) {
-    // Ensure message has proper flags
-    message.flags ??= <MessageFlags>[];
+    // Ensure message has proper flags (flags is already List<String>?)
+    message.flags ??= <String>[];
     
     // Cache commonly accessed properties
     if (message.envelope != null) {

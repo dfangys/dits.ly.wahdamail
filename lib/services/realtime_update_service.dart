@@ -676,38 +676,19 @@ extension IncomingEmailExtension on RealtimeUpdateService {
         
         // Emit mailbox update event
         _mailboxUpdateStream.add(MailboxUpdate(
-          mailboxName: mailboxKey,
+          mailbox: Mailbox()..name = mailboxKey,
           type: MailboxUpdateType.newMessages,
           messages: messages,
-          unreadCount: _unreadCounts[mailboxKey] ?? 0,
+          metadata: {'unreadCount': _unreadCounts[mailboxKey] ?? 0},
         ));
         
         // Emit individual message events for UI reactivity
         for (final message in messages) {
           _messageUpdateStream.add(MessageUpdate(
             message: message,
-            type: MessageUpdateType.added,
-            mailboxName: mailboxKey,
+            type: MessageUpdateType.read,
+            metadata: {'mailboxName': mailboxKey},
           ));
-        }
-      }
-      
-      // Update reactive streams
-      _messagesStream.add(_mailboxMessages['INBOX'] ?? []);
-      _unreadCountsStream.add(Map.from(_unreadCounts));
-      
-      _logger.i('📧 Successfully processed ${newMessages.length} new messages');
-      
-    } catch (e) {
-      _logger.e('📧 Error processing new messages: $e');
-      _errorStream.add('Failed to process new messages: $e');
-    }
-  }
-        
-        // Update flagged messages if flagged
-        if (message.isFlagged) {
-          final messageKey = '${message.uid ?? message.sequenceId}';
-          _flaggedMessages.add(messageKey);
         }
       }
       

@@ -33,7 +33,7 @@ import '../../views/view/models/box_model.dart';
 
 class MailBoxController extends GetxController {
   // ENHANCED: Add IndexedCache for high-performance message caching
-  late final IndexedCache<int, MimeMessage> _messageCache;
+  late final IndexedCache<MimeMessage> _messageCache;
   static const int _maxCacheSize = 200; // Optimized for mobile devices
   late MailService mailService;
   final RxBool isBusy = true.obs;
@@ -177,7 +177,7 @@ class MailBoxController extends GetxController {
   void onInit() async {
     try {
       // ENHANCED: Initialize IndexedCache for high-performance message caching
-      _messageCache = IndexedCache<int, MimeMessage>(_maxCacheSize);
+      _messageCache = IndexedCache<MimeMessage>(maxCacheSize: _maxCacheSize);
       
       mailService = MailService.instance;
       await mailService.init();
@@ -1039,7 +1039,7 @@ class MailBoxController extends GetxController {
       
       // Check which messages are already cached
       for (final id in sequence.toList()) {
-        final cached = _messageCache.get(id);
+        final cached = _messageCache[id];
         if (cached != null) {
           cachedMessages.add(cached);
           if (kDebugMode) {
@@ -1064,7 +1064,7 @@ class MailBoxController extends GetxController {
         // ENHANCED: Cache fetched messages for future use
         for (final message in fetchedMessages) {
           if (message.sequenceId != null) {
-            _messageCache.put(message.sequenceId!, message);
+            _messageCache[message.sequenceId!] = message;
             if (kDebugMode) {
               print('📧 Cached message ${message.sequenceId}');
             }
