@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/auth_controller.dart';
 import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
+import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 
@@ -13,7 +14,10 @@ import '../controllers/settings_controller.dart';
 class HomeBinding extends Bindings {
   @override
   void dependencies() {
-    // Register performance optimization services first
+    // Register MailService first as it's required by other services
+    Get.put<MailService>(MailService.instance, permanent: true);
+    
+    // Register performance optimization services
     Get.put<CacheManager>(CacheManager(), permanent: true);
     Get.put<RealtimeUpdateService>(RealtimeUpdateService.instance, permanent: true);
     

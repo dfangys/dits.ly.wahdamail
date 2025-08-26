@@ -16,7 +16,16 @@ class RealtimeUpdateService extends GetxService {
   
   RealtimeUpdateService._();
 
-  MailService get _mailService => Get.find<MailService>();
+  MailService? get _mailService {
+    try {
+      return Get.find<MailService>();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Connection check failed: $e');
+      }
+      return null;
+    }
+  }
   CacheManager get _cacheManager => CacheManager.instance;
 
   // Reactive streams for different types of updates
@@ -123,9 +132,16 @@ class RealtimeUpdateService extends GetxService {
     try {
       _syncStatusStream.add(SyncStatus.syncing);
       
+      final mailService = _mailService;
+      if (mailService == null) {
+        _syncStatusStream.add(SyncStatus.error);
+        _errorStream.add('MailService not available');
+        return;
+      }
+      
       // Load mailboxes
-      if (_mailService.client.isConnected) {
-        final mailboxes = await _mailService.client.listMailboxes();
+      if (mailService.client.isConnected) {
+        final mailboxes = await mailService.client.listMailboxes();
         _mailboxesStream.add(mailboxes);
         
         // Load messages for inbox
@@ -144,7 +160,13 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> _checkConnectionStatus() async {
     try {
-      if (_mailService.client.isConnected) {
+      final mailService = _mailService;
+      if (mailService == null) {
+        _connectionStatusStream.add(ConnectionStatus.error);
+        return;
+      }
+      
+      if (mailService.client.isConnected) {
         // Check connection status without noop
         _connectionStatusStream.add(ConnectionStatus.connected);
       } else {
@@ -162,8 +184,15 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> _reconnect() async {
     try {
+      final mailService = _mailService;
+      if (mailService == null) {
+        _connectionStatusStream.add(ConnectionStatus.error);
+        _errorStream.add('MailService not available for reconnection');
+        return;
+      }
+      
       _connectionStatusStream.add(ConnectionStatus.connecting);
-      await _mailService.connect();
+      await mailService.connect();
       _connectionStatusStream.add(ConnectionStatus.connected);
     } catch (e) {
       _connectionStatusStream.add(ConnectionStatus.error);
@@ -191,11 +220,19 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> _syncMailbox(Mailbox mailbox) async {
     try {
-      if (!_mailService.client.isConnected) {
-        await _mailService.connect();
+      final mailService = _mailService;
+      if (mailService == null) {
+        if (kDebugMode) {
+          print('MailService not available for syncing mailbox ${mailbox.name}');
+        }
+        return;
       }
       
-      await _mailService.client.selectMailbox(mailbox);
+      if (!mailService.client.isConnected) {
+        await mailService.connect();
+      }
+      
+      await mailService.client.selectMailbox(mailbox);
       
       // Check for new messages
       final currentCount = _mailboxMessages[mailbox.path]?.length ?? 0;
@@ -215,6 +252,14 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> _loadNewMessages(Mailbox mailbox, int currentCount) async {
     try {
+      final mailService = _mailService;
+      if (mailService == null) {
+        if (kDebugMode) {
+          print('MailService not available for loading new messages');
+        }
+        return;
+      }
+      
       final newMessageCount = mailbox.messagesExists - currentCount;
       if (newMessageCount <= 0) return;
       
@@ -224,7 +269,7 @@ class RealtimeUpdateService extends GetxService {
         mailbox.messagesExists,
       );
       
-      final newMessages = await _mailService.client.fetchMessages(
+      final newMessages = await mailService.client.fetchMessages(
         mailbox: mailbox,
         count: newMessageCount,
         page: 1,
@@ -282,11 +327,18 @@ class RealtimeUpdateService extends GetxService {
     try {
       _syncStatusStream.add(SyncStatus.syncing);
       
-      if (!_mailService.client.isConnected) {
-        await _mailService.connect();
+      final mailService = _mailService;
+      if (mailService == null) {
+        _syncStatusStream.add(SyncStatus.error);
+        _errorStream.add('MailService not available for loading mailbox messages');
+        return;
       }
       
-      await _mailService.client.selectMailbox(mailbox);
+      if (!mailService.client.isConnected) {
+        await mailService.connect();
+      }
+      
+      await mailService.client.selectMailbox(mailbox);
       
       // Load messages in batches
       const batchSize = 20;
@@ -298,7 +350,7 @@ class RealtimeUpdateService extends GetxService {
         final count = end - i;
         final page = (i ~/ batchSize) + 1;
         
-        final batchMessages = await _mailService.client.fetchMessages(
+        final batchMessages = await mailService.client.fetchMessages(
           mailbox: mailbox,
           count: count,
           page: page,
@@ -328,8 +380,14 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> markMessageAsRead(MimeMessage message) async {
     try {
+      final mailService = _mailService;
+      if (mailService == null) {
+        _errorStream.add('MailService not available for marking message as read');
+        return;
+      }
+      
       final sequence = MessageSequence.fromMessage(message);
-      await _mailService.client.markSeen(sequence);
+      await mailService.client.markSeen(sequence);
       
       // Update local state
       message.isSeen = true;
@@ -357,8 +415,14 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> markMessageAsUnread(MimeMessage message) async {
     try {
+      final mailService = _mailService;
+      if (mailService == null) {
+        _errorStream.add('MailService not available for marking message as unread');
+        return;
+      }
+      
       final sequence = MessageSequence.fromMessage(message);
-      await _mailService.client.markUnseen(sequence);
+      await mailService.client.markUnseen(sequence);
       
       // Update local state
       message.isSeen = false;
@@ -386,8 +450,14 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> flagMessage(MimeMessage message) async {
     try {
+      final mailService = _mailService;
+      if (mailService == null) {
+        _errorStream.add('MailService not available for flagging message');
+        return;
+      }
+      
       final sequence = MessageSequence.fromMessage(message);
-      await _mailService.client.markFlagged(sequence);
+      await mailService.client.markFlagged(sequence);
       
       // Update local state
       message.isFlagged = true;
@@ -408,8 +478,14 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> unflagMessage(MimeMessage message) async {
     try {
+      final mailService = _mailService;
+      if (mailService == null) {
+        _errorStream.add('MailService not available for unflagging message');
+        return;
+      }
+      
       final sequence = MessageSequence.fromMessage(message);
-      await _mailService.client.markUnflagged(sequence);
+      await mailService.client.markUnflagged(sequence);
       
       // Update local state
       message.isFlagged = false;
@@ -430,8 +506,14 @@ class RealtimeUpdateService extends GetxService {
 
   Future<void> deleteMessage(MimeMessage message) async {
     try {
+      final mailService = _mailService;
+      if (mailService == null) {
+        _errorStream.add('MailService not available for deleting message');
+        return;
+      }
+      
       final sequence = MessageSequence.fromMessage(message);
-      await _mailService.client.deleteMessages(sequence, expunge: true);
+      await mailService.client.deleteMessages(sequence, expunge: true);
       
       // Remove from local state
       for (final messages in _mailboxMessages.values) {
