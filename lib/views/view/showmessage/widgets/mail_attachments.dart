@@ -12,8 +12,8 @@ import 'package:share_plus/share_plus.dart';
 import '../../../../services/mail_service.dart';
 import '../../../../services/email_cache_service.dart';
 import '../../../../utills/theme/app_theme.dart';
-import '../../../../widgets/enhanced_message_viewer.dart';
 import '../../../../widgets/enhanced_attachment_viewer.dart';
+import '../../../../widgets/enterprise_message_viewer.dart';
 
 class MailAttachments extends StatelessWidget {
   const MailAttachments({super.key, required this.message, this.mailbox});
@@ -256,18 +256,12 @@ class MailAttachments extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Enhanced message content viewer
-              EnhancedMessageViewer(
+              // WebView-first enterprise viewer for best fidelity
+              EnterpriseMessageViewer(
                 mimeMessage: snapshot.data!,
-                maxImageWidth: 600,
                 enableDarkMode: Theme.of(context).brightness == Brightness.dark,
                 blockExternalImages: true,
-                preferPlainText: false,
-                onZoomed: () {
-                  if (kDebugMode) {
-                    print('Message content zoomed');
-                  }
-                },
+                textScale: MediaQuery.of(context).textScaler.scale(1.0),
               ),
 
               // Enhanced attachment viewer
