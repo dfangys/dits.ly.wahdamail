@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../app/controllers/settings_controller.dart';
-import '../../../services/security_service.dart';
 
 class AuthScreen extends StatelessWidget {
   final SettingController _settingsController = Get.find<SettingController>();

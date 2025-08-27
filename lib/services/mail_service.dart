@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
@@ -129,7 +128,7 @@ class MailService {
       await EmailNotificationService.instance.startListening();
       _isIdleActive = true;
       if (kDebugMode) {
-        print('IDLE mode started for mailbox: ${client.selectedMailbox?.name}');
+print('IDLE mode started for mailbox: ${client.selectedMailbox?.name}');
       }
     } catch (e) {
       if (kDebugMode) {
@@ -165,7 +164,7 @@ class MailService {
           try {
             if (event.mailClient == client) {
               if (kDebugMode) {
-                print('📧 MailLoadEvent received for: ${event.message?.decodeSubject() ?? "Unknown"}');
+print('📧 MailLoadEvent received for: ${event.message.decodeSubject()}');
               }
               
               if (Get.isRegistered<MailBoxController>()) {

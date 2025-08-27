@@ -199,6 +199,6 @@ class OtpController extends GetxController {
 
   Future logout() async {
     await _storage.erase();
-    Get.offAll(() => LoginScreen());
+    Get.offAll(() => const LoginScreen());
   }
 }

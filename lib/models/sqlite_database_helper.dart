@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 
 /// SQLite database helper for email storage
@@ -19,7 +18,7 @@ class SQLiteDatabaseHelper {
   }
 
   // Database version - increment when schema changes
-  static const int _databaseVersion = 2;
+  static const int _databaseVersion = 5;
 
   // Table names
   static const String tableEmails = 'emails';
@@ -42,6 +41,7 @@ class SQLiteDatabaseHelper {
   static const String columnDate = 'date';
   static const String columnContent = 'content';
   static const String columnHtmlContent = 'html_content';
+  static const String columnPreviewText = 'preview_text';
   static const String columnIsSeen = 'is_seen';
   static const String columnIsFlagged = 'is_flagged';
   static const String columnIsDeleted = 'is_deleted';
@@ -54,6 +54,10 @@ class SQLiteDatabaseHelper {
   static const String columnSequenceId = 'sequence_id';
   static const String columnModSeq = 'mod_seq';
   static const String columnEmailFlags = 'flags';
+  // Derived columns (v5)
+  static const String columnSenderName = 'sender_name';
+  static const String columnNormalizedSubject = 'normalized_subject';
+  static const String columnDayBucket = 'day_bucket';
 
   // Mailbox table columns
   static const String columnName = 'name';
@@ -92,6 +96,11 @@ class SQLiteDatabaseHelper {
       version: _databaseVersion,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
+      onOpen: (db) async {
+        // Enable WAL for better write concurrency and reduce fsync stalls
+        await db.rawQuery('PRAGMA journal_mode=WAL');
+        await db.rawQuery('PRAGMA synchronous=NORMAL');
+      },
     );
   }
 
@@ -130,6 +139,7 @@ class SQLiteDatabaseHelper {
         $columnDate INTEGER,
         $columnContent TEXT,
         $columnHtmlContent TEXT,
+        $columnPreviewText TEXT,
         $columnIsSeen INTEGER DEFAULT 0,
         $columnIsFlagged INTEGER DEFAULT 0,
         $columnIsDeleted INTEGER DEFAULT 0,
@@ -142,6 +152,9 @@ class SQLiteDatabaseHelper {
         $columnSequenceId INTEGER,
         $columnModSeq INTEGER,
         $columnEmailFlags TEXT,
+        $columnSenderName TEXT,
+        $columnNormalizedSubject TEXT,
+        $columnDayBucket INTEGER,
         FOREIGN KEY ($columnMailboxId) REFERENCES $tableMailboxes($columnId) ON DELETE CASCADE,
         UNIQUE($columnMailboxId, $columnUid)
       )
@@ -180,6 +193,13 @@ class SQLiteDatabaseHelper {
     await db.execute('CREATE INDEX idx_emails_uid ON $tableEmails($columnUid)');
     await db.execute('CREATE INDEX idx_emails_seen ON $tableEmails($columnIsSeen)');
     await db.execute('CREATE INDEX idx_mailboxes_account ON $tableMailboxes($columnAccountEmail)');
+    // Additional performance indexes
+    await db.execute('CREATE INDEX idx_emails_sequence_id ON $tableEmails($columnSequenceId)');
+    await db.execute('CREATE INDEX idx_emails_mailbox_date ON $tableEmails($columnMailboxId, $columnDate)');
+    // Derived-field indexes (v5)
+    await db.execute('CREATE INDEX idx_emails_mailbox_day_bucket ON $tableEmails($columnMailboxId, $columnDayBucket)');
+    await db.execute('CREATE INDEX idx_emails_mailbox_sender ON $tableEmails($columnMailboxId, $columnSenderName)');
+    await db.execute('CREATE INDEX idx_emails_mailbox_norm_subject ON $tableEmails($columnMailboxId, $columnNormalizedSubject)');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -189,6 +209,54 @@ class SQLiteDatabaseHelper {
       await db.execute('ALTER TABLE $tableEmails ADD COLUMN $columnEmailFlags TEXT');
       if (kDebugMode) {
         print('📧 Database upgraded: Added flags column to emails table');
+      }
+    }
+    if (oldVersion < 3) {
+      // Add preview_text column and performance indexes
+      await db.execute('ALTER TABLE $tableEmails ADD COLUMN $columnPreviewText TEXT');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_emails_sequence_id ON $tableEmails($columnSequenceId)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_emails_mailbox_date ON $tableEmails($columnMailboxId, $columnDate)');
+      if (kDebugMode) {
+        print('📧 Database upgraded: Added preview_text column and new indexes');
+      }
+    }
+    if (oldVersion < 4) {
+      // Ensure has_attachments column exists (older installs may miss it)
+      final columns = await db.rawQuery('PRAGMA table_info($tableEmails)');
+      final hasAtt = columns.any((row) => row['name'] == columnHasAttachments);
+      if (!hasAtt) {
+        await db.execute('ALTER TABLE $tableEmails ADD COLUMN $columnHasAttachments INTEGER DEFAULT 0');
+        if (kDebugMode) {
+          print('📧 Database upgraded: Added has_attachments column');
+        }
+      }
+      // Recreate performance indexes defensively
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_emails_sequence_id ON $tableEmails($columnSequenceId)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_emails_mailbox_date ON $tableEmails($columnMailboxId, $columnDate)');
+    }
+    if (oldVersion < 5) {
+      // Add derived columns if not present
+      final columns = await db.rawQuery('PRAGMA table_info($tableEmails)');
+      final hasSender = columns.any((row) => row['name'] == columnSenderName);
+      final hasNormSubj = columns.any((row) => row['name'] == columnNormalizedSubject);
+      final hasDayBucket = columns.any((row) => row['name'] == columnDayBucket);
+      if (!hasSender) {
+        await db.execute('ALTER TABLE $tableEmails ADD COLUMN $columnSenderName TEXT');
+      }
+      if (!hasNormSubj) {
+        await db.execute('ALTER TABLE $tableEmails ADD COLUMN $columnNormalizedSubject TEXT');
+      }
+      if (!hasDayBucket) {
+        await db.execute('ALTER TABLE $tableEmails ADD COLUMN $columnDayBucket INTEGER');
+      }
+      // Lightweight SQL backfill for day_bucket only (computed from date)
+      await db.execute('UPDATE $tableEmails SET $columnDayBucket = CASE WHEN $columnDate IS NOT NULL THEN ($columnDate / 86400000) ELSE NULL END');
+      // Create indexes for derived columns
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_emails_mailbox_day_bucket ON $tableEmails($columnMailboxId, $columnDayBucket)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_emails_mailbox_sender ON $tableEmails($columnMailboxId, $columnSenderName)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_emails_mailbox_norm_subject ON $tableEmails($columnMailboxId, $columnNormalizedSubject)');
+      if (kDebugMode) {
+        print('📧 Database upgraded to v5: Added derived columns and indexes');
       }
     }
   }

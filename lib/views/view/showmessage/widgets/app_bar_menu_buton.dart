@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
-import 'package:get/get.dart';
 
 class InboxAppBarMenuButton extends StatelessWidget {
   const InboxAppBarMenuButton({super.key});

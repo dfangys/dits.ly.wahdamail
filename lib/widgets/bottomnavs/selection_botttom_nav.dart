@@ -46,7 +46,7 @@ class SelectionBottomNav extends StatelessWidget {
                 children: [
                   Text(
                     '$selectedCount selected',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: AppTheme.textPrimaryColor,
@@ -55,7 +55,7 @@ class SelectionBottomNav extends StatelessWidget {
                   const Spacer(),
                   TextButton(
                     onPressed: () => selectionController.clear(),
-                    child: Text(
+                    child: const Text(
                       'Cancel',
                       style: TextStyle(
                         color: AppTheme.primaryColor,

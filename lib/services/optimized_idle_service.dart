@@ -38,7 +38,7 @@ class OptimizedIdleService extends GetxService {
 
   // Performance metrics
   int _messagesReceived = 0;
-  int _reconnectionCount = 0;
+  final int _reconnectionCount = 0;
   Duration _totalUptime = Duration.zero;
 
   MailService? get _mailService {
@@ -186,27 +186,6 @@ class OptimizedIdleService extends GetxService {
   }
 
   /// Verify connection health with a lightweight operation
-  Future<void> _verifyConnectionHealth() async {
-    final mailService = _mailService;
-    if (mailService == null) return;
-
-    try {
-      // Use a lightweight operation to verify connection
-      // For v2.1.7, we can use a simple noop operation
-      if (mailService.client.isConnected) {
-        // Connection is reported as connected, assume it's healthy
-        // The polling mechanism will handle disconnections
-        return;
-      } else {
-        throw Exception('Client reports not connected');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('📧 ⚠️ Connection health check failed: $e');
-      }
-      throw Exception('Connection health verification failed: $e');
-    }
-  }
 
   /// Start polling session for real-time updates (v2.1.7 compatible)
   Future<void> _startIdleSession() async {
@@ -523,7 +502,7 @@ class OptimizedIdleService extends GetxService {
       'reconnectionCount': _reconnectionCount,
       'uptimeHours': uptime.inHours,
       'messagesPerHour': uptime.inHours > 0 ? (_messagesReceived / uptime.inHours).toStringAsFixed(2) : '0',
-      'reliability': _reconnectionCount > 0 ? ((uptime.inMinutes / _reconnectionCount).toStringAsFixed(2) + ' min/reconnect') : 'Perfect',
+'reliability': _reconnectionCount > 0 ? '${(uptime.inMinutes / _reconnectionCount).toStringAsFixed(2)} min/reconnect' : 'Perfect',
     };
   }
 

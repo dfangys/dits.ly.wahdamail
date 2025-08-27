@@ -90,7 +90,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
   void _onNext() {
     if (_isLastPage) {
-      Get.offAll(() => LoginScreen()); // ← open real login & clear stack
+      Get.offAll(() => const LoginScreen()); // ← open real login & clear stack
     } else {
       _pageController.nextPage(
         duration: _pageDuration,

@@ -4,11 +4,16 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/models/sqlite_database_helper.dart';
+import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/services/email_notification_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
+import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/utils/perf/perf_tracer.dart';
 import 'package:workmanager/workmanager.dart';
 
 /// Enhanced background service for email notifications with SQLite support
@@ -178,6 +183,76 @@ class BackgroundService {
     if (showNotifications) {
       await NotificationService.instance.plugin.cancel(notificationId);
     }
+  }
+
+  /// Schedule a non-blocking backfill of derived fields for all known mailboxes.
+  /// This runs in small DB batches to avoid UI jank and does not require network.
+  /// Safe to call at app startup after services are initialized.
+  static void scheduleDerivedFieldsBackfill({
+    int perMailboxLimit = 5000,
+    int batchSize = 800,
+    Duration pauseBetweenBatches = const Duration(milliseconds: 30),
+  }) {
+    // Fire and forget; do not block startup
+    // ignore: discarded_futures
+    Future(() async {
+      final endTrace = PerfTracer.begin('background.backfillAllMailboxes', args: {
+        'perMailboxLimit': perMailboxLimit,
+        'batchSize': batchSize,
+      });
+      try {
+        final mailService = MailService.instance;
+        // Try to get mailboxes either from controller or from client
+        List<Mailbox> mailboxes = [];
+        try {
+          if (Get.isRegistered<MailBoxController>()) {
+            mailboxes = List<Mailbox>.from(Get.find<MailBoxController>().mailboxes);
+          }
+        } catch (_) {}
+        if (mailboxes.isEmpty) {
+          try {
+            mailboxes = List<Mailbox>.from(mailService.client.mailboxes ?? const []);
+          } catch (_) {}
+        }
+        if (mailboxes.isEmpty) {
+          if (kDebugMode) {
+            print('📧 Backfill skipped: no mailboxes available');
+          }
+          return;
+        }
+        for (final mb in mailboxes) {
+          try {
+            // Initialize storage for this mailbox (without network)
+            final storage = SQLiteMailboxMimeStorage(
+              mailAccount: mailService.account,
+              mailbox: mb,
+            );
+            await storage.init();
+
+            int processed = 0;
+            while (processed < perMailboxLimit) {
+              final updated = await storage.backfillDerivedFields(maxRows: batchSize);
+              if (updated <= 0) break;
+              processed += updated;
+              await Future.delayed(pauseBetweenBatches);
+            }
+            if (kDebugMode) {
+              print('📧 Backfill mailbox ${mb.name}: processed $processed rows');
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('📧 Backfill error for mailbox ${mb.name}: $e');
+            }
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('📧 Global backfill error: $e');
+        }
+      } finally {
+        try { endTrace(); } catch (_) {}
+      }
+    });
   }
 
   /// Optimize battery usage by requesting battery optimization exemption

@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get_storage/get_storage.dart';
 // import 'package:hive_flutter/hive_flutter.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:wahda_bank/app.dart';
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';

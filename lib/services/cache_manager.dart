@@ -1,21 +1,21 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:typed_data';
 
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:wahda_bank/services/memory_budget.dart';
 
 /// Comprehensive cache manager for email application performance optimization
 class CacheManager extends GetxService {
   static CacheManager get instance => Get.find<CacheManager>();
 
   // Memory caches with LRU eviction
-  final LRUMap<String, MimeMessage> _messageCache = LRUMap<String, MimeMessage>(100);
-  final LRUMap<String, List<MimeMessage>> _mailboxCache = LRUMap<String, List<MimeMessage>>(20);
-  final LRUMap<String, Uint8List> _attachmentCache = LRUMap<String, Uint8List>(50);
-  final LRUMap<String, String> _messageContentCache = LRUMap<String, String>(200);
-  final LRUMap<String, List<MimePart>> _attachmentListCache = LRUMap<String, List<MimePart>>(100);
+final LRUMap<String, MimeMessage> _messageCache = LRUMap<String, MimeMessage>(_maxMessageCacheSize);
+  final LRUMap<String, List<MimeMessage>> _mailboxCache = LRUMap<String, List<MimeMessage>>(_maxMailboxCacheSize);
+  final LRUMap<String, Uint8List> _attachmentCache = LRUMap<String, Uint8List>(_maxAttachmentCacheSize);
+  final LRUMap<String, String> _messageContentCache = LRUMap<String, String>(_maxContentCacheSize);
+  final LRUMap<String, List<MimePart>> _attachmentListCache = LRUMap<String, List<MimePart>>(_maxAttachmentCacheSize * 2);
 
   // Cache statistics
   final RxMap<String, int> _cacheStats = <String, int>{
@@ -43,8 +43,11 @@ class CacheManager extends GetxService {
   @override
   Future<void> onInit() async {
     super.onInit();
+    // Ensure memory budget service is initialized
+    MemoryBudgetService.instance;
     _startPeriodicCleanup();
     _startPreloadProcessor();
+    _startPeriodicEnforceBudget();
   }
 
   // Message caching
@@ -177,7 +180,7 @@ class CacheManager extends GetxService {
     
     _isPreloading = true;
     try {
-      final messageKey = _preloadQueue.removeFirst();
+      _preloadQueue.removeFirst();
       // Implement preloading logic here
       // This would typically involve fetching message content in background
       await Future.delayed(const Duration(milliseconds: 100)); // Placeholder
@@ -247,7 +250,7 @@ class CacheManager extends GetxService {
     
     if (kDebugMode) {
       print('Cache cleanup performed');
-      print('Cache stats: ${_cacheStats.value}');
+      print('Cache stats: ${Map.from(_cacheStats)}');
       print('Cache sizes: Messages=${_messageCache.length}, '
             'Mailboxes=${_mailboxCache.length}, '
             'Attachments=${_attachmentCache.length}, '
@@ -255,8 +258,114 @@ class CacheManager extends GetxService {
     }
   }
 
+  // Budget enforcement
+  void _startPeriodicEnforceBudget() {
+    Timer.periodic(const Duration(minutes: 2), (timer) {
+      try {
+        _enforceMemoryBudget();
+      } catch (e) {
+        if (kDebugMode) {
+          print('Memory budget enforce error: $e');
+        }
+      }
+    });
+  }
+
+  void _enforceMemoryBudget() {
+    final budget = MemoryBudgetService.instance;
+    final rss = budget.sampleProcessRssBytes();
+    final cacheBytes = estimatedMemoryUsage;
+    final softMax = budget.cacheSoftMaxBytes;
+
+    if (cacheBytes <= softMax) {
+      return;
+    }
+
+    int toFree = cacheBytes - softMax;
+
+    // Prefer to free from the largest buckets first: attachments, content
+    toFree -= _evictAttachmentBytes(toFree);
+    if (toFree > 0) {
+      toFree -= _evictContentBytes(toFree);
+    }
+    if (toFree > 0) {
+      // Then reduce message/mailbox cache sizes by count
+      _evictCountFromMap(_messageCache, (_messageCache.length / 3).ceil());
+      _evictCountFromMap(_mailboxCache, (_mailboxCache.length / 2).ceil());
+    }
+
+    if (kDebugMode) {
+      print('Memory budget enforced. RSS=${(rss / (1024 * 1024)).toStringAsFixed(1)}MB, '
+            'cache=${(cacheBytes / (1024 * 1024)).toStringAsFixed(1)}MB -> '
+            '${(estimatedMemoryUsage / (1024 * 1024)).toStringAsFixed(1)}MB');
+    }
+  }
+
+  int _evictAttachmentBytes(int bytesToFree) {
+    int freed = 0;
+    // LRU: keys.first is least recently used
+    final keys = List<String>.from(_attachmentCache.keys);
+    for (final k in keys) {
+      if (freed >= bytesToFree) break;
+      final data = _attachmentCache[k];
+      if (data != null) {
+        freed += data.length;
+      }
+      _attachmentCache.remove(k);
+    }
+    return freed;
+  }
+
+  int _evictContentBytes(int bytesToFree) {
+    int freed = 0;
+    final keys = List<String>.from(_messageContentCache.keys);
+    for (final k in keys) {
+      if (freed >= bytesToFree) break;
+      final content = _messageContentCache[k];
+      if (content != null) {
+        freed += content.length * 2; // UTF-16 estimate
+      }
+      _messageContentCache.remove(k);
+    }
+    return freed;
+  }
+
+  void _evictCountFromMap<K, V>(LRUMap<K, V> map, int count) {
+    for (int i = 0; i < count && map.length > 0; i++) {
+      final firstKey = map.keys.isNotEmpty ? map.keys.first : null;
+      if (firstKey == null) break;
+      map.remove(firstKey);
+    }
+  }
+
   // Cache statistics
-  Map<String, int> get cacheStats => Map.from(_cacheStats.value);
+  Map<String, int> get cacheStats => Map.from(_cacheStats);
+
+  // Expose cache sizes for monitoring
+  int get messageCacheCount => _messageCache.length;
+  int get mailboxCacheCount => _mailboxCache.length;
+  int get attachmentCacheCount => _attachmentCache.length;
+  int get contentCacheCount => _messageContentCache.length;
+  int get attachmentListCacheCount => _attachmentListCache.length;
+
+  int get attachmentCacheBytes {
+    int total = 0;
+    for (final data in _attachmentCache.values) {
+      total += data.length;
+    }
+    return total;
+  }
+
+  int get contentCacheBytes {
+    int total = 0;
+    for (final content in _messageContentCache.values) {
+      total += content.length * 2; // UTF-16 estimate
+    }
+    return total;
+  }
+
+  // Public trigger for budget enforcement
+  void enforceBudgetNow() => _enforceMemoryBudget();
   
   double get messageHitRate {
     final hits = _cacheStats['message_hits'] ?? 0;

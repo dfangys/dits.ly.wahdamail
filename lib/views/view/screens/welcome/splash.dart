@@ -59,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         if (storage.read('otp') != null) {
           Get.offAll(() => const LoadingFirstView());
         } else {
-          Get.offAll(() => LoginScreen());
+          Get.offAll(() => const LoginScreen());
         }
       } else {
         Get.offAll(() => const WelcomeScreen());

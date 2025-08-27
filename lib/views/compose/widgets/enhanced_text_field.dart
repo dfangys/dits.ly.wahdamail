@@ -345,7 +345,7 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
       builder: (context, controller, focusNode) {
         return Container(
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: focusNode.hasFocus
@@ -380,6 +380,8 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
                   // Contact picker button
                   IconButton(
                     onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final themeSnapshot = Theme.of(context);
                       try {
                         if (await FlutterContacts.requestPermission(readonly: true)) {
                           final contact = await FlutterContacts.openExternalPick();
@@ -394,10 +396,10 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
                         }
                       } catch (e) {
                         // Handle permission denied or other errors
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        messenger.showSnackBar(
                           SnackBar(
                             content: Text('contact_picker_error'.tr),
-                            backgroundColor: theme.colorScheme.error,
+                            backgroundColor: themeSnapshot.colorScheme.error,
                             behavior: SnackBarBehavior.floating,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
@@ -23,8 +22,8 @@ class ImapPerformanceOptimizer {
   
   // Performance metrics
   int _totalFetches = 0;
-  int _cacheMisses = 0;
-  int _cacheHits = 0;
+  final int _cacheMisses = 0;
+  final int _cacheHits = 0;
   Duration _totalFetchTime = Duration.zero;
   
   /// Initialize the performance optimizer
@@ -143,8 +142,6 @@ class ImapPerformanceOptimizer {
         return 'BODY[]';
       case FetchPreference.full:
         return 'BODY[]';
-      default:
-        return 'ENVELOPE';
     }
   }
 

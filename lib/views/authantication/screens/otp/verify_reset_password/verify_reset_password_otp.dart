@@ -56,10 +56,10 @@ class _VerifyResetPasswordOtpScreenState
               title: 'success'.tr,
               desc: 'msg_password_reset_successfully'.tr,
               btnOkOnPress: () {
-                Get.offAll(() => LoginScreen());
+                Get.offAll(() => const LoginScreen());
               },
             ).show();
-            Get.offAll(() => LoginScreen());
+            Get.offAll(() => const LoginScreen());
           } else {
             controller.error();
             AwesomeDialog(
@@ -127,10 +127,11 @@ class _VerifyResetPasswordOtpScreenState
   Future resendSms() async {
     try {
       String email = widget.email;
+      final messenger = ScaffoldMessenger.of(context);
       var res = await appApi.sendResetPasswordOtp(email);
       if (res is Map && res.isNotEmpty) {
         if (res.containsKey('otp_send') && res['otp_send']) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             SnackBar(
               content: const Text('OTP code has been resent to your email'),
               backgroundColor: Colors.green,

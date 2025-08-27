@@ -121,15 +121,11 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
         attachment.fetchId,
       );
       
-      if (part != null && part.mimeData != null) {
-        final contentTransferEncoding = part.getHeaderValue('content-transfer-encoding');
-        final data = part.mimeData!.decodeBinary(contentTransferEncoding);
-        // Cache the data
-        _attachmentDataCache[cacheKey] = data;
-        return data;
-      }
-      
-      return null;
+      final contentTransferEncoding = part.getHeaderValue('content-transfer-encoding');
+      final data = part.mimeData!.decodeBinary(contentTransferEncoding);
+      // Cache the data
+      _attachmentDataCache[cacheKey] = data;
+      return data;
     } catch (e) {
       throw Exception('Failed to fetch attachment: $e');
     }
@@ -157,7 +153,7 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.error_outline,
                 color: Colors.red,
                 size: 48,
@@ -165,7 +161,7 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
               const SizedBox(height: 8),
               Text(
                 _error!,
-                style: TextStyle(color: Colors.red),
+                style: const TextStyle(color: Colors.red),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -265,6 +261,7 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
                         attachment.contentType?.parameters['name'] ?? 
                         'attachment';
         // Create a temporary file and share it
+        // ignore: deprecated_member_use
         await Share.shareXFiles([
           XFile.fromData(
             data,

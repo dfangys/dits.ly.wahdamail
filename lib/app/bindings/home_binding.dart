@@ -1,6 +1,5 @@
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/auth_controller.dart';
-import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/models/sqlite_draft_repository.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/mail_service.dart';
@@ -10,7 +9,6 @@ import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import '../controllers/mail_count_controller.dart';
 import '../controllers/mailbox_controller.dart';
 import '../controllers/selection_controller.dart';
-import '../controllers/settings_controller.dart';
 
 class HomeBinding extends Bindings {
   @override

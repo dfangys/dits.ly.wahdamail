@@ -61,11 +61,11 @@ class AuthController extends GetxController {
       await GetStorage().erase();
 
       // Navigate to login screen
-      Get.offAll(() => LoginScreen());
+      Get.offAll(() => const LoginScreen());
     } catch (e) {
       logger.e("Error during logout: $e");
       // Even if there's an error, try to navigate to login
-      Get.offAll(() => LoginScreen());
+      Get.offAll(() => const LoginScreen());
     }
   }
 

@@ -5,9 +5,10 @@ import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/view/screens/home/widgets/appbar.dart';
-import 'package:wahda_bank/views/box/mailbox_view.dart';
+import 'package:wahda_bank/views/box/enhanced_mailbox_view.dart';
 import 'package:wahda_bank/widgets/bottomnavs/selection_botttom_nav.dart';
 import 'package:wahda_bank/widgets/drawer/drawer.dart';
+import 'package:wahda_bank/services/home_init_guard.dart';
 
 class HomeScreen extends GetView<MailBoxController> {
   const HomeScreen({super.key});
@@ -16,11 +17,9 @@ class HomeScreen extends GetView<MailBoxController> {
   Widget build(BuildContext context) {
     final selectionController = Get.find<SelectionController>();
     
-    // Initialize inbox on first build
+    // Initialize Home once per app session (single init guard)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (controller.mailBoxInbox != null && !controller.isLoadingEmails.value) {
-        controller.initInbox();
-      }
+      HomeInitGuard.instance.ensureInitialized(controller);
     });
     
     return Scaffold(
@@ -36,7 +35,7 @@ class HomeScreen extends GetView<MailBoxController> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(
+                const SizedBox(
                   width: 32,
                   height: 32,
                   child: CircularProgressIndicator(
@@ -72,9 +71,10 @@ class HomeScreen extends GetView<MailBoxController> {
           );
         }
         
-        // Use existing MailBoxView for inbox
-        return MailBoxView(
+        // Use EnhancedMailboxView directly to avoid nested Scaffold and duplicate refresh/actions
+        return EnhancedMailboxView(
           mailbox: controller.mailBoxInbox,
+          theme: Theme.of(context),
           isDarkMode: Theme.of(context).brightness == Brightness.dark,
         );
       }),

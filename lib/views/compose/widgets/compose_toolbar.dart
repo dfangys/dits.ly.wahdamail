@@ -102,7 +102,7 @@ class ComposeToolbar extends StatelessWidget {
         decoration: BoxDecoration(
           color: isActive
               ? theme.colorScheme.primary.withValues(alpha: 0.1)
-              : theme.colorScheme.surfaceVariant.withValues(alpha: 0.5),
+              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(8),
           border: isActive
               ? Border.all(
@@ -220,7 +220,7 @@ class ComposeToolbar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.5),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(

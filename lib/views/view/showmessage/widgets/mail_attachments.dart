@@ -1,7 +1,6 @@
 import 'dart:developer';
 import 'dart:io';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:enough_mail_flutter/enough_mail_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -98,10 +97,6 @@ class MailAttachments extends StatelessWidget {
           }
           
           fetchedMessage = await mailService.client.fetchMessageContents(message);
-          
-          if (fetchedMessage == null) {
-            throw Exception('fetchMessageContents returned null for UID ${message.uid}');
-          }
           
           if (kDebugMode) {
             print('Successfully fetched message contents for UID ${message.uid}');
@@ -238,60 +233,6 @@ class MailAttachments extends StatelessWidget {
     );
   }
 
-  Widget _buildAttachmentSection(BuildContext context, MimeMessage mimeMessage) {
-    final contentInfo = mimeMessage.findContentInfo();
-
-    // If no attachments, don't show the section at all
-    if (contentInfo.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 16),
-        const Divider(),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.attachment_rounded,
-                color: AppTheme.primaryColor,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Attachments (${contentInfo.length})',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 100, // Fixed height for the horizontal list
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal, // Make it scroll horizontally
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            itemCount: contentInfo.length,
-            itemBuilder: (context, index) {
-              final c = contentInfo[index];
-              return SizedBox(
-                width: 280, // Fixed width for each attachment tile
-                child: AttachmentTile(
-                  contentInfo: c,
-                  mimeMessage: mimeMessage,
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class AttachmentTile extends StatefulWidget {
@@ -486,6 +427,7 @@ class _AttachmentTileState extends State<AttachmentTile> {
           );
 
           if (tempFile != null) {
+            // ignore: deprecated_member_use
             await Share.shareXFiles(
               [XFile(tempFile.path)],
               text: 'Sharing ${widget.contentInfo.fileName}',
@@ -652,6 +594,7 @@ class _AttachmentTileState extends State<AttachmentTile> {
 
           // Use share to let the user decide where to save it
           if (context.mounted) {
+            // ignore: deprecated_member_use
             await Share.shareXFiles(
               [XFile(tempFile.path)],
               text: 'Save or open $fileName',
@@ -673,6 +616,7 @@ class _AttachmentTileState extends State<AttachmentTile> {
         final tempFile = File('${tempDir.path}/$fileName');
         await tempFile.writeAsBytes(uint8List);
 
+        // ignore: deprecated_member_use
         await Share.shareXFiles(
           [XFile(tempFile.path)],
           text: 'Save or open $fileName',

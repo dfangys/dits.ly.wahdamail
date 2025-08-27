@@ -26,8 +26,8 @@ class _HomeEmailListState extends State<HomeEmailList> {
   
   // Track processed messages to avoid duplicates
   final Set<int> _processedUIDs = <int>{};
-  Map<DateTime, List<MimeMessage>> _groupedMessages = {};
-  List<DateTime> _dateKeys = [];
+  final Map<DateTime, List<MimeMessage>> _groupedMessages = {};
+  final List<DateTime> _dateKeys = [];
   int _lastProcessedCount = 0;
 
   @override
@@ -196,7 +196,7 @@ class _HomeEmailListState extends State<HomeEmailList> {
         _processMessages(controller.boxMails);
       }
     } catch (e) {
-      print('Error loading more messages: $e');
+      debugPrint('Error loading more messages: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -324,7 +324,7 @@ class _HomeEmailListState extends State<HomeEmailList> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            SizedBox(
+                            const SizedBox(
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(

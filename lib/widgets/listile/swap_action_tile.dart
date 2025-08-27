@@ -24,7 +24,7 @@ class SwapActionTile extends StatelessWidget {
       height: 120,
       width: 120,
       decoration: BoxDecoration(
-        color: backgroundColor.withOpacity(opacity),
+color: backgroundColor.withValues(alpha: opacity),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Center(

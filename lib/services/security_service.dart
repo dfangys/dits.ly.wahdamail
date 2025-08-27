@@ -14,7 +14,6 @@ class SecurityService extends GetxService {
 
   // App state tracking
   DateTime? _lastActive;
-  bool _isInForeground = true;
 
   // Initialize the service
   Future<SecurityService> init() async {
@@ -119,7 +118,6 @@ class SecurityService extends GetxService {
 
   // Handle app going to background
   void onAppBackground() {
-    _isInForeground = false;
     _lastActive = DateTime.now();
 
     // If app lock is enabled, mark as locked
@@ -130,7 +128,6 @@ class SecurityService extends GetxService {
 
   // Handle app coming to foreground
   Future<void> onAppForeground() async {
-    _isInForeground = true;
 
     // If app lock is enabled, check if we need to authenticate
     if (_settingsController.appLock.value && !_settingsController.isAuthenticated.value) {

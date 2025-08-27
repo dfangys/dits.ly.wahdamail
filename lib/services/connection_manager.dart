@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
@@ -34,8 +33,8 @@ class ConnectionManager extends GetxService {
   String? _lastErrorMessage;
   
   // Network quality tracking
-  List<Duration> _connectionTimes = [];
-  List<bool> _recentConnectionAttempts = [];
+  final List<Duration> _connectionTimes = [];
+  final List<bool> _recentConnectionAttempts = [];
   static const int _maxHistorySize = 20;
 
   // Reactive state
@@ -164,7 +163,7 @@ class ConnectionManager extends GetxService {
     _updateState(ConnectionState.disconnected);
     
     if (kDebugMode) {
-      print('🔌 ❌ Connection failed (${_consecutiveFailures}/$_maxConsecutiveFailures): $error');
+      print('🔌 ❌ Connection failed ($_consecutiveFailures/$_maxConsecutiveFailures): $error');
     }
 
     // Check if we should give up

@@ -143,7 +143,7 @@ class IndexedCache<T> {
     return {
       'cacheSize': cacheSize,
       'capacity': capacity,
-      'utilization': (cacheSize / capacity * 100).toStringAsFixed(1) + '%',
+'utilization': '${(cacheSize / capacity * 100).toStringAsFixed(1)}%',
       'isFull': isFull,
       'totalEntries': _entries.length,
       'nullEntries': _entries.where((e) => e == null).length,

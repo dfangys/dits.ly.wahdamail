@@ -12,7 +12,6 @@ import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
-import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/models/sqlite_draft_repository.dart';
 import 'package:wahda_bank/models/sqlite_mime_storage.dart';
@@ -113,7 +112,6 @@ class ComposeController extends GetxController {
   Timer? _autosaveTimer;
   Timer? _statusClearTimer;
   DraftModel? _currentDraft;
-  DateTime? _lastChangeTime;
   int _changeCounter = 0;
 
   // Original message data
@@ -559,12 +557,12 @@ class ComposeController extends GetxController {
       final draftMessage = messageBuilder.buildMimeMessage();
 
       // Save to server
-      final box = await client.selectMailboxByFlag(MailboxFlag.drafts);
+      await client.selectMailboxByFlag(MailboxFlag.drafts);
       final code = await client.saveDraftMessage(draftMessage);
 
       // Update draft with server info if successful
       if (code != null && _currentDraft != null) {
-        await storage.markDraftSynced(_currentDraft!.id!, code.uidValidity ?? 0);
+        await storage.markDraftSynced(_currentDraft!.id!, code.uidValidity);
       }
 
       // Delete old draft if editing
@@ -784,7 +782,6 @@ class ComposeController extends GetxController {
   // Mark content as changed and needing save
   void _markAsChanged() {
     _hasUnsavedChanges.value = true;
-    _lastChangeTime = DateTime.now();
     _changeCounter++;
 
     // Update status
@@ -1191,12 +1188,6 @@ class ComposeController extends GetxController {
     }
   }
 
-  // Validate email
-  bool _isValidEmail(String email) {
-    return RegExp(
-      r"[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?",
-    ).hasMatch(email);
-  }
 
   // Insert link in HTML editor
   Future<void> insertLink() async {
@@ -1288,28 +1279,6 @@ class ComposeController extends GetxController {
     ).show();
   }
 
-  // Build message for sending
-  Future<void> _buildMessage(String body) async {
-    messageBuilder.from = [MailAddress(account.name, account.email)];
-    messageBuilder.to = toList;
-    messageBuilder.cc = cclist.isNotEmpty ? cclist : null;
-    messageBuilder.bcc = bcclist.isNotEmpty ? bcclist : null;
-    messageBuilder.subject = subjectController.text;
-
-    if (isHtml.value) {
-      messageBuilder.addTextHtml(body);
-    } else {
-      messageBuilder.addTextPlain(body);
-    }
-
-    // Add attachments
-    for (final file in attachments) {
-      await messageBuilder.addFile(
-        file,
-        MediaType.guessFromFileName(file.path),
-      );
-    }
-  }
 
   @override
   void dispose() {

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/views/view/screens/home/widgets/app_bar_icon.dart';
 import 'package:wahda_bank/widgets/search/search.dart';
-import 'package:wahda_bank/utills/theme/app_theme.dart';
 
 Widget appBar() {
   return AppBar(

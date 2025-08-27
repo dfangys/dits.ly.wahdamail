@@ -9,6 +9,7 @@ import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
 import '../services/cache_manager.dart';
+import 'package:wahda_bank/services/feature_flags.dart';
 
 class MailTile extends StatefulWidget {
   const MailTile({
@@ -34,7 +35,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
 
   // Animation and feedback state
   bool _isDeleting = false;
-  bool _isProcessing = false;
+  final bool _isProcessing = false;
   late AnimationController _feedbackController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
@@ -42,10 +43,12 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   // Cached computed values to avoid recomputation
   late final String _senderName;
   late final String _senderEmail;
-  late final bool _hasAttachments;
+  bool _hasAttachments = false;
   late final DateTime? _messageDate;
   late final String _subject;
-  late final String _preview;
+  String _preview = '';
+
+  ValueNotifier<int>? _metaNotifier;
 
   @override
   bool get wantKeepAlive => true;
@@ -54,6 +57,14 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   void initState() {
     super.initState();
     _computeCachedValues();
+
+    // Listen for per-message meta updates (e.g., preview backfill)
+    try {
+      if (FeatureFlags.instance.perTileNotifiersEnabled) {
+        _metaNotifier = mailboxController.getMessageMetaNotifier(widget.mailBox, widget.message);
+        _metaNotifier?.addListener(_onMetaChanged);
+      }
+    } catch (_) {}
     
     // Initialize animation controllers for smooth feedback
     _feedbackController = AnimationController(
@@ -146,12 +157,17 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       }
     }
 
-    // ENHANCED: Cache other computed values with better fallbacks
-    _hasAttachments = widget.message.hasAttachments();
+    // ENHANCED: Fast-path attachment flag via persisted header if present
+    final hasAttHeader = widget.message.getHeaderValue('x-has-attachments');
+    if (hasAttHeader != null) {
+      _hasAttachments = hasAttHeader == '1';
+    } else {
+      _hasAttachments = widget.message.hasAttachments();
+    }
     
     // DEBUG: Log attachment status for debugging
     if (kDebugMode && _hasAttachments) {
-      print('📎 Message "${widget.message.decodeSubject()}" has attachments');
+      debugPrint('📎 Message "${widget.message.decodeSubject()}" has attachments');
     }
     
     // ENHANCED: Better date handling with comprehensive fallback chain
@@ -162,11 +178,11 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       // 1. Try message.decodeDate() first
       messageDate = widget.message.decodeDate();
       if (messageDate != null && kDebugMode) {
-        print('📧 Date from message.decodeDate(): $messageDate');
+          debugPrint('📧 Date from message.decodeDate(): $messageDate');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('📧 Error in message.decodeDate(): $e');
+        debugPrint('📧 Error in message.decodeDate(): $e');
       }
     }
     
@@ -175,11 +191,11 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       try {
         messageDate = widget.message.envelope?.date;
         if (messageDate != null && kDebugMode) {
-          print('📧 Date from envelope.date: $messageDate');
+          debugPrint('📧 Date from envelope.date: $messageDate');
         }
       } catch (e) {
         if (kDebugMode) {
-          print('📧 Error in envelope.date: $e');
+          debugPrint('📧 Error in envelope.date: $e');
         }
       }
     }
@@ -191,12 +207,12 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
         if (dateHeader != null && dateHeader.isNotEmpty) {
           messageDate = DateTime.tryParse(dateHeader);
           if (messageDate != null && kDebugMode) {
-            print('📧 Date from header parsing: $messageDate');
+            debugPrint('📧 Date from header parsing: $messageDate');
           }
         }
       } catch (e) {
         if (kDebugMode) {
-          print('📧 Error parsing date header: $e');
+          debugPrint('📧 Error parsing date header: $e');
         }
       }
     }
@@ -205,10 +221,10 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     if (messageDate == null) {
       messageDate = DateTime.now();
       if (kDebugMode) {
-        print('📧 WARNING: Using current time as fallback for message date');
-        print('📧 Message UID: ${widget.message.uid}');
-        print('📧 Message envelope: ${widget.message.envelope}');
-        print('📧 Message headers: ${widget.message.headers}');
+        debugPrint('📧 WARNING: Using current time as fallback for message date');
+        debugPrint('📧 Message UID: ${widget.message.uid}');
+        debugPrint('📧 Message envelope: ${widget.message.envelope}');
+        debugPrint('📧 Message headers: ${widget.message.headers}');
       }
     }
     
@@ -230,7 +246,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     _preview = _generatePreview();
     
     if (kDebugMode) {
-      print('📧 Mail tile computed: sender="$_senderName", subject="$_subject", date=$_messageDate');
+      debugPrint('📧 Mail tile computed: sender="$_senderName", subject="$_subject", date=$_messageDate');
     }
   }
 
@@ -252,36 +268,13 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   }
 
   String _generatePreview() {
-    // ENHANCED: Use enough_mail_app pattern for rich preview generation
-    
-    // 1. Try plain text content first (most reliable)
-    try {
-      final plainText = widget.message.decodeTextPlainPart();
-      if (plainText?.isNotEmpty == true) {
-        return _cleanPreviewText(plainText!);
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('📧 Error decoding plain text: $e');
-      }
+    // ENHANCED: Use persisted preview header first for O(1) preview
+    final headerPreview = widget.message.getHeaderValue('x-preview');
+    if (headerPreview != null && headerPreview.trim().isNotEmpty) {
+      return _cleanPreviewText(headerPreview);
     }
-    
-    // 2. Try HTML content and strip tags
-    try {
-      final htmlContent = widget.message.decodeTextHtmlPart();
-      if (htmlContent?.isNotEmpty == true) {
-        final cleanHtml = _stripHtmlTags(htmlContent!);
-        if (cleanHtml.isNotEmpty) {
-          return _cleanPreviewText(cleanHtml);
-        }
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('📧 Error decoding HTML: $e');
-      }
-    }
-    
-    // 3. Try cached content from cache manager
+
+    // 2. Try cached content from cache manager
     try {
       final cachedContent = cacheManager.getCachedMessageContent(widget.message);
       if (cachedContent != null && cachedContent.isNotEmpty) {
@@ -296,6 +289,23 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       }
     }
     
+    // 3. Try plain text and HTML only if needed (can be heavier)
+    try {
+      final plainText = widget.message.decodeTextPlainPart();
+      if (plainText?.isNotEmpty == true) {
+        return _cleanPreviewText(plainText!);
+      }
+    } catch (_) {}
+    try {
+      final htmlContent = widget.message.decodeTextHtmlPart();
+      if (htmlContent?.isNotEmpty == true) {
+        final cleanHtml = _stripHtmlTags(htmlContent!);
+        if (cleanHtml.isNotEmpty) {
+          return _cleanPreviewText(cleanHtml);
+        }
+      }
+    } catch (_) {}
+
     // 4. Check for attachments and provide meaningful preview
     if (_hasAttachments) {
       return "📎 Message with attachments";
@@ -357,53 +367,60 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
 
-    return Obx(() {
-      final isSelected = selectionController.selected.contains(widget.message);
-      
-      // Wrap with smooth animations for real-time feedback
-      return AnimatedBuilder(
-        animation: _feedbackController,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value,
-            child: AnimatedOpacity(
-              opacity: _isDeleting ? _fadeAnimation.value : 1.0,
-              duration: const Duration(milliseconds: 300),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: _isProcessing 
-                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                      : null,
-                ),
-                child: OptimizedMailTileContent(
-                  message: widget.message,
-                  mailBox: widget.mailBox,
-                  isUnread: isUnread,
-                  hasFlagged: hasFlagged,
-                  isSelected: isSelected,
-                  senderName: _senderName,
-                  senderEmail: _senderEmail,
-                  hasAttachments: _hasAttachments,
-                  messageDate: _messageDate,
-                  subject: _subject,
-                  preview: _preview,
-                  onTap: widget.onTap,
-                  theme: theme,
-                  isDarkMode: isDarkMode,
-                  onMarkAsRead: _markAsRead,
-                  onToggleFlag: _toggleFlag,
-                  onDeleteMessage: _deleteMessage,
-                  onArchiveMessage: _archiveMessage,
+    final selectionId = selectionController.selectionIdFor(widget.message);
+    return GetBuilder<SelectionController>(
+      id: selectionId,
+      builder: (sel) {
+        final isSelected = sel.isSelected(widget.message);
+        // Wrap with smooth animations for real-time feedback
+        final animCap = FeatureFlags.instance.animationsCappedEnabled;
+        final durFast = Duration(milliseconds: animCap ? 120 : 200);
+        final durMedium = Duration(milliseconds: animCap ? 180 : 300);
+        return AnimatedBuilder(
+          animation: _feedbackController,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _scaleAnimation.value,
+              child: AnimatedOpacity(
+                opacity: _isDeleting ? _fadeAnimation.value : 1.0,
+                duration: durMedium,
+                child: AnimatedContainer(
+                  duration: durFast,
+                  curve: Curves.easeInOut,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: _isProcessing 
+                        ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                        : null,
+                  ),
+                  child: OptimizedMailTileContent(
+                    message: widget.message,
+                    mailBox: widget.mailBox,
+                    isUnread: isUnread,
+                    hasFlagged: hasFlagged,
+                    isSelected: isSelected,
+                    senderName: _senderName,
+                    senderEmail: _senderEmail,
+                    hasAttachments: _hasAttachments,
+                    messageDate: _messageDate,
+                    subject: _subject,
+                    preview: _preview,
+                    onTap: widget.onTap,
+                    theme: theme,
+                    isDarkMode: isDarkMode,
+                    onMarkAsRead: _markAsRead,
+                    onToggleFlag: _toggleFlag,
+                    onDeleteMessage: _deleteMessage,
+                    onArchiveMessage: _archiveMessage,
+                    metaNotifier: _metaNotifier,
+                  ),
                 ),
               ),
-            ),
-          );
-        },
-      );
-    });
+            );
+          },
+        );
+      },
+    );
   }
 
   // Action methods for email operations with optimistic updates
@@ -606,8 +623,26 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
 
   @override
   void dispose() {
+    try {
+      _metaNotifier?.removeListener(_onMetaChanged);
+    } catch (_) {}
     _feedbackController.dispose();
     super.dispose();
+  }
+
+  void _onMetaChanged() {
+    if (!mounted) return;
+    setState(() {
+      // Re-read preview and attachments from headers (fast path)
+      final hp = widget.message.getHeaderValue('x-preview');
+      if (hp != null && hp.trim().isNotEmpty) {
+        _preview = _cleanPreviewText(hp);
+      }
+      final ha = widget.message.getHeaderValue('x-has-attachments');
+      if (ha != null) {
+        _hasAttachments = ha == '1';
+      }
+    });
   }
 }
 
@@ -632,6 +667,7 @@ class OptimizedMailTileContent extends StatelessWidget {
     required this.onToggleFlag,
     required this.onDeleteMessage,
     required this.onArchiveMessage,
+    this.metaNotifier,
   });
 
   final MimeMessage message;
@@ -652,6 +688,7 @@ class OptimizedMailTileContent extends StatelessWidget {
   final VoidCallback onToggleFlag;
   final VoidCallback onDeleteMessage;
   final VoidCallback onArchiveMessage;
+  final ValueListenable<int>? metaNotifier;
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
@@ -685,6 +722,10 @@ class OptimizedMailTileContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selectionController = Get.find<SelectionController>();
+
+    // Adapt preview lines for accessibility text scales to prevent overflow in fixed-extent rows.
+    final textScale = MediaQuery.of(context).textScaler.scale(14.0) / 14.0;
+    final int previewMaxLines = textScale > 1.25 ? 1 : 2;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -722,7 +763,7 @@ class OptimizedMailTileContent extends StatelessWidget {
             },
             onLongPress: _toggleSelection,
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: FeatureFlags.instance.fixedExtentListEnabled ? 12 : 16),
               child: Row(
                 children: [
                   // Selection indicator or avatar
@@ -760,7 +801,7 @@ class OptimizedMailTileContent extends StatelessWidget {
                               ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: (FeatureFlags.instance.fixedExtentListEnabled && (textScale > 1.1)) ? 2 : 4),
                         
                         // Subject line with indicators
                         Row(
@@ -778,7 +819,36 @@ class OptimizedMailTileContent extends StatelessWidget {
                               ),
                             ),
                             // Attachment indicator - Enhanced visibility
-                            if (hasAttachments) ...[
+                            if (FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null)
+                              ValueListenableBuilder<int>(
+                                valueListenable: metaNotifier!,
+                                builder: (context, _, __) {
+                                  final ha = message.getHeaderValue('x-has-attachments');
+                                  final hasAtt = ha == '1' || (ha == null ? hasAttachments : false);
+                                  return hasAtt
+                                      ? Row(children: [
+                                          const SizedBox(width: 4),
+                                          Container(
+                                            padding: const EdgeInsets.all(3),
+                                            decoration: BoxDecoration(
+                                              color: theme.primaryColor.withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color: theme.primaryColor.withValues(alpha: 0.3),
+                                                width: 0.5,
+                                              ),
+                                            ),
+                                            child: Icon(
+                                              Icons.attach_file,
+                                              size: 16,
+                                              color: theme.primaryColor,
+                                            ),
+                                          ),
+                                        ])
+                                      : const SizedBox.shrink();
+                                },
+                              )
+                            else if (hasAttachments) ...[
                               const SizedBox(width: 4),
                               Container(
                                 padding: const EdgeInsets.all(3),
@@ -815,18 +885,44 @@ class OptimizedMailTileContent extends StatelessWidget {
                             ],
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: (FeatureFlags.instance.fixedExtentListEnabled && (textScale > 1.1)) ? 2 : 4),
                         
-                        // Preview text
-                        Text(
-                          preview,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: theme.textTheme.bodySmall?.color,
-                            height: 1.3,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        // Preview text (flexible to avoid vertical overflow)
+                        Flexible(
+                          child: FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null
+                              ? ValueListenableBuilder<int>(
+                                  valueListenable: metaNotifier!,
+                                  builder: (context, _, __) {
+                                    final hp = message.getHeaderValue('x-preview');
+                                    final text = (hp != null && hp.trim().isNotEmpty) ? hp : preview;
+                                    return ClipRect(
+                                      child: Text(
+                                        text,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: theme.textTheme.bodySmall?.color,
+                                          height: 1.25,
+                                        ),
+                                        maxLines: previewMaxLines,
+                                        overflow: TextOverflow.ellipsis,
+                                        softWrap: true,
+                                      ),
+                                    );
+                                  },
+                                )
+                              : ClipRect(
+                                  child: Text(
+                                    preview,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: theme.textTheme.bodySmall?.color,
+                                      height: 1.25,
+                                    ),
+                                    maxLines: previewMaxLines,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
+                                  ),
+                                ),
                         ),
                       ],
                     ),
@@ -854,38 +950,38 @@ class OptimizedMailTileContent extends StatelessWidget {
   Widget _buildLeadingWidget() {
     final selectionController = Get.find<SelectionController>();
     
-    if (selectionController.isSelecting) {
-      return AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        child: Checkbox(
-          value: isSelected,
-          onChanged: (_) => _toggleSelection(),
-          activeColor: theme.primaryColor,
+    return Obx(() {
+      final selecting = selectionController.selecting.value;
+      if (selecting) {
+        final checked = selectionController.isSelected(message);
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          child: Checkbox(
+            value: checked,
+            onChanged: (_) => _toggleSelection(),
+            activeColor: theme.primaryColor,
+          ),
+        );
+      }
+
+      return CircleAvatar(
+        radius: 20,
+        backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+        child: Text(
+          senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
+          style: TextStyle(
+            color: theme.primaryColor,
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
         ),
       );
-    }
-
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-      child: Text(
-        senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
-        style: TextStyle(
-          color: theme.primaryColor,
-          fontWeight: FontWeight.w600,
-          fontSize: 16,
-        ),
-      ),
-    );
+    });
   }
 
   void _toggleSelection() {
     final selectionController = Get.find<SelectionController>();
-    if (isSelected) {
-      selectionController.selected.remove(message);
-    } else {
-      selectionController.selected.add(message);
-    }
+    selectionController.toggle(message);
   }
 
   // Build start action pane based on settings (Left-to-Right swipe)

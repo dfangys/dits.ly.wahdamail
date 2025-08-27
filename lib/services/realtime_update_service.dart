@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
@@ -267,11 +266,6 @@ class RealtimeUpdateService extends GetxService {
       if (newMessageCount <= 0) return;
       
       // Fetch new messages
-      final sequence = MessageSequence.fromRange(
-        mailbox.messagesExists - newMessageCount + 1,
-        mailbox.messagesExists,
-      );
-      
       final newMessages = await mailService.client.fetchMessages(
         mailbox: mailbox,
         count: newMessageCount,
@@ -647,7 +641,7 @@ extension IncomingEmailExtension on RealtimeUpdateService {
       
       for (final message in newMessages) {
         // Determine target mailbox (usually INBOX for new messages)
-        final mailboxKey = 'INBOX';
+        const mailboxKey = 'INBOX';
         
         // Group messages by mailbox for batch processing
         messagesByMailbox.putIfAbsent(mailboxKey, () => []).add(message);

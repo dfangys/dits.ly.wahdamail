@@ -2,15 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/app/controllers/settings_controller.dart';
-import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/redesigned_compose_view.dart';
 import 'package:wahda_bank/views/compose/widgets/modern_draft_options_sheet.dart';
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
-import 'package:intl/intl.dart';
-
-import '../../utills/funtions.dart';
 
 /// Redesigned compose screen with enhanced UX and modern design
 class RedesignedComposeScreen extends StatefulWidget {
@@ -159,13 +154,13 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
 
     return PopScope(
       canPop: controller.canPop(),
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (!didPop) {
           await _handleBackPress();
         }
       },
       child: Scaffold(
-        backgroundColor: theme.colorScheme.background,
+        backgroundColor: theme.colorScheme.surface,
         appBar: _buildAppBar(theme),
         body: SlideTransition(
           position: _slideAnimation,
@@ -457,59 +452,49 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
     }
   }
 
-  void _handleMenuAction(String action) {
-    switch (action) {
-      case 'schedule':
-        _showScheduleDialog();
-        break;
-      case 'discard':
-        _showDiscardDialog();
-        break;
-    }
-  }
 
-  void _showScheduleDialog() {
-    // Implement schedule send functionality
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('schedule_send'.tr),
-        content: Text('schedule_send_feature_coming_soon'.tr),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('ok'.tr),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDiscardDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('discard_draft'.tr),
-        content: Text('discard_draft_confirmation'.tr),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('cancel'.tr),
-          ),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(context); // Close dialog
-              Navigator.pop(context); // Close compose screen
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            child: Text('discard'.tr),
-          ),
-        ],
-      ),
-    );
-  }
+  // void _showScheduleDialog() {
+  //   // Implement schedule send functionality
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: Text('schedule_send'.tr),
+  //       content: Text('schedule_send_feature_coming_soon'.tr),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: Text('ok'.tr),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+  //
+  // void _showDiscardDialog() {
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: Text('discard_draft'.tr),
+  //       content: Text('discard_draft_confirmation'.tr),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: Text('cancel'.tr),
+  //         ),
+  //         FilledButton(
+  //           onPressed: () {
+  //             Navigator.pop(context); // Close dialog
+  //             Navigator.pop(context); // Close compose screen
+  //           },
+  //           style: FilledButton.styleFrom(
+  //             backgroundColor: Theme.of(context).colorScheme.error,
+  //           ),
+  //           child: Text('discard'.tr),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   // Draft status color coding (like original implementation)
   Color _getDraftStatusColor() {

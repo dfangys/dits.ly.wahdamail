@@ -31,8 +31,9 @@ class _ComposeScreenState extends State<ComposeScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: controller.canPop(),
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (!didPop) {
+          final navigator = Navigator.of(context);
           // If there are unsaved changes, show confirmation dialog
           if (controller.hasUnsavedChanges) {
             var isConfirmed = await confirmDraft(context);
@@ -41,12 +42,12 @@ class _ComposeScreenState extends State<ComposeScreen> {
             }
             controller.canPop(true);
             if (mounted) {
-              Navigator.pop(context);
+              navigator.pop();
             }
           } else {
             controller.canPop(true);
             if (mounted) {
-              Navigator.pop(context);
+              navigator.pop();
             }
           }
         }
@@ -371,7 +372,7 @@ class DraftOptionsSheet extends StatelessWidget {
               onChanged: (value) {
                 Get.find<SettingController>().readReceipts.value = value;
               },
-              activeColor: AppTheme.primaryColor,
+              activeTrackColor: AppTheme.primaryColor,
             )),
             onTap: () {
               Get.find<SettingController>().readReceipts.toggle();
@@ -526,16 +527,18 @@ class DraftOptionsSheet extends StatelessWidget {
               children: [
                 Text('select_category'.tr),
                 const SizedBox(height: 16),
-                ...categories.map((category) => RadioListTile<String>(
-                  title: Text(category.tr),
-                  value: category,
-                  groupValue: selectedCategory,
-                  onChanged: (value) {
-                    setState(() {
-                      selectedCategory = value!;
-                    });
-                  },
-                )),
+                  ...categories.map((category) => RadioListTile<String>(
+                    title: Text(category.tr),
+                    value: category,
+                    // ignore: deprecated_member_use
+                    groupValue: selectedCategory,
+                    // ignore: deprecated_member_use
+                    onChanged: (value) {
+                      setState(() {
+                        selectedCategory = value!;
+                      });
+                    },
+                  )),
                 if (selectedCategory == 'custom')
                   TextField(
                     decoration: InputDecoration(

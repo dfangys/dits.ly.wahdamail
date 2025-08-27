@@ -70,7 +70,7 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
       );
     } catch (e) {
       if (kDebugMode) {
-        print('Error building message content: $e');
+        debugPrint('Error building message content: $e');
       }
       return _buildErrorMessage(error: e.toString());
     }
@@ -79,9 +79,9 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
   Widget _buildContent() {
     try {
       if (kDebugMode) {
-        print('DEBUG: Building message content');
-        print('DEBUG: Message parts count: ${widget.mimeMessage.parts?.length ?? 0}');
-        print('DEBUG: Message content type: ${widget.mimeMessage.mediaType}');
+        debugPrint('DEBUG: Building message content');
+        debugPrint('DEBUG: Message parts count: ${widget.mimeMessage.parts?.length ?? 0}');
+        debugPrint('DEBUG: Message content type: ${widget.mimeMessage.mediaType}');
       }
       
       // Enhanced MimeMessageViewer with proper configuration
@@ -95,7 +95,7 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
       );
     } catch (e) {
       if (kDebugMode) {
-        print('Error creating MimeMessageViewer: $e');
+        debugPrint('Error creating MimeMessageViewer: $e');
       }
       return _buildErrorMessage(error: 'Failed to display message content');
     }
@@ -107,7 +107,7 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
+          const Icon(
             Icons.mail_outline,
             size: 64,
             color: AppTheme.textSecondaryColor,
@@ -186,7 +186,7 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
+          const Icon(
             Icons.error_outline,
             size: 48,
             color: AppTheme.errorColor,
@@ -252,7 +252,7 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
       return false;
     } catch (e) {
       if (kDebugMode) {
-        print('Error checking message content: $e');
+        debugPrint('Error checking message content: $e');
       }
       return false;
     }

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:enough_mail/enough_mail.dart';
@@ -380,7 +379,7 @@ class EmailCacheService {
       return contentInfo.map((info) => {
         'fileName': info.fileName,
         'size': info.size,
-        'mimeType': info.contentType?.mediaType?.toString(),
+'mimeType': (info.contentType != null) ? info.contentType!.mediaType.toString() : null,
         'isInline': false, // Simplified for now
       }).toList();
     } catch (e) {

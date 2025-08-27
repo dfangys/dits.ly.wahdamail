@@ -8,9 +8,6 @@ import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/widgets/bottomnavs/selection_botttom_nav.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
-import 'package:wahda_bank/utills/funtions.dart';
-import 'package:wahda_bank/views/view/showmessage/show_message.dart';
-import 'package:wahda_bank/views/compose/compose.dart';
 import 'package:wahda_bank/views/box/enhanced_mailbox_view.dart';
 
 class MailBoxView extends GetView<MailBoxController> {
@@ -25,7 +22,7 @@ class MailBoxView extends GetView<MailBoxController> {
     final isDarkMode = theme.brightness == Brightness.dark;
 
     return PopScope(
-      onPopInvoked: (didPop) => selectionController.selected.clear(),
+onPopInvokedWithResult: (didPop, result) => selectionController.selected.clear(),
       child: Scaffold(
         appBar: AppBar(
           title: Text(
@@ -157,8 +154,6 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   final List<DateTime> _dateKeys = [];
   bool _isLoadingMore = false;
   int _currentPage = 0;
-  static const int _pageSize = 50; // Increased from 20 to match controller
-  
   // Performance optimization variables
   List<MimeMessage>? _sortedMessages;
   int _lastProcessedCount = 0;
@@ -205,10 +200,6 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     }
   }
 
-  void _refreshMessages() {
-    final messages = widget.controller.boxMails;
-    _processMessages(messages);
-  }
 
   void _loadMoreMessages() async {
     if (_isLoadingMore || !mounted || _allMessagesLoaded) return;
@@ -257,7 +248,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
       }
     } catch (e) {
       // Handle error silently or show user feedback
-      print('Error loading more emails: $e');
+      debugPrint('Error loading more emails: $e');
       // Don't mark as loaded on error, allow retry
     } finally {
       // Clear loading state once
@@ -603,12 +594,12 @@ class OptimizedDateGroup extends StatelessWidget {
                 // CRITICAL FIX: Use safe navigation method with validation
                 final mailboxController = Get.find<MailBoxController>();
                 
-                print('=== MAILBOX VIEW EMAIL TAP DEBUG ===');
-                print('MailBoxView.dart onTap called!');
-                print('Subject: ${message.decodeSubject()}');
-                print('Current Mailbox: ${mailBox.name}');
-                print('Using safe navigation method');
-                print('====================================');
+                debugPrint('=== MAILBOX VIEW EMAIL TAP DEBUG ===');
+                debugPrint('MailBoxView.dart onTap called!');
+                debugPrint('Subject: ${message.decodeSubject()}');
+                debugPrint('Current Mailbox: ${mailBox.name}');
+                debugPrint('Using safe navigation method');
+                debugPrint('====================================');
                 
                 // Use the new safe navigation method from the controller
                 mailboxController.safeNavigateToMessage(message, mailBox);

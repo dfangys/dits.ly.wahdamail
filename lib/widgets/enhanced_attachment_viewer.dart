@@ -7,7 +7,6 @@ import 'package:open_app_file/open_app_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
-import '../utills/theme/app_theme.dart';
 
 /// Enhanced attachment viewer implementing enough_mail best practices
 class EnhancedAttachmentViewer extends StatelessWidget {
@@ -129,7 +128,9 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
     final fileName = widget.contentInfo.fileName ?? 'Unknown';
     final fileSize = _formatFileSize(widget.contentInfo.size);
     final fileIcon = _getFileIcon(fileName);
-    final mimeType = widget.contentInfo.contentType?.mediaType?.toString() ?? 'application/octet-stream';
+final mimeType = widget.contentInfo.contentType != null
+        ? widget.contentInfo.contentType!.mediaType.toString()
+        : 'application/octet-stream';
 
     return ListTile(
       leading: Container(
@@ -391,6 +392,7 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
       await file.writeAsBytes(data);
       
       // FIXED: Use SharePlus instead of deprecated Share
+      // ignore: deprecated_member_use
       await Share.shareXFiles(
         [XFile(file.path)],
         text: 'Sharing attachment: $fileName',

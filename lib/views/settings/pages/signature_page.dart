@@ -106,7 +106,13 @@ class SignaturePage extends GetView<SettingController> {
           end: Alignment.bottomRight,
           colors: isDarkMode
               ? [Colors.indigo.shade800.withValues(alpha : 0.8), Colors.purple.shade900.withValues(alpha : 0.8)]
-              : [theme.colorScheme.primary.withValues(alpha : 0.8), theme.colorScheme.primary.withBlue(theme.colorScheme.primary.blue + 40).withValues(alpha : 0.8)],
+              : [
+                theme.colorScheme.primary.withValues(alpha : 0.8),
+                theme.colorScheme.primary.withValues(
+                  blue: (theme.colorScheme.primary.b + (40 / 255.0)).clamp(0.0, 1.0),
+                  alpha: 0.8,
+                )
+              ],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
@@ -201,7 +207,6 @@ class SignaturePage extends GetView<SettingController> {
   }
 
   Widget _buildOptionsCard(BuildContext context, bool isDarkMode) {
-    final theme = Theme.of(context);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -505,7 +510,6 @@ class SignaturePage extends GetView<SettingController> {
 
             Switch.adaptive(
               value: value(),
-              activeColor: theme.colorScheme.primary,
               activeTrackColor: theme.colorScheme.primary.withValues(alpha : 0.3),
               inactiveThumbColor: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade50,
               inactiveTrackColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,

@@ -7,7 +7,6 @@ import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_field.dart';
 import 'package:wahda_bank/views/authantication/screens/otp/verify_reset_password/verify_reset_password_otp.dart';
-import 'package:wahda_bank/utills/constants/image_strings.dart';
 
 class ResetPasswordTextField extends StatefulWidget {
   const ResetPasswordTextField({

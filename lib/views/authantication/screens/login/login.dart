@@ -8,25 +8,18 @@ import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/widgets/custom_loading_button.dart';
 import 'package:wahda_bank/app/apis/app_api.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/views/authantication/screens/reset_password_screen/reset_password_screen.dart';
-import 'package:wahda_bank/app/controllers/selection_controller.dart';
-import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
-import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
-import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_field.dart';
-import 'package:wahda_bank/views/authantication/screens/reset_password_screen/reset_password_screen.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
-import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
-import 'package:wahda_bank/views/view/screens/home/home.dart';
+import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import '../../../../app/controllers/otp_controller.dart';
 import '../otp/otp_view/send_otp_view.dart';
 
 // ignore: must_be_immutable
 class LoginScreen extends StatefulWidget {
-  LoginScreen({super.key});
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();

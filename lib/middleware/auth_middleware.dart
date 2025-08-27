@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../app/controllers/settings_controller.dart';
-import '../views/authantication/screens/auth_screen.dart';
 
 class AuthMiddleware extends GetMiddleware {
   final SettingController _settingsController = Get.find<SettingController>();

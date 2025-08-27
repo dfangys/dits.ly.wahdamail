@@ -11,6 +11,7 @@ import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/settings/settings_view.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/widgets/drawer/drawer_tile.dart';
+import 'package:wahda_bank/views/settings/pages/performance_flags_page.dart';
 
 class Drawer1 extends StatelessWidget {
   const Drawer1({super.key});
@@ -136,6 +137,15 @@ class Drawer1 extends StatelessWidget {
                         text: 'settings'.tr,
                         onTap: () {
                           Get.to(() => const SettingsView());
+                        },
+                      ),
+
+                      // Monitoring + Feature Flags
+                      WDrawerTile(
+                        icon: Iconsax.activity,
+                        text: 'Performance & Flags',
+                        onTap: () {
+                          Get.to(() => const PerformanceFlagsPage());
                         },
                       ),
 

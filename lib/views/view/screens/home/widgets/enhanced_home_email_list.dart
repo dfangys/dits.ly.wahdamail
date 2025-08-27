@@ -274,7 +274,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(
+              const SizedBox(
                 height: 60,
                 width: 60,
                 child: CircularProgressIndicator(
@@ -447,7 +447,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SizedBox(
+          const SizedBox(
             height: 20,
             width: 20,
             child: CircularProgressIndicator(

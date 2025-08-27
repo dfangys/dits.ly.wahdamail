@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../app/controllers/settings_controller.dart';
 import '../../app/controllers/auth_controller.dart';
-import '../../app/controllers/mailbox_controller.dart'; // Added for email access
 import 'pages/language_page.dart';
 import 'pages/signature_page.dart';
 import 'pages/swipe_gesture.dart';
@@ -162,7 +161,12 @@ class SettingsView extends GetView<SettingController> {
             end: Alignment.bottomRight,
             colors: isDarkMode
                 ? [Colors.indigo.shade800, Colors.purple.shade900]
-                : [theme.colorScheme.primary, theme.colorScheme.primary.withBlue(theme.colorScheme.primary.blue + 40)],
+                : [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.primary.withValues(
+                      blue: (theme.colorScheme.primary.b + (40 / 255.0)).clamp(0.0, 1.0),
+                    )
+                  ],
           ),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
@@ -422,7 +426,7 @@ class SettingsView extends GetView<SettingController> {
             title: 'readreceipt'.tr,
             trailing: Switch.adaptive(
               value: controller.readReceipts(),
-              activeColor: theme.colorScheme.primary,
+              activeThumbColor: theme.colorScheme.primary,
               activeTrackColor: theme.colorScheme.primary.withValues(alpha : 0.3),
               inactiveThumbColor: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade50,
               inactiveTrackColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,

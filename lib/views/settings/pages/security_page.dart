@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../app/controllers/settings_controller.dart';
 import '../../../app/controllers/auth_controller.dart';
-import 'package:local_auth/local_auth.dart';
 
 class SecurityPage extends GetView<SettingController> {
   const SecurityPage({super.key});
@@ -89,7 +88,6 @@ class SecurityPage extends GetView<SettingController> {
         required String text,
         required bool isDarkMode,
       }) {
-    final theme = Theme.of(context);
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -265,7 +263,6 @@ class SecurityPage extends GetView<SettingController> {
   }
 
   Widget _buildPrivacyCard(BuildContext context, bool isDarkMode) {
-    final theme = Theme.of(context);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -416,7 +413,7 @@ class SecurityPage extends GetView<SettingController> {
 
             Switch.adaptive(
               value: value(),
-              activeColor: theme.colorScheme.primary,
+              activeThumbColor: theme.colorScheme.primary,
               activeTrackColor: theme.colorScheme.primary.withValues(alpha : 0.3),
               inactiveThumbColor: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade50,
               inactiveTrackColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,

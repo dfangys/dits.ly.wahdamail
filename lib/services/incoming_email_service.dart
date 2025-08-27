@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:isolate';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
@@ -29,8 +28,6 @@ class IncomingEmailService extends GetxService {
   // Internal state
   Timer? _pollingTimer;
   Timer? _idleTimer;
-  bool _isPolling = false;
-  bool _isIdleMode = false;
   int _lastKnownMessageCount = 0;
   final Set<String> _processedMessageIds = {};
 
@@ -63,7 +60,6 @@ class IncomingEmailService extends GetxService {
   void startPolling({Duration interval = const Duration(minutes: 1)}) {
     stopPolling();
     
-    _isPolling = true;
     _pollingTimer = Timer.periodic(interval, (_) {
       _checkForNewEmails();
     });
@@ -80,7 +76,6 @@ class IncomingEmailService extends GetxService {
   void stopPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
-    _isPolling = false;
     
     if (kDebugMode) {
       print('📧 Stopped polling for new emails');
@@ -96,7 +91,6 @@ class IncomingEmailService extends GetxService {
       // Check if IDLE is supported by checking capabilities (simplified)
       try {
         // For enough_mail compatibility, we'll use polling instead of checking capabilities
-        _isIdleMode = false; // Disable IDLE for now
         if (kDebugMode) {
           print('📧 IDLE not supported in this version, using polling mode');
         }
@@ -120,7 +114,6 @@ class IncomingEmailService extends GetxService {
 
   /// Disable IDLE mode
   void disableIdleMode() {
-    _isIdleMode = false;
     _idleTimer?.cancel();
     _idleTimer = null;
     
@@ -144,7 +137,6 @@ class IncomingEmailService extends GetxService {
       final inbox = mailService.client.selectedMailbox ?? 
                    await mailService.client.selectInbox();
       
-      if (inbox == null) return;
 
       // Check message count
       final currentCount = inbox.messagesExists;
@@ -183,9 +175,6 @@ class IncomingEmailService extends GetxService {
       if (mailService == null) return;
 
       // Fetch the latest messages using correct API
-      final sequence = MessageSequence.fromRangeToLast(
-        _lastKnownMessageCount + 1
-      );
       
       final fetchResult = await mailService.client.fetchMessages(
         fetchPreference: FetchPreference.envelope,
@@ -264,26 +253,6 @@ class IncomingEmailService extends GetxService {
     }
   }
 
-  /// Start IDLE mode for real-time notifications (simplified for enough_mail compatibility)
-  Future<void> _startIdleMode() async {
-    try {
-      final mailService = _mailService;
-      if (mailService == null) return;
-
-      // For now, use more frequent polling instead of IDLE
-      // IDLE implementation varies by enough_mail version
-      startPolling(interval: const Duration(seconds: 30));
-      
-      if (kDebugMode) {
-        print('📧 Using frequent polling instead of IDLE for real-time updates');
-      }
-
-    } catch (e) {
-      if (kDebugMode) {
-        print('📧 Error starting IDLE mode: $e');
-      }
-    }
-  }
 
   /// Setup app state listener to optimize polling based on app state
   void _setupAppStateListener() {

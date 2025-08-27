@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:enough_mail/enough_mail.dart';
@@ -16,18 +14,17 @@ import 'package:wahda_bank/utils/indexed_cache.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
+import 'package:wahda_bank/services/preview_service.dart';
+import 'package:wahda_bank/utils/perf/perf_tracer.dart';
 import 'package:wahda_bank/services/optimized_idle_service.dart';
 import 'package:wahda_bank/services/connection_manager.dart';
 import 'package:wahda_bank/services/background_service.dart';
-import 'package:wahda_bank/views/compose/models/draft_model.dart';
-import 'package:collection/collection.dart';
+import 'package:rxdart/rxdart.dart' hide Rx;
 import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
-import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import 'package:workmanager/workmanager.dart';
-import '../../services/mail_service.dart';
 import '../../views/authantication/screens/login/login.dart';
 import '../../views/view/models/box_model.dart';
 
@@ -61,9 +58,10 @@ class MailBoxController extends GetxController {
   // Performance optimization services
   final CacheManager cacheManager = CacheManager.instance;
   final RealtimeUpdateService realtimeService = RealtimeUpdateService.instance;
+  final PreviewService previewService = PreviewService.instance;
 
   // Stream subscriptions for real-time updates
-  StreamSubscription<MessageUpdate>? _messageUpdateSubscription;
+  StreamSubscription<List<MessageUpdate>>? _messageUpdateSubscription;
   StreamSubscription<MailboxUpdate>? _mailboxUpdateSubscription;
 
   // Replace Hive storage with SQLite storage
@@ -72,12 +70,27 @@ class MailBoxController extends GetxController {
   final RxMap<Mailbox, List<MimeMessage>> emails =
       <Mailbox, List<MimeMessage>>{}.obs;
 
+  // Per-message meta notifiers (preview, flags, etc.) to enable fine-grained updates
+  final Map<String, ValueNotifier<int>> _messageMeta = <String, ValueNotifier<int>>{};
+  String _msgKey(Mailbox m, MimeMessage msg) {
+    final id = msg.uid ?? msg.sequenceId;
+    return '${m.encodedPath}:${id ?? 0}';
+  }
+  ValueNotifier<int> getMessageMetaNotifier(Mailbox mailbox, MimeMessage msg) {
+    final key = _msgKey(mailbox, msg);
+    return _messageMeta.putIfAbsent(key, () => ValueNotifier<int>(0));
+  }
+  void bumpMessageMeta(Mailbox mailbox, MimeMessage msg) {
+    final n = getMessageMetaNotifier(mailbox, msg);
+    n.value = n.value + 1;
+  }
+
   // Real-time update observables
   final RxMap<String, int> unreadCounts = <String, int>{}.obs;
   final RxSet<String> flaggedMessages = <String>{}.obs;
 
   // Track current mailbox to fix fetch error when switching
-  final Rx<Mailbox?> _currentMailbox = Rx<Mailbox?>(null);
+  final Rxn<Mailbox> _currentMailbox = Rxn<Mailbox>();
   Mailbox? get currentMailbox => _currentMailbox.value;
   set currentMailbox(Mailbox? value) => _currentMailbox.value = value;
 
@@ -206,6 +219,11 @@ class MailBoxController extends GetxController {
       
       // NEW: Initialize optimized IDLE service for high-performance real-time updates
       _initializeOptimizedIdleService();
+
+      // Schedule a background DB backfill for derived fields across mailboxes
+      try {
+        BackgroundService.scheduleDerivedFieldsBackfill(perMailboxLimit: 5000, batchSize: 800);
+      } catch (_) {}
       
       super.onInit();
     } catch (e) {
@@ -217,33 +235,37 @@ class MailBoxController extends GetxController {
   void _setupRealtimeListeners() {
     try {
       // Listen for message updates (new messages, read/unread changes, etc.)
-      _messageUpdateSubscription = realtimeService.messageUpdateStream.listen((update) {
+      _messageUpdateSubscription = realtimeService.messageUpdateStream
+          .bufferTime(const Duration(milliseconds: 100))
+          .listen((updates) {
         try {
+          if (updates.isEmpty) return;
           if (kDebugMode) {
-            print('📧 Received message update: ${update.type}');
+            print('📧 Received ${updates.length} buffered message updates');
           }
-          
-          switch (update.type) {
-            case MessageUpdateType.received:
-              _handleNewMessageReceived(update.message);
-              break;
-            case MessageUpdateType.readStatusChanged:
-              _handleReadStatusChanged(update.message);
-              break;
-            case MessageUpdateType.flagged:
-            case MessageUpdateType.unflagged:
-              _handleFlagChanged(update.message);
-              break;
-            case MessageUpdateType.deleted:
-              _handleMessageDeleted(update.message);
-              break;
-            case MessageUpdateType.statusChanged:
-              _handleReadStatusChanged(update.message);
-              break;
+          for (final update in updates) {
+            switch (update.type) {
+              case MessageUpdateType.received:
+                _handleNewMessageReceived(update.message);
+                break;
+              case MessageUpdateType.readStatusChanged:
+                _handleReadStatusChanged(update.message);
+                break;
+              case MessageUpdateType.flagged:
+              case MessageUpdateType.unflagged:
+                _handleFlagChanged(update.message);
+                break;
+              case MessageUpdateType.deleted:
+                _handleMessageDeleted(update.message);
+                break;
+              case MessageUpdateType.statusChanged:
+                _handleReadStatusChanged(update.message);
+                break;
+            }
           }
         } catch (e) {
           if (kDebugMode) {
-            print('📧 Error handling message update: $e');
+            print('📧 Error handling buffered message updates: $e');
           }
         }
       });
@@ -497,6 +519,16 @@ class MailBoxController extends GetxController {
       // PERFORMANCE FIX: If emails already exist, just return them (use cache)
       if (hasExistingEmails) {
         logger.i("Using cached emails for ${mailbox.name} (${emails[mailbox]!.length} messages)");
+        // Kick off preview backfill for messages missing previews
+        final storage = mailboxStorage[mailbox];
+        if (storage != null) {
+          previewService.queueBackfillForMessages(
+            mailbox: mailbox,
+            messages: emails[mailbox]!,
+            storage: storage,
+            maxJobs: 40,
+          );
+        }
         isLoadingEmails.value = false;
         // Still ensure current mailbox is set correctly even when using cache
         currentMailbox = mailbox;
@@ -604,6 +636,10 @@ class MailBoxController extends GetxController {
   int pageSize = 50; // Increased from 10 to 50 for better email loading performance
 
   Future<void> fetchMailbox(Mailbox mailbox, {bool forceRefresh = false}) async {
+    final endTrace = PerfTracer.begin('controller.fetchMailbox', args: {
+      'mailbox': mailbox.name,
+      'forceRefresh': forceRefresh,
+    });
     try {
       // Ensure we're working with the correct mailbox
       if (currentMailbox != mailbox) {
@@ -670,25 +706,64 @@ class MailBoxController extends GetxController {
         );
       }
 
-      // PERFORMANCE OPTIMIZATION: Use larger batch sizes and fewer requests
+      // PERFORMANCE OPTIMIZATION: Load only an initial window instead of entire mailbox
       int loaded = 0;
-      int maxToLoad = max; // CRITICAL FIX: Load ALL messages, not just 100
-      int batchSize = 50; // Increased from 10 to 50 for better performance
-      
+      int maxToLoad = math.min(max, 200); // Load up to 200 most recent for initial view
+      int batchSize = 50; // Batch size for network fetch
+
+      // First, try to serve from local DB using page-based API
+      final storage = mailboxStorage[mailbox]!;
+      final localCount = await storage.countMessages();
+      final fromDb = await storage
+          .loadMessagePage(limit: maxToLoad, offset: 0)
+          .timeout(const Duration(seconds: 8), onTimeout: () => <MimeMessage>[]);
+      if (fromDb.isNotEmpty) {
+        emails[mailbox]!.addAll(fromDb);
+        // Queue preview backfill for this page
+        previewService.queueBackfillForMessages(
+          mailbox: mailbox,
+          messages: fromDb,
+          storage: storage,
+          maxJobs: 20,
+        );
+        loaded = fromDb.length;
+        logger.i("Loaded ${fromDb.length} messages from local DB for ${mailbox.name}");
+      }
+
+      // If we already have enough locally, finish early
+      if (localCount >= maxToLoad) {
+        // Sort messages by date (newest first) for better UX
+        if (emails[mailbox]!.isNotEmpty) {
+          emails[mailbox]!.sort((a, b) {
+            final dateA = a.decodeDate();
+            final dateB = b.decodeDate();
+            if (dateA == null && dateB == null) return 0;
+            if (dateA == null) return 1;
+            if (dateB == null) return -1;
+            return dateB.compareTo(dateA);
+          });
+        }
+        emails.refresh();
+        update();
+        logger.i("Finished loading from local DB for ${mailbox.name} (${emails[mailbox]!.length} messages)");
+        return;
+      }
+
+      // Otherwise, fetch the remaining from the server (starting from newest)
       while (loaded < maxToLoad) {
         int currentBatchSize = batchSize;
         if (loaded + currentBatchSize > maxToLoad) {
           currentBatchSize = maxToLoad - loaded;
         }
-        
+
         // Load from the most recent messages (highest sequence numbers)
         int start = max - loaded - currentBatchSize + 1;
         int end = max - loaded;
-        
+
         // Ensure valid range
         if (start < 1) start = 1;
         if (end < start) break;
-        
+
         MessageSequence sequence;
         try {
           sequence = MessageSequence.fromRange(start, end);
@@ -696,41 +771,42 @@ class MailBoxController extends GetxController {
           logger.e("Error creating sequence for range $start:$end: $e");
           break;
         }
-        
+
         try {
-          // PERFORMANCE FIX: Try database first, then network if needed
-          List<MimeMessage> messages = [];
-          
-          // Try to load from database first
-          try {
-            messages = await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence).timeout(
-              const Duration(seconds: 10),
-            );
-          } catch (e) {
-            logger.w("Database load failed, trying network: $e");
-          }
-          
-          // If not in database, fetch from network
-          if (messages.isEmpty) {
-            messages = await queue(sequence).timeout(
-              const Duration(seconds: 30),
-              onTimeout: () {
-                throw TimeoutException("Network fetch timeout", const Duration(seconds: 30));
-              },
-            );
-            
-            // Save to database for future use (fire and forget)
-            if (messages.isNotEmpty) {
-              mailboxStorage[mailbox]!.saveMessageEnvelopes(messages).catchError((e) {
+          // Fetch from network; we already loaded local page above
+          List<MimeMessage> messages = await queue(sequence).timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              throw TimeoutException("Network fetch timeout", const Duration(seconds: 30));
+            },
+          );
+
+          if (messages.isNotEmpty) {
+            // De-duplicate by UID
+            final existingIds = emails[mailbox]!.map((m) => m.uid).toSet();
+            final unique = messages.where((m) => !existingIds.contains(m.uid)).toList();
+
+            if (unique.isNotEmpty) {
+              emails[mailbox]!.addAll(unique);
+              // Queue preview backfill for this batch
+              previewService.queueBackfillForMessages(
+                mailbox: mailbox,
+                messages: unique,
+                storage: storage,
+                maxJobs: 20,
+              );
+
+              // Save to database for future use (fire and forget)
+              storage.saveMessageEnvelopes(unique).catchError((e) {
                 logger.w("Database save failed: $e");
               });
+
+              loaded += unique.length;
+              logger.i("Loaded network batch: ${unique.length} messages (total: ${emails[mailbox]!.length})");
+            } else {
+              // No unique messages in this range, stop to avoid infinite loop
+              break;
             }
-          }
-          
-          if (messages.isNotEmpty) {
-            emails[mailbox]!.addAll(messages);
-            loaded += messages.length;
-            logger.i("Loaded batch: ${messages.length} messages (total: ${emails[mailbox]!.length})");
           } else {
             // No more messages to load
             break;
@@ -782,6 +858,8 @@ class MailBoxController extends GetxController {
     } catch (e) {
       logger.e("Error in fetchMailbox: $e");
       // Don't rethrow, let the calling method handle the error
+    } finally {
+      try { endTrace(); } catch (_) {}
     }
   }
 
@@ -811,6 +889,10 @@ class MailBoxController extends GetxController {
 
   // Load more emails for pagination
   Future<void> loadMoreEmails(Mailbox mailbox, [int? pageNumber]) async {
+    final endTrace = PerfTracer.begin('controller.loadMoreEmails', args: {
+      'mailbox': mailbox.name,
+      'page': pageNumber ?? 1,
+    });
     try {
       // CRITICAL: Prevent infinite loading loops
       if (_isLoadingMore[mailbox] == true) {
@@ -864,11 +946,16 @@ class MailBoxController extends GetxController {
     } finally {
       // CRITICAL: Always reset loading state
       _isLoadingMore[mailbox] = false;
+      try { endTrace(); } catch (_) {}
     }
   }
 
   // Load additional messages for pagination
   Future<void> _loadAdditionalMessages(Mailbox mailbox, int pageNumber) async {
+    final endTrace = PerfTracer.begin('controller._loadAdditionalMessages', args: {
+      'mailbox': mailbox.name,
+      'page': pageNumber,
+    });
     try {
       int max = mailbox.messagesExists;
       if (max == 0) return;
@@ -895,29 +982,37 @@ class MailBoxController extends GetxController {
         if (sequenceEnd < sequenceStart) sequenceEnd = sequenceStart;
         
         sequence = MessageSequence.fromRange(sequenceStart, sequenceEnd);
-        logger.i("Loading messages ${sequenceStart}-${sequenceEnd} for page $pageNumber");
+logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       } catch (e) {
         logger.e("Error creating sequence for pagination: $e");
         return;
       }
 
-      // Load messages from storage first
+      // Try to load next page from local storage first (by date)
       if (mailboxStorage[mailbox] != null) {
-        final cachedMessages = await mailboxStorage[mailbox]!.loadMessageEnvelopes(sequence).timeout(
-          const Duration(seconds: 10),
-          onTimeout: () => <MimeMessage>[],
-        );
+        final currentCount = emails[mailbox]?.length ?? 0;
+        final pageFromDb = await mailboxStorage[mailbox]!
+            .loadMessagePage(limit: pageSize, offset: currentCount)
+            .timeout(const Duration(seconds: 8), onTimeout: () => <MimeMessage>[]);
 
-        if (cachedMessages.isNotEmpty) {
+        if (pageFromDb.isNotEmpty) {
           if (emails[mailbox] == null) {
             emails[mailbox] = <MimeMessage>[];
           }
-          emails[mailbox]!.addAll(cachedMessages);
+          emails[mailbox]!.addAll(pageFromDb);
+          // Launch preview backfill for DB page
+          final storage = mailboxStorage[mailbox]!;
+          previewService.queueBackfillForMessages(
+            mailbox: mailbox,
+            messages: pageFromDb,
+            storage: storage,
+            maxJobs: 20,
+          );
           return;
         }
       }
 
-      // If not in cache, fetch from server
+      // If not available locally, fetch from server
       logger.i("Fetching ${sequence.length} messages from server for pagination");
       List<MimeMessage> newMessages = await queue(sequence).timeout(
         const Duration(seconds: 30), // Increased timeout for better reliability
@@ -958,6 +1053,8 @@ class MailBoxController extends GetxController {
       }
     } catch (e) {
       logger.e("Error in _loadAdditionalMessages: $e");
+    } finally {
+      try { endTrace(); } catch (_) {}
     }
   }
 
@@ -1056,45 +1153,6 @@ class MailBoxController extends GetxController {
     }
   }
 
-  MimeMessage _convertDraftToMimeMessage(DraftModel draft) {
-    final message = MimeMessage();
-    
-    // Set basic properties
-    message.setHeader('subject', draft.subject);
-    
-    // Set recipients
-    if (draft.to.isNotEmpty) {
-      message.setHeader('to', draft.to.join(', '));
-    }
-    if (draft.cc.isNotEmpty) {
-      message.setHeader('cc', draft.cc.join(', '));
-    }
-    if (draft.bcc.isNotEmpty) {
-      message.setHeader('bcc', draft.bcc.join(', '));
-    }
-    
-    // Set date
-    message.setHeader('date', draft.createdAt.toIso8601String());
-    
-    // Set content using the correct MimePart API
-    if (draft.body.isNotEmpty) {
-      final part = MimePart();
-      if (draft.isHtml) {
-        part.addHeader('Content-Type', 'text/html; charset=utf-8');
-      } else {
-        part.addHeader('Content-Type', 'text/plain; charset=utf-8');
-      }
-      part.addHeader('Content-Transfer-Encoding', 'quoted-printable');
-      part.mimeData = TextMimeData(draft.body, containsHeader: false);
-      message.addPart(part);
-    }
-    
-    // Mark as draft with custom headers
-    message.setHeader('x-draft-id', draft.id?.toString() ?? '');
-    message.setHeader('x-is-draft', 'true');
-    
-    return message;
-  }
 
   Future<List<MimeMessage>> queue(MessageSequence sequence) async {
     try {
@@ -1198,7 +1256,7 @@ class MailBoxController extends GetxController {
                     // Fallback: create basic MailAddress
                     fromAddresses = [MailAddress('Unknown', fromHeader)];
                   } catch (e2) {
-                    fromAddresses = [MailAddress('Unknown', 'unknown@unknown.com')];
+                fromAddresses = [const MailAddress('Unknown', 'unknown@unknown.com')];
                   }
                 }
               }
@@ -1213,7 +1271,7 @@ class MailBoxController extends GetxController {
                     // Fallback: create basic MailAddress
                     toAddresses = [MailAddress('', toHeader)];
                   } catch (e2) {
-                    toAddresses = [MailAddress('', 'unknown@unknown.com')];
+                    toAddresses = [const MailAddress('', 'unknown@unknown.com')];
                   }
                 }
               }
@@ -1222,7 +1280,7 @@ class MailBoxController extends GetxController {
               message.envelope = Envelope(
                 date: parsedDate ?? DateTime.now(),
                 subject: subjectHeader ?? 'No Subject',
-                from: fromAddresses ?? [MailAddress('Unknown', 'unknown@unknown.com')],
+                from: fromAddresses ?? [const MailAddress('Unknown', 'unknown@unknown.com')],
                 to: toAddresses,
                 sender: fromAddresses?.first, // Use first address, not list
                 replyTo: fromAddresses,
@@ -1240,7 +1298,7 @@ class MailBoxController extends GetxController {
               message.envelope = Envelope(
                 date: DateTime.now(),
                 subject: 'No Subject',
-                from: [MailAddress('Unknown', 'unknown@unknown.com')],
+                from: [const MailAddress('Unknown', 'unknown@unknown.com')],
               );
             }
           }
@@ -1434,9 +1492,7 @@ class MailBoxController extends GetxController {
       );
       
       // Default to INBOX if no specific mailbox found
-      if (mailbox == null) {
-        mailbox = mailboxes.firstWhereOrNull((element) => element.name == 'INBOX');
-      }
+      mailbox ??= mailboxes.firstWhereOrNull((element) => element.name == 'INBOX');
       
       if (mailbox != null && mailboxStorage[mailbox] != null) {
         // Save to storage with error handling
@@ -1530,12 +1586,20 @@ class MailBoxController extends GetxController {
       // CRITICAL FIX: Properly reset mailbox context and clear any stale state
       logger.i("Navigating to mailbox: ${mailbox.name}");
       
-      // Clear current mailbox context completely
+      // Capture previous mailbox and clear context
+      final prev = currentMailbox;
       currentMailbox = null;
       
       // Force UI update to clear any cached state
       update();
       
+      // Cancel any pending preview work for previous mailbox
+      if (prev != null) {
+        try {
+          previewService.cancelForMailbox(prev);
+        } catch (_) {}
+      }
+
       // Navigate to the mailbox view
       Get.to(() => MailBoxView(mailbox: mailbox));
       
@@ -1702,7 +1766,7 @@ class MailBoxController extends GetxController {
       MailService.instance.dispose();
       await deleteAccount();
       await Workmanager().cancelAll();
-      Get.offAll(() => LoginScreen());
+      Get.offAll(() => const LoginScreen());
     } catch (e) {
       logger.e(e);
     }
@@ -1750,7 +1814,7 @@ class MailBoxController extends GetxController {
       });
       
       // Also initialize connection manager
-      final connectionManager = ConnectionManager.instance;
+      ConnectionManager.instance;
       if (kDebugMode) {
         print('📧 🔌 Connection manager initialized');
       }
@@ -1781,6 +1845,13 @@ class MailBoxController extends GetxController {
     }
     
     MailService.instance.dispose();
+
+    // Dispose meta notifiers
+    for (final n in _messageMeta.values) {
+      try { n.dispose(); } catch (_) {}
+    }
+    _messageMeta.clear();
+
     super.dispose();
   }
 }

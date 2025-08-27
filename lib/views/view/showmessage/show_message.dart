@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/inbox_app_bar.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/inbox_bottom_navbar.dart';
-import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/mail_attachments.dart';
 import 'package:wahda_bank/views/view/showmessage/widgets/mail_meta_tile.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';

@@ -17,7 +17,6 @@ class RedesignedComposeView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
@@ -44,7 +43,7 @@ class RedesignedComposeView extends StatelessWidget {
                           margin: const EdgeInsets.only(bottom: 16),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: theme.colorScheme.outline.withValues(alpha: 0.2),
@@ -105,7 +104,7 @@ class RedesignedComposeView extends StatelessWidget {
                           margin: const EdgeInsets.only(bottom: 16),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: theme.colorScheme.outline.withValues(alpha: 0.2),
@@ -331,17 +330,17 @@ class RedesignedComposeView extends StatelessWidget {
   }
 
   Widget _buildCcBccToggle(ThemeData theme) {
-    return Obx(() => AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      child: InkWell(
-        onTap: () => controller.isCcAndBccVisible.toggle(),
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: controller.isCcAndBccVisible()
-                ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                : theme.colorScheme.surfaceVariant.withValues(alpha: 0.5),
+          return Obx(() => AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            child: InkWell(
+              onTap: () => controller.isCcAndBccVisible.toggle(),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: controller.isCcAndBccVisible()
+                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                      : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -509,7 +508,7 @@ class RedesignedComposeView extends StatelessWidget {
   }
 
   Widget _buildHtmlEditor(ThemeData theme) {
-    return Container(
+    return SizedBox(
       key: const ValueKey('html_editor'),
       height: 300,
       child: HtmlEditor(
@@ -546,7 +545,7 @@ class RedesignedComposeView extends StatelessWidget {
         callbacks: Callbacks(
           onInit: () {
             // Editor is initialized and ready
-            print('HTML Editor initialized successfully');
+            debugPrint('HTML Editor initialized successfully');
             controller.markHtmlEditorReady();
           },
           onChangeContent: (String? changed) {
@@ -557,10 +556,10 @@ class RedesignedComposeView extends StatelessWidget {
             }
           },
           onFocus: () {
-            print('HTML Editor focused');
+            debugPrint('HTML Editor focused');
           },
           onBlur: () {
-            print('HTML Editor blurred');
+            debugPrint('HTML Editor blurred');
           },
         ),
       ),
@@ -595,7 +594,7 @@ class RedesignedComposeView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: theme.colorScheme.outline.withValues(alpha: 0.1),

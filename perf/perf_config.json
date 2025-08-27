@@ -1,0 +1,8 @@
+{
+  "frame_budget_ms": 16.0,
+  "p95_janky_frames_pct_max": 1.0,
+  "inbox_skeleton_ms_max": 300.0,
+  "first_page_visible_ms_max": 1500.0,
+  "steady_state_memory_mb_max": 200.0
+}
+

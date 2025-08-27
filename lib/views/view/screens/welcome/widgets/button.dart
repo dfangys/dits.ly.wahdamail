@@ -23,7 +23,7 @@ class WelcomeButton extends StatelessWidget {
           elevation: 5,
         ),
         onPressed: () {
-          Get.to(() => LoginScreen());
+          Get.to(() => const LoginScreen());
         },
         child: const Text(
           "Get Started",

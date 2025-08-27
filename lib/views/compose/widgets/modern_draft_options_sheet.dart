@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
-import 'package:wahda_bank/utills/theme/app_theme.dart';
 
 /// Modern draft options sheet with enhanced design and all features
 class ModernDraftOptionsSheet extends StatelessWidget {
@@ -15,7 +14,6 @@ class ModernDraftOptionsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
 
     return Container(
       decoration: BoxDecoration(
@@ -220,7 +218,7 @@ class ModernDraftOptionsSheet extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: theme.colorScheme.outline.withValues(alpha: 0.2),
@@ -287,7 +285,7 @@ class ModernDraftOptionsSheet extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: theme.colorScheme.outline.withValues(alpha: 0.2),
@@ -331,7 +329,7 @@ class ModernDraftOptionsSheet extends StatelessWidget {
           Obx(() => Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: theme.colorScheme.primary,
+            activeTrackColor: theme.colorScheme.primary,
           )),
         ],
       ),
@@ -416,7 +414,7 @@ class ModernDraftOptionsSheet extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.5),
+                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: theme.colorScheme.outline.withValues(alpha: 0.3),
@@ -473,7 +471,7 @@ class ModernDraftOptionsSheet extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.5),
+                        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: theme.colorScheme.outline.withValues(alpha: 0.3),
@@ -613,7 +611,7 @@ class ModernDraftOptionsSheet extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: selectedCategory == category['key']
                               ? theme.colorScheme.primaryContainer
-                              : theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+                              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: selectedCategory == category['key']
@@ -726,7 +724,7 @@ class ModernDraftOptionsSheet extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: controller.priority.value == priority['level']
                         ? theme.colorScheme.primaryContainer
-                        : theme.colorScheme.surfaceVariant.withValues(alpha: 0.3),
+                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: controller.priority.value == priority['level']
