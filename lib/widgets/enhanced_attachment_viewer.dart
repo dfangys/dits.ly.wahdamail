@@ -40,14 +40,11 @@ class EnhancedAttachmentViewer extends StatelessWidget {
 
   List<ContentInfo> _getAttachments() {
     try {
-      final contentInfo = mimeMessage.findContentInfo();
-      
-      // Filter out inline content if not showing inline
-      if (!showInline) {
-        // Simplified filtering - show all attachments for now
-        return contentInfo.toList();
-      }
-      
+      // Prefer only real attachments when inline display is disabled
+      final contentInfo = showInline
+          ? mimeMessage.findContentInfo()
+          : mimeMessage.findContentInfo(disposition: ContentDisposition.attachment);
+
       return contentInfo.toList();
     } catch (e) {
       if (kDebugMode) {
@@ -86,6 +83,7 @@ class EnhancedAttachmentViewer extends StatelessWidget {
     return Column(
       children: [
         ...displayAttachments.map((attachment) => EnhancedAttachmentTile(
+          key: ValueKey(attachment.fetchId ?? attachment.fileName ?? '${attachment.hashCode}'),
           contentInfo: attachment,
           mimeMessage: mimeMessage,
         )),

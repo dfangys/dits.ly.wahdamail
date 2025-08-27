@@ -32,18 +32,72 @@ class MailAttachments extends StatelessWidget {
       // Initialize cache service
       await EmailCacheService.instance.initialize();
       
-      // PERFORMANCE OPTIMIZATION: Check cache first
+      // Get mail service instance
+      final mailService = MailService.instance;
+
+      // PERFORMANCE OPTIMIZATION: Check cache first, but ensure attachments are present
       if (message.uid != null) {
         final cachedMessage = await EmailCacheService.instance.getCachedEmail(message.uid!);
         if (cachedMessage != null) {
           if (kDebugMode) {
             print('Using cached message content for UID ${message.uid}');
           }
+
+          // If the cached message lacks attachment parts, fetch full contents to restore them
+          bool hasAnyContentInfo = false;
+          try {
+            hasAnyContentInfo = cachedMessage.findContentInfo().isNotEmpty;
+          } catch (_) {
+            hasAnyContentInfo = false;
+          }
+
+          if (!hasAnyContentInfo) {
+            if (kDebugMode) {
+              print('Cached message UID ${message.uid} has no attachment parts; refetching full contents...');
+            }
+            // Ensure we're connected
+            int connectionRetries = 3;
+            while (!mailService.client.isConnected && connectionRetries > 0) {
+              try {
+                await mailService.connect();
+                break;
+              } catch (e) {
+                connectionRetries--;
+                if (connectionRetries == 0) break;
+                await Future.delayed(const Duration(seconds: 1));
+              }
+            }
+
+            // Ensure correct mailbox is selected
+            if (mailbox != null) {
+              final currentMailbox = mailService.client.selectedMailbox;
+              if (currentMailbox == null || currentMailbox.path != mailbox!.path) {
+                if (kDebugMode) {
+                  print('Selecting mailbox: ${mailbox!.path} (current: ${currentMailbox?.path})');
+                }
+                await mailService.client.selectMailbox(mailbox!);
+                await Future.delayed(const Duration(milliseconds: 100));
+              }
+            }
+
+            try {
+              final refreshed = await mailService.client.fetchMessageContents(message);
+              if (refreshed.uid != null) {
+                try {
+                  await EmailCacheService.instance.cacheEmail(refreshed);
+                } catch (_) {}
+              }
+              return refreshed;
+            } catch (e) {
+              if (kDebugMode) {
+                print('Failed to refetch message for attachments, falling back to cached: $e');
+              }
+            }
+          }
+
           return cachedMessage;
         }
       }
-      
-      final mailService = MailService.instance;
       
       // CRITICAL FIX: Validate message UID before fetching
       if (message.uid == null) {
