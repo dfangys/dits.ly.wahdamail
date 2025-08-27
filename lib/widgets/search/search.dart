@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
+import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 import '../empty_box.dart';
 import 'controllers/mail_search_controller.dart';
@@ -66,12 +68,23 @@ class SearchView extends StatelessWidget {
           itemBuilder: (context, index) {
             return MailTile(
               onTap: () {
-                Get.to(
-                  () => ShowMessage(
-                    message: controller.searchMessages[index],
-                    mailbox: mailboxController.mailBoxInbox,
-                  ),
-                );
+                try {
+                  final MimeMessage message = controller.searchMessages[index];
+                  final listRef = mailboxController.emails[mailboxController.mailBoxInbox] ?? const <MimeMessage>[];
+                  int initial = 0;
+                  if (listRef.isNotEmpty) {
+                    initial = listRef.indexWhere((m) =>
+                        (message.uid != null && m.uid == message.uid) ||
+                        (message.sequenceId != null && m.sequenceId == message.sequenceId));
+                    if (initial < 0) initial = 0;
+                  }
+                  Get.to(() => ShowMessagePager(mailbox: mailboxController.mailBoxInbox, initialMessage: message));
+                } catch (_) {
+                  Get.to(() => ShowMessage(
+                        message: controller.searchMessages[index],
+                        mailbox: mailboxController.mailBoxInbox,
+                      ));
+                }
               },
               message: controller.searchMessages[index],
               mailBox: mailboxController.mailBoxInbox,

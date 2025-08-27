@@ -11,9 +11,15 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../../services/mail_service.dart';
 import '../../../../services/email_cache_service.dart';
+import '../../../../services/message_content_store.dart';
+import '../../../../services/html_enhancer.dart';
+import '../../../../services/internet_service.dart';
 import '../../../../utills/theme/app_theme.dart';
 import '../../../../widgets/enhanced_attachment_viewer.dart';
 import '../../../../widgets/enterprise_message_viewer.dart';
+
+// Backoff map to avoid repeatedly attempting attachment refetch for the same UID within a short window
+final Map<int, DateTime> _attachmentRefetchBackoff = <int, DateTime>{};
 
 class MailAttachments extends StatelessWidget {
   const MailAttachments({super.key, required this.message, this.mailbox});
@@ -29,11 +35,69 @@ class MailAttachments extends StatelessWidget {
         print('DEBUG: Message date: ${message.decodeDate()}');
       }
       
-      // Initialize cache service
+      // Initialize cache services
       await EmailCacheService.instance.initialize();
       
       // Get mail service instance
       final mailService = MailService.instance;
+
+      // Prepare cache context and purge invalid UIDVALIDITY rows
+      final accountEmail = mailService.account.email;
+      final mailboxPath = mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX';
+      final uidValidity = mailbox?.uidValidity ?? 0;
+      try {
+        await MessageContentStore.instance.purgeInvalidUidValidity(
+          accountEmail: accountEmail,
+          mailboxPath: mailboxPath,
+          currentUidValidity: uidValidity,
+        );
+      } catch (_) {}
+
+      // FAST-PATH: If persisted cached body exists (regardless of connectivity), return immediately for instant render
+      try {
+        if (message.uid != null) {
+          final cachedPersisted = await MessageContentStore.instance.getContent(
+            accountEmail: accountEmail,
+            mailboxPath: mailboxPath,
+            uidValidity: uidValidity,
+            uid: message.uid!,
+          );
+          final hasBody = cachedPersisted != null && (
+            (cachedPersisted.htmlSanitizedBlocked?.isNotEmpty ?? false) ||
+            (cachedPersisted.htmlFilePath?.isNotEmpty ?? false) ||
+            (cachedPersisted.plainText?.isNotEmpty ?? false)
+          );
+          if (hasBody) {
+            if (kDebugMode) {
+              print('Cache-first: serving persisted cached content for UID ${message.uid} (online or offline)');
+            }
+            // If we have a reconstructed cached MimeMessage, prefer it; otherwise return original
+            final cachedMsg = await EmailCacheService.instance.getCachedEmail(message.uid!);
+            return cachedMsg ?? message;
+          }
+        }
+      } catch (_) {}
+
+      // If offline and persisted cached body exists, avoid any network fetches
+      try {
+        final offline = !InternetService.instance.connected;
+        if (offline && message.uid != null) {
+          final cachedOffline = await MessageContentStore.instance.getContent(
+            accountEmail: accountEmail,
+            mailboxPath: mailboxPath,
+            uidValidity: uidValidity,
+            uid: message.uid!,
+          );
+          final hasBody = cachedOffline != null && ((cachedOffline.htmlSanitizedBlocked?.isNotEmpty ?? false) || (cachedOffline.plainText?.isNotEmpty ?? false));
+          if (hasBody) {
+            if (kDebugMode) {
+              print('Offline: using persisted cached content for UID ${message.uid} without network fetch');
+            }
+            final cachedMessage = await EmailCacheService.instance.getCachedEmail(message.uid!);
+            return cachedMessage ?? message;
+          }
+        }
+      } catch (_) {}
 
       // PERFORMANCE OPTIMIZATION: Check cache first, but ensure attachments are present
       if (message.uid != null) {
@@ -52,14 +116,35 @@ class MailAttachments extends StatelessWidget {
           }
 
           if (!hasAnyContentInfo) {
+            // If offline, do not refetch; rely on offline cache and persisted attachments
+            if (!InternetService.instance.connected) {
+              if (kDebugMode) {
+                print('Offline: skipping refetch for UID ${message.uid}, using cached content');
+              }
+              return cachedMessage;
+            }
+
+            // Backoff: avoid repeated refetch attempts for the same UID within 2 minutes
+            final uid = message.uid;
+            if (uid != null) {
+              final lastTried = _attachmentRefetchBackoff[uid];
+              if (lastTried != null && DateTime.now().difference(lastTried) < const Duration(minutes: 2)) {
+                if (kDebugMode) {
+                  print('Skipping attachment refetch for UID $uid due to recent attempt');
+                }
+                return cachedMessage;
+              }
+              _attachmentRefetchBackoff[uid] = DateTime.now();
+            }
+
             if (kDebugMode) {
-              print('Cached message UID ${message.uid} has no attachment parts; refetching full contents...');
+              print('Cached message UID ${message.uid} has no attachment parts; refetching full contents (with timeout/retries)...');
             }
             // Ensure we're connected
             int connectionRetries = 3;
             while (!mailService.client.isConnected && connectionRetries > 0) {
               try {
-                await mailService.connect();
+                await mailService.connect().timeout(const Duration(seconds: 10));
                 break;
               } catch (e) {
                 connectionRetries--;
@@ -75,24 +160,117 @@ class MailAttachments extends StatelessWidget {
                 if (kDebugMode) {
                   print('Selecting mailbox: ${mailbox!.path} (current: ${currentMailbox?.path})');
                 }
-                await mailService.client.selectMailbox(mailbox!);
+                try {
+                  await mailService.client.selectMailbox(mailbox!).timeout(const Duration(seconds: 8));
+                } catch (e) {
+                  if (kDebugMode) {
+                    print('Mailbox selection failed before refetch: $e');
+                  }
+                }
                 await Future.delayed(const Duration(milliseconds: 100));
               }
             }
 
-            try {
-              final refreshed = await mailService.client.fetchMessageContents(message);
-              if (refreshed.uid != null) {
+            // Retry refetch with timeout
+            int fetchRetries = 2;
+            while (fetchRetries > 0) {
+              try {
+                final refreshed = await mailService.client
+                    .fetchMessageContents(message)
+                    .timeout(const Duration(seconds: 15));
+
+                // Persist to lightweight cache
+                if (refreshed.uid != null) {
+                  try { await EmailCacheService.instance.cacheEmail(refreshed); } catch (_) {}
+                }
+
+                // Persist offline body + small attachments to SQLite for reliable reuse
                 try {
-                  await EmailCacheService.instance.cacheEmail(refreshed);
+                  final accountEmail = mailService.account.email;
+                  final mailboxPath = mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX';
+                  final uidValidity = mailbox?.uidValidity ?? 0;
+
+                  String? rawHtml = refreshed.decodeTextHtmlPart();
+                  String? plain = refreshed.decodeTextPlainPart();
+                  String? sanitizedHtml;
+                  if (rawHtml != null && rawHtml.trim().isNotEmpty) {
+                    String preprocessed = rawHtml;
+                    if (rawHtml.length > 100 * 1024) {
+                      try { preprocessed = await MessageContentStore.sanitizeHtmlInIsolate(rawHtml); } catch (_) {}
+                    }
+                    final enhanced = HtmlEnhancer.enhanceEmailHtml(
+                      message: refreshed,
+                      rawHtml: preprocessed,
+                      darkMode: Theme.of(Get.context!).brightness == Brightness.dark,
+                      blockRemoteImages: true,
+                      deviceWidthPx: 1024.0,
+                    );
+                    sanitizedHtml = enhanced.html;
+                  }
+
+                  // Save small attachments
+                  final infos = refreshed.findContentInfo();
+                  final List<CachedAttachment> cachedAtts = [];
+                  const maxAttachmentBytes = 10 * 1024 * 1024; // 10MB per attachment cap
+                  for (final ci in infos) {
+                    try {
+                      final part = refreshed.getPart(ci.fetchId);
+                      if (part == null) continue;
+                      final bytes = part.decodeContentBinary();
+                      if (bytes == null) continue;
+                      if (bytes.length > maxAttachmentBytes) continue;
+                      final path = await MessageContentStore.instance.saveAttachmentBytes(
+                        accountEmail: accountEmail,
+                        mailboxPath: mailboxPath,
+                        uidValidity: uidValidity,
+                        uid: refreshed.uid ?? -1,
+                        fileName: ci.fileName ?? 'attachment',
+                        bytes: bytes,
+                      );
+                      cachedAtts.add(CachedAttachment(
+                        contentId: null,
+                        fileName: ci.fileName ?? 'attachment',
+                        mimeType: ci.contentType?.mediaType.toString() ?? 'application/octet-stream',
+                        sizeBytes: ci.size ?? bytes.length,
+                        isInline: false,
+                        filePath: path,
+                      ));
+                    } catch (_) {}
+                  }
+
+                  if ((sanitizedHtml != null && sanitizedHtml.isNotEmpty) || (plain != null && plain.isNotEmpty) || cachedAtts.isNotEmpty) {
+                    await MessageContentStore.instance.upsertContent(
+                      accountEmail: accountEmail,
+                      mailboxPath: mailboxPath,
+                      uidValidity: uidValidity,
+                      uid: refreshed.uid ?? -1,
+                      plainText: plain,
+                      htmlSanitizedBlocked: sanitizedHtml,
+                      sanitizedVersion: 1,
+                      attachments: cachedAtts,
+                    );
+                  }
                 } catch (_) {}
-              }
-              return refreshed;
-            } catch (e) {
-              if (kDebugMode) {
-                print('Failed to refetch message for attachments, falling back to cached: $e');
+
+                return refreshed;
+              } catch (e) {
+                fetchRetries--;
+                if (kDebugMode) {
+                  print('Attachment refetch failed for UID ${message.uid}: $e (retries left: $fetchRetries)');
+                }
+                if (fetchRetries == 0) {
+                  break;
+                }
+                await Future.delayed(const Duration(milliseconds: 500));
+                // Re-select mailbox defensively
+                if (mailbox != null) {
+                  try { await mailService.client.selectMailbox(mailbox!).timeout(const Duration(seconds: 8)); } catch (_) {}
+                }
               }
             }
+
+            // Fall back to cached content if refetch failed or timed out
+            return cachedMessage;
           }
 
           return cachedMessage;
@@ -108,11 +286,20 @@ class MailAttachments extends StatelessWidget {
         return message;
       }
       
-      // Ensure we're connected with retry logic
+      // If offline, avoid network fetch and return cached/original message
+      if (!InternetService.instance.connected) {
+        if (message.uid != null) {
+          final cachedMessage = await EmailCacheService.instance.getCachedEmail(message.uid!);
+          if (cachedMessage != null) return cachedMessage;
+        }
+        return message;
+      }
+
+      // Ensure we're connected with retry logic and explicit timeouts
       int connectionRetries = 3;
       while (!mailService.client.isConnected && connectionRetries > 0) {
         try {
-          await mailService.connect();
+          await mailService.connect().timeout(const Duration(seconds: 12));
           break;
         } catch (e) {
           connectionRetries--;
@@ -128,7 +315,7 @@ class MailAttachments extends StatelessWidget {
           if (kDebugMode) {
             print('Selecting mailbox: ${mailbox!.path} (current: ${currentMailbox?.path})');
           }
-          await mailService.client.selectMailbox(mailbox!);
+          await mailService.client.selectMailbox(mailbox!).timeout(const Duration(seconds: 8));
           
           // Wait a moment for mailbox selection to complete
           await Future.delayed(const Duration(milliseconds: 100));
@@ -150,7 +337,7 @@ class MailAttachments extends StatelessWidget {
             print('Fetching message contents for UID ${message.uid} (attempt ${4 - fetchRetries})');
           }
           
-          fetchedMessage = await mailService.client.fetchMessageContents(message);
+          fetchedMessage = await mailService.client.fetchMessageContents(message).timeout(const Duration(seconds: 20));
           
           if (kDebugMode) {
             print('Successfully fetched message contents for UID ${message.uid}');
@@ -174,7 +361,7 @@ class MailAttachments extends StatelessWidget {
           // Re-select mailbox before retry to ensure proper context
           if (mailbox != null) {
             try {
-              await mailService.client.selectMailbox(mailbox!);
+              await mailService.client.selectMailbox(mailbox!).timeout(const Duration(seconds: 8));
               await Future.delayed(const Duration(milliseconds: 100));
             } catch (selectError) {
               if (kDebugMode) {
@@ -189,6 +376,75 @@ class MailAttachments extends StatelessWidget {
         throw Exception('Unexpected error: fetchedMessage is null after retry logic');
       }
       
+      // PERFORMANCE: After fetching, persist offline body + attachments
+      try {
+        final rawHtml = fetchedMessage.decodeTextHtmlPart();
+        final blockRemote = true; // store blocked variant only
+        String? htmlStore;
+        String? plainStore = fetchedMessage.decodeTextPlainPart();
+        if (rawHtml != null && rawHtml.trim().isNotEmpty) {
+          // Pre-sanitize large HTML off the main thread to reduce jank
+          String preprocessed = rawHtml;
+          if (rawHtml.length > 100 * 1024) {
+            try {
+              preprocessed = await MessageContentStore.sanitizeHtmlInIsolate(rawHtml);
+            } catch (_) {}
+          }
+          final deviceWidthPx = 1024.0; // storage-time normalization only
+          final enhanced = HtmlEnhancer.enhanceEmailHtml(
+            message: fetchedMessage,
+            rawHtml: preprocessed,
+            darkMode: Theme.of(Get.context!).brightness == Brightness.dark,
+            blockRemoteImages: blockRemote,
+            deviceWidthPx: deviceWidthPx,
+          );
+          htmlStore = enhanced.html;
+        }
+
+        // Save attachments (bounded size)
+        final infos = fetchedMessage.findContentInfo();
+        final List<CachedAttachment> cachedAtts = [];
+        const maxAttachmentBytes = 10 * 1024 * 1024; // 10MB per attachment cap
+        for (final ci in infos) {
+          try {
+            final part = fetchedMessage.getPart(ci.fetchId);
+            if (part == null) continue;
+            final bytes = part.decodeContentBinary();
+            if (bytes == null) continue;
+            if (bytes.length > maxAttachmentBytes) continue; // skip huge
+            final path = await MessageContentStore.instance.saveAttachmentBytes(
+              accountEmail: accountEmail,
+              mailboxPath: mailboxPath,
+              uidValidity: uidValidity,
+              uid: fetchedMessage.uid ?? -1,
+              fileName: ci.fileName ?? 'attachment',
+              bytes: bytes,
+            );
+            cachedAtts.add(CachedAttachment(
+              contentId: null,
+              fileName: ci.fileName ?? 'attachment',
+              mimeType: ci.contentType?.mediaType.toString() ?? 'application/octet-stream',
+              sizeBytes: ci.size ?? bytes.length,
+              isInline: false,
+              filePath: path,
+            ));
+          } catch (_) {}
+        }
+
+        if ((htmlStore != null && htmlStore.isNotEmpty) || (plainStore != null && plainStore.isNotEmpty) || cachedAtts.isNotEmpty) {
+          await MessageContentStore.instance.upsertContent(
+            accountEmail: accountEmail,
+            mailboxPath: mailboxPath,
+            uidValidity: uidValidity,
+            uid: fetchedMessage.uid ?? -1,
+            plainText: plainStore,
+            htmlSanitizedBlocked: htmlStore,
+            sanitizedVersion: 1,
+            attachments: cachedAtts,
+          );
+        }
+      } catch (_) {}
+
       // PERFORMANCE OPTIMIZATION: Cache the fetched message
       if (fetchedMessage.uid != null) {
         try {
@@ -207,7 +463,8 @@ class MailAttachments extends StatelessWidget {
       if (kDebugMode) {
         print('Error fetching message content: $e');
       }
-      rethrow;
+      // Offline-first: return the original message so UI can render cached content
+      return message;
     }
   }
 
@@ -224,53 +481,181 @@ class MailAttachments extends StatelessWidget {
             ),
           );
         } else if (snapshot.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline,
-                      color: AppTheme.errorColor,
-                      size: 48
+          // Fall back to offline cached content if available
+          return FutureBuilder<CachedMessageContent?>(
+            future: (message.uid != null)
+                ? MessageContentStore.instance.getContent(
+                    accountEmail: MailService.instance.account.email,
+                    mailboxPath: mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX',
+                    uidValidity: mailbox?.uidValidity ?? 0,
+                    uid: message.uid!,
+                  )
+                : Future.value(null),
+            builder: (ctx, cacheSnap) {
+              final cached = cacheSnap.data;
+              if (cacheSnap.connectionState == ConnectionState.waiting) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: CircularProgressIndicator(),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Error loading message content: ${snapshot.error}',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.errorColor,
+                );
+              }
+              if (cached != null && ((cached.htmlSanitizedBlocked?.isNotEmpty ?? false) || (cached.plainText?.isNotEmpty ?? false))) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _offlineBanner(context),
+                  EnterpriseMessageViewer(
+                      mimeMessage: message,
+                      enableDarkMode: Theme.of(context).brightness == Brightness.dark,
+                      blockExternalImages: true,
+                      textScale: MediaQuery.of(context).textScaler.scale(1.0),
+                      initialHtml: cached.htmlSanitizedBlocked,
+                      initialHtmlPath: cached.htmlFilePath,
                     ),
-                    textAlign: TextAlign.center,
+                    if (cached.attachments.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.attach_file, size: 20, color: Theme.of(context).colorScheme.primary),
+                                const SizedBox(width: 8),
+                                Text('Offline attachments (${cached.attachments.length})',
+                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...cached.attachments.map((a) => ListTile(
+                                  leading: const Icon(Icons.insert_drive_file_rounded),
+                                  title: Text(a.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  subtitle: Text('${a.mimeType} • ${(a.sizeBytes / 1024).toStringAsFixed(1)} KB'),
+                                  onTap: () {
+                                    OpenAppFile.open(a.filePath);
+                                  },
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.share_rounded),
+                                    onPressed: () async {
+                                      try {
+                                        await Share.shareXFiles([XFile(a.filePath)], text: a.fileName);
+                                      } catch (_) {}
+                                    },
+                                  ),
+                                )),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+              }
+              // No cached content -> show error UI
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline, color: AppTheme.errorColor, size: 48),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Error loading message content: ${snapshot.error}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.errorColor),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => Get.forceAppUpdate(),
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Get.forceAppUpdate(),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           );
         } else if (snapshot.hasData && snapshot.data != null) {
           // Enhanced email content display with proper structure
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // WebView-first enterprise viewer for best fidelity
-              EnterpriseMessageViewer(
-                mimeMessage: snapshot.data!,
-                enableDarkMode: Theme.of(context).brightness == Brightness.dark,
-                blockExternalImages: true,
-                textScale: MediaQuery.of(context).textScaler.scale(1.0),
-              ),
+          return FutureBuilder<CachedMessageContent?>(
+            future: (message.uid != null)
+                ? MessageContentStore.instance.getContent(
+                    accountEmail: MailService.instance.account.email,
+                    mailboxPath: mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX',
+                    uidValidity: mailbox?.uidValidity ?? 0,
+                    uid: message.uid!,
+                  )
+                : Future.value(null),
+            builder: (ctx, cacheSnap) {
+              final cached = cacheSnap.data;
+              final initialHtml = cached?.htmlSanitizedBlocked;
+              final initialHtmlPath = cached?.htmlFilePath;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (initialHtmlPath != null || (initialHtml != null && ((snapshot.data?.decodeTextHtmlPart()?.trim().isNotEmpty ?? false) == false)))
+                    _offlineBanner(context),
+                  // WebView-first enterprise viewer for best fidelity
+                  EnterpriseMessageViewer(
+                    mimeMessage: snapshot.data!,
+                    enableDarkMode: Theme.of(context).brightness == Brightness.dark,
+                    blockExternalImages: true,
+                    textScale: MediaQuery.of(context).textScaler.scale(1.0),
+                    initialHtml: initialHtml,
+                    initialHtmlPath: initialHtmlPath,
+                  ),
 
-              // Enhanced attachment viewer
-              EnhancedAttachmentViewer(
-                mimeMessage: snapshot.data!,
-                showInline: false,
-                maxAttachmentsToShow: 20,
-              ),
-            ],
+                  // Cached offline attachments (if available)
+                  // Show when offline OR when MIME has no attachment parts to avoid empty state
+                  if (cached != null && cached.attachments.isNotEmpty &&
+                      (!InternetService.instance.connected || ((snapshot.data?.findContentInfo(disposition: ContentDisposition.attachment).isEmpty ?? true))))
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.attach_file, size: 20, color: Theme.of(context).colorScheme.primary),
+                              const SizedBox(width: 8),
+                              Text('Offline attachments (${cached.attachments.length})',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ...cached.attachments.map((a) => ListTile(
+                                leading: const Icon(Icons.insert_drive_file_rounded),
+                                title: Text(a.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                                subtitle: Text('${a.mimeType} • ${(a.sizeBytes / 1024).toStringAsFixed(1)} KB'),
+                                onTap: () {
+                                  OpenAppFile.open(a.filePath);
+                                },
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.share_rounded),
+                                  onPressed: () async {
+                                    try {
+                                      // ignore: deprecated_member_use
+                                      await Share.shareXFiles([XFile(a.filePath)], text: a.fileName);
+                                    } catch (_) {}
+                                  },
+                                ),
+                              )),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+
+                  // Online attachments via MIME (if present)
+                  EnhancedAttachmentViewer(
+                    mimeMessage: snapshot.data!,
+                    showInline: false,
+                    maxAttachmentsToShow: 20,
+                  ),
+                ],
+              );
+            },
           );
         } else {
           return const Center(
@@ -281,6 +666,30 @@ class MailAttachments extends StatelessWidget {
     );
   }
 
+  Widget _offlineBanner(BuildContext context) {
+    return Container
+      (
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        border: Border.all(color: Colors.blue.shade200),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.wifi_off_rounded, color: Colors.blue.shade700, size: 20),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Showing offline content from cache',
+              style: TextStyle(fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class AttachmentTile extends StatefulWidget {
@@ -475,6 +884,7 @@ class _AttachmentTileState extends State<AttachmentTile> {
           );
 
           if (tempFile != null) {
+            // ignore: deprecated_member_use
             // ignore: deprecated_member_use
             await Share.shareXFiles(
               [XFile(tempFile.path)],

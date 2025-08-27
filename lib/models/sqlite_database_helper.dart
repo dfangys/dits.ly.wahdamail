@@ -18,12 +18,14 @@ class SQLiteDatabaseHelper {
   }
 
   // Database version - increment when schema changes
-  static const int _databaseVersion = 6;
+  static const int _databaseVersion = 8;
 
   // Table names
   static const String tableEmails = 'emails';
   static const String tableMailboxes = 'mailboxes';
   static const String tableDrafts = 'drafts';
+  static const String tableMessageContent = 'message_content';
+  static const String tableMessageAttachments = 'message_attachments';
 
   // Common column names
   static const String columnId = 'id';
@@ -200,6 +202,42 @@ class SQLiteDatabaseHelper {
       )
     ''');
 
+    // Create message content table (offline bodies)
+    await db.execute('''
+      CREATE TABLE $tableMessageContent (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_email TEXT NOT NULL,
+        mailbox_path TEXT NOT NULL,
+        uid_validity INTEGER NOT NULL,
+        uid INTEGER NOT NULL,
+        plain_text BLOB,
+        html_sanitized_blocked BLOB,
+        html_file_path TEXT,
+        sanitized_version INTEGER NOT NULL DEFAULT 1,
+        has_attachments INTEGER NOT NULL DEFAULT 0,
+        stored_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE(account_email, mailbox_path, uid_validity, uid)
+      )
+    ''');
+
+    // Create message attachments table (metadata + on-disk path)
+    await db.execute('''
+      CREATE TABLE $tableMessageAttachments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        content_id TEXT,
+        file_name TEXT,
+        mime_type TEXT,
+        size_bytes INTEGER,
+        is_inline INTEGER NOT NULL DEFAULT 0,
+        file_path TEXT NOT NULL,
+        account_email TEXT NOT NULL,
+        mailbox_path TEXT NOT NULL,
+        uid_validity INTEGER NOT NULL,
+        uid INTEGER NOT NULL
+      )
+    ''');
+
     // Create indexes for better performance
     await db.execute('CREATE INDEX idx_emails_mailbox_id ON $tableEmails($columnMailboxId)');
     await db.execute('CREATE INDEX idx_emails_date ON $tableEmails($columnDate)');
@@ -289,6 +327,51 @@ class SQLiteDatabaseHelper {
       await addCol(columnLastSyncFinishedAt, 'INTEGER');
       if (kDebugMode) {
         print('📧 Database upgraded to v6: Added enterprise sync state columns');
+      }
+    }
+    if (oldVersion < 7) {
+      // Add offline message content tables
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableMessageContent (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          account_email TEXT NOT NULL,
+          mailbox_path TEXT NOT NULL,
+          uid_validity INTEGER NOT NULL,
+          uid INTEGER NOT NULL,
+          plain_text BLOB,
+          html_sanitized_blocked BLOB,
+          html_file_path TEXT,
+          sanitized_version INTEGER NOT NULL DEFAULT 1,
+          has_attachments INTEGER NOT NULL DEFAULT 0,
+          stored_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          UNIQUE(account_email, mailbox_path, uid_validity, uid)
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $tableMessageAttachments (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          content_id TEXT,
+          file_name TEXT,
+          mime_type TEXT,
+          size_bytes INTEGER,
+          is_inline INTEGER NOT NULL DEFAULT 0,
+          file_path TEXT NOT NULL,
+          account_email TEXT NOT NULL,
+          mailbox_path TEXT NOT NULL,
+          uid_validity INTEGER NOT NULL,
+          uid INTEGER NOT NULL
+        )
+      ''');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_msg_content_lookup ON $tableMessageContent(account_email, mailbox_path, uid_validity, uid)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_msg_attach_lookup ON $tableMessageAttachments(account_email, mailbox_path, uid_validity, uid)');
+    }
+    if (oldVersion < 8) {
+      // Add html_file_path column to message_content if missing
+      final cols = await db.rawQuery('PRAGMA table_info($tableMessageContent)');
+      final hasHtmlPath = cols.any((row) => row['name'] == 'html_file_path');
+      if (!hasHtmlPath) {
+        await db.execute('ALTER TABLE $tableMessageContent ADD COLUMN html_file_path TEXT');
       }
     }
   }

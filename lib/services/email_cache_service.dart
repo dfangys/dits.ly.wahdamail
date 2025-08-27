@@ -13,7 +13,7 @@ class EmailCacheService {
   static const String _cachePrefix = 'email_cache_';
   static const String _metadataPrefix = 'email_metadata_';
   static const int _maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-  static const int _maxCacheSize = 100; // Maximum number of cached emails
+  static const int _maxCacheSize = 5000; // Maximum number of cached emails (increased to 5000). Note: large data should live in SQLite via MessageContentStore
 
   SharedPreferences? _prefs;
 

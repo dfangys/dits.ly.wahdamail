@@ -16,6 +16,10 @@ class FeatureFlags {
   static const _kForegroundPollingEnabled = 'ff_foreground_polling_enabled';
   static const _kForegroundPollingIntervalSecs = 'ff_foreground_polling_interval_secs';
   static const _kAttachmentPrefetchEnabled = 'ff_attachment_prefetch_enabled';
+  // Offline HTML materialization flags
+  static const _kHtmlMaterializationEnabled = 'ff_html_materialization_enabled';
+  static const _kHtmlMaterializationThresholdBytes = 'ff_html_materialization_threshold_bytes';
+  static const _kHtmlMaterializeInitialWindow = 'ff_html_materialize_initial_window';
 
   final GetStorage _box = GetStorage();
 
@@ -30,6 +34,11 @@ class FeatureFlags {
   int get foregroundPollingIntervalSecs => (_box.read(_kForegroundPollingIntervalSecs) as int?) ?? 90;
   bool get attachmentPrefetchEnabled => _box.read(_kAttachmentPrefetchEnabled) ?? false;
 
+  // Offline HTML materialization getters
+  bool get htmlMaterializationEnabled => _box.read(_kHtmlMaterializationEnabled) ?? true;
+  int get htmlMaterializationThresholdBytes => (_box.read(_kHtmlMaterializationThresholdBytes) as int?) ?? (64 * 1024);
+  bool get htmlMaterializeInitialWindow => _box.read(_kHtmlMaterializeInitialWindow) ?? true;
+
   Future<void> setPerTileNotifiers(bool enabled) => _box.write(_kPerTileNotifiers, enabled);
   Future<void> setVirtualizationTuning(bool enabled) => _box.write(_kVirtualizationTuning, enabled);
   Future<void> setPreviewWorker(bool enabled) => _box.write(_kPreviewWorker, enabled);
@@ -40,5 +49,10 @@ class FeatureFlags {
   Future<void> setForegroundPollingEnabled(bool enabled) => _box.write(_kForegroundPollingEnabled, enabled);
   Future<void> setForegroundPollingIntervalSecs(int seconds) => _box.write(_kForegroundPollingIntervalSecs, seconds);
   Future<void> setAttachmentPrefetchEnabled(bool enabled) => _box.write(_kAttachmentPrefetchEnabled, enabled);
+
+  // Offline HTML materialization setters
+  Future<void> setHtmlMaterializationEnabled(bool enabled) => _box.write(_kHtmlMaterializationEnabled, enabled);
+  Future<void> setHtmlMaterializationThresholdBytes(int bytes) => _box.write(_kHtmlMaterializationThresholdBytes, bytes);
+  Future<void> setHtmlMaterializeInitialWindow(bool enabled) => _box.write(_kHtmlMaterializeInitialWindow, enabled);
 }
 

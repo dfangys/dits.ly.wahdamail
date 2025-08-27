@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -12,12 +13,16 @@ class EnterpriseMessageViewer extends StatefulWidget {
     this.enableDarkMode = false,
     this.blockExternalImages = true,
     this.textScale = 1.0,
+    this.initialHtml,
+    this.initialHtmlPath,
   });
 
   final MimeMessage mimeMessage;
   final bool enableDarkMode;
   final bool blockExternalImages;
   final double textScale;
+  final String? initialHtml;
+  final String? initialHtmlPath;
 
   @override
   State<EnterpriseMessageViewer> createState() => _EnterpriseMessageViewerState();
@@ -86,6 +91,7 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
               supportZoom: true,
               builtInZoomControls: true,
               displayZoomControls: false,
+              disableHorizontalScroll: true,
 
               // Privacy
               contentBlockers: blockers,
@@ -95,10 +101,21 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
               try {
                 await InAppWebViewController.clearAllCache();
               } catch (_) {}
+              // If an offline HTML file path is provided and exists, load it immediately; otherwise rely on prepared HTML
+              final path = widget.initialHtmlPath;
+              if (path != null && path.isNotEmpty) {
+                try {
+                  final exists = File(path).existsSync();
+                  if (exists) {
+                    await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+                  }
+                } catch (_) {}
+              }
             },
             onContentSizeChanged: (controller, oldSize, newSize) {
               setState(() {
-                _contentHeight = newSize.height.clamp(300, 5000);
+                // Fit to content; enforce sensible minimum; no artificial maximum
+                _contentHeight = newSize.height < 300 ? 300 : newSize.height;
               });
             },
             shouldOverrideUrlLoading: (controller, nav) async {
@@ -217,11 +234,34 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
 
   Future<void> _reloadHtml() async {
     try {
-      await _controller?.loadData(data: _preparedHtml, baseUrl: WebUri("about:blank"));
+      // Prefer reloading from file if provided and exists; otherwise fallback to prepared HTML
+      final path = widget.initialHtmlPath;
+      if (path != null && path.isNotEmpty && File(path).existsSync()) {
+        await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+      } else {
+        await _controller?.loadData(data: _preparedHtml, baseUrl: WebUri("about:blank"));
+      }
     } catch (_) {}
   }
 
   String _buildPreparedHtml({required bool blockRemote}) {
+    // Prefer provided offline/sanitized HTML or file path if available
+    if (widget.initialHtmlPath != null && widget.initialHtmlPath!.isNotEmpty) {
+      // Only favor the path if the file actually exists; otherwise fall back to initialHtml/raw
+      try {
+        if (File(widget.initialHtmlPath!).existsSync()) {
+          // Placeholder while file:// is loaded in onWebViewCreated/_reloadHtml
+          final css = _baseCss(widget.enableDarkMode, widget.textScale);
+          final placeholder = '<div style="padding:16px;color:#777;font-size:13px;">Loading cached content…</div>';
+          return _wrapHtml(_csp(blockRemote), '<style>$css</style>\n$placeholder');
+        }
+      } catch (_) {}
+    }
+    if (widget.initialHtml != null && widget.initialHtml!.trim().isNotEmpty) {
+      final css = _baseCss(widget.enableDarkMode, widget.textScale);
+      return _wrapHtml(_csp(blockRemote), '<style>$css</style>\n${widget.initialHtml!}');
+    }
+
     final rawHtml = widget.mimeMessage.decodeTextHtmlPart();
     if (rawHtml == null || rawHtml.trim().isEmpty) {
       final plain = widget.mimeMessage.decodeTextPlainPart() ?? '';
@@ -240,7 +280,7 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
   }
 
   String _csp(bool blocked) {
-    final imgSrc = blocked ? "img-src 'self' data: about:;" : "img-src 'self' data: about: http: https:;";
+    final imgSrc = blocked ? "img-src 'self' data: about: cid:;" : "img-src 'self' data: about: cid: http: https:;";
     // Note: 'self' maps to about: context; no external origins due to baseUrl about:blank
     return [
       "default-src 'none';",
@@ -262,10 +302,10 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
     return '<!doctype html>'
         '<html>'
         '<head>'
-        '<meta name="viewport" content="width=device-width, initial-scale=1" />'
+        '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />'
         '<meta http-equiv="Content-Security-Policy" content="$csp" />'
         '</head>'
-        '<body class="wb-body">$body</body>'
+        '<body class="wb-body"><div class="wb-container">$body</div></body>'
         '</html>';
   }
 
@@ -277,10 +317,14 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
     final px = (15 * scale).toStringAsFixed(1);
     return '''
       :root { color-scheme: ${dark ? 'dark' : 'light'}; }
-      html, body { background:$bg; color:$fg; margin:0; padding:0; width:100%; }
-      body { font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif; line-height:1.5; font-size:${px}px; overflow-wrap:anywhere; word-break:break-word; }
-      img, video, iframe { max-width:100%; height:auto; }
-      pre, code { white-space:pre-wrap; word-break:break-word; }
+      html, body { background:$bg; color:$fg; margin:0; padding:0; width:100%; overflow-x:hidden; }
+      * { box-sizing: border-box; }
+      .wb-container { max-width: 100vw; width:100%; overflow-x:hidden; }
+      body { font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif; line-height:1.5; font-size:${px}px; overflow-wrap:anywhere; word-break:break-word; -webkit-text-size-adjust: 100%; }
+      img, video, iframe { max-width:100% !important; height:auto !important; }
+      table { max-width:100% !important; width:100% !important; }
+      td, th { word-break: break-word; }
+      pre, code { white-space:pre-wrap !important; word-break:break-word !important; }
       blockquote { border-left:4px solid $link; background:$quote; padding:8px 12px; margin:8px 0; }
       a { color:$link; text-decoration:none; }
       a:hover { text-decoration:underline; }
@@ -305,13 +349,41 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
 
   String _blockRemoteImages(String html) {
     const spacer = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+    // Replace direct img src
     html = html.replaceAllMapped(
-      RegExp(r'<img([^>]*?)src\s*=\s*"https?:[^\"]*"([^>]*)>', caseSensitive: false),
+      RegExp(r'<img([^>]*?)src\s*=\s*\"https?:[^\"]*\"([^>]*)>', caseSensitive: false),
       (m) => '<img${m.group(1) ?? ''}src="$spacer"${m.group(2) ?? ''}>',
     );
     html = html.replaceAllMapped(
       RegExp(r"<img([^>]*?)src\s*=\s*'https?:[^']*'([^>]*)>", caseSensitive: false),
       (m) => "<img${m.group(1) ?? ''}src='$spacer'${m.group(2) ?? ''}>",
+    );
+    // Neutralize img srcset
+    html = html.replaceAllMapped(
+      RegExp(r'<img([^>]*?)srcset\s*=\s*\"[^\"]*\"', caseSensitive: false),
+      (m) => '<img${m.group(1) ?? ''}srcset="">',
+    );
+    html = html.replaceAllMapped(
+      RegExp(r"<img([^>]*?)srcset\s*=\s*'[^']*'", caseSensitive: false),
+      (m) => "<img${m.group(1) ?? ''}srcset=''>",
+    );
+    // Neutralize lazy-loading attributes
+    html = html.replaceAllMapped(
+      RegExp(r'<img([^>]*?)(data-(?:src|original|lazy-src))\s*=\s*\"https?:[^\"]*\"', caseSensitive: false),
+      (m) => '<img${m.group(1) ?? ''}${m.group(2)}="$spacer"',
+    );
+    html = html.replaceAllMapped(
+      RegExp(r"<img([^>]*?)(data-(?:src|original|lazy-src))\s*=\s*'https?:[^']*'", caseSensitive: false),
+      (m) => "<img${m.group(1) ?? ''}${m.group(2)}='$spacer'",
+    );
+    // Neutralize <source srcset> within <picture>
+    html = html.replaceAllMapped(
+      RegExp(r'<source([^>]*?)srcset\s*=\s*\"https?:[^\"]*\"', caseSensitive: false),
+      (m) => '<source${m.group(1) ?? ''}srcset="">',
+    );
+    html = html.replaceAllMapped(
+      RegExp(r"<source([^>]*?)srcset\s*=\s*'https?:[^']*'", caseSensitive: false),
+      (m) => "<source${m.group(1) ?? ''}srcset=''>",
     );
     return html;
   }

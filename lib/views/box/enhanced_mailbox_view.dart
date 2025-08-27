@@ -6,6 +6,7 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
+import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
@@ -685,10 +686,20 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
         if (selectionController.isSelecting) {
           selectionController.toggle(message);
         } else {
-          Get.to(() => ShowMessage(
-            message: message, 
-            mailbox: widget.mailbox,
-          ));
+          try {
+            final mbc = Get.find<MailBoxController>();
+            final listRef = mbc.emails[widget.mailbox] ?? const <MimeMessage>[];
+            int index = 0;
+            if (listRef.isNotEmpty) {
+              index = listRef.indexWhere((m) =>
+                  (message.uid != null && m.uid == message.uid) ||
+                  (message.sequenceId != null && m.sequenceId == message.sequenceId));
+              if (index < 0) index = 0;
+            }
+            Get.to(() => ShowMessagePager(mailbox: widget.mailbox, initialMessage: message));
+          } catch (_) {
+            Get.to(() => ShowMessage(message: message, mailbox: widget.mailbox));
+          }
         }
       },
     );

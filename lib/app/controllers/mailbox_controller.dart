@@ -16,6 +16,8 @@ import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:wahda_bank/services/preview_service.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
+import 'package:wahda_bank/services/message_content_store.dart';
+import 'package:wahda_bank/services/html_enhancer.dart';
 import 'package:wahda_bank/utils/perf/perf_tracer.dart';
 import 'package:wahda_bank/services/optimized_idle_service.dart';
 import 'package:wahda_bank/services/connection_manager.dart';
@@ -23,6 +25,7 @@ import 'package:wahda_bank/services/background_service.dart';
 import 'package:rxdart/rxdart.dart' hide Rx;
 import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
+import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import 'package:workmanager/workmanager.dart';
@@ -1941,11 +1944,33 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
           'message': message,
         });
       } else {
-        logger.i("Navigating to show message screen for regular email");
-        Get.to(() => ShowMessage(
-          message: message,
-          mailbox: mailbox,
-        ));
+        logger.i("Navigating to paged show message screen for regular email");
+        try {
+          final listRef = emails[mailbox] ?? const <MimeMessage>[];
+          int index = 0;
+          if (listRef.isNotEmpty) {
+            index = listRef.indexWhere((m) =>
+                (message.uid != null && m.uid == message.uid) ||
+                (message.sequenceId != null && m.sequenceId == message.sequenceId));
+            if (index < 0) {
+              // Fallback: try by subject+date
+              index = listRef.indexWhere((m) =>
+                  m.decodeSubject() == message.decodeSubject() &&
+                  m.decodeDate()?.millisecondsSinceEpoch == message.decodeDate()?.millisecondsSinceEpoch);
+            }
+            if (index < 0) index = 0;
+          }
+          Get.to(() => ShowMessagePager(
+                mailbox: mailbox,
+                initialMessage: message,
+              ));
+        } catch (_) {
+          // Fallback to single message view
+          Get.to(() => ShowMessage(
+                message: message,
+                mailbox: mailbox,
+              ));
+        }
       }
     } catch (e) {
       logger.e("Error in safeNavigateToMessage: $e");
@@ -2239,10 +2264,8 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       Future<void> worker() async {
         while (true) {
           MimeMessage? base;
-          int myIdx;
           // Pull next message atomically
           if (index < list.length) {
-            myIdx = index;
             base = list[index++];
           } else {
             return;
@@ -2292,6 +2315,43 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
                 previewText: preview,
                 hasAttachments: hasAtt,
               );
+            } catch (_) {}
+
+            // Persist sanitized blocked HTML to offline store (no attachments here)
+            try {
+              final accountEmail = mailService.account.email;
+              final mailboxPath = mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : (mailbox.path);
+              final uidValidity = mailbox.uidValidity ?? 0;
+              String? rawHtml = full.decodeTextHtmlPart();
+              String? plain = full.decodeTextPlainPart();
+              String? sanitizedHtml;
+              if (rawHtml != null && rawHtml.trim().isNotEmpty) {
+                // Pre-sanitize large HTML off main thread
+                String preprocessed = rawHtml;
+                if (rawHtml.length > 100 * 1024) {
+                  try { preprocessed = await MessageContentStore.sanitizeHtmlInIsolate(rawHtml); } catch (_) {}
+                }
+                final enhanced = HtmlEnhancer.enhanceEmailHtml(
+                  message: full,
+                  rawHtml: preprocessed,
+                  darkMode: false, // storage-time normalization only
+                  blockRemoteImages: true,
+                  deviceWidthPx: 1024.0,
+                );
+                sanitizedHtml = enhanced.html;
+              }
+              if ((sanitizedHtml != null && sanitizedHtml.isNotEmpty) || (plain != null && plain.isNotEmpty)) {
+                await MessageContentStore.instance.upsertContent(
+                  accountEmail: accountEmail,
+                  mailboxPath: mailboxPath,
+                  uidValidity: uidValidity,
+                  uid: full.uid ?? -1,
+                  plainText: plain,
+                  htmlSanitizedBlocked: sanitizedHtml,
+                  sanitizedVersion: 1,
+                  forceMaterialize: FeatureFlags.instance.htmlMaterializeInitialWindow,
+                );
+              }
             } catch (_) {}
 
             // Replace in-memory message with full version
@@ -2514,6 +2574,42 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
                 previewText: preview,
                 hasAttachments: hasAtt,
               );
+            } catch (_) {}
+
+            // Persist sanitized blocked HTML to offline store
+            try {
+              final accountEmail = mailService.account.email;
+              final mailboxPath = mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : (mailbox.path);
+              final uidValidity = mailbox.uidValidity ?? 0;
+              String? rawHtml = full.decodeTextHtmlPart();
+              String? plain = full.decodeTextPlainPart();
+              String? sanitizedHtml;
+              if (rawHtml != null && rawHtml.trim().isNotEmpty) {
+                String preprocessed = rawHtml;
+                if (rawHtml.length > 100 * 1024) {
+                  try { preprocessed = await MessageContentStore.sanitizeHtmlInIsolate(rawHtml); } catch (_) {}
+                }
+                final enhanced = HtmlEnhancer.enhanceEmailHtml(
+                  message: full,
+                  rawHtml: preprocessed,
+                  darkMode: false,
+                  blockRemoteImages: true,
+                  deviceWidthPx: 1024.0,
+                );
+                sanitizedHtml = enhanced.html;
+              }
+              if ((sanitizedHtml != null && sanitizedHtml.isNotEmpty) || (plain != null && plain.isNotEmpty)) {
+                await MessageContentStore.instance.upsertContent(
+                  accountEmail: accountEmail,
+                  mailboxPath: mailboxPath,
+                  uidValidity: uidValidity,
+                  uid: full.uid ?? -1,
+                  plainText: plain,
+                  htmlSanitizedBlocked: sanitizedHtml,
+                  sanitizedVersion: 1,
+                  forceMaterialize: false,
+                );
+              }
             } catch (_) {}
 
             // Replace in-memory message with full version
