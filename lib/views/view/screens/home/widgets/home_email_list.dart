@@ -92,11 +92,12 @@ class _HomeEmailListState extends State<HomeEmailList> {
       return;
     }
     
-    // Process ALL messages for home screen
+    // Process ONLY READY messages for home screen
     final allUniqueMessages = <MimeMessage>[];
     final allUIDs = <int>{};
     
     for (final message in messages) {
+      if (message.getHeaderValue('x-ready') != '1') continue;
       final uid = message.uid ?? message.sequenceId ?? 0;
       if (uid > 0 && !allUIDs.contains(uid)) {
         allUniqueMessages.add(message);

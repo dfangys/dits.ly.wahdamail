@@ -367,9 +367,23 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
 
   /// Build main email list
   Widget _buildEmailList(bool isDarkMode) {
-    final emails = controller.boxMails;
+    // Gate by readiness: only show messages that have full details prepared
+    final readyEmails = controller.boxMails
+        .where((m) => m.getHeaderValue('x-ready') == '1')
+        .toList(growable: false)
+      ..sort((a, b) {
+        final ua = a.uid ?? a.sequenceId ?? 0;
+        final ub = b.uid ?? b.sequenceId ?? 0;
+        if (ua != ub) return ub.compareTo(ua);
+        final da = a.decodeDate();
+        final db = b.decodeDate();
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return db.compareTo(da);
+      });
     
-    if (emails.isEmpty) {
+    if (readyEmails.isEmpty) {
       return _buildEmptyState(isDarkMode);
     }
 
@@ -379,13 +393,13 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: emails.length + (_isLoadingMore ? 1 : 0),
+        itemCount: readyEmails.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index >= emails.length) {
+          if (index >= readyEmails.length) {
             return _buildLoadingMoreIndicator(isDarkMode);
           }
 
-          final message = emails[index];
+          final message = readyEmails[index];
           return _buildMessageTile(message);
         },
       ),

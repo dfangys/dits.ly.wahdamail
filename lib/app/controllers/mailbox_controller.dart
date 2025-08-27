@@ -15,6 +15,7 @@ import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:wahda_bank/services/preview_service.dart';
+import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/utils/perf/perf_tracer.dart';
 import 'package:wahda_bank/services/optimized_idle_service.dart';
 import 'package:wahda_bank/services/connection_manager.dart';
@@ -2313,6 +2314,9 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
               full.setHeader('x-ready', '1');
             } catch (_) {}
 
+            // Optional small attachment prefetch
+            await _maybePrefetchSmallAttachments(mailbox, full);
+
           } catch (_) {
             // Ignore individual fetch errors
           } finally {
@@ -2348,6 +2352,19 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
   void _startForegroundPolling(Mailbox mailbox) {
     try {
       _stopForegroundPolling();
+
+      // Respect user settings
+      final ff = FeatureFlags.instance;
+      if (!ff.foregroundPollingEnabled) {
+        if (kDebugMode) {
+          print('📧 ⏸️ Foreground polling disabled by settings');
+        }
+        return;
+      }
+      final secs = ff.foregroundPollingIntervalSecs;
+      final clamped = secs < 15 ? 15 : secs; // minimum safety interval
+      pollingInterval = Duration(seconds: clamped);
+
       _pollingMailboxPath = mailbox.encodedPath;
       _pollTimer = Timer.periodic(pollingInterval, (t) async {
         if (_pollingMailboxPath != mailbox.encodedPath) return; // mailbox switched
@@ -2375,6 +2392,17 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       _pollingMailboxPath = null;
       if (kDebugMode) {
         print('📧 ⏹️ Foreground polling stopped');
+      }
+    } catch (_) {}
+  }
+
+  /// Public method to apply updated polling settings immediately
+  void restartForegroundPolling() {
+    try {
+      final m = currentMailbox;
+      _stopForegroundPolling();
+      if (m != null) {
+        _startForegroundPolling(m);
       }
     } catch (_) {}
   }
@@ -2507,6 +2535,9 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
               full.setHeader('x-has-attachments', hasAtt ? '1' : '0');
               full.setHeader('x-ready', '1');
             } catch (_) {}
+
+            // Optional small attachment prefetch
+            await _maybePrefetchSmallAttachments(mailbox, full);
           } catch (_) {
             // ignore per-message errors
           } finally {
@@ -2521,6 +2552,48 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       // Trigger UI update quietly
       emails.refresh();
       update();
+    } catch (_) {}
+  }
+
+  /// Prefetch small attachments for a message when enabled by feature flag.
+  /// Limits: up to [maxAttachments] per message and [maxBytesPerAttachment] bytes each.
+  Future<void> _maybePrefetchSmallAttachments(
+    Mailbox mailbox,
+    MimeMessage full, {
+    int maxAttachments = 2,
+    int maxBytesPerAttachment = 512 * 1024,
+  }) async {
+    try {
+      if (!FeatureFlags.instance.attachmentPrefetchEnabled) return;
+
+      // Ensure correct mailbox is selected
+      try {
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 8));
+        }
+      } catch (_) {}
+
+      final infos = full.findContentInfo(disposition: ContentDisposition.attachment);
+      if (infos.isEmpty) return;
+
+      int prefetched = 0;
+      for (final info in infos) {
+        if (prefetched >= maxAttachments) break;
+        final size = info.size ?? 0;
+        if (size <= 0 || size > maxBytesPerAttachment) continue;
+        try {
+          final part = await mailService.client.fetchMessagePart(full, info.fetchId)
+              .timeout(const Duration(seconds: 12));
+          final encoding = part.getHeaderValue('content-transfer-encoding');
+          final data = part.mimeData?.decodeBinary(encoding);
+          if (data != null) {
+            cacheManager.cacheAttachmentData(full, part, data);
+            prefetched++;
+          }
+        } catch (_) {
+          // Ignore individual attachment errors
+        }
+      }
     } catch (_) {}
   }
 

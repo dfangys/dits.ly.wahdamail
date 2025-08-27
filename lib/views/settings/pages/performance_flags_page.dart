@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/memory_budget.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
@@ -27,6 +29,11 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
   late bool _animationsCapped;
   late bool _fixedExtentList;
 
+  // Mail sync flags
+  late bool _foregroundPolling;
+  late int _pollingIntervalSecs;
+  late bool _attachmentPrefetch;
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +46,9 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
     _previewWorker = ff.previewWorkerEnabled;
     _animationsCapped = ff.animationsCappedEnabled;
     _fixedExtentList = ff.fixedExtentListEnabled;
+    _foregroundPolling = ff.foregroundPollingEnabled;
+    _pollingIntervalSecs = ff.foregroundPollingIntervalSecs;
+    _attachmentPrefetch = ff.attachmentPrefetchEnabled;
 
     _sample();
     _timer = Timer.periodic(const Duration(seconds: 2), (_) => _sample());
@@ -165,6 +175,55 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
             },
           ),
 
+          const SizedBox(height: 24),
+          _sectionHeader(theme, Icons.sync, 'Mail sync'),
+          const SizedBox(height: 8),
+          _flagSwitch(
+            theme,
+            title: 'Foreground polling',
+            subtitle: 'Quietly checks for new mail and prefetches content',
+            value: _foregroundPolling,
+            onChanged: (v) async {
+              await FeatureFlags.instance.setForegroundPollingEnabled(v);
+              setState(() => _foregroundPolling = v);
+              _applyPollingSettingsNow();
+            },
+          ),
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              title: const Text('Polling interval'),
+              subtitle: const Text('How frequently to check for updates'),
+              trailing: DropdownButton<int>(
+                value: _pollingIntervalSecs,
+                items: const [
+                  DropdownMenuItem(value: 30, child: Text('30s')),
+                  DropdownMenuItem(value: 60, child: Text('60s')),
+                  DropdownMenuItem(value: 90, child: Text('90s')),
+                  DropdownMenuItem(value: 120, child: Text('2 min')),
+                  DropdownMenuItem(value: 300, child: Text('5 min')),
+                ],
+                onChanged: (v) async {
+                  if (v == null) return;
+                  await FeatureFlags.instance.setForegroundPollingIntervalSecs(v);
+                  setState(() => _pollingIntervalSecs = v);
+                  _applyPollingSettingsNow();
+                },
+              ),
+            ),
+          ),
+          _flagSwitch(
+            theme,
+            title: 'Attachment prefetch',
+            subtitle: 'Preload small attachments (<512KB) for recent messages',
+            value: _attachmentPrefetch,
+            onChanged: (v) async {
+              await FeatureFlags.instance.setAttachmentPrefetchEnabled(v);
+              setState(() => _attachmentPrefetch = v);
+            },
+          ),
+
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
@@ -186,6 +245,12 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
     await FeatureFlags.instance.setPreviewWorker(true);
     await FeatureFlags.instance.setAnimationsCapped(true);
     await FeatureFlags.instance.setFixedExtentList(false);
+
+    // Mail sync defaults
+    await FeatureFlags.instance.setForegroundPollingEnabled(true);
+    await FeatureFlags.instance.setForegroundPollingIntervalSecs(90);
+    await FeatureFlags.instance.setAttachmentPrefetchEnabled(false);
+
     setState(() {
       final ff = FeatureFlags.instance;
       _perTileNotifiers = ff.perTileNotifiersEnabled;
@@ -193,7 +258,19 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
       _previewWorker = ff.previewWorkerEnabled;
       _animationsCapped = ff.animationsCappedEnabled;
       _fixedExtentList = ff.fixedExtentListEnabled;
+      _foregroundPolling = ff.foregroundPollingEnabled;
+      _pollingIntervalSecs = ff.foregroundPollingIntervalSecs;
+      _attachmentPrefetch = ff.attachmentPrefetchEnabled;
     });
+    _applyPollingSettingsNow();
+  }
+
+  void _applyPollingSettingsNow() {
+    if (Get.isRegistered<MailBoxController>()) {
+      try {
+        Get.find<MailBoxController>().restartForegroundPolling();
+      } catch (_) {}
+    }
   }
 
   Widget _cacheBreakdown(ThemeData theme) {
