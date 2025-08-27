@@ -20,7 +20,7 @@ class PreviewService extends GetxService {
     return Get.find<PreviewService>();
   }
 
-  final int maxConcurrent = 2;
+  final int maxConcurrent = 4; // Slightly higher concurrency for faster first-run previews
   int _active = 0;
 
   final Queue<_PreviewJob> _queue = Queue<_PreviewJob>();
@@ -152,6 +152,7 @@ class PreviewService extends GetxService {
       try {
         job.messageRef.setHeader('x-preview', preview);
         job.messageRef.setHeader('x-has-attachments', hasAttachments ? '1' : '0');
+        job.messageRef.setHeader('x-ready', '1');
       } catch (_) {}
 
       // Notify UI (per-message meta tick)

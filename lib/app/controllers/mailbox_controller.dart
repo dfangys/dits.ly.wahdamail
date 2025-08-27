@@ -25,6 +25,7 @@ import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import '../../views/authantication/screens/login/login.dart';
 import '../../views/view/models/box_model.dart';
 
@@ -33,6 +34,8 @@ class MailBoxController extends GetxController {
   late final IndexedCache<MimeMessage> _messageCache;
   static const int _maxCacheSize = 200; // Optimized for mobile devices
   late MailService mailService;
+  // Progress controller for download/loading feedback
+  final EmailDownloadProgressController progressController = Get.find<EmailDownloadProgressController>();
   // CRITICAL: Add navigation state preservation
   final RxBool _isNavigating = false.obs;
   bool get isNavigating => _isNavigating.value;
@@ -49,6 +52,8 @@ class MailBoxController extends GetxController {
   // CRITICAL: Prevent infinite loading loops
   final Map<Mailbox, bool> _isLoadingMore = {};
   final RxBool isLoadingEmails = false.obs;
+  // Track prefetch life-cycle separately to keep progress visible
+  final RxBool isPrefetching = false.obs;
   
   bool isLoadingMoreEmails(Mailbox mailbox) {
     return _isLoadingMore[mailbox] ?? false;
@@ -63,6 +68,14 @@ class MailBoxController extends GetxController {
   // Stream subscriptions for real-time updates
   StreamSubscription<List<MessageUpdate>>? _messageUpdateSubscription;
   StreamSubscription<MailboxUpdate>? _mailboxUpdateSubscription;
+
+  // Foreground polling timer (quiet, app-lifecycle bound)
+  Timer? _pollTimer;
+  String? _pollingMailboxPath;
+  Duration pollingInterval = const Duration(seconds: 90);
+
+  // Optimized IDLE once-only guard
+  bool _optimizedIdleStarted = false;
 
   // Replace Hive storage with SQLite storage
   final RxMap<Mailbox, SQLiteMailboxMimeStorage> mailboxStorage =
@@ -217,8 +230,8 @@ class MailBoxController extends GetxController {
       // CRITICAL FIX: Set up real-time update listeners
       _setupRealtimeListeners();
       
-      // NEW: Initialize optimized IDLE service for high-performance real-time updates
-      _initializeOptimizedIdleService();
+      // IMPORTANT: Do NOT start optimized IDLE before a mailbox is selected.
+      // We'll start it after we select the mailbox in loadEmailsForBox().
 
       // Schedule a background DB backfill for derived fields across mailboxes
       try {
@@ -423,6 +436,19 @@ class MailBoxController extends GetxController {
             }
           }
           update(); // Trigger UI update
+
+          // Queue preview generation for these messages (fast-path)
+          final storage = mailboxStorage[mailbox];
+          if (storage != null && newMessages.isNotEmpty) {
+            try {
+              previewService.queueBackfillForMessages(
+                mailbox: mailbox,
+                messages: newMessages,
+                storage: storage,
+                maxJobs: 10,
+              );
+            } catch (_) {}
+          }
           
           if (kDebugMode) {
             print('📧 Added ${newMessages.length} new messages to mailbox UI');
@@ -438,10 +464,32 @@ class MailBoxController extends GetxController {
 
   Future<void> initInbox() async {
     try {
-      mailBoxInbox = mailboxes.firstWhere(
-            (element) => element.isInbox,
-        orElse: () => mailboxes.first,
-      );
+      // Ensure we have a mailbox list; avoid recursion with loadMailBoxes()
+      if (mailboxes.isEmpty) {
+        try {
+          if (!mailService.client.isConnected) {
+            await mailService.connect();
+          }
+          final listed = await mailService.client.listMailboxes();
+          if (listed.isNotEmpty) {
+            mailboxes(listed);
+          }
+        } catch (e) {
+          logger.w('initInbox: listing mailboxes failed: $e');
+        }
+      }
+
+      // Select INBOX or a sensible fallback
+      final inbox = mailboxes.firstWhereOrNull((m) => m.isInbox) ??
+          mailboxes.firstWhereOrNull((m) => m.name.toUpperCase() == 'INBOX') ??
+          (mailboxes.isNotEmpty ? mailboxes.first : null);
+
+      if (inbox == null) {
+        logger.e('initInbox: No mailboxes available to initialize');
+        return;
+      }
+
+      mailBoxInbox = inbox;
       await loadEmailsForBox(mailBoxInbox);
       _hasInitializedInbox = true; // Set initialization flag
     } catch (e) {
@@ -499,6 +547,15 @@ class MailBoxController extends GetxController {
       
       isLoadingEmails.value = true;
       
+      // Show progress for first-time load when no cached emails are present
+      if (!hasExistingEmails) {
+        progressController.show(
+          title: 'Loading ${mailbox.name} emails',
+          subtitle: 'Connecting…',
+          indeterminate: true,
+        );
+      }
+      
       // CRITICAL FIX: Add comprehensive logging for mailbox context
       logger.i("Loading emails for mailbox: ${mailbox.name} (path: ${mailbox.path})");
       logger.i("Has existing emails: $hasExistingEmails");
@@ -509,6 +566,9 @@ class MailBoxController extends GetxController {
 
       isBoxBusy(true);
       
+      // Stop any previous polling when switching mailboxes
+      _stopForegroundPolling();
+
       // CRITICAL FIX: Set current mailbox FIRST to ensure proper context isolation
       currentMailbox = mailbox;
       logger.i("Set current mailbox to: ${currentMailbox?.name}");
@@ -532,13 +592,14 @@ class MailBoxController extends GetxController {
         isLoadingEmails.value = false;
         // Still ensure current mailbox is set correctly even when using cache
         currentMailbox = mailbox;
+        // Begin quiet foreground polling for incremental updates
+        _startForegroundPolling(mailbox);
         return;
       }
 
       // Check connection with shorter timeout
       if (!mailService.client.isConnected) {
-        // Removed progressController updateStatus to avoid duplicate indicators
-        
+        progressController.updateStatus('Connecting…');
         await mailService.connect().timeout(
           const Duration(seconds: 10),
           onTimeout: () {
@@ -548,8 +609,7 @@ class MailBoxController extends GetxController {
       }
 
       // Select mailbox with timeout
-      // Removed progressController updateStatus to avoid duplicate indicators
-      
+      progressController.updateStatus('Selecting mailbox…');
       await mailService.client.selectMailbox(mailbox).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
@@ -559,15 +619,17 @@ class MailBoxController extends GetxController {
       
       // Start IDLE mode after successful mailbox selection
       await mailService.startIdleMode();
+      // Now that a mailbox is selected, start optimized IDLE exactly once
+      _initializeOptimizedIdleService();
       
-      // Fetch mailbox with longer timeout but better error handling
-      // Removed progressController updateStatus to avoid duplicate indicators
-      
+      // Fetch mailbox with timeout adapted for first-time loads
+      progressController.updateStatus('Loading emails…');
+      final int outerTimeoutSeconds = hasExistingEmails ? 45 : 180;
       await fetchMailbox(mailbox).timeout(
-        const Duration(seconds: 45),
+        Duration(seconds: outerTimeoutSeconds),
         onTimeout: () {
           logger.e("Timeout while fetching mailbox: ${mailbox.name}");
-          throw TimeoutException("Loading emails timed out", const Duration(seconds: 45));
+          throw TimeoutException("Loading emails timed out", Duration(seconds: outerTimeoutSeconds));
         },
       );
     } catch (e) {
@@ -613,21 +675,58 @@ class MailBoxController extends GetxController {
           );
         }
       } else {
-        // It's a timeout, show appropriate message
-        Get.snackbar(
-          'Timeout Error',
-          'Loading emails is taking too long. Please try again.',
-          backgroundColor: Colors.orange,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 3),
-        );
+        // It's a timeout; if some emails are already loaded, suppress the error and let UI show partial results
+        final partiallyLoaded = (emails[mailbox]?.isNotEmpty ?? false);
+        if (!partiallyLoaded) {
+          Get.snackbar(
+            'Timeout Error',
+            'Loading emails is taking too long. Please try again.',
+            backgroundColor: Colors.orange,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 3),
+          );
+        } else {
+          logger.w('Timeout occurred but emails are partially loaded; continuing without error.');
+        }
       }
     } finally {
       // Always reset loading state
       isBoxBusy(false);
       isLoadingEmails.value = false;
       
-      // Removed progressController hide to avoid duplicate indicators
+      // Hide progress UI at the end only if no prefetch is active
+      if (!isPrefetching.value) {
+        progressController.hide();
+      }
+    }
+  }
+
+  // Allow user to trigger a full mailbox download
+  Future<void> downloadAllEmails(Mailbox mailbox) async {
+    try {
+      final storage = mailboxStorage[mailbox];
+      if (storage == null) return;
+      isPrefetching.value = true;
+      progressController.show(title: 'Downloading all emails', subtitle: 'Preparing…', indeterminate: true);
+      // Sync envelopes for the entire mailbox
+      await _enterpriseSync(mailbox, storage, maxToLoad: mailbox.messagesExists);
+      // Switch to READY-based progress and prefetch full content for all loaded emails
+      _updateReadyProgress(mailbox, emails[mailbox]?.length ?? 0);
+      progressController.updateStatus('Prefetching message bodies and attachments…');
+      await _prefetchFullContentForWindow(mailbox, limit: emails[mailbox]?.length ?? 0);
+      _updateReadyProgress(mailbox, emails[mailbox]?.length ?? 0);
+      progressController.updateProgress(
+        current: emails[mailbox]?.length ?? 0,
+        total: emails[mailbox]?.length ?? 0,
+        progress: 1.0,
+        subtitle: 'Done',
+      );
+    } catch (e) {
+      logger.e('Download all failed: $e');
+      Get.snackbar('Error', 'Failed to download all emails. Please try again.', backgroundColor: Colors.red, colorText: Colors.white);
+    } finally {
+      isPrefetching.value = false;
+      progressController.hide();
     }
   }
 
@@ -710,6 +809,15 @@ class MailBoxController extends GetxController {
       int loaded = 0;
       int maxToLoad = math.min(max, 200); // Load up to 200 most recent for initial view
       int batchSize = 50; // Batch size for network fetch
+      
+      if (maxToLoad > 0) {
+        progressController.updateProgress(
+          current: 0,
+          total: maxToLoad,
+          progress: 0.0,
+          subtitle: 'Preparing to load $maxToLoad emails…',
+        );
+      }
 
       // First, try to serve from local DB using page-based API
       final storage = mailboxStorage[mailbox]!;
@@ -717,6 +825,7 @@ class MailBoxController extends GetxController {
       final fromDb = await storage
           .loadMessagePage(limit: maxToLoad, offset: 0)
           .timeout(const Duration(seconds: 8), onTimeout: () => <MimeMessage>[]);
+      bool loadedFromDb = false;
       if (fromDb.isNotEmpty) {
         emails[mailbox]!.addAll(fromDb);
         // Queue preview backfill for this page
@@ -727,11 +836,52 @@ class MailBoxController extends GetxController {
           maxJobs: 20,
         );
         loaded = fromDb.length;
+        loadedFromDb = true;
         logger.i("Loaded ${fromDb.length} messages from local DB for ${mailbox.name}");
       }
-
-      // If we already have enough locally, finish early
-      if (localCount >= maxToLoad) {
+        
+      // Enterprise-grade sync: resumable with explicit checkpoints
+      final satisfied = await _enterpriseSync(mailbox, storage, maxToLoad: maxToLoad);
+      if (satisfied) {
+        // Sort and finish early
+        if (emails[mailbox]!.isNotEmpty) {
+          emails[mailbox]!.sort((a, b) {
+            final dateA = a.decodeDate();
+            final dateB = b.decodeDate();
+            if (dateA == null && dateB == null) return 0;
+            if (dateA == null) return 1;
+            if (dateB == null) return -1;
+            return dateB.compareTo(dateA);
+          });
+        }
+        emails.refresh();
+        update();
+        // Eagerly prefetch full message bodies and attachment metadata for initial window
+        final bool quietPrefetch = loadedFromDb; // Quiet if page came from DB
+        if (!quietPrefetch) {
+          isPrefetching.value = true;
+          progressController.updateStatus('Prefetching message bodies and attachments…');
+          _updateReadyProgress(mailbox, maxToLoad);
+        }
+        await _prefetchFullContentForWindow(mailbox, limit: maxToLoad, quiet: quietPrefetch);
+        if (!quietPrefetch) {
+          isPrefetching.value = false;
+          progressController.updateProgress(
+            current: maxToLoad,
+            total: maxToLoad,
+            progress: 1.0,
+            subtitle: 'Done',
+          );
+          progressController.hide();
+        }
+        // Start quiet polling for incremental updates after initial load
+        _startForegroundPolling(mailbox);
+        logger.i("Enterprise sync satisfied initial window for ${mailbox.name} (${emails[mailbox]!.length})");
+        return;
+      }
+        
+        // If we already have enough locally, finish early
+        if (localCount >= maxToLoad) {
         // Sort messages by date (newest first) for better UX
         if (emails[mailbox]!.isNotEmpty) {
           emails[mailbox]!.sort((a, b) {
@@ -745,6 +895,10 @@ class MailBoxController extends GetxController {
         }
         emails.refresh();
         update();
+        // Quiet prefetch for local-only satisfaction (no overlay)
+        await _prefetchFullContentForWindow(mailbox, limit: maxToLoad, quiet: true);
+        // Start quiet polling for incremental updates after initial load
+        _startForegroundPolling(mailbox);
         logger.i("Finished loading from local DB for ${mailbox.name} (${emails[mailbox]!.length} messages)");
         return;
       }
@@ -773,8 +927,11 @@ class MailBoxController extends GetxController {
         }
 
         try {
-          // Fetch from network; we already loaded local page above
-          List<MimeMessage> messages = await queue(sequence).timeout(
+          // Fetch from network (envelope-only for speed); we already loaded local page above
+          List<MimeMessage> messages = await mailService.client.fetchMessageSequence(
+            sequence,
+            fetchPreference: FetchPreference.envelope,
+          ).timeout(
             const Duration(seconds: 30),
             onTimeout: () {
               throw TimeoutException("Network fetch timeout", const Duration(seconds: 30));
@@ -782,9 +939,22 @@ class MailBoxController extends GetxController {
           );
 
           if (messages.isNotEmpty) {
-            // De-duplicate by UID
-            final existingIds = emails[mailbox]!.map((m) => m.uid).toSet();
-            final unique = messages.where((m) => !existingIds.contains(m.uid)).toList();
+            // De-duplicate by UID and sequenceId
+            final existingUids = emails[mailbox]!
+                .map((m) => m.uid)
+                .whereType<int>()
+                .toSet();
+            final existingSeqIds = emails[mailbox]!
+                .map((m) => m.sequenceId)
+                .whereType<int>()
+                .toSet();
+            final unique = messages.where((m) {
+              final uid = m.uid;
+              final seq = m.sequenceId;
+              final notByUid = uid == null || !existingUids.contains(uid);
+              final notBySeq = seq == null || !existingSeqIds.contains(seq);
+              return notByUid && notBySeq;
+            }).toList();
 
             if (unique.isNotEmpty) {
               emails[mailbox]!.addAll(unique);
@@ -802,6 +972,12 @@ class MailBoxController extends GetxController {
               });
 
               loaded += unique.length;
+              progressController.updateProgress(
+                current: loaded,
+                total: maxToLoad,
+                progress: (loaded / maxToLoad).clamp(0.0, 1.0),
+                subtitle: 'Downloading emails… $loaded / $maxToLoad',
+              );
               logger.i("Loaded network batch: ${unique.length} messages (total: ${emails[mailbox]!.length})");
             } else {
               // No unique messages in this range, stop to avoid infinite loop
@@ -815,6 +991,12 @@ class MailBoxController extends GetxController {
           logger.e("Error loading messages for sequence $start:$end: $e");
           // Continue with next batch instead of failing completely
           loaded += currentBatchSize;
+          progressController.updateProgress(
+            current: loaded,
+            total: maxToLoad,
+            progress: (loaded / maxToLoad).clamp(0.0, 1.0),
+            subtitle: 'Recovering… $loaded / $maxToLoad',
+          );
         }
       }
       
@@ -834,7 +1016,25 @@ class MailBoxController extends GetxController {
       emails.refresh();
       update();
       
+      // Eagerly prefetch full bodies and attachment metadata for visible window
+      isPrefetching.value = true;
+      progressController.updateStatus('Prefetching message bodies and attachments…');
+      _updateReadyProgress(mailbox, maxToLoad);
+      await _prefetchFullContentForWindow(mailbox, limit: maxToLoad);
+      isPrefetching.value = false;
+      
       logger.i("Finished loading ${emails[mailbox]!.length} emails for ${mailbox.name}");
+      progressController.updateProgress(
+        current: maxToLoad,
+        total: maxToLoad,
+        progress: 1.0,
+        subtitle: 'Done',
+      );
+      // Hide progress UI now that prefetch is complete
+      progressController.hide();
+      
+      // Start quiet polling for incremental updates after initial load
+      _startForegroundPolling(mailbox);
       
       // Update background service for inbox
       if (mailbox.isInbox) {
@@ -1014,7 +1214,10 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
 
       // If not available locally, fetch from server
       logger.i("Fetching ${sequence.length} messages from server for pagination");
-      List<MimeMessage> newMessages = await queue(sequence).timeout(
+      List<MimeMessage> newMessages = await mailService.client.fetchMessageSequence(
+        sequence,
+        fetchPreference: FetchPreference.envelope,
+      ).timeout(
         const Duration(seconds: 30), // Increased timeout for better reliability
         onTimeout: () {
           logger.w("Timeout loading messages for pagination");
@@ -1029,8 +1232,21 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
         }
         
         // Add new messages and remove duplicates
-        final existingIds = emails[mailbox]!.map((m) => m.uid).toSet();
-        final uniqueNewMessages = newMessages.where((m) => !existingIds.contains(m.uid)).toList();
+        final existingUids = emails[mailbox]!
+            .map((m) => m.uid)
+            .whereType<int>()
+            .toSet();
+        final existingSeqIds = emails[mailbox]!
+            .map((m) => m.sequenceId)
+            .whereType<int>()
+            .toSet();
+        final uniqueNewMessages = newMessages.where((m) {
+          final uid = m.uid;
+          final seq = m.sequenceId;
+          final notByUid = uid == null || !existingUids.contains(uid);
+          final notBySeq = seq == null || !existingSeqIds.contains(seq);
+          return notByUid && notBySeq;
+        }).toList();
         
         emails[mailbox]!.addAll(uniqueNewMessages);
         emails.refresh(); // CRITICAL FIX: Trigger reactive update for UI
@@ -1495,9 +1711,10 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       mailbox ??= mailboxes.firstWhereOrNull((element) => element.name == 'INBOX');
       
       if (mailbox != null && mailboxStorage[mailbox] != null) {
+        final storage = mailboxStorage[mailbox]!;
         // Save to storage with error handling
         try {
-          await mailboxStorage[mailbox]!.saveMessageEnvelopes([message]);
+          await storage.saveMessageEnvelopes([message]);
           
           if (kDebugMode) {
             print("📧 Message saved to storage successfully");
@@ -1537,6 +1754,16 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
           }
           // Continue processing even if UI update fails
         }
+        
+        // Queue preview backfill for this message immediately (fast-path)
+        try {
+          previewService.queueBackfillForMessages(
+            mailbox: mailbox,
+            messages: [message],
+            storage: storage,
+            maxJobs: 1,
+          );
+        } catch (_) {}
         
         // Notify realtime service about new message (with error handling)
         try {
@@ -1795,8 +2022,17 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
   /// Initialize optimized IDLE service for high-performance real-time updates
   void _initializeOptimizedIdleService() {
     try {
+      if (_optimizedIdleStarted) return;
+      // Start only if a mailbox is selected to avoid "no mailbox selected" errors
+      if (mailService.client.selectedMailbox == null) {
+        if (kDebugMode) {
+          print('📧 ⏳ Delaying optimized IDLE start: no mailbox selected yet');
+        }
+        return;
+      }
+
       if (kDebugMode) {
-        print('📧 🚀 Initializing optimized IDLE service');
+        print('📧 🚀 Starting optimized IDLE service (mailbox selected)');
       }
       
       // Get the optimized IDLE service instance
@@ -1812,6 +2048,8 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
           print('📧 ❌ Failed to start optimized IDLE service: $error');
         }
       });
+
+      _optimizedIdleStarted = true;
       
       // Also initialize connection manager
       ConnectionManager.instance;
@@ -1824,6 +2062,466 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
         print('📧 ❌ Error initializing optimized IDLE service: $e');
       }
     }
+  }
+
+  Future<bool> _enterpriseSync(Mailbox mailbox, SQLiteMailboxMimeStorage storage, {required int maxToLoad}) async {
+    try {
+      // Persist server meta for reference
+      await storage.updateMailboxMeta(uidNext: mailbox.uidNext, uidValidity: mailbox.uidValidity);
+
+      // Detect UIDVALIDITY changes
+      final state = await storage.getSyncState();
+      if (mailbox.uidValidity != null && state.uidValidity != null && mailbox.uidValidity != state.uidValidity) {
+        // Reset on UIDVALIDITY change
+        try {
+          await storage.deleteAllMessages();
+          emails[mailbox]?.clear();
+        } catch (_) {}
+        await storage.resetSyncState(uidNext: mailbox.uidNext, uidValidity: mailbox.uidValidity);
+      }
+
+      // Working capacities
+      int capacity = math.max(0, maxToLoad - (emails[mailbox]?.length ?? 0));
+      if (capacity <= 0) return true;
+
+      // 1) Ascending fetch for new mail beyond lastSyncedUidHigh
+      final st1 = await storage.getSyncState();
+      if (mailbox.uidNext != null && (st1.lastSyncedUidHigh ?? 0) < (mailbox.uidNext! - 1)) {
+        final startUid = (st1.lastSyncedUidHigh ?? 0) + 1;
+        final endUid = mailbox.uidNext! - 1;
+        if (endUid >= startUid) {
+          final take = math.min(capacity, endUid - startUid + 1);
+          final fetchEnd = startUid + take - 1;
+          progressController.updateStatus('Fetching new mail…');
+          final seq = MessageSequence.fromRange(startUid, fetchEnd, isUidSequence: true);
+          final fresh = await mailService.client.fetchMessageSequence(
+            seq,
+            fetchPreference: FetchPreference.envelope,
+          ).timeout(const Duration(seconds: 25), onTimeout: () => <MimeMessage>[]);
+          if (fresh.isNotEmpty) {
+            final existingIds = emails[mailbox]!.map((m) => m.uid).toSet();
+            final uniqueFresh = fresh.where((m) => !existingIds.contains(m.uid)).toList();
+            if (uniqueFresh.isNotEmpty) {
+              // Ensure newest-first when inserting at the top
+              try {
+                uniqueFresh.sort((a, b) => (b.uid ?? b.sequenceId ?? 0).compareTo(a.uid ?? a.sequenceId ?? 0));
+              } catch (_) {}
+              emails[mailbox]!.insertAll(0, uniqueFresh);
+              previewService.queueBackfillForMessages(
+                mailbox: mailbox,
+                messages: uniqueFresh,
+                storage: storage,
+                maxJobs: 20,
+              );
+              await storage.saveMessageEnvelopes(uniqueFresh);
+              await storage.updateSyncState(
+                uidNext: mailbox.uidNext,
+                uidValidity: mailbox.uidValidity,
+                lastSyncedUidHigh: fetchEnd,
+                lastSyncFinishedAt: DateTime.now().millisecondsSinceEpoch,
+              );
+              capacity = math.max(0, capacity - uniqueFresh.length);
+              progressController.updateProgress(
+                current: maxToLoad - capacity,
+                total: maxToLoad,
+                progress: maxToLoad > 0 ? ((maxToLoad - capacity) / maxToLoad).clamp(0.0, 1.0) : 1.0,
+                subtitle: 'Fetched ${uniqueFresh.length} new emails',
+              );
+            }
+          }
+          if (capacity <= 0) return true;
+        }
+      }
+
+      // 2) Descending fetch for initial-run older mail until window is filled
+      final st2 = await storage.getSyncState();
+      final initialDone = st2.initialSyncDone;
+      if (!initialDone) {
+        int? high = st2.lastSyncedUidLow != null
+            ? (st2.lastSyncedUidLow! - 1)
+            : (mailbox.uidNext != null ? mailbox.uidNext! - 1 : null);
+        const int batch = 50;
+        while (high != null && high >= 1 && capacity > 0) {
+          final low = math.max(1, high - batch + 1);
+          final take = math.min(capacity, high - low + 1);
+          final adjLow = high - take + 1;
+          progressController.updateStatus('Fetching older mail…');
+          final seq = MessageSequence.fromRange(adjLow, high, isUidSequence: true);
+          final older = await mailService.client.fetchMessageSequence(
+            seq,
+            fetchPreference: FetchPreference.envelope,
+          ).timeout(const Duration(seconds: 30), onTimeout: () => <MimeMessage>[]);
+          if (older.isEmpty) break;
+          final existingIds = emails[mailbox]!.map((m) => m.uid).toSet();
+          final uniqueOlder = older.where((m) => !existingIds.contains(m.uid)).toList();
+          if (uniqueOlder.isNotEmpty) {
+            emails[mailbox]!.addAll(uniqueOlder);
+            previewService.queueBackfillForMessages(
+              mailbox: mailbox,
+              messages: uniqueOlder,
+              storage: storage,
+              maxJobs: 20,
+            );
+            await storage.saveMessageEnvelopes(uniqueOlder);
+            // Initialize high watermark if not set
+            final newHigh = st2.lastSyncedUidHigh ?? (mailbox.uidNext != null ? mailbox.uidNext! - 1 : high);
+            await storage.updateSyncState(
+              uidNext: mailbox.uidNext,
+              uidValidity: mailbox.uidValidity,
+              lastSyncedUidHigh: newHigh,
+              lastSyncedUidLow: adjLow,
+              lastSyncFinishedAt: DateTime.now().millisecondsSinceEpoch,
+            );
+            capacity -= uniqueOlder.length;
+            progressController.updateProgress(
+              current: maxToLoad - capacity,
+              total: maxToLoad,
+              progress: maxToLoad > 0 ? ((maxToLoad - capacity) / maxToLoad).clamp(0.0, 1.0) : 1.0,
+              subtitle: 'Downloading emails… ${maxToLoad - capacity} / $maxToLoad',
+            );
+          }
+          high = adjLow - 1;
+        }
+        // If we reached the bottom or filled the window, we may choose to mark initial sync as done later
+        if (high != null && high < 1) {
+          await storage.updateSyncState(initialSyncDone: true);
+        }
+      }
+
+      return (emails[mailbox]?.length ?? 0) >= maxToLoad;
+    } catch (e) {
+      logger.w('Enterprise sync step error: $e');
+      return false;
+    }
+  }
+
+  /// Update bottom progress based on how many messages in the window are ready
+  void _updateReadyProgress(Mailbox mailbox, int limit) {
+    try {
+      final list = emails[mailbox] ?? const <MimeMessage>[];
+      int ready = 0;
+      final take = list.length < limit ? list.length : limit;
+      for (int i = 0; i < take; i++) {
+        final m = list[i];
+        if (m.getHeaderValue('x-ready') == '1') ready++;
+      }
+      if (limit > 0) {
+        progressController.updateProgress(
+          current: ready,
+          total: limit,
+          progress: (ready / limit).clamp(0.0, 1.0),
+          subtitle: 'Preparing messages… $ready/$limit',
+        );
+      }
+    } catch (_) {}
+  }
+
+  /// Eagerly fetch full content (body + attachment metadata) for the top [limit] messages
+  Future<void> _prefetchFullContentForWindow(Mailbox mailbox, {required int limit, bool quiet = false}) async {
+    try {
+      final list = List<MimeMessage>.from((emails[mailbox] ?? const <MimeMessage>[])
+          .take(limit));
+      if (list.isEmpty) return;
+
+      // Ensure IMAP has this mailbox selected (avoid selection thrash if already selected)
+      try {
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 8));
+        }
+      } catch (_) {}
+
+      final storage = mailboxStorage[mailbox];
+      const int concurrency = 4;
+      int index = 0;
+      int completed = 0;
+
+      Future<void> worker() async {
+        while (true) {
+          MimeMessage? base;
+          int myIdx;
+          // Pull next message atomically
+          if (index < list.length) {
+            myIdx = index;
+            base = list[index++];
+          } else {
+            return;
+          }
+          try {
+            // Skip if mailbox changed mid-run
+            if (currentMailbox?.encodedPath != mailbox.encodedPath) return;
+
+            // Skip already-ready messages to avoid redundant work
+            if (base.getHeaderValue('x-ready') == '1') {
+              continue;
+            }
+
+            // Fetch full content for this single message
+            final seq = MessageSequence.fromMessage(base);
+            final fetched = await mailService.client.fetchMessageSequence(
+              seq,
+              fetchPreference: FetchPreference.fullWhenWithinSize,
+            ).timeout(const Duration(seconds: 25), onTimeout: () => <MimeMessage>[]);
+            if (fetched.isEmpty) continue;
+            final full = fetched.first;
+
+            // Compute preview
+            String preview = '';
+            try {
+              final plain = full.decodeTextPlainPart();
+              if (plain != null && plain.isNotEmpty) {
+                preview = plain.replaceAll(RegExp(r'\s+'), ' ').trim();
+              } else {
+                final html = full.decodeTextHtmlPart();
+                if (html != null && html.isNotEmpty) {
+                  final stripped = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
+                  preview = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+                }
+              }
+              if (preview.length > 140) preview = preview.substring(0, 140);
+            } catch (_) {}
+
+            bool hasAtt = false;
+            try { hasAtt = full.hasAttachments(); } catch (_) {}
+
+            // Persist preview/attachments to DB
+            try {
+              await storage?.updatePreviewAndAttachments(
+                uid: full.uid,
+                sequenceId: full.sequenceId,
+                previewText: preview,
+                hasAttachments: hasAtt,
+              );
+            } catch (_) {}
+
+            // Replace in-memory message with full version
+            try {
+              final listRef = emails[mailbox];
+              if (listRef != null) {
+                final idx = listRef.indexWhere((m) =>
+                  (full.uid != null && m.uid == full.uid) ||
+                  (full.sequenceId != null && m.sequenceId == full.sequenceId));
+                if (idx != -1) {
+                  listRef[idx] = full;
+                }
+              }
+            } catch (_) {}
+
+            // Stamp headers for immediate UI benefit
+            try {
+              if (preview.isNotEmpty) full.setHeader('x-preview', preview);
+              full.setHeader('x-has-attachments', hasAtt ? '1' : '0');
+              full.setHeader('x-ready', '1');
+            } catch (_) {}
+
+          } catch (_) {
+            // Ignore individual fetch errors
+          } finally {
+            completed++;
+            // Update READY-based progress to align counter with tiles becoming visible
+            if (!quiet) {
+              _updateReadyProgress(mailbox, limit);
+              // Throttled UI refresh to reflect new ready tiles in real time
+              if (completed % 3 == 0) {
+                try {
+                  emails.refresh();
+                  update();
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      }
+
+      // Launch workers
+      final tasks = List.generate(concurrency, (_) => worker());
+      await Future.wait(tasks);
+
+      // Trigger UI update
+      emails.refresh();
+      update();
+    } catch (_) {
+      // Best-effort prefetch; ignore errors
+    }
+  }
+
+  // Quiet foreground polling: start/stop and one-shot poll
+  void _startForegroundPolling(Mailbox mailbox) {
+    try {
+      _stopForegroundPolling();
+      _pollingMailboxPath = mailbox.encodedPath;
+      _pollTimer = Timer.periodic(pollingInterval, (t) async {
+        if (_pollingMailboxPath != mailbox.encodedPath) return; // mailbox switched
+        if (isLoadingEmails.value || isPrefetching.value) return; // avoid overlap
+        try {
+          await _pollOnce(mailbox);
+        } catch (e) {
+          logger.w('Polling error: $e');
+        }
+      });
+      if (kDebugMode) {
+        print('📧 🔄 Foreground polling started for ${mailbox.name} every ${pollingInterval.inSeconds}s');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 ⚠️ Failed to start polling: $e');
+      }
+    }
+  }
+
+  void _stopForegroundPolling() {
+    try {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+      _pollingMailboxPath = null;
+      if (kDebugMode) {
+        print('📧 ⏹️ Foreground polling stopped');
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _pollOnce(Mailbox mailbox) async {
+    try {
+      final storage = mailboxStorage[mailbox];
+      if (storage == null) return;
+
+      // Ensure connection and selection
+      if (!mailService.client.isConnected) {
+        try { await mailService.connect().timeout(const Duration(seconds: 8)); } catch (_) { return; }
+      }
+      if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+        try { await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 8)); } catch (_) { return; }
+      }
+
+      // Incremental sync: fetch only what capacity allows beyond current window
+      final currentLen = emails[mailbox]?.length ?? 0;
+      final target = math.min(mailbox.messagesExists, math.max(200, currentLen + 20));
+      final satisfied = await _enterpriseSync(mailbox, storage, maxToLoad: target);
+      if (!satisfied) return;
+
+      // Quiet prefetch for a small number of top unready messages
+      await _prefetchTopUnready(mailbox, limit: math.min(200, emails[mailbox]?.length ?? 0), maxToPrefetch: 12);
+
+      // Trigger reactive update without UI progress noise
+      emails.refresh();
+      update();
+    } catch (e) {
+      logger.w('Polling step failed: $e');
+    }
+  }
+
+  Future<void> _prefetchTopUnready(Mailbox mailbox, {required int limit, int maxToPrefetch = 10}) async {
+    try {
+      final list = List<MimeMessage>.from((emails[mailbox] ?? const <MimeMessage>[]).take(limit));
+      if (list.isEmpty) return;
+      final unready = <MimeMessage>[];
+      for (final m in list) {
+        if (m.getHeaderValue('x-ready') != '1') {
+          unready.add(m);
+          if (unready.length >= maxToPrefetch) break;
+        }
+      }
+      if (unready.isEmpty) return;
+      await _prefetchFullContentForMessages(mailbox, unready, quiet: true);
+    } catch (_) {}
+  }
+
+  Future<void> _prefetchFullContentForMessages(Mailbox mailbox, List<MimeMessage> messages, {bool quiet = false}) async {
+    try {
+      if (messages.isEmpty) return;
+      // Ensure selection
+      try {
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 8));
+        }
+      } catch (_) {}
+
+      final storage = mailboxStorage[mailbox];
+      const int concurrency = 2;
+      int index = 0;
+
+      Future<void> worker() async {
+        while (true) {
+          MimeMessage? base;
+          if (index < messages.length) {
+            base = messages[index++];
+          } else {
+            return;
+          }
+          try {
+            if (currentMailbox?.encodedPath != mailbox.encodedPath) return;
+            if (base.getHeaderValue('x-ready') == '1') continue;
+
+            final seq = MessageSequence.fromMessage(base);
+            final fetched = await mailService.client.fetchMessageSequence(
+              seq,
+              fetchPreference: FetchPreference.fullWhenWithinSize,
+            ).timeout(const Duration(seconds: 20), onTimeout: () => <MimeMessage>[]);
+            if (fetched.isEmpty) continue;
+            final full = fetched.first;
+
+            // Compute preview
+            String preview = '';
+            try {
+              final plain = full.decodeTextPlainPart();
+              if (plain != null && plain.isNotEmpty) {
+                preview = plain.replaceAll(RegExp(r'\s+'), ' ').trim();
+              } else {
+                final html = full.decodeTextHtmlPart();
+                if (html != null && html.isNotEmpty) {
+                  final stripped = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
+                  preview = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+                }
+              }
+              if (preview.length > 140) preview = preview.substring(0, 140);
+            } catch (_) {}
+
+            bool hasAtt = false;
+            try { hasAtt = full.hasAttachments(); } catch (_) {}
+
+            // Persist preview/attachments to DB
+            try {
+              await storage?.updatePreviewAndAttachments(
+                uid: full.uid,
+                sequenceId: full.sequenceId,
+                previewText: preview,
+                hasAttachments: hasAtt,
+              );
+            } catch (_) {}
+
+            // Replace in-memory message with full version
+            try {
+              final listRef = emails[mailbox];
+              if (listRef != null) {
+                final idx = listRef.indexWhere((m) =>
+                  (full.uid != null && m.uid == full.uid) ||
+                  (full.sequenceId != null && m.sequenceId == full.sequenceId));
+                if (idx != -1) {
+                  listRef[idx] = full;
+                }
+              }
+            } catch (_) {}
+
+            // Stamp headers
+            try {
+              if (preview.isNotEmpty) full.setHeader('x-preview', preview);
+              full.setHeader('x-has-attachments', hasAtt ? '1' : '0');
+              full.setHeader('x-ready', '1');
+            } catch (_) {}
+          } catch (_) {
+            // ignore per-message errors
+          } finally {
+            if (!quiet) {
+              _updateReadyProgress(mailbox, math.min(200, emails[mailbox]?.length ?? 0));
+            }
+          }
+        }
+      }
+
+      await Future.wait(List.generate(concurrency, (_) => worker()));
+      // Trigger UI update quietly
+      emails.refresh();
+      update();
+    } catch (_) {}
   }
 
   @override

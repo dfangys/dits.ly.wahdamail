@@ -8,6 +8,7 @@ import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
+import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 
 /// Enhanced Mailbox View with proper first-time initialization
 /// Best practices implementation for mailbox email loading and error handling
@@ -153,11 +154,20 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
       
       debugPrint('📫 Selecting mailbox: ${widget.mailbox.path}');
       
+      // If another load is in-flight, wait briefly for it to complete to avoid racing
+      final stopwatch = Stopwatch()..start();
+      while (controller.isLoadingEmails.value && stopwatch.elapsed < const Duration(seconds: 10)) {
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+      
       // Select the mailbox with timeout
       await controller.loadEmailsForBox(widget.mailbox)
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 20));
       
-      // Verify mailbox was selected
+      // Verify mailbox was selected, wait a tiny grace period for state to settle
+      if (controller.currentMailbox?.path != widget.mailbox.path) {
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
       if (controller.currentMailbox?.path != widget.mailbox.path) {
         throw Exception('Mailbox selection failed - current: ${controller.currentMailbox?.path}');
       }
@@ -263,28 +273,87 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
     if (storage == null) {
       // Fallback to previous behavior if storage not ready
       return Obx(() {
+        Widget base;
         if (_isInitializing && !_hasInitialized) {
-          return _buildInitializationLoading();
+          base = _buildInitializationLoading();
+        } else if (_lastError != null && !_hasInitialized) {
+          base = _buildInitializationError();
+        } else {
+          base = _buildEmailList(controller.emails[widget.mailbox] ?? const <MimeMessage>[]);
         }
-        if (_lastError != null && !_hasInitialized) {
-          return _buildInitializationError();
-        }
-        return _buildEmailList(controller.emails[widget.mailbox] ?? const <MimeMessage>[]);
+        return Stack(
+          children: [
+            base,
+            _buildProgressOverlay(),
+          ],
+        );
       });
     }
 
     return ValueListenableBuilder<List<MimeMessage>>(
       valueListenable: storage.dataNotifier,
       builder: (context, messages, _) {
+        Widget base;
         if (_isInitializing && !_hasInitialized) {
-          return _buildInitializationLoading();
+          base = _buildInitializationLoading();
+        } else if (_lastError != null && !_hasInitialized) {
+          base = _buildInitializationError();
+        } else {
+          base = _buildEmailList(messages);
         }
-        if (_lastError != null && !_hasInitialized) {
-          return _buildInitializationError();
-        }
-        return _buildEmailList(messages);
+        return Stack(
+          children: [
+            base,
+            _buildProgressOverlay(),
+          ],
+        );
       },
     );
+  }
+
+  Widget _buildProgressOverlay() {
+    final pc = Get.find<EmailDownloadProgressController>();
+    return Obx(() {
+      final shouldShow = pc.isVisible || controller.isLoadingEmails.value || controller.isPrefetching.value;
+      if (!shouldShow) return const SizedBox.shrink();
+      return Align(
+        alignment: Alignment.bottomCenter,
+        child: SafeArea(
+          minimum: const EdgeInsets.only(bottom: 8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+            child: EmailDownloadProgressWidget(
+              title: pc.title,
+              subtitle: pc.subtitle,
+              progress: pc.isIndeterminate ? null : pc.progress,
+              currentCount: pc.currentCount,
+              totalCount: pc.totalCount,
+              isIndeterminate: pc.isIndeterminate,
+              compact: true,
+              actionLabel: _downloadAllActionLabel(),
+              onAction: _onDownloadAllPressed,
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  String? _downloadAllActionLabel() {
+    final mb = controller.currentMailbox;
+    if (mb == null) return null;
+    const initialWindow = 200;
+    if (mb.messagesExists > initialWindow) {
+      return 'Download all';
+    }
+    return null;
+  }
+
+  void _onDownloadAllPressed() {
+    final mb = controller.currentMailbox;
+    if (mb != null) {
+      controller.downloadAllEmails(mb);
+    }
   }
 
   /// Build initialization loading screen
@@ -391,8 +460,27 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
   }
 
   /// Build main email list
+  bool _isMessageReady(MimeMessage m) {
+    // Strict gating: only show when full-content prefetch (or DB-derived) marked message as ready
+    return m.getHeaderValue('x-ready') == '1';
+  }
+
   Widget _buildEmailList(List<MimeMessage> emails) {
-    if (emails.isEmpty) {
+    // Filter only ready messages for display
+    final readyEmails = emails.where(_isMessageReady).toList(growable: false)
+      ..sort((a, b) {
+        // Enterprise-grade stable ordering: UID desc > sequenceId desc > date desc
+        final ua = a.uid ?? a.sequenceId ?? 0;
+        final ub = b.uid ?? b.sequenceId ?? 0;
+        if (ua != ub) return ub.compareTo(ua);
+        final da = a.decodeDate();
+        final db = b.decodeDate();
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return db.compareTo(da);
+      });
+    if (readyEmails.isEmpty) {
       return _buildEmptyState();
     }
 
@@ -416,15 +504,15 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
             ? const SizedBox(height: 112)
             : null,
         itemExtent: extent,
-        itemCount: emails.length + (_isLoadingMore ? 1 : 0),
+        itemCount: readyEmails.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index >= emails.length) {
+          if (index >= readyEmails.length) {
             return _buildLoadingMoreIndicator();
           }
 
-          final message = emails[index];
-          // Isolate rasterization cost per row
-          return RepaintBoundary(child: _buildMessageTile(message));
+          final message = readyEmails[index];
+          // Animated entry for newly ready messages
+          return RepaintBoundary(child: _animatedTile(message));
         },
       ),
     );
@@ -432,6 +520,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
 
   /// Build empty state
   Widget _buildEmptyState() {
+    final pc = Get.find<EmailDownloadProgressController>();
     return RefreshIndicator(
       onRefresh: _refreshEmails,
       color: AppTheme.primaryColor,
@@ -443,23 +532,26 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
             child: Column(
               children: [
                 Icon(
-                  Icons.folder_outlined,
+                  Icons.inbox,
                   size: 80,
                   color: widget.isDarkMode 
                       ? Colors.white.withValues(alpha: 0.3) 
                       : Colors.grey.shade400,
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'No emails in ${widget.mailbox.name}',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: widget.isDarkMode 
-                        ? Colors.white.withValues(alpha: 0.7) 
-                        : Colors.grey.shade600,
-                  ),
-                ),
+                Obx(() {
+                  final preparing = pc.isVisible || controller.isLoadingEmails.value || controller.isPrefetching.value;
+                  return Text(
+                    preparing ? 'Preparing messages…' : 'No emails in ${widget.mailbox.name}',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: widget.isDarkMode 
+                          ? Colors.white.withValues(alpha: 0.7) 
+                          : Colors.grey.shade600,
+                    ),
+                  );
+                }),
                 const SizedBox(height: 8),
                 Text(
                   'Pull down to refresh',
@@ -548,6 +640,39 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
           ),
         ),
       ),
+    );
+  }
+
+  String _msgKey(MimeMessage m) {
+    final id = m.uid ?? m.sequenceId;
+    return '${widget.mailbox.encodedPath}:${id ?? m.hashCode}';
+  }
+
+  Widget _animatedTile(MimeMessage message) {
+    final key = _msgKey(message);
+    final firstTime = !_processedUIDs.contains(key);
+    if (firstTime) _processedUIDs.add(key);
+
+    final tile = _buildMessageTile(message);
+    if (!firstTime) return tile;
+
+    // Fade + slide-in animation for first appearance
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(key),
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      builder: (context, t, child) {
+        final dy = (1.0 - t) * 12.0; // small upward slide
+        return Opacity(
+          opacity: t,
+          child: Transform.translate(
+            offset: Offset(0, dy),
+            child: child,
+          ),
+        );
+      },
+      child: tile,
     );
   }
 

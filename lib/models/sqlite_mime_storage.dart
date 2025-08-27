@@ -685,6 +685,14 @@ final isUid = sequence.isUidSequence;
         message.setHeader('x-has-attachments', (hasAtt is int ? hasAtt : int.tryParse(hasAtt.toString()) ?? 0) == 1 ? '1' : '0');
       } catch (_) {}
     }
+    // Mark message as "ready" if preview/attachment metadata were computed/persisted
+    try {
+      final previewKnown = preview != null;
+      final hasAttKnown = hasAtt != null;
+      if (previewKnown && hasAttKnown) {
+        message.setHeader('x-ready', '1');
+      }
+    } catch (_) {}
     
     // Set envelope if available
     final envelopeJson = row[SQLiteDatabaseHelper.columnEnvelope];
@@ -1022,9 +1030,226 @@ final isUid = sequence.isUidSequence;
     return s;
   }
 
+  /// Get UID bounds and count for this mailbox
+  Future<SyncBounds> getUidBounds() async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final mailboxId = await _getMailboxId();
+      final rows = await db.rawQuery(
+        'SELECT COUNT(*) AS cnt, MIN(${SQLiteDatabaseHelper.columnUid}) AS min_uid, MAX(${SQLiteDatabaseHelper.columnUid}) AS max_uid '
+        'FROM ${SQLiteDatabaseHelper.tableEmails} WHERE ${SQLiteDatabaseHelper.columnMailboxId} = ?',
+        [mailboxId],
+      );
+      if (rows.isEmpty) {
+        return const SyncBounds(count: 0, minUid: null, maxUid: null);
+      }
+      final row = rows.first;
+      int? asOptInt(Object? v) => v == null
+          ? null
+          : (v is int
+              ? v
+              : int.tryParse(v.toString()));
+      final countVal = row['cnt'];
+      final count = countVal is int ? countVal : int.tryParse(countVal.toString()) ?? 0;
+      return SyncBounds(
+        count: count,
+        minUid: asOptInt(row['min_uid']),
+        maxUid: asOptInt(row['max_uid']),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error computing UID bounds: $e');
+      }
+      return const SyncBounds(count: 0, minUid: null, maxUid: null);
+    }
+  }
+
+  /// Read mailbox metadata (uid_next, uid_validity) as last stored in DB
+  Future<MailboxMeta> getMailboxMeta() async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final rows = await db.query(
+        SQLiteDatabaseHelper.tableMailboxes,
+        columns: [
+          SQLiteDatabaseHelper.columnUidNext,
+          SQLiteDatabaseHelper.columnUidValidity,
+        ],
+        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.name, mailAccount.email],
+        limit: 1,
+      );
+      if (rows.isEmpty) return const MailboxMeta();
+      final row = rows.first;
+      int? asOptInt(Object? v) => v == null
+          ? null
+          : (v is int
+              ? v
+              : int.tryParse(v.toString()));
+      return MailboxMeta(
+        uidNext: asOptInt(row[SQLiteDatabaseHelper.columnUidNext]),
+        uidValidity: asOptInt(row[SQLiteDatabaseHelper.columnUidValidity]),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error reading mailbox meta: $e');
+      }
+      return const MailboxMeta();
+    }
+  }
+
+  /// Update mailbox metadata (uid_next, uid_validity) in DB
+  Future<void> updateMailboxMeta({int? uidNext, int? uidValidity}) async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final data = <String, Object?>{};
+      if (uidNext != null) data[SQLiteDatabaseHelper.columnUidNext] = uidNext;
+      if (uidValidity != null) data[SQLiteDatabaseHelper.columnUidValidity] = uidValidity;
+      if (data.isEmpty) return;
+      await db.update(
+        SQLiteDatabaseHelper.tableMailboxes,
+        data,
+        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.name, mailAccount.email],
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error updating mailbox meta: $e');
+      }
+    }
+  }
+
+  /// Get full enterprise sync state for this mailbox (v6)
+  Future<MailboxSyncState> getSyncState() async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final rows = await db.query(
+        SQLiteDatabaseHelper.tableMailboxes,
+        columns: [
+          SQLiteDatabaseHelper.columnUidNext,
+          SQLiteDatabaseHelper.columnUidValidity,
+          SQLiteDatabaseHelper.columnLastSyncedUidHigh,
+          SQLiteDatabaseHelper.columnLastSyncedUidLow,
+          SQLiteDatabaseHelper.columnInitialSyncDone,
+          SQLiteDatabaseHelper.columnHighestModSeq,
+          SQLiteDatabaseHelper.columnLastSyncStartedAt,
+          SQLiteDatabaseHelper.columnLastSyncFinishedAt,
+        ],
+        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.name, mailAccount.email],
+        limit: 1,
+      );
+      if (rows.isEmpty) return const MailboxSyncState();
+      final r = rows.first;
+      int? asOptInt(Object? v) => v == null ? null : (v is int ? v : int.tryParse(v.toString()));
+      bool? asOptBool(Object? v) => v == null ? null : SQLiteDatabaseHelper.intToBool(v is int ? v : int.tryParse(v.toString()) ?? 0);
+      return MailboxSyncState(
+        uidNext: asOptInt(r[SQLiteDatabaseHelper.columnUidNext]),
+        uidValidity: asOptInt(r[SQLiteDatabaseHelper.columnUidValidity]),
+        lastSyncedUidHigh: asOptInt(r[SQLiteDatabaseHelper.columnLastSyncedUidHigh]),
+        lastSyncedUidLow: asOptInt(r[SQLiteDatabaseHelper.columnLastSyncedUidLow]),
+        initialSyncDone: asOptBool(r[SQLiteDatabaseHelper.columnInitialSyncDone]) ?? false,
+        highestModSeq: asOptInt(r[SQLiteDatabaseHelper.columnHighestModSeq]),
+        lastSyncStartedAt: asOptInt(r[SQLiteDatabaseHelper.columnLastSyncStartedAt]),
+        lastSyncFinishedAt: asOptInt(r[SQLiteDatabaseHelper.columnLastSyncFinishedAt]),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error reading sync state: $e');
+      }
+      return const MailboxSyncState();
+    }
+  }
+
+  /// Update enterprise sync state (partial updates allowed)
+  Future<void> updateSyncState({
+    int? uidNext,
+    int? uidValidity,
+    int? lastSyncedUidHigh,
+    int? lastSyncedUidLow,
+    bool? initialSyncDone,
+    int? highestModSeq,
+    int? lastSyncStartedAt,
+    int? lastSyncFinishedAt,
+  }) async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final data = <String, Object?>{};
+      if (uidNext != null) data[SQLiteDatabaseHelper.columnUidNext] = uidNext;
+      if (uidValidity != null) data[SQLiteDatabaseHelper.columnUidValidity] = uidValidity;
+      if (lastSyncedUidHigh != null) data[SQLiteDatabaseHelper.columnLastSyncedUidHigh] = lastSyncedUidHigh;
+      if (lastSyncedUidLow != null) data[SQLiteDatabaseHelper.columnLastSyncedUidLow] = lastSyncedUidLow;
+      if (initialSyncDone != null) data[SQLiteDatabaseHelper.columnInitialSyncDone] = SQLiteDatabaseHelper.boolToInt(initialSyncDone);
+      if (highestModSeq != null) data[SQLiteDatabaseHelper.columnHighestModSeq] = highestModSeq;
+      if (lastSyncStartedAt != null) data[SQLiteDatabaseHelper.columnLastSyncStartedAt] = lastSyncStartedAt;
+      if (lastSyncFinishedAt != null) data[SQLiteDatabaseHelper.columnLastSyncFinishedAt] = lastSyncFinishedAt;
+      if (data.isEmpty) return;
+      await db.update(
+        SQLiteDatabaseHelper.tableMailboxes,
+        data,
+        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.name, mailAccount.email],
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error updating sync state: $e');
+      }
+    }
+  }
+
+  /// Reset sync state after UIDVALIDITY change
+  Future<void> resetSyncState({int? uidNext, int? uidValidity}) async {
+    await updateSyncState(
+      uidNext: uidNext,
+      uidValidity: uidValidity,
+      lastSyncedUidHigh: null,
+      lastSyncedUidLow: null,
+      initialSyncDone: false,
+      highestModSeq: null,
+      lastSyncStartedAt: DateTime.now().millisecondsSinceEpoch,
+      lastSyncFinishedAt: null,
+    );
+  }
+
   /// Dispose resources
   void dispose() {
     _dataStreamController.close();
   }
+}
+
+/// Lightweight container for UID bounds and count
+class SyncBounds {
+  final int count;
+  final int? minUid;
+  final int? maxUid;
+  const SyncBounds({required this.count, required this.minUid, required this.maxUid});
+}
+
+/// Lightweight container for mailbox metadata
+class MailboxMeta {
+  final int? uidNext;
+  final int? uidValidity;
+  const MailboxMeta({this.uidNext, this.uidValidity});
+}
+
+/// Enterprise-grade mailbox sync state (v6)
+class MailboxSyncState {
+  final int? uidNext;
+  final int? uidValidity;
+  final int? lastSyncedUidHigh;
+  final int? lastSyncedUidLow;
+  final bool initialSyncDone;
+  final int? highestModSeq;
+  final int? lastSyncStartedAt;
+  final int? lastSyncFinishedAt;
+  const MailboxSyncState({
+    this.uidNext,
+    this.uidValidity,
+    this.lastSyncedUidHigh,
+    this.lastSyncedUidLow,
+    this.initialSyncDone = false,
+    this.highestModSeq,
+    this.lastSyncStartedAt,
+    this.lastSyncFinishedAt,
+  });
 }
 

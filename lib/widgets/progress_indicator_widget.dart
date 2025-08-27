@@ -8,6 +8,9 @@ class EmailDownloadProgressWidget extends StatelessWidget {
   final int? currentCount;
   final int? totalCount;
   final bool isIndeterminate;
+  final bool compact;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   const EmailDownloadProgressWidget({
     super.key,
@@ -17,12 +20,115 @@ class EmailDownloadProgressWidget extends StatelessWidget {
     this.currentCount,
     this.totalCount,
     this.isIndeterminate = false,
+    this.compact = false,
+    this.actionLabel,
+    this.onAction,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+
+    if (compact) {
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDarkMode ? Colors.black.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+          border: Border.all(color: isDarkMode ? Colors.white24 : Colors.black12),
+        ),
+        child: Row(
+          children: [
+            // Small icon
+            Icon(Icons.download_rounded, size: 18, color: theme.primaryColor),
+            const SizedBox(width: 10),
+            // Texts
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isDarkMode ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // Progress small bar + counts
+                  Row(
+                    children: [
+                      Expanded(
+                        child: isIndeterminate
+                            ? LinearProgressIndicator(
+                                backgroundColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
+                                valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
+                                minHeight: 4,
+                              )
+                            : LinearProgressIndicator(
+                                value: progress?.clamp(0.0, 1.0),
+                                backgroundColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
+                                valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
+                                minHeight: 4,
+                              ),
+                      ),
+                      if (!isIndeterminate && currentCount != null && totalCount != null) ...[
+                        const SizedBox(width: 10),
+                        Text(
+                          '$currentCount/$totalCount',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                      if (onAction != null && (actionLabel?.isNotEmpty ?? false)) ...[
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: onAction,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            foregroundColor: theme.primaryColor,
+                            minimumSize: const Size(0, 0),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            actionLabel!,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.all(16),

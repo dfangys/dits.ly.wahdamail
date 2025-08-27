@@ -18,7 +18,7 @@ class SQLiteDatabaseHelper {
   }
 
   // Database version - increment when schema changes
-  static const int _databaseVersion = 5;
+  static const int _databaseVersion = 6;
 
   // Table names
   static const String tableEmails = 'emails';
@@ -70,6 +70,13 @@ class SQLiteDatabaseHelper {
   static const String columnMessagesUnseen = 'messages_unseen';
   static const String columnUidNext = 'uid_next';
   static const String columnUidValidity = 'uid_validity';
+  // Enterprise-grade sync state (v6)
+  static const String columnLastSyncedUidHigh = 'last_synced_uid_high';
+  static const String columnLastSyncedUidLow = 'last_synced_uid_low';
+  static const String columnInitialSyncDone = 'initial_sync_done';
+  static const String columnHighestModSeq = 'highest_mod_seq';
+  static const String columnLastSyncStartedAt = 'last_sync_started_at';
+  static const String columnLastSyncFinishedAt = 'last_sync_finished_at';
 
   // Draft table columns
   static const String columnBody = 'body';
@@ -120,6 +127,12 @@ class SQLiteDatabaseHelper {
         $columnMessagesUnseen INTEGER,
         $columnUidNext INTEGER,
         $columnUidValidity INTEGER,
+        $columnLastSyncedUidHigh INTEGER,
+        $columnLastSyncedUidLow INTEGER,
+        $columnInitialSyncDone INTEGER DEFAULT 0,
+        $columnHighestModSeq INTEGER,
+        $columnLastSyncStartedAt INTEGER,
+        $columnLastSyncFinishedAt INTEGER,
         UNIQUE($columnAccountEmail, $columnPath)
       )
     ''');
@@ -257,6 +270,25 @@ class SQLiteDatabaseHelper {
       await db.execute('CREATE INDEX IF NOT EXISTS idx_emails_mailbox_norm_subject ON $tableEmails($columnMailboxId, $columnNormalizedSubject)');
       if (kDebugMode) {
         print('📧 Database upgraded to v5: Added derived columns and indexes');
+      }
+    }
+    if (oldVersion < 6) {
+      // Enterprise-grade sync state columns on mailboxes
+      final mCols = await db.rawQuery('PRAGMA table_info($tableMailboxes)');
+      Future<void> addCol(String name, String type, {String defaultClause = ''}) async {
+        final exists = mCols.any((row) => row['name'] == name);
+        if (!exists) {
+          await db.execute('ALTER TABLE $tableMailboxes ADD COLUMN $name $type $defaultClause');
+        }
+      }
+      await addCol(columnLastSyncedUidHigh, 'INTEGER');
+      await addCol(columnLastSyncedUidLow, 'INTEGER');
+      await addCol(columnInitialSyncDone, 'INTEGER', defaultClause: 'DEFAULT 0');
+      await addCol(columnHighestModSeq, 'INTEGER');
+      await addCol(columnLastSyncStartedAt, 'INTEGER');
+      await addCol(columnLastSyncFinishedAt, 'INTEGER');
+      if (kDebugMode) {
+        print('📧 Database upgraded to v6: Added enterprise sync state columns');
       }
     }
   }
