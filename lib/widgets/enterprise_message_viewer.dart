@@ -359,21 +359,6 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                     ),
                   ),
                 ),
-              if (kDebugMode)
-                Positioned(
-                  right: 6,
-                  bottom: 6,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      child: Text(
-                        'h:${_contentHeight.toStringAsFixed(0)} ${_isReady ? 'ready' : 'loading'} ${_expectFile ? 'file' : 'inline'}',
-                        style: const TextStyle(color: Colors.white, fontSize: 10),
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
@@ -624,14 +609,19 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       * { box-sizing: border-box; }
       .wb-container { max-width: 100vw; width:100%; overflow-x:hidden; }
       body { font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif; line-height:1.5; font-size:${px}px; overflow-wrap:anywhere; word-break:break-word; -webkit-text-size-adjust: 100%; }
-      img, video, iframe { max-width:100% !important; height:auto !important; }
-      table { max-width:100% !important; width:100% !important; }
+      img, video, iframe { display:inline-block; max-width:100% !important; height:auto !important; width:auto !important; }
+      table { max-width:100% !important; width:auto !important; table-layout:auto !important; border-collapse:collapse; }
+      .wb-container table { max-width:100% !important; width:auto !important; }
       td, th { word-break: break-word; }
       pre, code { white-space:pre-wrap !important; word-break:break-word !important; }
       blockquote { border-left:4px solid $link; background:$quote; padding:8px 12px; margin:8px 0; }
       a { color:$link; text-decoration:none; }
       a:hover { text-decoration:underline; }
       .wb-pre { white-space: pre-wrap; }
+      /* Signature responsiveness */
+      .gmail_signature, .signature, [class*="signature"] { font-size:14px !important; line-height:1.4 !important; }
+      .gmail_signature img, .signature img, [class*="signature"] img { max-width:100% !important; height:auto !important; width:auto !important; }
+      .gmail_signature table, .signature table, [class*="signature"] table { width:auto !important; max-width:100% !important; table-layout:auto !important; }
     ''';
   }
 
