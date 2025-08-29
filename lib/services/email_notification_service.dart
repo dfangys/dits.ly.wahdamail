@@ -11,7 +11,6 @@ import 'package:sqflite/sqflite.dart';
 import 'package:wahda_bank/models/sqlite_database_helper.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
-import 'package:wahda_bank/services/preview_service.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:workmanager/workmanager.dart';
 
