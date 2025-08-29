@@ -38,9 +38,9 @@ class MailMetaTile extends StatelessWidget {
                 ),
                 buildMailInfo(
                   "To",
-                  message.to != null
+                  (message.to != null && message.to!.isNotEmpty)
                       ? message.to!.map((e) => e.email).toList()
-                      : [],
+                      : (message.envelope?.to?.map((e) => e.email).toList() ?? []),
                 ),
                 buildMailInfo(
                   "Cc",
@@ -58,7 +58,7 @@ class MailMetaTile extends StatelessWidget {
                   "Date",
                   [
                     DateFormat("EEEE, MMMM d, yyyy 'at' h:mm a").format(
-                      message.decodeDate() ?? DateTime.now(),
+                      message.decodeDate() ?? message.envelope?.date ?? DateTime.now(),
                     ),
                   ],
                 )

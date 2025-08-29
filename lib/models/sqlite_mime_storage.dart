@@ -714,6 +714,15 @@ final isUid = sequence.isUidSequence;
               message.envelope!.from = [MailAddress(senderName ?? '', fromRow.toString())];
             }
           }
+          // Hydrate envelope.to from denormalized column if missing
+          final toRow = row[SQLiteDatabaseHelper.columnTo];
+          if ((message.envelope?.to == null || (message.envelope!.to?.isEmpty ?? true)) && toRow != null) {
+            final toString = toRow.toString();
+            if (toString.isNotEmpty) {
+              final parts = toString.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+              message.envelope!.to = parts.map((email) => MailAddress('', email)).toList();
+            }
+          }
         } catch (_) {}
         
         // CRITICAL FIX: Ensure envelope date is properly set from database if missing
@@ -740,6 +749,9 @@ final isUid = sequence.isUidSequence;
         try {
           if ((message.from == null || message.from!.isEmpty) && (message.envelope?.from?.isNotEmpty ?? false)) {
             message.from = message.envelope!.from;
+          }
+          if ((message.to == null || message.to!.isEmpty) && (message.envelope?.to?.isNotEmpty ?? false)) {
+            message.to = message.envelope!.to;
           }
         } catch (_) {}
       } catch (e) {

@@ -643,6 +643,16 @@ extension IncomingEmailExtension on RealtimeUpdateService {
       }
 
       RealtimeUpdateService._logger.i('📧 Processing ${newMessages.length} new messages');
+
+      // Ensure tiles can render immediately even if preview is not yet computed
+      for (final m in newMessages) {
+        try {
+          if ((m.getHeaderValue('x-ready') ?? '') != '1') {
+            m.setHeader('x-ready', '1');
+            // Do not force a placeholder preview; leave empty so tile can still render
+          }
+        } catch (_) {}
+      }
       
       // Batch process messages for performance
       final Map<String, List<MimeMessage>> messagesByMailbox = {};
