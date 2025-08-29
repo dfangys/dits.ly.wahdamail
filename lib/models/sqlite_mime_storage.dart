@@ -735,6 +735,13 @@ final isUid = sequence.isUidSequence;
             }
           }
         }
+
+        // Also hydrate top-level from if missing so detail views work consistently
+        try {
+          if ((message.from == null || message.from!.isEmpty) && (message.envelope?.from?.isNotEmpty ?? false)) {
+            message.from = message.envelope!.from;
+          }
+        } catch (_) {}
       } catch (e) {
         if (kDebugMode) {
           print('📧 Error parsing envelope: $e');

@@ -93,13 +93,32 @@ class MailBoxController extends GetxController {
     final id = msg.uid ?? msg.sequenceId;
     return '${m.encodedPath}:${id ?? 0}';
   }
+
+  // Compute all reasonable alias keys for a message to ensure we can notify tiles
+  // that subscribed before UID was known (e.g., using sequenceId).
+  List<String> _allMsgKeys(Mailbox m, MimeMessage msg) {
+    final keys = <String>{};
+    final path = m.encodedPath;
+    final uid = msg.uid;
+    final seq = msg.sequenceId;
+    if (uid != null) keys.add('$path:$uid');
+    if (seq != null) keys.add('$path:$seq');
+    // As an extreme fallback when both are null
+    if (keys.isEmpty) keys.add('$path:0');
+    return keys.toList(growable: false);
+  }
+
   ValueNotifier<int> getMessageMetaNotifier(Mailbox mailbox, MimeMessage msg) {
     final key = _msgKey(mailbox, msg);
     return _messageMeta.putIfAbsent(key, () => ValueNotifier<int>(0));
   }
+
+  // Bump all alias keys so any tile listening by UID or by sequenceId updates immediately.
   void bumpMessageMeta(Mailbox mailbox, MimeMessage msg) {
-    final n = getMessageMetaNotifier(mailbox, msg);
-    n.value = n.value + 1;
+    for (final key in _allMsgKeys(mailbox, msg)) {
+      final n = _messageMeta.putIfAbsent(key, () => ValueNotifier<int>(0));
+      n.value = n.value + 1;
+    }
   }
 
   // Real-time update observables
@@ -2647,6 +2666,12 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
               if (idx != -1) {
                 // Merge envelope into existing message instance if full not available yet
                 listRef[idx].envelope = envMsg.envelope;
+                // Also hydrate top-level from if missing so details card shows proper sender
+                try {
+                  if ((listRef[idx].from == null || listRef[idx].from!.isEmpty) && (envMsg.envelope?.from?.isNotEmpty ?? false)) {
+                    listRef[idx].from = envMsg.envelope!.from;
+                  }
+                } catch (_) {}
                 bumpMessageMeta(mailbox, listRef[idx]);
               }
             }
