@@ -8,6 +8,7 @@ import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
+import 'package:shimmer/shimmer.dart';
 
 /// Enhanced Home Email List with proper first-time initialization
 /// Best practices implementation for email loading and error handling
@@ -368,10 +369,8 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
 
   /// Build main email list
   Widget _buildEmailList(bool isDarkMode) {
-    // Gate by readiness: only show messages that have full details prepared
-    final readyEmails = controller.boxMails
-        .where((m) => m.getHeaderValue('x-ready') == '1')
-        .toList(growable: false)
+    // Include all messages. Unready ones will render as shimmer and update in real-time.
+    final allEmails = controller.boxMails.toList(growable: false)
       ..sort((a, b) {
         final ua = a.uid ?? a.sequenceId ?? 0;
         final ub = b.uid ?? b.sequenceId ?? 0;
@@ -384,7 +383,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
         return db.compareTo(da);
       });
     
-    if (readyEmails.isEmpty) {
+    if (allEmails.isEmpty) {
       return _buildEmptyState(isDarkMode);
     }
 
@@ -394,13 +393,13 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: readyEmails.length + (_isLoadingMore ? 1 : 0),
+        itemCount: allEmails.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
-          if (index >= readyEmails.length) {
+          if (index >= allEmails.length) {
             return _buildLoadingMoreIndicator(isDarkMode);
           }
 
-          final message = readyEmails[index];
+          final message = allEmails[index];
           return _buildMessageTile(message);
         },
       ),
@@ -487,27 +486,104 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
 
   /// Build message tile
   Widget _buildMessageTile(MimeMessage message) {
-    return MailTile(
-      message: message,
-      mailBox: controller.mailBoxInbox,
-      onTap: () {
-        if (selectionController.isSelecting) {
-          selectionController.toggle(message);
-        } else {
-          try {
-            final listRef = controller.emails[controller.mailBoxInbox] ?? const <MimeMessage>[];
-            int index = 0;
-            if (listRef.isNotEmpty) {
-              index = listRef.indexWhere((m) =>
-                  (message.uid != null && m.uid == message.uid) ||
-                  (message.sequenceId != null && m.sequenceId == message.sequenceId));
-              if (index < 0) index = 0;
+    final meta = controller.getMessageMetaNotifier(controller.mailBoxInbox, message);
+    bool isReady() => message.getHeaderValue('x-ready') == '1';
+
+    Widget openHandler(Widget child) => GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (selectionController.isSelecting) {
+              selectionController.toggle(message);
+            } else {
+              try {
+                final listRef = controller.emails[controller.mailBoxInbox] ?? const <MimeMessage>[];
+                int index = 0;
+                if (listRef.isNotEmpty) {
+                  index = listRef.indexWhere((m) =>
+                      (message.uid != null && m.uid == message.uid) ||
+                      (message.sequenceId != null && m.sequenceId == message.sequenceId));
+                  if (index < 0) index = 0;
+                }
+                Get.to(() => ShowMessagePager(mailbox: controller.mailBoxInbox, initialMessage: message));
+              } catch (_) {
+                Get.to(() => ShowMessage(message: message, mailbox: controller.mailBoxInbox));
+              }
             }
-            Get.to(() => ShowMessagePager(mailbox: controller.mailBoxInbox, initialMessage: message));
-          } catch (_) {
-            Get.to(() => ShowMessage(message: message, mailbox: controller.mailBoxInbox));
-          }
+          },
+          child: child,
+        );
+
+    Widget shimmerRow() => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Shimmer.fromColors(
+            baseColor: Colors.grey.shade200,
+            highlightColor: Colors.grey.shade100,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(height: 12, width: 160, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                        const SizedBox(height: 8),
+                        Container(height: 10, width: double.infinity, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                        const SizedBox(height: 6),
+                        Container(height: 10, width: MediaQuery.of(context).size.width * 0.5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(height: 10, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                ],
+              ),
+            ),
+          ),
+        );
+
+    return ValueListenableBuilder<int>(
+      valueListenable: meta,
+      builder: (_, __, ___) {
+        if (!isReady()) {
+          return openHandler(shimmerRow());
         }
+        return MailTile(
+          message: message,
+          mailBox: controller.mailBoxInbox,
+          onTap: () {
+            if (selectionController.isSelecting) {
+              selectionController.toggle(message);
+            } else {
+              try {
+                final listRef = controller.emails[controller.mailBoxInbox] ?? const <MimeMessage>[];
+                int index = 0;
+                if (listRef.isNotEmpty) {
+                  index = listRef.indexWhere((m) =>
+                      (message.uid != null && m.uid == message.uid) ||
+                      (message.sequenceId != null && m.sequenceId == message.sequenceId));
+                  if (index < 0) index = 0;
+                }
+                Get.to(() => ShowMessagePager(mailbox: controller.mailBoxInbox, initialMessage: message));
+              } catch (_) {
+                Get.to(() => ShowMessage(message: message, mailbox: controller.mailBoxInbox));
+              }
+            }
+          },
+        );
       },
     );
   }
