@@ -31,6 +31,7 @@ class _HomeEmailListState extends State<HomeEmailList> {
   final Map<DateTime, List<MimeMessage>> _groupedMessages = {};
   final List<DateTime> _dateKeys = [];
   int _lastProcessedCount = 0;
+  String _lastSignature = '';
 
   @override
   void initState() {
@@ -88,11 +89,26 @@ class _HomeEmailListState extends State<HomeEmailList> {
     }
   }
 
+  String _computeSignature(List<MimeMessage> messages) {
+    final buf = StringBuffer();
+    final take = messages.length > 200 ? 200 : messages.length;
+    for (var i = 0; i < take; i++) {
+      final m = messages[i];
+      final id = m.uid ?? m.sequenceId ?? 0;
+      final ready = m.getHeaderValue('x-ready') ?? '';
+      buf.write('$id:$ready|');
+    }
+    return buf.toString();
+  }
+
   void _processMessages(List<MimeMessage> messages) {
-    // Skip processing if messages haven't changed
-    if (messages.length == _lastProcessedCount && _groupedMessages.isNotEmpty) {
+    // Skip only if signature matches (covers content changes when count stays same)
+    final sig = _computeSignature(messages);
+    if (_groupedMessages.isNotEmpty && sig == _lastSignature) {
+      _lastProcessedCount = messages.length; // keep in sync
       return;
     }
+    _lastSignature = sig;
     
     // Process ALL messages; unready ones will render with shimmer until ready
     final allUniqueMessages = <MimeMessage>[];
@@ -216,11 +232,9 @@ class _HomeEmailListState extends State<HomeEmailList> {
       // Listen to controller changes
       final messages = controller.boxMails;
       
-      // Update messages when controller changes
+      // Update messages when controller changes (signature-based)
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (messages.length != _lastProcessedCount) {
-          _processMessages(messages);
-        }
+        _processMessages(messages);
       });
       
       if (_groupedMessages.isEmpty && !_isLoadingMore) {
@@ -257,6 +271,8 @@ class _HomeEmailListState extends State<HomeEmailList> {
 
       return RefreshIndicator(
         onRefresh: () async {
+          _processedUIDs.clear();
+          _lastSignature = '';
           await controller.refreshMailbox(controller.mailBoxInbox);
           _processMessages(controller.boxMails);
         },
