@@ -11,6 +11,7 @@ import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
 import '../services/cache_manager.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
+import 'package:wahda_bank/services/logger.dart';
 
 class MailTile extends StatefulWidget {
   const MailTile({
@@ -168,7 +169,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     
     // DEBUG: Log attachment status for debugging
     if (kDebugMode && _hasAttachments) {
-      debugPrint('📎 Message "${widget.message.decodeSubject()}" has attachments');
+      AppLogger.d('📎 Message "${widget.message.decodeSubject()}" has attachments');
     }
     
     // ENHANCED: Better date handling with comprehensive fallback chain
@@ -179,11 +180,11 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       // 1. Try message.decodeDate() first
       messageDate = widget.message.decodeDate();
       if (messageDate != null && kDebugMode) {
-          debugPrint('📧 Date from message.decodeDate(): $messageDate');
+          AppLogger.d('📧 Date from message.decodeDate(): $messageDate');
       }
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('📧 Error in message.decodeDate(): $e');
+        AppLogger.d('📧 Error in message.decodeDate(): $e');
       }
     }
     
@@ -192,11 +193,11 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       try {
         messageDate = widget.message.envelope?.date;
         if (messageDate != null && kDebugMode) {
-          debugPrint('📧 Date from envelope.date: $messageDate');
+          AppLogger.d('📧 Date from envelope.date: $messageDate');
         }
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('📧 Error in envelope.date: $e');
+          AppLogger.d('📧 Error in envelope.date: $e');
         }
       }
     }
@@ -208,12 +209,12 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
         if (dateHeader != null && dateHeader.isNotEmpty) {
           messageDate = DateTime.tryParse(dateHeader);
           if (messageDate != null && kDebugMode) {
-            debugPrint('📧 Date from header parsing: $messageDate');
+            AppLogger.d('📧 Date from header parsing: $messageDate');
           }
         }
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('📧 Error parsing date header: $e');
+          AppLogger.d('📧 Error parsing date header: $e');
         }
       }
     }
@@ -222,10 +223,10 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     if (messageDate == null) {
       messageDate = DateTime.now();
       if (kDebugMode) {
-        debugPrint('📧 WARNING: Using current time as fallback for message date');
-        debugPrint('📧 Message UID: ${widget.message.uid}');
-        debugPrint('📧 Message envelope: ${widget.message.envelope}');
-        debugPrint('📧 Message headers: ${widget.message.headers}');
+        AppLogger.w('📧 WARNING: Using current time as fallback for message date');
+        AppLogger.w('📧 Message UID: ${widget.message.uid}');
+        AppLogger.w('📧 Message envelope: ${widget.message.envelope}');
+        AppLogger.w('📧 Message headers: ${widget.message.headers}');
       }
     }
     
@@ -247,7 +248,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     _preview = _generatePreview();
     
     if (kDebugMode) {
-      debugPrint('📧 Mail tile computed: sender="$_senderName", subject="$_subject", date=$_messageDate');
+      AppLogger.d('📧 Mail tile computed: sender="$_senderName", subject="$_subject", date=$_messageDate');
     }
   }
 
@@ -450,17 +451,17 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       if (wasUnread) {
         await realtimeService.markMessageAsRead(widget.message);
         if (kDebugMode) {
-          print('📧 Successfully marked as read: ${widget.message.decodeSubject()}');
+          AppLogger.i('📧 Successfully marked as read: ${widget.message.decodeSubject()}');
         }
       } else {
         await realtimeService.markMessageAsUnread(widget.message);
         if (kDebugMode) {
-          print('📧 Successfully marked as unread: ${widget.message.decodeSubject()}');
+          AppLogger.i('📧 Successfully marked as unread: ${widget.message.decodeSubject()}');
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        print('📧 Error updating message status: $e');
+        AppLogger.e('📧 Error updating message status: $e', error: e);
       }
       
       // ROLLBACK: Revert optimistic update on error
@@ -505,11 +506,13 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       } else {
         await realtimeService.flagMessage(widget.message);
       }
-    } catch (e) {
+    } catch (e, st) {
       // ROLLBACK: Revert optimistic update on error
       setState(() {
         widget.message.isFlagged = wasFlagged;
       });
+
+      AppLogger.e('📧 Error updating flag', error: e, stack: st);
       
       Get.snackbar(
         'Error',
@@ -728,6 +731,8 @@ class OptimizedMailTileContent extends StatelessWidget {
     final textScale = MediaQuery.of(context).textScaler.scale(14.0) / 14.0;
     final int previewMaxLines = textScale > 1.25 ? 1 : 2;
 
+    // Accessibility hint can be added via a Semantics wrapper if needed.
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -767,16 +772,12 @@ class OptimizedMailTileContent extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: FeatureFlags.instance.fixedExtentListEnabled ? 12 : 16),
               child: Row(
                 children: [
-                  // Selection indicator or avatar
                   _buildLeadingWidget(),
                   const SizedBox(width: 12),
-                  
-                  // Message content
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header row with sender and time
                         Row(
                           children: [
                             Expanded(
@@ -803,8 +804,6 @@ class OptimizedMailTileContent extends StatelessWidget {
                           ],
                         ),
                         SizedBox(height: (FeatureFlags.instance.fixedExtentListEnabled && (textScale > 1.1)) ? 2 : 4),
-                        
-                        // Subject line with indicators
                         Row(
                           children: [
                             Expanded(
@@ -819,15 +818,12 @@ class OptimizedMailTileContent extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            // Thread count pill (if part of a conversation)
                             _ThreadCountPill(
                               key: ValueKey(message.uid ?? message.sequenceId ?? 0),
                               message: message,
                               theme: theme,
                               metaNotifier: metaNotifier,
                             ),
-
-                            // Attachment indicator - Enhanced visibility
                             if (FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null)
                               ValueListenableBuilder<int>(
                                 valueListenable: metaNotifier!,
@@ -847,10 +843,12 @@ class OptimizedMailTileContent extends StatelessWidget {
                                                 width: 0.5,
                                               ),
                                             ),
-                                            child: Icon(
-                                              Icons.attach_file,
-                                              size: 16,
-                                              color: theme.primaryColor,
+                                            child: ExcludeSemantics(
+                                              child: Icon(
+                                                Icons.attach_file,
+                                                size: 16,
+                                                color: theme.primaryColor,
+                                              ),
                                             ),
                                           ),
                                         ])
@@ -869,14 +867,15 @@ class OptimizedMailTileContent extends StatelessWidget {
                                     width: 0.5,
                                   ),
                                 ),
-                                child: Icon(
-                                  Icons.attach_file,
-                                  size: 16, // Slightly larger for better visibility
-                                  color: theme.primaryColor,
+                                child: ExcludeSemantics(
+                                  child: Icon(
+                                    Icons.attach_file,
+                                    size: 16,
+                                    color: theme.primaryColor,
+                                  ),
                                 ),
                               ),
                             ],
-                            // Flag indicator
                             if (hasFlagged) ...[
                               const SizedBox(width: 4),
                               Container(
@@ -885,59 +884,55 @@ class OptimizedMailTileContent extends StatelessWidget {
                                   color: Colors.orange.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
-                                child: const Icon(
-                                  Icons.flag,
-                                  size: 14,
-                                  color: Colors.orange,
+                                child: const ExcludeSemantics(
+                                  child: Icon(
+                                    Icons.flag,
+                                    size: 14,
+                                    color: Colors.orange,
+                                  ),
                                 ),
                               ),
                             ],
                           ],
                         ),
                         SizedBox(height: (FeatureFlags.instance.fixedExtentListEnabled && (textScale > 1.1)) ? 2 : 4),
-                        
-                        // Preview text (flexible to avoid vertical overflow)
-                        Flexible(
-                          child: FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null
-                              ? ValueListenableBuilder<int>(
-                                  valueListenable: metaNotifier!,
-                                  builder: (context, _, __) {
-                                    final hp = message.getHeaderValue('x-preview');
-                                    final text = (hp != null && hp.trim().isNotEmpty) ? hp : preview;
-                                    return ClipRect(
-                                      child: Text(
-                                        text,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: theme.textTheme.bodySmall?.color,
-                                          height: 1.25,
-                                        ),
-                                        maxLines: previewMaxLines,
-                                        overflow: TextOverflow.ellipsis,
-                                        softWrap: true,
+                        FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null
+                            ? ValueListenableBuilder<int>(
+                                valueListenable: metaNotifier!,
+                                builder: (context, _, __) {
+                                  final hp = message.getHeaderValue('x-preview');
+                                  final text = (hp != null && hp.trim().isNotEmpty) ? hp : preview;
+                                  return ClipRect(
+                                    child: Text(
+                                      text,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: theme.textTheme.bodySmall?.color,
+                                        height: 1.25,
                                       ),
-                                    );
-                                  },
-                                )
-                              : ClipRect(
-                                  child: Text(
-                                    preview,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: theme.textTheme.bodySmall?.color,
-                                      height: 1.25,
+                                      maxLines: previewMaxLines,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: true,
                                     ),
-                                    maxLines: previewMaxLines,
-                                    overflow: TextOverflow.ellipsis,
-                                    softWrap: true,
+                                  );
+                                },
+                              )
+                            : ClipRect(
+                                child: Text(
+                                  preview,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: theme.textTheme.bodySmall?.color,
+                                    height: 1.25,
                                   ),
+                                  maxLines: previewMaxLines,
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
                                 ),
-                        ),
+                              ),
                       ],
                     ),
                   ),
-                  
-                  // Unread indicator
                   if (isUnread)
                     Container(
                       width: 8,
@@ -963,12 +958,16 @@ class OptimizedMailTileContent extends StatelessWidget {
       final selecting = selectionController.selecting.value;
       if (selecting) {
         final checked = selectionController.isSelected(message);
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          child: Checkbox(
-            value: checked,
-            onChanged: (_) => _toggleSelection(),
-            activeColor: theme.primaryColor,
+        return Semantics(
+          label: 'Select email',
+          checked: checked,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            child: Checkbox(
+              value: checked,
+              onChanged: (_) => _toggleSelection(),
+              activeColor: theme.primaryColor,
+            ),
           ),
         );
       }

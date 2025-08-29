@@ -9,6 +9,8 @@ import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:wahda_bank/widgets/listile/shimmer_mail_loader.dart';
+import 'package:wahda_bank/services/logger.dart';
 
 /// Enhanced Home Email List with proper first-time initialization
 /// Best practices implementation for email loading and error handling
@@ -96,7 +98,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     });
 
     try {
-      debugPrint('🏠 Starting first-time home initialization...');
+      AppLogger.i('🏠 Starting first-time home initialization...');
       
       // Step 1: Ensure inbox is initialized
       await _ensureInboxInitialized();
@@ -108,16 +110,16 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       _hasInitialized = true;
       _retryCount = 0;
       
-      debugPrint('🏠 ✅ First-time initialization completed successfully');
+      AppLogger.i('🏠 ✅ First-time initialization completed successfully');
       
     } catch (e) {
-      debugPrint('🏠 ❌ First-time initialization failed: $e');
+      AppLogger.e('🏠 ❌ First-time initialization failed: $e', error: e);
       _lastError = e.toString();
       
       // Schedule retry if not exceeded max attempts
       if (_retryCount < _maxRetries) {
         _retryCount++;
-        debugPrint('🏠 ⏳ Scheduling retry $_retryCount/$_maxRetries in ${_retryDelay.inSeconds}s');
+        AppLogger.w('🏠 ⏳ Scheduling retry $_retryCount/$_maxRetries in ${_retryDelay.inSeconds}s');
         
         Future.delayed(_retryDelay, () {
           if (mounted && !_hasInitialized) {
@@ -139,7 +141,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     try {
       // Initialize inbox if not already done
       if (controller.mailBoxInbox.path.isEmpty) {
-        debugPrint('🏠 Initializing inbox...');
+      AppLogger.i('🏠 Initializing inbox...');
         await controller.initInbox();
         
         // Wait for inbox to be properly set up
@@ -151,10 +153,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
         throw Exception('Inbox initialization failed - path is empty');
       }
       
-      debugPrint('🏠 ✅ Inbox initialized: ${controller.mailBoxInbox.path}');
+      AppLogger.i('🏠 ✅ Inbox initialized: ${controller.mailBoxInbox.path}');
       
     } catch (e) {
-      debugPrint('🏠 ❌ Inbox initialization error: $e');
+      AppLogger.e('🏠 ❌ Inbox initialization error: $e', error: e);
       rethrow;
     }
   }
@@ -164,7 +166,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     const Duration timeout = Duration(seconds: 30);
     
     try {
-      debugPrint('🏠 Loading initial emails...');
+      AppLogger.i('🏠 Loading initial emails...');
       
       // Load emails with timeout
       await controller.loadEmailsForBox(controller.mailBoxInbox)
@@ -172,10 +174,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       
       // Verify emails were loaded
       final emailCount = controller.boxMails.length;
-      debugPrint('🏠 ✅ Loaded $emailCount emails');
+      AppLogger.i('🏠 ✅ Loaded $emailCount emails');
       
       if (emailCount == 0) {
-        debugPrint('🏠 ⚠️ No emails found in inbox');
+        AppLogger.w('🏠 ⚠️ No emails found in inbox');
       }
       
     } catch (e) {
@@ -200,10 +202,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     try {
       HapticFeedback.lightImpact();
       await controller.loadMoreEmails(controller.mailBoxInbox, 50);
-      debugPrint('🏠 ✅ Loaded more emails');
+      AppLogger.i('🏠 ✅ Loaded more emails');
       
     } catch (e) {
-      debugPrint('🏠 ❌ Error loading more emails: $e');
+      AppLogger.e('🏠 ❌ Error loading more emails: $e', error: e);
     } finally {
       if (mounted) {
         setState(() {
@@ -219,10 +221,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       HapticFeedback.mediumImpact();
       _processedUIDs.clear();
       await controller.refreshMailbox(controller.mailBoxInbox);
-      debugPrint('🏠 ✅ Emails refreshed');
+      AppLogger.i('🏠 ✅ Emails refreshed');
       
     } catch (e) {
-      debugPrint('🏠 ❌ Error refreshing emails: $e');
+      AppLogger.e('🏠 ❌ Error refreshing emails: $e', error: e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -264,52 +266,9 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     });
   }
 
-  /// Build initialization loading screen
+  /// Build initialization loading screen as shimmer list
   Widget _buildInitializationLoading(bool isDarkMode) {
-    return Center(
-      child: Card(
-        margin: const EdgeInsets.all(24),
-        elevation: 8,
-        shadowColor: AppTheme.primaryColor.withValues(alpha: 0.3),
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(
-                height: 60,
-                width: 60,
-                child: CircularProgressIndicator(
-                  strokeWidth: 4,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Setting up your inbox...',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: isDarkMode ? Colors.white : Colors.grey.shade800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _retryCount > 0 
-                    ? 'Retry attempt $_retryCount/$_maxRetries'
-                    : 'This may take a few moments',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDarkMode 
-                      ? Colors.white.withValues(alpha: 0.7) 
-                      : Colors.grey.shade600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    return const ShimmerMailLoader();
   }
 
   /// Build initialization error screen
@@ -369,6 +328,15 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
 
   /// Build main email list
   Widget _buildEmailList(bool isDarkMode) {
+    // Guard against not-yet-initialized inbox
+    try {
+      if (controller.mailBoxInbox.path.isEmpty) {
+        return const ShimmerMailLoader();
+      }
+    } catch (_) {
+      return const ShimmerMailLoader();
+    }
+
     // Include all messages. Unready ones will render as shimmer and update in real-time.
     final allEmails = controller.boxMails.toList(growable: false)
       ..sort((a, b) {
@@ -487,7 +455,11 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
   /// Build message tile
   Widget _buildMessageTile(MimeMessage message) {
     final meta = controller.getMessageMetaNotifier(controller.mailBoxInbox, message);
-    bool isReady() => message.getHeaderValue('x-ready') == '1';
+    bool isReady() {
+      final xr = message.getHeaderValue('x-ready') == '1';
+      final xp = (message.getHeaderValue('x-preview')?.trim().isNotEmpty ?? false);
+      return xr || xp;
+    }
 
     Widget openHandler(Widget child) => GestureDetector(
           behavior: HitTestBehavior.opaque,
