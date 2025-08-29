@@ -6,12 +6,15 @@ import 'dart:ui';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:wahda_bank/models/sqlite_database_helper.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:workmanager/workmanager.dart';
 
 /// Service responsible for handling email notifications using IMAP IDLE with SQLite support
@@ -280,6 +283,14 @@ class EmailNotificationService {
       }
     }
 
+    // Stamp preview on the in-memory message so UI can render immediately
+    try {
+      if (preview.isNotEmpty) {
+        message.setHeader('x-preview', preview);
+        message.setHeader('x-ready', '1');
+      }
+    } catch (_) {}
+
     // Build notification body as subject + preview
     final bodyText = (preview.isNotEmpty) ? '$subject — $preview' : subject;
 
@@ -296,6 +307,11 @@ class EmailNotificationService {
       // Use message UID as notification ID to prevent duplicates/allow updates
       uid?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
     );
+
+    // Immediately update the on-screen list with this incoming message
+    try {
+      await RealtimeUpdateService.instance.notifyNewMessages([message], mailbox: mailbox);
+    } catch (_) {}
   }
 
   /// Try to obtain a preview quickly; if not available, wait up to [timeout]
@@ -503,7 +519,7 @@ class EmailNotificationService {
   }
 
   /// Handle new email notification from background task
-  void _handleNewEmailNotification(Map message) {
+  Future<void> _handleNewEmailNotification(Map message) async {
     final from = message['from'] as String? ?? 'New Email';
     final subject = message['subject'] as String? ?? '';
     final preview = message['preview'] as String? ?? '';
@@ -522,6 +538,49 @@ class EmailNotificationService {
       },
       uid,
     );
+
+    // Also reflect the new mail immediately in the on-screen list (if app is running)
+    try {
+      // Construct a minimal message for instant UI display
+      final m = MimeMessage();
+      m.uid = uid;
+      // Try to derive an email address from the 'from' text
+      MailAddress fromAddr;
+      if (from.contains('@') || from.contains('<')) {
+        try { fromAddr = MailAddress.parse(from); } catch (_) { fromAddr = MailAddress(from, 'unknown@sender'); }
+      } else {
+        fromAddr = MailAddress(from, 'unknown@sender');
+      }
+      m.envelope = Envelope(
+        date: DateTime.now(),
+        subject: subject,
+        from: [fromAddr],
+      );
+      m.from = [fromAddr];
+      if (preview.isNotEmpty) {
+        try { m.setHeader('x-preview', preview); m.setHeader('x-ready', '1'); } catch (_) {}
+      }
+
+      // Identify the Inbox mailbox object to route the update correctly
+      Mailbox? inbox;
+      try {
+        final svc = MailService.instance;
+        if (svc.client.isConnected) {
+          final selected = svc.client.selectedMailbox;
+          if (selected?.isInbox == true) {
+            inbox = selected;
+          } else {
+            final boxes = await svc.client.listMailboxes();
+            inbox = boxes.firstWhereOrNull((mb) => mb.isInbox) ?? selected ?? (boxes.isNotEmpty ? boxes.first : null);
+          }
+        }
+      } catch (_) {}
+
+      // Fallback mailbox if none resolved
+      inbox ??= (Mailbox(encodedName: 'INBOX', encodedPath: 'INBOX', flags: [], pathSeparator: '/')..name = 'INBOX');
+
+      await RealtimeUpdateService.instance.notifyNewMessages([m], mailbox: inbox);
+    } catch (_) {}
   }
 
   /// Request battery optimization exemption
