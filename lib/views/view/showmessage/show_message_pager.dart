@@ -84,11 +84,29 @@ class _ShowMessagePagerState extends State<ShowMessagePager> {
           PageView.builder(
             controller: _pageController,
             physics: const ClampingScrollPhysics(),
-            onPageChanged: (i) => setState(() => _currentIndex = i),
+            onPageChanged: (i) {
+              setState(() => _currentIndex = i);
+              try {
+                final messages = _visibleMessages();
+                if (i >= 0 && i < messages.length) {
+                  _mailBoxController.prefetchMessageContent(widget.mailbox, messages[i], quiet: true);
+                }
+                // Prefetch neighbors opportunistically
+                final next = i + 1;
+                if (next >= 0 && next < messages.length) {
+                  _mailBoxController.prefetchMessageContent(widget.mailbox, messages[next], quiet: true);
+                }
+                final prev = i - 1;
+                if (prev >= 0 && prev < messages.length) {
+                  _mailBoxController.prefetchMessageContent(widget.mailbox, messages[prev], quiet: true);
+                }
+              } catch (_) {}
+            },
             itemCount: messages.length,
             itemBuilder: (ctx, i) {
               final m = messages[i];
-              return ShowMessage(message: m, mailbox: widget.mailbox);
+              final key = ValueKey('msg-${m.uid ?? m.sequenceId ?? i}');
+              return ShowMessage(key: key, message: m, mailbox: widget.mailbox);
             },
           ),
 

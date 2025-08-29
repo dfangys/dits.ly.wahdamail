@@ -1,3 +1,4 @@
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -818,6 +819,14 @@ class OptimizedMailTileContent extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            // Thread count pill (if part of a conversation)
+                            _ThreadCountPill(
+                              key: ValueKey(message.uid ?? message.sequenceId ?? 0),
+                              message: message,
+                              theme: theme,
+                              metaNotifier: metaNotifier,
+                            ),
+
                             // Attachment indicator - Enhanced visibility
                             if (FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null)
                               ValueListenableBuilder<int>(
@@ -1052,5 +1061,75 @@ class OptimizedMailTileContent extends StatelessWidget {
     }
   }
 
+}
+
+class _ThreadCountPill extends StatelessWidget {
+  const _ThreadCountPill({
+    super.key,
+    required this.message,
+    required this.theme,
+    this.metaNotifier,
+  });
+
+  final MimeMessage message;
+  final ThemeData theme;
+  final ValueListenable<int>? metaNotifier;
+
+  int _computeThreadCount() {
+    // Prefer header (fast path)
+    final header = message.getHeaderValue('x-thread-count');
+    int? count = header != null ? int.tryParse(header) : null;
+    if (count == null || count <= 1) {
+      try {
+        final seq = message.threadSequence;
+        final c = seq == null ? 0 : seq.toList().length;
+        count = c;
+      } catch (_) {}
+    }
+    return count ?? 0;
+  }
+
+  Widget _buildPill() {
+    final tc = _computeThreadCount();
+    if (tc <= 1) return const SizedBox.shrink();
+    return Row(
+      children: [
+        const SizedBox(width: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: theme.primaryColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: theme.primaryColor.withValues(alpha: 0.28), width: 0.5),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.forum, size: 14, color: theme.primaryColor),
+              const SizedBox(width: 4),
+              Text(
+                '$tc',
+                style: TextStyle(
+                  color: theme.primaryColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (metaNotifier != null) {
+      return ValueListenableBuilder<int>(
+        valueListenable: metaNotifier!,
+        builder: (_, __, ___) => _buildPill(),
+      );
+    }
+    return _buildPill();
+  }
 }
 

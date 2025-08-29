@@ -832,6 +832,8 @@ class MailBoxController extends GetxController {
       bool loadedFromDb = false;
       if (fromDb.isNotEmpty) {
         emails[mailbox]!.addAll(fromDb);
+        // Stamp thread counts for visible window
+        _computeAndStampThreadCounts(mailbox);
         // Queue preview backfill for this page
         previewService.queueBackfillForMessages(
           mailbox: mailbox,
@@ -962,6 +964,8 @@ class MailBoxController extends GetxController {
 
             if (unique.isNotEmpty) {
               emails[mailbox]!.addAll(unique);
+              // Update thread counts after adding new messages
+              _computeAndStampThreadCounts(mailbox);
               // Queue preview backfill for this batch
               previewService.queueBackfillForMessages(
                 mailbox: mailbox,
@@ -2222,6 +2226,48 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
   }
 
   /// Update bottom progress based on how many messages in the window are ready
+  // Compute and stamp thread counts for current window (heuristic)
+  void _computeAndStampThreadCounts(Mailbox mailbox) {
+    try {
+      final list = emails[mailbox];
+      if (list == null || list.isEmpty) return;
+      // Build keys by References/In-Reply-To root, fallback to normalized subject
+      String _normalizeSubject(String? s) {
+        if (s == null) return '';
+        var t = s.trim();
+        // Strip common reply/forward prefixes repeatedly
+        final rx = RegExp(r'^(?:(re|fw|fwd|aw|wg)\s*:\s*)+', caseSensitive: false);
+        t = t.replaceAll(rx, '').trim();
+        return t.toLowerCase();
+      }
+      String _extractRootId(MimeMessage m) {
+        String? refs = m.getHeaderValue('references');
+        String? irt = m.getHeaderValue('in-reply-to');
+        if (refs != null && refs.isNotEmpty) {
+          final ids = RegExp(r'<[^>]+>').allMatches(refs).map((m) => m.group(0)!).toList();
+          if (ids.isNotEmpty) return ids.first;
+        }
+        if (irt != null && irt.isNotEmpty) {
+          final id = RegExp(r'<[^>]+>').firstMatch(irt)?.group(0);
+          if (id != null) return id;
+        }
+        final subj = _normalizeSubject(m.decodeSubject() ?? m.envelope?.subject);
+        return 'subj::$subj';
+      }
+      final counts = <String, int>{};
+      for (final m in list) {
+        final key = _extractRootId(m);
+        counts[key] = (counts[key] ?? 0) + 1;
+      }
+      for (final m in list) {
+        final key = _extractRootId(m);
+        final c = counts[key] ?? 1;
+        try { m.setHeader('x-thread-count', '$c'); } catch (_) {}
+        try { bumpMessageMeta(mailbox, m); } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
   void _updateReadyProgress(Mailbox mailbox, int limit) {
     try {
       final list = emails[mailbox] ?? const <MimeMessage>[];
@@ -2348,7 +2394,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
                   uid: full.uid ?? -1,
                   plainText: plain,
                   htmlSanitizedBlocked: sanitizedHtml,
-                  sanitizedVersion: 1,
+                  sanitizedVersion: 2,
                   forceMaterialize: FeatureFlags.instance.htmlMaterializeInitialWindow,
                 );
               }
@@ -2371,7 +2417,61 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
             try {
               if (preview.isNotEmpty) full.setHeader('x-preview', preview);
               full.setHeader('x-has-attachments', hasAtt ? '1' : '0');
+              // Stamp thread count for fast tile rendering (heuristic fallback if seq is null)
+              try {
+                int tc = 0;
+                try {
+                  final seq = full.threadSequence;
+                  tc = seq == null ? 0 : seq.toList().length;
+                } catch (_) {}
+                if (tc <= 1) {
+                  // Fallback based on subject/references within current list window
+                  try {
+                    final listRef = emails[mailbox] ?? const <MimeMessage>[];
+                    String _norm(String? s) {
+                      if (s == null) return '';
+                      var t = s.trim();
+                      final rx = RegExp(r'^(?:(re|fw|fwd|aw|wg)\s*:\s*)+', caseSensitive: false);
+                      t = t.replaceAll(rx, '').trim();
+                      return t.toLowerCase();
+                    }
+                    String key() {
+                      final refs = full.getHeaderValue('references');
+                      if (refs != null && refs.isNotEmpty) {
+                        final ids = RegExp(r'<[^>]+>').allMatches(refs).map((m) => m.group(0)!).toList();
+                        if (ids.isNotEmpty) return ids.first;
+                      }
+                      final irt = full.getHeaderValue('in-reply-to');
+                      if (irt != null && irt.isNotEmpty) {
+                        final id = RegExp(r'<[^>]+>').firstMatch(irt)?.group(0);
+                        if (id != null) return id;
+                      }
+                      return 'subj::'+_norm(full.decodeSubject() ?? full.envelope?.subject);
+                    }
+                    final k = key();
+                    tc = listRef.where((m) {
+                      String kk;
+                      final refs = m.getHeaderValue('references');
+                      if (refs != null && refs.isNotEmpty) {
+                        final ids = RegExp(r'<[^>]+>').allMatches(refs).map((mm) => mm.group(0)!).toList();
+                        kk = ids.isNotEmpty ? ids.first : '';
+                      } else {
+                        final irt2 = m.getHeaderValue('in-reply-to');
+                        if (irt2 != null && irt2.isNotEmpty) {
+                          kk = RegExp(r'<[^>]+>').firstMatch(irt2)?.group(0) ?? '';
+                        } else {
+                          kk = 'subj::'+_norm(m.decodeSubject() ?? m.envelope?.subject);
+                        }
+                      }
+                      return kk == k;
+                    }).length;
+                  } catch (_) {}
+                }
+                full.setHeader('x-thread-count', '${tc <= 0 ? 1 : tc}');
+              } catch (_) {}
               full.setHeader('x-ready', '1');
+              // Notify tile listeners
+              try { bumpMessageMeta(mailbox, full); } catch (_) {}
             } catch (_) {}
 
             // Optional small attachment prefetch
@@ -2606,7 +2706,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
                   uid: full.uid ?? -1,
                   plainText: plain,
                   htmlSanitizedBlocked: sanitizedHtml,
-                  sanitizedVersion: 1,
+                  sanitizedVersion: 2,
                   forceMaterialize: false,
                 );
               }
@@ -2629,7 +2729,59 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
             try {
               if (preview.isNotEmpty) full.setHeader('x-preview', preview);
               full.setHeader('x-has-attachments', hasAtt ? '1' : '0');
+              // Stamp thread count for fast tile rendering (heuristic fallback)
+              try {
+                int tc = 0;
+                try {
+                  final seq = full.threadSequence;
+                  tc = seq == null ? 0 : seq.toList().length;
+                } catch (_) {}
+                if (tc <= 1) {
+                  try {
+                    final listRef = emails[mailbox] ?? const <MimeMessage>[];
+                    String _norm(String? s) {
+                      if (s == null) return '';
+                      var t = s.trim();
+                      final rx = RegExp(r'^(?:(re|fw|fwd|aw|wg)\s*:\s*)+', caseSensitive: false);
+                      t = t.replaceAll(rx, '').trim();
+                      return t.toLowerCase();
+                    }
+                    String key() {
+                      final refs = full.getHeaderValue('references');
+                      if (refs != null && refs.isNotEmpty) {
+                        final ids = RegExp(r'<[^>]+>').allMatches(refs).map((m) => m.group(0)!).toList();
+                        if (ids.isNotEmpty) return ids.first;
+                      }
+                      final irt = full.getHeaderValue('in-reply-to');
+                      if (irt != null && irt.isNotEmpty) {
+                        final id = RegExp(r'<[^>]+>').firstMatch(irt)?.group(0);
+                        if (id != null) return id;
+                      }
+                      return 'subj::'+_norm(full.decodeSubject() ?? full.envelope?.subject);
+                    }
+                    final k = key();
+                    tc = listRef.where((m) {
+                      String kk;
+                      final refs = m.getHeaderValue('references');
+                      if (refs != null && refs.isNotEmpty) {
+                        final ids = RegExp(r'<[^>]+>').allMatches(refs).map((mm) => mm.group(0)!).toList();
+                        kk = ids.isNotEmpty ? ids.first : '';
+                      } else {
+                        final irt2 = m.getHeaderValue('in-reply-to');
+                        if (irt2 != null && irt2.isNotEmpty) {
+                          kk = RegExp(r'<[^>]+>').firstMatch(irt2)?.group(0) ?? '';
+                        } else {
+                          kk = 'subj::'+_norm(m.decodeSubject() ?? m.envelope?.subject);
+                        }
+                      }
+                      return kk == k;
+                    }).length;
+                  } catch (_) {}
+                }
+                full.setHeader('x-thread-count', '${tc <= 0 ? 1 : tc}');
+              } catch (_) {}
               full.setHeader('x-ready', '1');
+              try { bumpMessageMeta(mailbox, full); } catch (_) {}
             } catch (_) {}
 
             // Optional small attachment prefetch
@@ -2648,6 +2800,13 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       // Trigger UI update quietly
       emails.refresh();
       update();
+    } catch (_) {}
+  }
+
+  /// Public: Prefetch a single message's content quietly (body + attachments meta + offline HTML)
+  Future<void> prefetchMessageContent(Mailbox mailbox, MimeMessage message, {bool quiet = true}) async {
+    try {
+      await _prefetchFullContentForMessages(mailbox, [message], quiet: quiet);
     } catch (_) {}
   }
 

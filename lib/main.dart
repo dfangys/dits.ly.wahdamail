@@ -7,6 +7,7 @@ import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wahda_bank/models/sqlite_database_helper.dart';
+import 'package:wahda_bank/services/offline_http_server.dart';
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,14 @@ Future main() async {
 
   // Initialize SQLite database
   await SQLiteDatabaseHelper.instance.database;
+
+  // Start local offline HTTP server (for non-iOS WebView rendering)
+  try {
+    final srv = await OfflineHttpServer.instance.start();
+    debugPrint('OfflineHttpServer started on 127.0.0.1:$srv');
+  } catch (e) {
+    debugPrint('OfflineHttpServer start error: $e');
+  }
 
   // Initialize Hive for backward compatibility during migration
   // await Hive.initFlutter();

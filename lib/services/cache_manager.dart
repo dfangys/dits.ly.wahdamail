@@ -6,18 +6,102 @@ import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/services/memory_budget.dart';
 
-/// Comprehensive cache manager for email application performance optimization
+/// Wrapper classes for cached data with expiration support
+class CachedMessage {
+  final MimeMessage message;
+  final DateTime cachedAt;
+  final Duration? expiry;
+  
+  CachedMessage(this.message, {this.expiry}) : cachedAt = DateTime.now();
+  
+  bool get isExpired {
+    if (expiry == null) return false;
+    return DateTime.now().difference(cachedAt) > expiry!;
+  }
+}
+
+class CachedMailbox {
+  final List<MimeMessage> messages;
+  final DateTime cachedAt;
+  final Duration? expiry;
+  
+  CachedMailbox(this.messages, {this.expiry}) : cachedAt = DateTime.now();
+  
+  bool get isExpired {
+    if (expiry == null) return false;
+    return DateTime.now().difference(cachedAt) > expiry!;
+  }
+}
+
+class CachedAttachment {
+  final Uint8List data;
+  final DateTime cachedAt;
+  final Duration? expiry;
+  
+  CachedAttachment(this.data, {this.expiry}) : cachedAt = DateTime.now();
+  
+  bool get isExpired {
+    if (expiry == null) return false;
+    return DateTime.now().difference(cachedAt) > expiry!;
+  }
+  
+  int get length => data.length;
+}
+
+class CachedContent {
+  final String content;
+  final DateTime cachedAt;
+  final Duration? expiry;
+  
+  CachedContent(this.content, {this.expiry}) : cachedAt = DateTime.now();
+  
+  bool get isExpired {
+    if (expiry == null) return false;
+    return DateTime.now().difference(cachedAt) > expiry!;
+  }
+  
+  int get length => content.length;
+}
+
+class CachedThumbnail {
+  final Uint8List data;
+  final DateTime cachedAt;
+  final Duration? expiry;
+  
+  CachedThumbnail(this.data, {this.expiry}) : cachedAt = DateTime.now();
+  
+  bool get isExpired {
+    if (expiry == null) return false;
+    return DateTime.now().difference(cachedAt) > expiry!;
+  }
+  
+  int get length => data.length;
+}
+
+/// Enterprise-grade cache manager with intelligent memory management,
+/// cache invalidation strategies, and integrated attachment handling.
 class CacheManager extends GetxService {
   static CacheManager get instance => Get.find<CacheManager>();
 
-  // Memory caches with LRU eviction
-final LRUMap<String, MimeMessage> _messageCache = LRUMap<String, MimeMessage>(_maxMessageCacheSize);
-  final LRUMap<String, List<MimeMessage>> _mailboxCache = LRUMap<String, List<MimeMessage>>(_maxMailboxCacheSize);
-  final LRUMap<String, Uint8List> _attachmentCache = LRUMap<String, Uint8List>(_maxAttachmentCacheSize);
+  // Memory caches with LRU eviction and expiration
+  final LRUMap<String, CachedMessage> _messageCache = LRUMap<String, CachedMessage>(_maxMessageCacheSize);
+  final LRUMap<String, CachedMailbox> _mailboxCache = LRUMap<String, CachedMailbox>(_maxMailboxCacheSize);
+  final LRUMap<String, CachedAttachment> _attachmentCache = LRUMap<String, CachedAttachment>(_maxAttachmentCacheSize);
+  final LRUMap<String, CachedContent> _contentCache = LRUMap<String, CachedContent>(_maxContentCacheSize);
+  final LRUMap<String, CachedThumbnail> _thumbnailCache = LRUMap<String, CachedThumbnail>(_maxThumbnailCacheSize);
+  
+  // Legacy LRU maps for backward compatibility
+  final LRUMap<String, MimeMessage> _legacyMessageCache = LRUMap<String, MimeMessage>(_maxMessageCacheSize);
+  final LRUMap<String, List<MimeMessage>> _legacyMailboxCache = LRUMap<String, List<MimeMessage>>(_maxMailboxCacheSize);
+  final LRUMap<String, Uint8List> _legacyAttachmentDataCache = LRUMap<String, Uint8List>(_maxAttachmentCacheSize);
   final LRUMap<String, String> _messageContentCache = LRUMap<String, String>(_maxContentCacheSize);
   final LRUMap<String, List<MimePart>> _attachmentListCache = LRUMap<String, List<MimePart>>(_maxAttachmentCacheSize * 2);
+  
+  // Pending operations to avoid duplicate work
+  final Set<String> _pendingOperations = <String>{};
+  final Map<String, Completer<dynamic>> _operationCompleters = <String, Completer<dynamic>>{};
 
-  // Cache statistics
+  // Cache statistics with additional metrics
   final RxMap<String, int> _cacheStats = <String, int>{
     'message_hits': 0,
     'message_misses': 0,
@@ -27,14 +111,22 @@ final LRUMap<String, MimeMessage> _messageCache = LRUMap<String, MimeMessage>(_m
     'attachment_misses': 0,
     'content_hits': 0,
     'content_misses': 0,
+    'thumbnail_hits': 0,
+    'thumbnail_misses': 0,
+    'evictions': 0,
+    'cache_invalidations': 0,
   }.obs;
 
-  // Cache configuration
-  static const int _maxMessageCacheSize = 100;
-  static const int _maxMailboxCacheSize = 20;
-  static const int _maxAttachmentCacheSize = 50;
-  static const int _maxContentCacheSize = 200;
-  static const int _maxAttachmentDataSize = 5 * 1024 * 1024; // 5MB per attachment
+  // Enhanced cache configuration
+  static const int _maxMessageCacheSize = 150;
+  static const int _maxMailboxCacheSize = 25;
+  static const int _maxAttachmentCacheSize = 75;
+  static const int _maxContentCacheSize = 300;
+  static const int _maxThumbnailCacheSize = 200;
+  static const int _maxAttachmentDataSize = 10 * 1024 * 1024; // 10MB per attachment
+  static const Duration _defaultCacheExpiry = Duration(hours: 2);
+  static const Duration _contentCacheExpiry = Duration(hours: 6);
+  static const Duration _thumbnailCacheExpiry = Duration(days: 1);
 
   // Preloading queues
   final Queue<String> _preloadQueue = Queue<String>();
@@ -57,12 +149,12 @@ final LRUMap<String, MimeMessage> _messageCache = LRUMap<String, MimeMessage>(_m
 
   void cacheMessage(MimeMessage message) {
     final key = _getMessageKey(message);
-    _messageCache[key] = message;
+    _legacyMessageCache[key] = message;
   }
 
   MimeMessage? getCachedMessage(MimeMessage message) {
     final key = _getMessageKey(message);
-    final cached = _messageCache[key];
+    final cached = _legacyMessageCache[key];
     if (cached != null) {
       _cacheStats['message_hits'] = (_cacheStats['message_hits'] ?? 0) + 1;
     } else {
@@ -78,12 +170,12 @@ final LRUMap<String, MimeMessage> _messageCache = LRUMap<String, MimeMessage>(_m
 
   void cacheMailboxMessages(Mailbox mailbox, List<MimeMessage> messages) {
     final key = _getMailboxKey(mailbox);
-    _mailboxCache[key] = List.from(messages); // Create a copy to avoid reference issues
+    _legacyMailboxCache[key] = List.from(messages); // Create a copy to avoid reference issues
   }
 
   List<MimeMessage>? getCachedMailboxMessages(Mailbox mailbox) {
     final key = _getMailboxKey(mailbox);
-    final cached = _mailboxCache[key];
+    final cached = _legacyMailboxCache[key];
     if (cached != null) {
       _cacheStats['mailbox_hits'] = (_cacheStats['mailbox_hits'] ?? 0) + 1;
       return List.from(cached); // Return a copy
@@ -146,12 +238,12 @@ final LRUMap<String, MimeMessage> _messageCache = LRUMap<String, MimeMessage>(_m
     }
     
     final key = _getAttachmentKey(message, attachment);
-    _attachmentCache[key] = data;
+    _legacyAttachmentDataCache[key] = data;
   }
 
   Uint8List? getCachedAttachmentData(MimeMessage message, MimePart attachment) {
     final key = _getAttachmentKey(message, attachment);
-    final cached = _attachmentCache[key];
+    final cached = _legacyAttachmentDataCache[key];
     if (cached != null) {
       _cacheStats['attachment_hits'] = (_cacheStats['attachment_hits'] ?? 0) + 1;
     } else {

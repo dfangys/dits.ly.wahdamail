@@ -966,12 +966,12 @@ final isUid = sequence.isUidSequence;
       });
 
       if (kDebugMode) {
-        print('📧 Backfilled derived fields for $updated rows in mailbox ${mailbox.name}');
+        // print('📧 Backfilled derived fields for $updated rows in mailbox ${mailbox.name}');
       }
       return updated;
     } catch (e) {
       if (kDebugMode) {
-        print('📧 Error backfilling derived fields: $e');
+        // print('📧 Error backfilling derived fields: $e');
       }
       return 0;
     } finally {

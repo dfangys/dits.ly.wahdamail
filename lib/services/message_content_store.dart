@@ -68,7 +68,6 @@ class MessageContentStore {
   static final instance = MessageContentStore._();
 
   final _gz = GZipCodec();
-  static const _htmlFileThreshold = 64 * 1024; // 64KB threshold for file materialization
 
   Future<Database> get _db async => SQLiteDatabaseHelper.instance.database;
 
@@ -195,6 +194,73 @@ class MessageContentStore {
       orderBy: 'id ASC',
     );
     final atts = attRows.map(CachedAttachment.fromMap).toList();
+
+    if (kDebugMode) {
+      int htmlLen = html?.length ?? 0; bool exists = false; int size = -1;
+      try { if (htmlPath != null && htmlPath.isNotEmpty) { final f=File(htmlPath); exists=f.existsSync(); if (exists) size=f.statSync().size; } } catch (_) {}
+      // ignore: avoid_print
+      print('STORE:getContent uid=$uid box=$mailboxPath v=$version htmlLen=$htmlLen htmlPath=$htmlPath exists=$exists size=$size');
+    }
+
+    return CachedMessageContent(
+      plainText: plain,
+      htmlSanitizedBlocked: html,
+      htmlFilePath: htmlPath,
+      sanitizedVersion: version,
+      attachments: atts,
+    );
+  }
+
+  // Fallback lookup that ignores uid_validity (use latest updated row)
+  Future<CachedMessageContent?> getContentAnyUidValidity({
+    required String accountEmail,
+    required String mailboxPath,
+    required int uid,
+  }) async {
+    final db = await _db;
+    final rows = await db.query(
+      SQLiteDatabaseHelper.tableMessageContent,
+      where: 'account_email=? AND mailbox_path=? AND uid=?',
+      whereArgs: [accountEmail, mailboxPath, uid],
+      orderBy: 'updated_at DESC',
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    final uidValidity = (row['uid_validity'] as int?) ?? 0;
+    String? plain;
+    String? html;
+    String? htmlPath;
+    try {
+      if (row['plain_text'] != null) {
+        plain = utf8.decode(_gz.decode(row['plain_text'] as List<int>));
+      }
+    } catch (_) {}
+    try {
+      if (row['html_sanitized_blocked'] != null) {
+        html = utf8.decode(_gz.decode(row['html_sanitized_blocked'] as List<int>));
+      }
+      if (row['html_file_path'] != null) {
+        htmlPath = row['html_file_path'] as String?;
+      }
+    } catch (_) {}
+    final version = (row['sanitized_version'] is int) ? row['sanitized_version'] as int : int.tryParse(row['sanitized_version']?.toString() ?? '1') ?? 1;
+
+    final attRows = await db.query(
+      SQLiteDatabaseHelper.tableMessageAttachments,
+      where: 'account_email=? AND mailbox_path=? AND uid_validity=? AND uid=?',
+      whereArgs: [accountEmail, mailboxPath, uidValidity, uid],
+      orderBy: 'id ASC',
+    );
+    final atts = attRows.map(CachedAttachment.fromMap).toList();
+
+    if (kDebugMode) {
+      int htmlLen = html?.length ?? 0; bool exists = false; int size = -1;
+      try { if (htmlPath != null && htmlPath.isNotEmpty) { final f=File(htmlPath); exists=f.existsSync(); if (exists) size=f.statSync().size; } } catch (_) {}
+      // ignore: avoid_print
+      print('STORE:getContentAny uid=$uid box=$mailboxPath v=$version htmlLen=$htmlLen htmlPath=$htmlPath exists=$exists size=$size');
+    }
+
     return CachedMessageContent(
       plainText: plain,
       htmlSanitizedBlocked: html,
@@ -224,7 +290,8 @@ class MessageContentStore {
     });
   }
 
-  // Utility to save attachment bytes to a deterministic path
+  // Utility to save attachment bytes to a deterministic, collision-safe path
+  // Enterprise-grade: stable identity suffixing to avoid overwrites when filenames repeat
   Future<String> saveAttachmentBytes({
     required String accountEmail,
     required String mailboxPath,
@@ -232,17 +299,177 @@ class MessageContentStore {
     required int uid,
     required String fileName,
     required List<int> bytes,
+    String? uniquePartId, // e.g., ContentInfo.fetchId
+    String? contentId, // from part header 'content-id'
+    String? mimeType,
+    int? size,
   }) async {
+    // Local helpers
+    String _sanitizeName(String n) {
+      var s = (n.isEmpty ? 'attachment' : n)
+          .replaceAll(RegExp(r'[\\/:*?\"<>|]'), '_')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      if (s.isEmpty) s = 'attachment';
+      // keep reasonable length for FS
+      if (s.length > 80) s = s.substring(0, 80);
+      return s;
+    }
+
+    bool _isPdfBytes(List<int> b) => b.length >= 5 && b[0] == 0x25 && b[1] == 0x50 && b[2] == 0x44 && b[3] == 0x46 && b[4] == 0x2D;
+
+    bool _looksPdfByHint() {
+      final m = (mimeType ?? '').toLowerCase();
+      final name = fileName.toLowerCase();
+      return name.endsWith('.pdf') || m == 'application/pdf' || m == 'application/x-pdf' || m.contains('pdf');
+    }
+
+    List<int>? _normalizePdfBytesIfNeeded(List<int> input) {
+      try {
+        if (_isPdfBytes(input)) return null; // already proper PDF
+
+        // Try to interpret as text and decode base64 variants
+        String asText = '';
+        try { asText = utf8.decode(input, allowMalformed: true); } catch (_) {}
+
+        if (asText.isNotEmpty) {
+          // Full-string base64
+          final cleaned = asText.replaceAll(RegExp(r'\s'), '');
+          final isB64 = cleaned.length >= 20 && cleaned.length % 4 == 0 && RegExp(r'^[A-Za-z0-9+/]*={0,2}$').hasMatch(cleaned);
+          if (isB64) {
+            try {
+              final decoded = base64.decode(cleaned);
+              if (_isPdfBytes(decoded)) return decoded;
+            } catch (_) {}
+          }
+
+          // data:...;base64,<payload>
+          final lower = asText.toLowerCase();
+          final idx = lower.indexOf('base64,');
+          if (idx != -1) {
+            final payload = asText.substring(idx + 'base64,'.length);
+            final cleaned2 = payload.replaceAll(RegExp(r'[^A-Za-z0-9+/=]'), '');
+            if (cleaned2.isNotEmpty) {
+              try {
+                final decoded = base64.decode(cleaned2);
+                if (_isPdfBytes(decoded)) return decoded;
+              } catch (_) {}
+            }
+          }
+
+          // Embedded base64 segment starting with JVBERi0
+          final jv = asText.indexOf('JVBERi0');
+          if (jv != -1) {
+            int end = jv;
+            while (end < asText.length && RegExp(r'[A-Za-z0-9+/=]').hasMatch(asText[end])) { end++; }
+            final seg = asText.substring(jv, end).replaceAll(RegExp(r'\s'), '');
+            if (seg.isNotEmpty && seg.length % 4 == 0) {
+              try {
+                final decoded = base64.decode(seg);
+                if (_isPdfBytes(decoded)) return decoded;
+              } catch (_) {}
+            }
+          }
+        }
+
+        // Binary scan for %PDF- after junk
+        for (int i = 0; i + 4 < input.length; i++) {
+          if (input[i] == 0x25 && input[i+1] == 0x50 && input[i+2] == 0x44 && input[i+3] == 0x46 && input[i+4] == 0x2D) {
+            return input.sublist(i);
+          }
+        }
+      } catch (_) {}
+      return null; // could not normalize
+    }
+
+    String _extOf(String n) {
+      final i = n.lastIndexOf('.');
+      if (i > 0 && i < n.length - 1) return n.substring(i);
+      return '';
+    }
+
+    String _baseOf(String n) {
+      final i = n.lastIndexOf('.');
+      if (i > 0) return n.substring(0, i);
+      return n;
+    }
+
+    String _slug(String s) {
+      final t = s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+      if (t.isEmpty) return 'id';
+      return t.length > 10 ? t.substring(0, 10) : t;
+    }
+
+    // Best-practice: normalize PDF attachments before saving (handles base64/data URI/junk prefix)
+    if (_looksPdfByHint()) {
+      final normalized = _normalizePdfBytesIfNeeded(bytes);
+      if (normalized != null) {
+        bytes = normalized;
+        size = bytes.length;
+        if (kDebugMode) {
+          // ignore: avoid_print
+          print('STORE:normalizePDF name=$fileName -> normalized ${bytes.length} bytes');
+        }
+      }
+    }
+
     final base = await getApplicationCacheDirectory();
     final safeBox = mailboxPath.replaceAll('/', '_');
     final dir = Directory(p.join(base.path, 'offline_attachments', accountEmail, safeBox, '$uidValidity', '$uid'));
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
-    final safeName = fileName.isEmpty ? 'attachment' : fileName;
-    final file = File(p.join(dir.path, safeName));
-    await file.writeAsBytes(bytes, flush: true);
-    return file.path;
+
+    final sanitized = _sanitizeName(fileName);
+    final baseName = _baseOf(sanitized);
+    final ext = _extOf(sanitized);
+
+    String suffix;
+    if (uniquePartId != null && uniquePartId.trim().isNotEmpty) {
+      suffix = '__fid-${_slug(uniquePartId)}';
+    } else if (contentId != null && contentId.trim().isNotEmpty) {
+      suffix = '__cid-${_slug(contentId)}';
+    } else if (size != null && size > 0) {
+      suffix = '__sz-$size';
+    } else {
+      // last resort: small random nonce to avoid collisions
+      final r = DateTime.now().microsecondsSinceEpoch.remainder(0xFFFFFF).toRadixString(16);
+      suffix = '__r-$r';
+    }
+
+    String candidate = '$baseName$suffix$ext';
+    var dest = File(p.join(dir.path, candidate));
+
+    // If a file with same name exists and content differs in length, add a nonce
+    if (await dest.exists()) {
+      try {
+        final st = await dest.stat();
+        final existingLen = st.size;
+        final newLen = bytes.length;
+        if (existingLen != newLen) {
+          final r = DateTime.now().millisecondsSinceEpoch.remainder(0xFFFF).toRadixString(16);
+          candidate = '$baseName${suffix}__$r$ext';
+          dest = File(p.join(dir.path, candidate));
+        }
+      } catch (_) {}
+    }
+
+    // Atomic write: write to temp then rename
+    final tmp = File(p.join(dir.path, '.$candidate.part'));
+    await tmp.writeAsBytes(bytes, flush: true);
+    try {
+      await tmp.rename(dest.path);
+    } catch (_) {
+      // Fallback: copy and delete temp
+      await dest.writeAsBytes(bytes, flush: true);
+      try { await tmp.delete(); } catch (_) {}
+    }
+
+    if (kDebugMode) {
+      // ignore: avoid_print
+      print('STORE:saveAttachmentBytes uid=$uid -> ${dest.path} (${bytes.length} bytes)');
+    }
+    return dest.path;
   }
 
   // Materialize sanitized HTML inner body to a full HTML file with CSP and adaptive CSS
@@ -263,6 +490,13 @@ class MessageContentStore {
     final file = File(p.join(dir.path, 'msg_$uid.html'));
     final doc = _wrapOfflineHtml(blockRemote: blockRemote, innerHtml: sanitizedInnerHtml);
     await file.writeAsString(doc, flush: true);
+    if (kDebugMode) {
+      try {
+        final st = await file.stat();
+        // ignore: avoid_print
+        print('STORE:saveOfflineHtmlDocument uid=$uid -> ${file.path} (${st.size} bytes)');
+      } catch (_) {}
+    }
     return file.path;
   }
 
@@ -299,10 +533,10 @@ class MessageContentStore {
   }
 
   String _adaptiveBaseCss() {
-    // Adapts to dark/light automatically via prefers-color-scheme
+    // Force a light, readable theme for offline HTML to avoid black-on-black issues
     return '''
-      :root { color-scheme: light dark; }
-      html, body { margin:0; padding:0; width:100%; overflow-x:hidden; }
+      :root { color-scheme: light; }
+      html, body { margin:0; padding:0; width:100%; overflow-x:hidden; background:#ffffff; color:#1b1c1f; }
       * { box-sizing: border-box; }
       .wb-container { max-width: 100vw; width:100%; overflow-x:hidden; }
       body { font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', Arial, sans-serif; line-height:1.5; font-size:15px; overflow-wrap:anywhere; word-break:break-word; -webkit-text-size-adjust: 100%; }
@@ -310,17 +544,8 @@ class MessageContentStore {
       table { max-width:100% !important; width:100% !important; }
       td, th { word-break: break-word; }
       pre, code { white-space:pre-wrap !important; word-break:break-word !important; }
-      a { text-decoration:none; }
-      @media (prefers-color-scheme: dark) {
-        body { background:#0e0f12; color:#e7e7e9; }
-        a { color:#8ab4f8; }
-        blockquote { border-left:4px solid #8ab4f8; background:#2a2d32; padding:8px 12px; margin:8px 0; }
-      }
-      @media (prefers-color-scheme: light) {
-        body { background:#ffffff; color:#1b1c1f; }
-        a { color:#1a73e8; }
-        blockquote { border-left:4px solid #1a73e8; background:#f3f6fb; padding:8px 12px; margin:8px 0; }
-      }
+      a { text-decoration:none; color:#1a73e8; }
+      blockquote { border-left:4px solid #1a73e8; background:#f3f6fb; padding:8px 12px; margin:8px 0; }
     ''';
   }
 

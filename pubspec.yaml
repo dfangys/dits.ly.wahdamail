@@ -43,7 +43,8 @@ dependencies:
   iconsax: ^0.0.8
   lottie: ^3.0.0
   html_editor_enhanced: ^2.5.1
-  enough_mail: ^2.1.7
+  enough_mail: 2.1.7
+  pdfx: ^2.6.0
   path: ^1.9.0
   flutter_contacts: ^1.1.7+1
   collection: ^1.18.0
@@ -55,10 +56,12 @@ dependencies:
   enough_mail_flutter: ^2.1.1
   permission_handler: ^12.0.0+1
   path_provider: ^2.1.2
+  image: ^4.2.0
   flutter_widget_from_html: ^0.16.0
   flutter_inappwebview: ^6.0.0
   flutter_local_notifications: ^19.2.1
   share_plus: ^11.0.0
+  image_gallery_saver: ^2.0.3
   shared_preferences: ^2.2.2
   intl: ^0.19.0
   connectivity_plus: ^6.1.4
@@ -84,6 +87,9 @@ dependencies:
   flutter_html: ^3.0.0-alpha.7
   sqflite: ^2.0.0+4
   local_auth: ^2.3.0
+  # Added for in-app Office (DOCX/XLSX) lightweight previews
+  archive: ^4.0.7
+  xml: ^6.5.0
 
 dev_dependencies:
   flutter_test:

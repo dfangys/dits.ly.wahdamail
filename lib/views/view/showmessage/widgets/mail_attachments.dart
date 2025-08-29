@@ -14,6 +14,7 @@ import '../../../../services/email_cache_service.dart';
 import '../../../../services/message_content_store.dart';
 import '../../../../services/html_enhancer.dart';
 import '../../../../services/internet_service.dart';
+import '../../../../services/attachment_fetcher.dart';
 import '../../../../utills/theme/app_theme.dart';
 import '../../../../widgets/enhanced_attachment_viewer.dart';
 import '../../../../widgets/enterprise_message_viewer.dart';
@@ -22,9 +23,11 @@ import '../../../../widgets/enterprise_message_viewer.dart';
 final Map<int, DateTime> _attachmentRefetchBackoff = <int, DateTime>{};
 
 class MailAttachments extends StatelessWidget {
-  const MailAttachments({super.key, required this.message, this.mailbox});
+  const MailAttachments({super.key, required this.message, this.mailbox, this.showAttachmentsList = true, this.showBodyViewer = true});
   final MimeMessage message;
   final Mailbox? mailbox;
+  final bool showAttachmentsList;
+  final bool showBodyViewer;
 
   Future<MimeMessage> _fetchMessageContent() async {
     try {
@@ -214,9 +217,11 @@ class MailAttachments extends StatelessWidget {
                   const maxAttachmentBytes = 10 * 1024 * 1024; // 10MB per attachment cap
                   for (final ci in infos) {
                     try {
-                      final part = refreshed.getPart(ci.fetchId);
-                      if (part == null) continue;
-                      final bytes = part.decodeContentBinary();
+                      final bytes = await AttachmentFetcher.fetchBytes(
+                        message: refreshed,
+                        content: ci,
+                        mailbox: mailbox,
+                      );
                       if (bytes == null) continue;
                       if (bytes.length > maxAttachmentBytes) continue;
                       final path = await MessageContentStore.instance.saveAttachmentBytes(
@@ -226,6 +231,10 @@ class MailAttachments extends StatelessWidget {
                         uid: refreshed.uid ?? -1,
                         fileName: ci.fileName ?? 'attachment',
                         bytes: bytes,
+                        uniquePartId: ci.fetchId,
+                        contentId: refreshed.getPart(ci.fetchId)?.getHeaderValue('content-id'),
+                        mimeType: ci.contentType?.mediaType.toString(),
+                        size: ci.size ?? bytes.length,
                       );
                       cachedAtts.add(CachedAttachment(
                         contentId: null,
@@ -407,9 +416,11 @@ class MailAttachments extends StatelessWidget {
         const maxAttachmentBytes = 10 * 1024 * 1024; // 10MB per attachment cap
         for (final ci in infos) {
           try {
-            final part = fetchedMessage.getPart(ci.fetchId);
-            if (part == null) continue;
-            final bytes = part.decodeContentBinary();
+            final bytes = await AttachmentFetcher.fetchBytes(
+              message: fetchedMessage,
+              content: ci,
+              mailbox: mailbox,
+            );
             if (bytes == null) continue;
             if (bytes.length > maxAttachmentBytes) continue; // skip huge
             final path = await MessageContentStore.instance.saveAttachmentBytes(
@@ -419,6 +430,10 @@ class MailAttachments extends StatelessWidget {
               uid: fetchedMessage.uid ?? -1,
               fileName: ci.fileName ?? 'attachment',
               bytes: bytes,
+              uniquePartId: ci.fetchId,
+              contentId: fetchedMessage.getPart(ci.fetchId)?.getHeaderValue('content-id'),
+              mimeType: ci.contentType?.mediaType.toString(),
+              size: ci.size ?? bytes.length,
             );
             cachedAtts.add(CachedAttachment(
               contentId: null,
@@ -506,7 +521,8 @@ class MailAttachments extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _offlineBanner(context),
-                  EnterpriseMessageViewer(
+                  if (showBodyViewer)
+                    EnterpriseMessageViewer(
                       mimeMessage: message,
                       enableDarkMode: Theme.of(context).brightness == Brightness.dark,
                       blockExternalImages: true,
@@ -598,14 +614,15 @@ class MailAttachments extends StatelessWidget {
                   if (initialHtmlPath != null || (initialHtml != null && ((snapshot.data?.decodeTextHtmlPart()?.trim().isNotEmpty ?? false) == false)))
                     _offlineBanner(context),
                   // WebView-first enterprise viewer for best fidelity
-                  EnterpriseMessageViewer(
-                    mimeMessage: snapshot.data!,
-                    enableDarkMode: Theme.of(context).brightness == Brightness.dark,
-                    blockExternalImages: true,
-                    textScale: MediaQuery.of(context).textScaler.scale(1.0),
-                    initialHtml: initialHtml,
-                    initialHtmlPath: initialHtmlPath,
-                  ),
+                  if (showBodyViewer)
+                    EnterpriseMessageViewer(
+                      mimeMessage: snapshot.data!,
+                      enableDarkMode: Theme.of(context).brightness == Brightness.dark,
+                      blockExternalImages: true,
+                      textScale: MediaQuery.of(context).textScaler.scale(1.0),
+                      initialHtml: initialHtml,
+                      initialHtmlPath: initialHtmlPath,
+                    ),
 
                   // Cached offline attachments (if available)
                   // Show when offline OR when MIME has no attachment parts to avoid empty state
@@ -636,7 +653,6 @@ class MailAttachments extends StatelessWidget {
                                   icon: const Icon(Icons.share_rounded),
                                   onPressed: () async {
                                     try {
-                                      // ignore: deprecated_member_use
                                       await Share.shareXFiles([XFile(a.filePath)], text: a.fileName);
                                     } catch (_) {}
                                   },
@@ -648,11 +664,12 @@ class MailAttachments extends StatelessWidget {
                     ),
 
                   // Online attachments via MIME (if present)
-                  EnhancedAttachmentViewer(
-                    mimeMessage: snapshot.data!,
-                    showInline: false,
-                    maxAttachmentsToShow: 20,
-                  ),
+                  if (showAttachmentsList)
+                    EnhancedAttachmentViewer(
+                      mimeMessage: snapshot.data!,
+                      showInline: false,
+                      maxAttachmentsToShow: 20,
+                    ),
                 ],
               );
             },
@@ -884,8 +901,6 @@ class _AttachmentTileState extends State<AttachmentTile> {
           );
 
           if (tempFile != null) {
-            // ignore: deprecated_member_use
-            // ignore: deprecated_member_use
             await Share.shareXFiles(
               [XFile(tempFile.path)],
               text: 'Sharing ${widget.contentInfo.fileName}',
@@ -1074,7 +1089,6 @@ class _AttachmentTileState extends State<AttachmentTile> {
         final tempFile = File('${tempDir.path}/$fileName');
         await tempFile.writeAsBytes(uint8List);
 
-        // ignore: deprecated_member_use
         await Share.shareXFiles(
           [XFile(tempFile.path)],
           text: 'Save or open $fileName',

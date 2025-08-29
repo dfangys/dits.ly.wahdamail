@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:enough_mail/enough_mail.dart';
@@ -7,6 +8,8 @@ import 'package:open_app_file/open_app_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:wahda_bank/services/attachment_fetcher.dart';
+import 'package:wahda_bank/services/mime_utils.dart';
 
 /// Enhanced attachment viewer implementing enough_mail best practices
 class EnhancedAttachmentViewer extends StatelessWidget {
@@ -83,7 +86,7 @@ class EnhancedAttachmentViewer extends StatelessWidget {
     return Column(
       children: [
         ...displayAttachments.map((attachment) => EnhancedAttachmentTile(
-          key: ValueKey(attachment.fetchId ?? attachment.fileName ?? '${attachment.hashCode}'),
+          key: ValueKey('${attachment.fetchId}_${attachment.fileName ?? ''}'),
           contentInfo: attachment,
           mimeMessage: mimeMessage,
         )),
@@ -126,9 +129,10 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
     final fileName = widget.contentInfo.fileName ?? 'Unknown';
     final fileSize = _formatFileSize(widget.contentInfo.size);
     final fileIcon = _getFileIcon(fileName);
-final mimeType = widget.contentInfo.contentType != null
-        ? widget.contentInfo.contentType!.mediaType.toString()
-        : 'application/octet-stream';
+final mimeType = MimeUtils.inferMimeType(
+        fileName,
+        contentType: widget.contentInfo.contentType?.mediaType.toString(),
+      );
 
     return ListTile(
       leading: Container(
@@ -206,14 +210,11 @@ final mimeType = widget.contentInfo.contentType != null
   }
 
   bool _canPreview(String fileName) {
-    final extension = fileName.toLowerCase().split('.').last;
-    const previewableExtensions = [
-      'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp',
-      'pdf', 'txt', 'md', 'html', 'htm',
-      'mp4', 'mov', 'avi', 'mkv',
-      'mp3', 'wav', 'aac', 'm4a',
-    ];
-    return previewableExtensions.contains(extension);
+    final mime = MimeUtils.inferMimeType(
+      fileName,
+      contentType: widget.contentInfo.contentType?.mediaType.toString(),
+    );
+    return MimeUtils.canPreviewInApp(mime, fileName);
   }
 
   IconData _getFileIcon(String fileName) {
@@ -319,33 +320,26 @@ final mimeType = widget.contentInfo.contentType != null
     return '${size.toStringAsFixed(size < 10 ? 1 : 0)} ${suffixes[suffixIndex]}';
   }
 
+  Future<Uint8List?> _getAttachmentData() async {
+    return AttachmentFetcher.fetchBytes(
+      message: widget.mimeMessage,
+      content: widget.contentInfo,
+    );
+  }
+
   Future<void> _previewAttachment() async {
     try {
-      // FIXED: Use correct API to fetch attachment data
-      final mimePart = widget.mimeMessage.getPart(widget.contentInfo.fetchId);
-      if (mimePart == null) {
-        throw Exception('Could not find attachment part');
-      }
-
-      // Get attachment data from the mime part
-      final data = mimePart.decodeContentBinary();
+      final data = await _getAttachmentData();
       if (data == null || data.isEmpty) {
-        if (kDebugMode) {
-          print('No attachment data available for preview');
-        }
-        return;
+        throw Exception('No attachment data available for preview');
       }
-
       // Create temporary file for preview
       final directory = await getTemporaryDirectory();
       final fileName = widget.contentInfo.fileName ?? 'attachment_${DateTime.now().millisecondsSinceEpoch}';
       final file = File('${directory.path}/$fileName');
-      
       await file.writeAsBytes(data);
-      
       // Open the file for preview
       final result = await OpenAppFile.open(file.path);
-      
       if (kDebugMode) {
         print('Preview attachment result: ${result.type} - ${result.message}');
       }
@@ -367,35 +361,21 @@ final mimeType = widget.contentInfo.contentType != null
 
   Future<void> _shareAttachment() async {
     try {
-      // FIXED: Use correct API to fetch attachment data
-      final mimePart = widget.mimeMessage.getPart(widget.contentInfo.fetchId);
-      if (mimePart == null) {
-        throw Exception('Could not find attachment part');
-      }
-
-      // Get attachment data from the mime part
-      final data = mimePart.decodeContentBinary();
+      final data = await _getAttachmentData();
       if (data == null || data.isEmpty) {
-        if (kDebugMode) {
-          print('No attachment data available for sharing');
-        }
-        return;
+        throw Exception('No attachment data available for sharing');
       }
-
       // Create temporary file for sharing
       final directory = await getTemporaryDirectory();
       final fileName = widget.contentInfo.fileName ?? 'attachment_${DateTime.now().millisecondsSinceEpoch}';
       final file = File('${directory.path}/$fileName');
-      
       await file.writeAsBytes(data);
-      
-      // FIXED: Use SharePlus instead of deprecated Share
+      // Use SharePlus
       // ignore: deprecated_member_use
       await Share.shareXFiles(
         [XFile(file.path)],
         text: 'Sharing attachment: $fileName',
       );
-      
       if (kDebugMode) {
         print('Shared attachment: $fileName');
       }
@@ -421,7 +401,7 @@ final mimeType = widget.contentInfo.contentType != null
     });
 
     try {
-      // Request storage permission
+      // Request storage permission (Android); iOS ignores this gracefully
       final status = await Permission.storage.request();
       if (!status.isGranted) {
         if (kDebugMode) {
@@ -430,14 +410,7 @@ final mimeType = widget.contentInfo.contentType != null
         return;
       }
 
-      // FIXED: Use correct API to fetch attachment data
-      final mimePart = widget.mimeMessage.getPart(widget.contentInfo.fetchId);
-      if (mimePart == null) {
-        throw Exception('Could not find attachment part');
-      }
-
-      // Get attachment data from the mime part
-      final data = mimePart.decodeContentBinary();
+      final data = await _getAttachmentData();
       if (data == null || data.isEmpty) {
         throw Exception('No attachment data available');
       }
@@ -445,20 +418,18 @@ final mimeType = widget.contentInfo.contentType != null
       final directory = await getApplicationDocumentsDirectory();
       final fileName = widget.contentInfo.fileName ?? 'attachment_${DateTime.now().millisecondsSinceEpoch}';
       final file = File('${directory.path}/$fileName');
-      
       await file.writeAsBytes(data);
-      
+
       if (kDebugMode) {
         print('Downloaded attachment: $fileName');
       }
-      
+
       setState(() {
         _isDownloaded = true;
       });
 
       // Try to open the file
       final result = await OpenAppFile.open(file.path);
-      
       if (kDebugMode) {
         print('File open result: ${result.type} - ${result.message}');
       }

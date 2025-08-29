@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:wahda_bank/services/sender_trust.dart';
@@ -15,6 +16,7 @@ class EnterpriseMessageViewer extends StatefulWidget {
     this.textScale = 1.0,
     this.initialHtml,
     this.initialHtmlPath,
+    this.preferInline = false,
   });
 
   final MimeMessage mimeMessage;
@@ -23,6 +25,7 @@ class EnterpriseMessageViewer extends StatefulWidget {
   final double textScale;
   final String? initialHtml;
   final String? initialHtmlPath;
+  final bool preferInline;
 
   @override
   State<EnterpriseMessageViewer> createState() => _EnterpriseMessageViewerState();
@@ -32,8 +35,13 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
   InAppWebViewController? _controller;
   bool _blocked = true;
   late String _preparedHtml;
-  double _contentHeight = 600;
+  late String _inlineHtml; // full inline HTML fallback
+  double _contentHeight = 1; // start minimal; expand when content reports size
   String _senderKey = '';
+  bool _isReady = false; // overlay loader until we know content is rendered
+  bool _expectFile = false; // true when we plan to load a file:// path
+  double _lastMeasuredHeight = 0; // raw content height from webview
+  bool _usedInlineFallback = false; // to avoid infinite reload loops
 
   @override
   void initState() {
@@ -41,7 +49,50 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
     _senderKey = _extractSenderKey(widget.mimeMessage);
     final trusted = SenderTrustService.instance.isTrusted(_senderKey);
     _blocked = widget.blockExternalImages && !trusted;
+    _inlineHtml = _buildInlineHtml(blockRemote: _blocked);
     _preparedHtml = _buildPreparedHtml(blockRemote: _blocked);
+
+    // Decide if we expect a file load; this helps avoid premature loader removal
+    try {
+      final p = widget.initialHtmlPath;
+      _expectFile = !widget.preferInline && p != null && p.isNotEmpty && !p.startsWith('http') && File(p).existsSync();
+    } catch (_) {
+      _expectFile = false;
+    }
+    _isReady = false; // start with loader visible
+
+    if (kDebugMode) {
+      final uid = widget.mimeMessage.uid;
+      final path = widget.initialHtmlPath;
+      final htmlLen = _preparedHtml.length;
+      int fileSize = -1;
+      bool exists = false;
+      try {
+        if (path != null && path.isNotEmpty) {
+          final f = File(path);
+          exists = f.existsSync();
+          if (exists) fileSize = f.statSync().size;
+        }
+      } catch (_) {}
+      // Debug summary of initial state
+      // ignore: avoid_print
+      print('VIEWER:init uid=$uid expectFile=$_expectFile path=$path exists=$exists size=$fileSize preparedHtmlLen=$htmlLen blocked=$_blocked dark=${widget.enableDarkMode}');
+    }
+
+    // Safety fallback: if the webview does not report size/load events in time,
+    // dismiss the overlay to avoid a blank experience.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        if (!_isReady) {
+          if (kDebugMode) {
+            // ignore: avoid_print
+            print('VIEWER:safety_timer uid=${widget.mimeMessage.uid} firing -> dismiss loader');
+          }
+          setState(() { _isReady = true; });
+        }
+      });
+    });
   }
 
   @override
@@ -53,11 +104,22 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       final trusted = SenderTrustService.instance.isTrusted(_senderKey);
       _blocked = widget.blockExternalImages && !trusted;
     }
+    // Re-evaluate whether we should expect a file load when props change
+    try {
+      final p = widget.initialHtmlPath;
+      _expectFile = !widget.preferInline && p != null && p.isNotEmpty && !p.startsWith('http') && File(p).existsSync();
+    } catch (_) {
+      _expectFile = false;
+    }
     if (oldWidget.mimeMessage != widget.mimeMessage ||
         oldWidget.enableDarkMode != widget.enableDarkMode ||
         oldWidget.textScale != widget.textScale ||
-        oldWidget.blockExternalImages != widget.blockExternalImages) {
+        oldWidget.blockExternalImages != widget.blockExternalImages ||
+        oldWidget.initialHtmlPath != widget.initialHtmlPath ||
+        oldWidget.initialHtml != widget.initialHtml) {
+      _inlineHtml = _buildInlineHtml(blockRemote: _blocked);
       _preparedHtml = _buildPreparedHtml(blockRemote: _blocked);
+      _usedInlineFallback = false;
       _reloadHtml();
     }
   }
@@ -70,70 +132,249 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (_blocked) _externalImagesBanner(),
-        SizedBox(
-          height: _contentHeight.clamp(300, 5000),
-          child: InAppWebView(
-            initialData: InAppWebViewInitialData(data: _preparedHtml, baseUrl: WebUri("about:blank")),
-            initialSettings: InAppWebViewSettings(
-              // Security posture
-              javaScriptEnabled: false,
-              incognito: true,
-              cacheEnabled: false,
-              clearCache: true,
-              clearSessionCache: true,
-              thirdPartyCookiesEnabled: false,
-              allowFileAccessFromFileURLs: false,
-              allowUniversalAccessFromFileURLs: false,
-              mediaPlaybackRequiresUserGesture: true,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          height: _isReady ? (_contentHeight <= 0 ? 1 : _contentHeight) : 120,
+          child: Stack(
+            children: [
+              InAppWebView(
+                initialData: InAppWebViewInitialData(data: _preparedHtml, baseUrl: WebUri("about:blank")),
+                initialSettings: InAppWebViewSettings(
+                  // Security posture
+                  javaScriptEnabled: false,
+                  incognito: true,
+                  cacheEnabled: false,
+                  clearCache: true,
+                  clearSessionCache: true,
+                  thirdPartyCookiesEnabled: false,
+                  allowFileAccessFromFileURLs: false,
+                  allowUniversalAccessFromFileURLs: false,
+                  mediaPlaybackRequiresUserGesture: true,
 
-              // UX
-              transparentBackground: true,
-              supportZoom: true,
-              builtInZoomControls: true,
-              displayZoomControls: false,
-              disableHorizontalScroll: true,
+                  // UX
+                  transparentBackground: true,
+                  supportZoom: true,
+                  builtInZoomControls: true,
+                  displayZoomControls: false,
+                  disableHorizontalScroll: true,
 
-              // Privacy
-              contentBlockers: blockers,
-            ),
-            onWebViewCreated: (c) async {
-              _controller = c;
-              try {
-                await InAppWebViewController.clearAllCache();
-              } catch (_) {}
-              // If an offline HTML file path is provided and exists, load it immediately; otherwise rely on prepared HTML
-              final path = widget.initialHtmlPath;
-              if (path != null && path.isNotEmpty) {
-                try {
-                  final exists = File(path).existsSync();
-                  if (exists) {
-                    await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+                  // Privacy
+                  contentBlockers: blockers,
+                ),
+                onWebViewCreated: (c) async {
+                  _controller = c;
+                  // If an offline HTML file path is provided and exists, load it immediately; otherwise rely on prepared HTML
+                  final path = widget.initialHtmlPath;
+                  if (kDebugMode) {
+                    // ignore: avoid_print
+                    print('VIEWER:onWebViewCreated uid=${widget.mimeMessage.uid} initialHtmlPath=$path');
                   }
-                } catch (_) {}
-              }
-            },
-            onContentSizeChanged: (controller, oldSize, newSize) {
-              setState(() {
-                // Fit to content; enforce sensible minimum; no artificial maximum
-                _contentHeight = newSize.height < 300 ? 300 : newSize.height;
-              });
-            },
-            shouldOverrideUrlLoading: (controller, nav) async {
-              final url = nav.request.url?.toString() ?? '';
-              if (url.isEmpty) return NavigationActionPolicy.CANCEL;
-              // Allow internal about:/data: resources
-              if (url.startsWith('about:') || url.startsWith('data:')) {
-                return NavigationActionPolicy.ALLOW;
-              }
-              // External links: open in system browser
-              if (url.startsWith('http://') || url.startsWith('https://')) {
-                try {
-                  await launchUrlString(url, mode: LaunchMode.externalApplication);
-                } catch (_) {}
-                return NavigationActionPolicy.CANCEL;
-              }
-              return NavigationActionPolicy.CANCEL;
-            },
+                  if (widget.preferInline) {
+                    try {
+                      await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+                      if (mounted) setState(() { _expectFile = false; _isReady = true; });
+                    } catch (e) {
+                      if (kDebugMode) {
+                        // ignore: avoid_print
+                        print('VIEWER:onWebViewCreated inline load error: $e');
+                      }
+                    }
+                  } else if (path != null && path.isNotEmpty) {
+                    // HTTP URL from local server
+                    if (path.startsWith('http://') || path.startsWith('https://')) {
+                      try {
+                        // If remote images are allowed, prefer inline render to bypass sanitized cached files
+                        if (!_blocked) {
+                          await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+                          if (mounted) setState(() { _expectFile = false; _isReady = true; });
+                        } else {
+                          final adjusted = _withAllowRemoteParam(path, allowRemote: !_blocked);
+                          await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri(adjusted)));
+                          if (mounted) setState(() { _expectFile = false; });
+                        }
+                      } catch (e) {
+                        if (kDebugMode) {
+                          // ignore: avoid_print
+                          print('VIEWER:onWebViewCreated http load error: $e');
+                        }
+                      }
+                    } else {
+                      try {
+                        final f = File(path);
+                        final exists = f.existsSync();
+                        final size = exists ? f.statSync().size : -1;
+                        if (kDebugMode) {
+                          // ignore: avoid_print
+                          print('VIEWER:onWebViewCreated file exists=$exists size=$size');
+                        }
+                        if (exists) {
+                          // Inspect file inner content; if effectively empty, prefer inline fallback immediately
+                          bool useInline = false;
+                          try {
+                            final content = f.readAsStringSync();
+                            final m = RegExp(r'<div class=\\\"wb-container\\\">([\\s\\S]*?)<\\/div>', caseSensitive: false).firstMatch(content);
+                            if (m != null) {
+                              final innerLen = (m.group(1) ?? '').replaceAll(RegExp(r'\\s+'), '').length;
+                              if (innerLen < 20) useInline = true;
+                            }
+                          } catch (_) {}
+                          if (useInline) {
+                            if (kDebugMode) {
+                              // ignore: avoid_print
+                              print('VIEWER:inline_fallback_pre uid=${widget.mimeMessage.uid} (onWebViewCreated)');
+                            }
+                            await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+                            if (mounted) {
+                              setState(() { _expectFile = false; _usedInlineFallback = true; _isReady = true; });
+                            }
+                          } else {
+                            await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+                          }
+                        }
+                      } catch (e) {
+                        if (kDebugMode) {
+                          // ignore: avoid_print
+                          print('VIEWER:onWebViewCreated loadUrl error: $e');
+                        }
+                      }
+                    }
+                  }
+                },
+                onContentSizeChanged: (controller, oldSize, newSize) {
+                  if (kDebugMode) {
+                    // ignore: avoid_print
+                    print('VIEWER:onContentSizeChanged uid=${widget.mimeMessage.uid} old=${oldSize.width}x${oldSize.height} new=${newSize.width}x${newSize.height}');
+                  }
+                  setState(() {
+                    // Fit height exactly to content with no artificial minimum
+                    final h = newSize.height;
+                    _lastMeasuredHeight = h;
+                    _contentHeight = h;
+                    // Consider the content ready as soon as a non-trivial height is measured
+                    if (h > 1) {
+                      _isReady = true;
+                    }
+                  });
+                },
+                shouldOverrideUrlLoading: (controller, nav) async {
+                  final url = nav.request.url?.toString() ?? '';
+                  if (url.isEmpty) return NavigationActionPolicy.CANCEL;
+                  // Allow internal about:/data: resources
+                  if (url.startsWith('about:') || url.startsWith('data:')) {
+                    return NavigationActionPolicy.ALLOW;
+                  }
+                  // Allow local server URLs to load inside the WebView
+                  if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) {
+                    return NavigationActionPolicy.ALLOW;
+                  }
+                  // External links: open in system browser
+                  if (url.startsWith('http://') || url.startsWith('https://')) {
+                    try {
+                      await launchUrlString(url, mode: LaunchMode.externalApplication);
+                    } catch (_) {}
+                    return NavigationActionPolicy.CANCEL;
+                  }
+                  return NavigationActionPolicy.CANCEL;
+                },
+                onLoadStop: (controller, url) async {
+                  // Hide loader when final content is loaded
+                  final s = url.toString();
+                  if (kDebugMode) {
+                    // ignore: avoid_print
+                    print('VIEWER:onLoadStop uid=${widget.mimeMessage.uid} url=$s expectFile=$_expectFile');
+                  }
+                  setState(() {
+                    if (_expectFile) {
+                      if (s.startsWith('file://')) {
+                        _isReady = true;
+                      }
+                    } else {
+                      _isReady = true;
+                    }
+                  });
+
+                  // Aggressive fallback: if cached file appears effectively empty, reload with full inline HTML
+                  try {
+                    if (_expectFile && !_usedInlineFallback) {
+                      final path = widget.initialHtmlPath;
+                      if (path != null && path.isNotEmpty) {
+                        final f = File(path);
+                        if (f.existsSync()) {
+                          String content = '';
+                          try { content = f.readAsStringSync(); } catch (_) {}
+                          int innerLen = -1;
+                          try {
+                            final m = RegExp(r'<div class=\"wb-container\">([\s\S]*?)<\/div>', caseSensitive: false).firstMatch(content);
+                            if (m != null) {
+                              innerLen = (m.group(1) ?? '').replaceAll(RegExp(r'\s+'), '').length;
+                            }
+                          } catch (_) {}
+                          final fallbackByDom = innerLen >= 0 && innerLen < 20;
+                          final fallbackByHeight = _lastMeasuredHeight <= 1;
+                          if (fallbackByDom || fallbackByHeight) {
+                            if (kDebugMode) {
+                              // ignore: avoid_print
+                              print('VIEWER:inline_fallback uid=${widget.mimeMessage.uid} byDom=$fallbackByDom byHeight=$fallbackByHeight');
+                            }
+                            await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+                            if (mounted) {
+                              setState(() {
+                                _expectFile = false;
+                                _usedInlineFallback = true;
+                                _isReady = true;
+                              });
+                            }
+                            return;
+                          }
+                        }
+                      }
+                    }
+                  } catch (e) {
+                    if (kDebugMode) {
+                      // ignore: avoid_print
+                      print('VIEWER:inline_fallback error uid=${widget.mimeMessage.uid}: $e');
+                    }
+                  }
+                },
+                onReceivedError: (controller, request, error) async {
+                  // Handle navigation errors similarly
+                  try {
+                    await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+                  } catch (_) {}
+                  if (mounted) {
+                    setState(() { _isReady = true; _expectFile = false; _usedInlineFallback = true; });
+                  }
+                },
+              ),
+              if (!_isReady)
+                Positioned.fill(
+                  child: Container(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    alignment: Alignment.center,
+                    child: const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                  ),
+                ),
+              if (kDebugMode)
+                Positioned(
+                  right: 6,
+                  bottom: 6,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(6)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      child: Text(
+                        'h:${_contentHeight.toStringAsFixed(0)} ${_isReady ? 'ready' : 'loading'} ${_expectFile ? 'file' : 'inline'}',
+                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
@@ -154,26 +395,8 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       ),
     ];
     if (blocked) {
-      list.addAll([
-        // Block remote images; data: allowed by rewrite
-        ContentBlocker(
-          trigger: ContentBlockerTrigger(
-            urlFilter: r"^https?://.*",
-            resourceType: [ContentBlockerTriggerResourceType.IMAGE],
-          ),
-          action: ContentBlockerAction(type: ContentBlockerActionType.BLOCK),
-        ),
-        // Block media by default
-        ContentBlocker(
-          trigger: ContentBlockerTrigger(
-            urlFilter: r"^https?://.*",
-            resourceType: [
-              ContentBlockerTriggerResourceType.MEDIA,
-            ],
-          ),
-          action: ContentBlockerAction(type: ContentBlockerActionType.BLOCK),
-        ),
-      ]);
+      // We rely on CSP to block remote images; allowing local 127.0.0.1 resources to load.
+      // Keep script blocking only.
     }
     return list;
   }
@@ -236,29 +459,108 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
     try {
       // Prefer reloading from file if provided and exists; otherwise fallback to prepared HTML
       final path = widget.initialHtmlPath;
-      if (path != null && path.isNotEmpty && File(path).existsSync()) {
-        await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+      if (kDebugMode) {
+        final htmlLen = _preparedHtml.length;
+        // ignore: avoid_print
+        print('VIEWER:_reloadHtml uid=${widget.mimeMessage.uid} path=$path preparedHtmlLen=$htmlLen');
+      }
+      if (widget.preferInline) {
+        await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+        if (mounted) setState(() { _expectFile = false; _isReady = true; });
+      } else if (path != null && path.isNotEmpty && (path.startsWith('http://') || path.startsWith('https://'))) {
+        // If remote images are allowed (not blocked), prefer inline to avoid sanitized cached content
+        if (!_blocked) {
+          await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+          if (mounted) setState(() { _expectFile = false; _isReady = true; });
+        } else {
+          final adjusted = _withAllowRemoteParam(path, allowRemote: !_blocked);
+          await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri(adjusted)));
+          if (mounted) setState(() { _expectFile = false; });
+        }
+      } else if (path != null && path.isNotEmpty && File(path).existsSync()) {
+        // Inspect file inner content; if effectively empty, prefer inline fallback immediately
+        bool useInline = false;
+        try {
+          final content = File(path).readAsStringSync();
+          final m = RegExp(r'<div class=\"wb-container\">([\s\S]*?)<\/div>', caseSensitive: false).firstMatch(content);
+          if (m != null) {
+            final innerLen = (m.group(1) ?? '').replaceAll(RegExp(r'\s+'), '').length;
+            if (innerLen < 20) useInline = true;
+          }
+        } catch (_) {}
+        if (useInline) {
+          if (kDebugMode) {
+            // ignore: avoid_print
+            print('VIEWER:inline_fallback_pre uid=${widget.mimeMessage.uid} (_reloadHtml)');
+          }
+          await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+          if (mounted) {
+            setState(() { _expectFile = false; _usedInlineFallback = true; _isReady = true; });
+          }
+        } else {
+          await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+        }
       } else {
         await _controller?.loadData(data: _preparedHtml, baseUrl: WebUri("about:blank"));
       }
-    } catch (_) {}
+    } catch (e) {
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('VIEWER:_reloadHtml error uid=${widget.mimeMessage.uid}: $e');
+      }
+    }
   }
 
   String _buildPreparedHtml({required bool blockRemote}) {
     // Prefer provided offline/sanitized HTML or file path if available
+    if (widget.preferInline) {
+      return _buildInlineHtml(blockRemote: blockRemote);
+    }
     if (widget.initialHtmlPath != null && widget.initialHtmlPath!.isNotEmpty) {
+      // If it's an HTTP URL, don't show placeholder; inline will render until HTTP load completes
+      if (widget.initialHtmlPath!.startsWith('http://') || widget.initialHtmlPath!.startsWith('https://')) {
+        return _buildInlineHtml(blockRemote: blockRemote);
+      }
       // Only favor the path if the file actually exists; otherwise fall back to initialHtml/raw
       try {
         if (File(widget.initialHtmlPath!).existsSync()) {
           // Placeholder while file:// is loaded in onWebViewCreated/_reloadHtml
-          final css = _baseCss(widget.enableDarkMode, widget.textScale);
+          // Force a light CSS for cached content to avoid black-on-black in dark mode
+          final css = _baseCss(false, widget.textScale);
           final placeholder = '<div style="padding:16px;color:#777;font-size:13px;">Loading cached content…</div>';
           return _wrapHtml(_csp(blockRemote), '<style>$css</style>\n$placeholder');
         }
       } catch (_) {}
     }
+    // Fall back to full inline HTML if no file is present
+    return _buildInlineHtml(blockRemote: blockRemote);
+  }
+
+  // Build the actual inline HTML we can load as a robust fallback
+  String _buildInlineHtml({required bool blockRemote}) {
+    // Enterprise policy: when remote images are allowed (blockRemote=false), prefer RAW HTML from the message,
+    // not the pre-sanitized initialHtml, to preserve external image URLs.
+    if (!blockRemote) {
+      final raw = widget.mimeMessage.decodeTextHtmlPart();
+      if (raw == null || raw.trim().isEmpty) {
+        // When unblocked and raw is empty, fall back to provided initialHtml if present (sanitized/plain), else plain text
+        if (widget.initialHtml != null && widget.initialHtml!.trim().isNotEmpty) {
+          final css = _baseCss(false, widget.textScale);
+          return _wrapHtml(_csp(blockRemote), '<style>$css</style>\n${widget.initialHtml!}');
+        }
+        final plain = widget.mimeMessage.decodeTextPlainPart() ?? '';
+        return _wrapHtml(_csp(blockRemote), '<pre class="wb-pre">${_escapeHtml(plain)}</pre>');
+      }
+      String html = raw;
+      html = _stripDangerous(html); // remove scripts/objects but keep external image URLs intact
+      html = _rewriteCidImages(html, widget.mimeMessage);
+      final css = _baseCss(false, widget.textScale);
+      return _wrapHtml(_csp(blockRemote), '<style>$css</style>\n$html');
+    }
+
+    // When blocked, favor sanitized/cached initialHtml if provided; otherwise derive from raw with blocking
     if (widget.initialHtml != null && widget.initialHtml!.trim().isNotEmpty) {
-      final css = _baseCss(widget.enableDarkMode, widget.textScale);
+      final css = _baseCss(false, widget.textScale);
       return _wrapHtml(_csp(blockRemote), '<style>$css</style>\n${widget.initialHtml!}');
     }
 
@@ -275,7 +577,8 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       html = _blockRemoteImages(html);
     }
 
-    final css = _baseCss(widget.enableDarkMode, widget.textScale);
+    // Force light CSS to ensure readability across email themes
+    final css = _baseCss(false, widget.textScale);
     return _wrapHtml(_csp(blockRemote), '<style>$css</style>\n$html');
   }
 
@@ -457,6 +760,19 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       return (email ?? 'unknown@sender').toLowerCase();
     } catch (_) {
       return 'unknown@sender';
+    }
+  }
+
+  // Ensure allowRemote query param matches current policy for HTTP URLs from the local server
+  String _withAllowRemoteParam(String url, {required bool allowRemote}) {
+    try {
+      final uri = Uri.parse(url);
+      final params = Map<String, String>.from(uri.queryParameters);
+      params['allowRemote'] = allowRemote ? '1' : '0';
+      final newUri = uri.replace(queryParameters: params);
+      return newUri.toString();
+    } catch (_) {
+      return url;
     }
   }
 }

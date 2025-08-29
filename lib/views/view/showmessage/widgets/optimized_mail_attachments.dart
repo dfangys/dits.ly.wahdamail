@@ -3,6 +3,7 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/services/attachment_fetcher.dart';
 import 'package:share_plus/share_plus.dart';
 
 class OptimizedMailAttachments extends StatefulWidget {
@@ -109,22 +110,14 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
         return _attachmentDataCache[cacheKey];
       }
 
-      // Ensure correct mailbox is selected
-      if (widget.mailbox != null && 
-          _mailService.client.selectedMailbox?.path != widget.mailbox!.path) {
-        await _mailService.client.selectMailbox(widget.mailbox!);
-      }
-
-      // Fetch the attachment part
-      final part = await _mailService.client.fetchMessagePart(
-        widget.message, 
-        attachment.fetchId,
+      final data = await AttachmentFetcher.fetchBytes(
+        message: widget.message,
+        content: attachment,
+        mailbox: widget.mailbox,
       );
-      
-      final contentTransferEncoding = part.getHeaderValue('content-transfer-encoding');
-      final data = part.mimeData!.decodeBinary(contentTransferEncoding);
-      // Cache the data
-      _attachmentDataCache[cacheKey] = data;
+      if (data != null) {
+        _attachmentDataCache[cacheKey] = data;
+      }
       return data;
     } catch (e) {
       throw Exception('Failed to fetch attachment: $e');
