@@ -558,11 +558,16 @@ class ComposeController extends GetxController {
 
       // Save to server
       await client.selectMailboxByFlag(MailboxFlag.drafts);
-      final code = await client.saveDraftMessage(draftMessage);
+      final response = await client.saveDraftMessage(draftMessage);
 
       // Update draft with server info if successful
-      if (code != null && _currentDraft != null) {
-        await storage.markDraftSynced(_currentDraft!.id!, code.uidValidity);
+      if (response != null && _currentDraft != null) {
+        // enough_mail 2.1.7: the appended draft UID is in response.targetSequence (UID-based)
+        final ids = response.targetSequence.toList();
+        final int? appendedUid = ids.isNotEmpty ? ids.last : null;
+        if (appendedUid != null) {
+          await storage.markDraftSynced(_currentDraft!.id!, appendedUid);
+        }
       }
 
       // Delete old draft if editing

@@ -41,12 +41,12 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
 
-  // Cached computed values to avoid recomputation
-  late final String _senderName;
-  late final String _senderEmail;
+  // Cached computed values to avoid recomputation (mutable to allow refresh on meta change)
+  String _senderName = '';
+  String _senderEmail = '';
   bool _hasAttachments = false;
-  late final DateTime? _messageDate;
-  late final String _subject;
+  DateTime? _messageDate;
+  String _subject = '';
   String _preview = '';
 
   ValueNotifier<int>? _metaNotifier;
@@ -634,15 +634,9 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   void _onMetaChanged() {
     if (!mounted) return;
     setState(() {
-      // Re-read preview and attachments from headers (fast path)
-      final hp = widget.message.getHeaderValue('x-preview');
-      if (hp != null && hp.trim().isNotEmpty) {
-        _preview = _cleanPreviewText(hp);
-      }
-      final ha = widget.message.getHeaderValue('x-has-attachments');
-      if (ha != null) {
-        _hasAttachments = ha == '1';
-      }
+      // Refresh full cached values when meta changes; this also recalculates
+      // sender/subject/date if the envelope became available.
+      _computeCachedValues();
     });
   }
 }

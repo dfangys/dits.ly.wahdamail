@@ -701,6 +701,21 @@ final isUid = sequence.isUidSequence;
         final envelopeMap = jsonDecode(envelopeJson);
         message.envelope = _mapToEnvelope(envelopeMap);
         
+        // Fill missing subject/from from denormalized columns to avoid Unknown tiles
+        try {
+          final subjRow = row[SQLiteDatabaseHelper.columnSubject];
+          if ((message.envelope?.subject == null || message.envelope!.subject!.isEmpty) && subjRow != null) {
+            message.envelope!.subject = subjRow.toString();
+          }
+          final fromRow = row[SQLiteDatabaseHelper.columnFrom];
+          if (message.envelope?.from == null || (message.envelope!.from?.isEmpty ?? true)) {
+            if (fromRow != null && fromRow.toString().isNotEmpty) {
+              final senderName = row[SQLiteDatabaseHelper.columnSenderName]?.toString();
+              message.envelope!.from = [MailAddress(senderName ?? '', fromRow.toString())];
+            }
+          }
+        } catch (_) {}
+        
         // CRITICAL FIX: Ensure envelope date is properly set from database if missing
         if (message.envelope?.date == null) {
           final dateValue = row[SQLiteDatabaseHelper.columnDate];
@@ -886,6 +901,78 @@ final isUid = sequence.isUidSequence;
     } catch (e) {
       if (kDebugMode) {
         print('📧 Error updating preview/attachments: $e');
+      }
+    }
+  }
+
+  /// Update envelope JSON, subject/from/to/date and derived fields for a message row.
+  /// Identified by uid or sequenceId.
+  Future<void> updateEnvelopeFromMessage(MimeMessage message) async {
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      final mailboxId = await _getMailboxId();
+
+      final whereBuffer = StringBuffer('${SQLiteDatabaseHelper.columnMailboxId} = ?');
+      final args = <Object?>[mailboxId];
+
+      if (message.uid != null) {
+        whereBuffer.write(' AND ${SQLiteDatabaseHelper.columnUid} = ?');
+        args.add(message.uid);
+      } else if (message.sequenceId != null) {
+        whereBuffer.write(' AND ${SQLiteDatabaseHelper.columnSequenceId} = ?');
+        args.add(message.sequenceId);
+      } else {
+        return;
+      }
+
+      // Prepare envelope JSON and basic meta
+      final envJson = jsonEncode(_envelopeToMap(message.envelope));
+      final subj = (message.decodeSubject() ?? message.envelope?.subject ?? '').toString();
+      String fromEmail = '';
+      try {
+        if (message.envelope?.from?.isNotEmpty == true) {
+          fromEmail = message.envelope!.from!.first.email;
+        } else if (message.from?.isNotEmpty == true) {
+          fromEmail = message.from!.first.email;
+        } else {
+          final hdr = message.getHeaderValue('from');
+          if (hdr != null && hdr.isNotEmpty) {
+            try { fromEmail = MailAddress.parse(hdr).email; } catch (_) { fromEmail = hdr; }
+          }
+        }
+      } catch (_) {}
+      final toEmails = (message.envelope?.to ?? message.to ?? const <MailAddress>[])
+          .map((a) => a.email)
+          .where((e) => e.isNotEmpty)
+          .join(',');
+      final dateMillis = (message.decodeDate() ?? message.envelope?.date ?? DateTime.now()).millisecondsSinceEpoch;
+      final senderName = _deriveSenderName(message);
+      final normalizedSubject = _normalizeSubject(subj);
+      final dayBucket = dateMillis ~/ 86400000;
+
+      await db.update(
+        SQLiteDatabaseHelper.tableEmails,
+        {
+          SQLiteDatabaseHelper.columnEnvelope: envJson,
+          SQLiteDatabaseHelper.columnSubject: subj,
+          SQLiteDatabaseHelper.columnFrom: fromEmail,
+          SQLiteDatabaseHelper.columnTo: toEmails,
+          SQLiteDatabaseHelper.columnDate: dateMillis,
+          SQLiteDatabaseHelper.columnSenderName: senderName,
+          SQLiteDatabaseHelper.columnNormalizedSubject: normalizedSubject,
+          SQLiteDatabaseHelper.columnDayBucket: dayBucket,
+          SQLiteDatabaseHelper.columnEmailFlags: message.flags?.map((f) => f.toString()).join(',') ?? '',
+          SQLiteDatabaseHelper.columnIsSeen: message.isSeen ? 1 : 0,
+          SQLiteDatabaseHelper.columnIsFlagged: message.isFlagged ? 1 : 0,
+          SQLiteDatabaseHelper.columnIsDeleted: message.isDeleted ? 1 : 0,
+          SQLiteDatabaseHelper.columnIsAnswered: message.isAnswered ? 1 : 0,
+        },
+        where: whereBuffer.toString(),
+        whereArgs: args,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error updating envelope/meta: $e');
       }
     }
   }

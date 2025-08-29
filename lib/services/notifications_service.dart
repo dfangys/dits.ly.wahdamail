@@ -2,6 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:get/get.dart';
+import 'package:enough_mail/enough_mail.dart';
+import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 
 // @pragma('vm:entry-point')
 // Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -60,7 +64,7 @@ class NotificationService {
           requestSoundPermission: true,
         ),
       ),
-      onDidReceiveNotificationResponse: (details) {},
+      onDidReceiveNotificationResponse: _onNotificationResponse,
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
     if (Platform.isAndroid) {
@@ -101,5 +105,70 @@ class NotificationService {
       ),
       payload: data.isNotEmpty ? jsonEncode(data) : null,
     );
+  }
+
+  // Handle notification taps when app is in foreground/background (not terminated)
+  Future<void> _onNotificationResponse(NotificationResponse details) async {
+    try {
+      final payloadStr = details.payload;
+      if (payloadStr == null || payloadStr.isEmpty) return;
+      final dynamic decoded = jsonDecode(payloadStr);
+      if (decoded is! Map) return;
+      final Map data = decoded as Map;
+      final action = data['action'] as String?;
+      if (action == 'view_message') {
+        final uidStr = data['message_uid']?.toString();
+        final mailboxPath = data['mailbox']?.toString();
+        if (uidStr == null || mailboxPath == null) return;
+        final uid = int.tryParse(uidStr);
+        if (uid == null) return;
+
+        // Ensure mail service is ready
+        final mailService = MailService.instance;
+        if (!mailService.isClientSet) {
+          await mailService.init();
+        }
+        if (!mailService.client.isConnected) {
+          await mailService.connect();
+        }
+
+        // Locate mailbox by path/name
+        Mailbox? target;
+        try {
+          final boxes = await mailService.client.listMailboxes();
+          target = boxes.firstWhereOrNull((mb) =>
+              mb.encodedPath == mailboxPath || mb.path == mailboxPath || mb.name == mailboxPath || mb.name.toUpperCase() == mailboxPath.toUpperCase());
+        } catch (_) {}
+        target ??= await mailService.client.selectInbox();
+
+        // Select mailbox
+        try { await mailService.client.selectMailbox(target!); } catch (_) {}
+
+        // Fetch the message by UID
+        MimeMessage? message;
+        try {
+          final seq = MessageSequence.fromRange(uid, uid, isUidSequence: true);
+          final msgs = await mailService.client.fetchMessageSequence(
+            seq,
+            fetchPreference: FetchPreference.fullWhenWithinSize,
+          );
+          if (msgs.isNotEmpty) {
+            message = msgs.first;
+          }
+        } catch (_) {}
+
+        if (message != null) {
+          // Navigate to message details
+          if (Get.isRegistered<GetMaterialController>()) {
+            // Ensure navigator exists
+          }
+          Get.to(() => ShowMessage(message: message!, mailbox: target!));
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error handling notification tap: $e');
+      }
+    }
   }
 }

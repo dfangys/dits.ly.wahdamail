@@ -284,7 +284,11 @@ class OptimizedIdleService extends GetxService {
       // This is more compatible with different versions of enough_mail
       final eventType = event.runtimeType.toString();
       
-      if (eventType.contains('MessagesAdded') || eventType.contains('NewMessage')) {
+      if (eventType.contains('MessagesAdded') ||
+          eventType.contains('NewMessage') ||
+          eventType.contains('Exist') || // e.g., ImapMessagesExistEvent/Exists
+          eventType.contains('Exists') ||
+          eventType.contains('Recent')) {
         await _handleNewMessagesGeneric(event);
       } else if (eventType.contains('Flags') || eventType.contains('FlagChanged')) {
         await _handleFlagChangesGeneric(event);

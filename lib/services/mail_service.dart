@@ -6,8 +6,8 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/services/email_notification_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
+import 'package:wahda_bank/services/realtime_update_service.dart';
 
-import '../app/controllers/mailbox_controller.dart';
 
 class MailService {
   static MailService? _instance;
@@ -164,25 +164,19 @@ print('IDLE mode started for mailbox: ${client.selectedMailbox?.name}');
           try {
             if (event.mailClient == client) {
               if (kDebugMode) {
-print('📧 MailLoadEvent received for: ${event.message.decodeSubject()}');
+                print('📧 MailLoadEvent received for: ${event.message.decodeSubject()}');
               }
-              
-              if (Get.isRegistered<MailBoxController>()) {
-                // Use async execution to prevent blocking the event stream
-                Future.microtask(() async {
-                  try {
-                    await Get.find<MailBoxController>().handleIncomingMail(event.message);
-                  } catch (e) {
-                    if (kDebugMode) {
-                      print('📧 Error in handleIncomingMail: $e');
-                    }
+              // Forward to RealtimeUpdateService as the single source of truth
+              Future.microtask(() async {
+                try {
+                  await RealtimeUpdateService.instance
+                      .notifyNewMessages([event.message], mailbox: client.selectedMailbox);
+                } catch (e) {
+                  if (kDebugMode) {
+                    print('📧 Error forwarding to RealtimeUpdateService: $e');
                   }
-                });
-              } else {
-                if (kDebugMode) {
-                  print('📧 MailBoxController not registered, skipping event');
                 }
-              }
+              });
             }
           } catch (e) {
             if (kDebugMode) {
@@ -197,24 +191,40 @@ print('📧 MailLoadEvent received for: ${event.message.decodeSubject()}');
         });
     _mailVanishedEventSubscription =
         client.eventBus.on<MailVanishedEvent>().listen((event) async {
-          printError(info: "MailVanishedEvent");
+          if (kDebugMode) {
+            print('📧 MailVanishedEvent');
+          }
           final sequence = event.sequence;
           if (sequence != null) {
-            List<MimeMessage> msgs = await client.fetchMessageSequence(
-              sequence,
-            );
-            if (Get.isRegistered<MailBoxController>()) {
-              Get.find<MailBoxController>().vanishMails(msgs);
+            final msgs = await client.fetchMessageSequence(sequence);
+            for (final m in msgs) {
+              try {
+                await RealtimeUpdateService.instance.deleteMessage(m);
+              } catch (e) {
+                if (kDebugMode) {
+                  print('📧 Error forwarding vanish to RealtimeUpdateService: $e');
+                }
+              }
             }
           }
         });
     _mailUpdatedEventSubscription =
         client.eventBus.on<MailUpdateEvent>().listen((event) {
           if (event.mailClient == client) {
-            printError(info: 'MailUpdateEvent');
-            if (Get.isRegistered<MailBoxController>()) {
-              Get.find<MailBoxController>().handleIncomingMail(event.message);
+            if (kDebugMode) {
+              print('📧 MailUpdateEvent');
             }
+            // Forward to RealtimeUpdateService; it will de-duplicate and update state
+            Future.microtask(() async {
+              try {
+                await RealtimeUpdateService.instance
+                    .notifyNewMessages([event.message], mailbox: client.selectedMailbox);
+              } catch (e) {
+                if (kDebugMode) {
+                  print('📧 Error forwarding update to RealtimeUpdateService: $e');
+                }
+              }
+            });
           }
         });
     _mailReconnectedEventSubscription =

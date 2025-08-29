@@ -20,7 +20,7 @@ import 'package:wahda_bank/services/message_content_store.dart';
 import 'package:wahda_bank/services/html_enhancer.dart';
 import 'package:wahda_bank/utils/perf/perf_tracer.dart';
 import 'package:wahda_bank/services/optimized_idle_service.dart';
-import 'package:wahda_bank/services/connection_manager.dart';
+import 'package:wahda_bank/services/connection_manager.dart' as conn;
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:rxdart/rxdart.dart' hide Rx;
 import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
@@ -424,9 +424,24 @@ class MailBoxController extends GetxController {
   /// Handle new messages added to mailbox
   void _handleNewMessagesInMailbox(Mailbox mailbox, List<MimeMessage> newMessages) {
     try {
+      // Robust mailbox matching: by encodedPath (preferred), name (case-insensitive), or inbox flag
+      bool isSameMailbox = false;
+      final current = currentMailbox;
+      if (current != null) {
+        if (current.encodedPath.isNotEmpty && mailbox.encodedPath.isNotEmpty) {
+          isSameMailbox = current.encodedPath.toLowerCase() == mailbox.encodedPath.toLowerCase();
+        }
+        if (!isSameMailbox) {
+          isSameMailbox = current.name.toLowerCase() == mailbox.name.toLowerCase();
+        }
+        if (!isSameMailbox && current.isInbox && mailbox.isInbox) {
+          isSameMailbox = true;
+        }
+      }
+
       // Only update if it's the current mailbox
-      if (currentMailbox?.name == mailbox.name) {
-        final currentMessages = emails[currentMailbox];
+      if (isSameMailbox) {
+        final currentMessages = emails[current];
         if (currentMessages != null) {
           for (final message in newMessages) {
             // Check if message already exists
@@ -439,14 +454,21 @@ class MailBoxController extends GetxController {
               currentMessages.insert(0, message); // Add to beginning
             }
           }
-          update(); // Trigger UI update
+          // Trigger reactive updates
+          emails.refresh();
+          update();
 
-          // Queue preview generation for these messages (fast-path)
-          final storage = mailboxStorage[mailbox];
+          // Kick off a very fast preview/backfill for the top few new messages
+          unawaited(_fastPreviewForNewMessages(current!, newMessages.take(3).toList()));
+          // Warm up envelopes for all new messages so tiles don't show Unknown/No Subject
+          unawaited(_ensureEnvelopesForNewMessages(current!, newMessages));
+
+          // Also queue background backfill for the whole batch
+          final storage = mailboxStorage[current];
           if (storage != null && newMessages.isNotEmpty) {
             try {
               previewService.queueBackfillForMessages(
-                mailbox: mailbox,
+                mailbox: current!,
                 messages: newMessages,
                 storage: storage,
                 maxJobs: 10,
@@ -455,8 +477,12 @@ class MailBoxController extends GetxController {
           }
           
           if (kDebugMode) {
-            print('📧 Added ${newMessages.length} new messages to mailbox UI');
+            print('📧 Added ${newMessages.length} new messages to mailbox UI (${current?.name ?? 'unknown'})');
           }
+        }
+      } else {
+        if (kDebugMode) {
+          print("📧 Mailbox update ignored (current=${currentMailbox?.name}, update=${mailbox.name})");
         }
       }
     } catch (e) {
@@ -2082,7 +2108,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       _optimizedIdleStarted = true;
       
       // Also initialize connection manager
-      ConnectionManager.instance;
+      conn.ConnectionManager.instance;
       if (kDebugMode) {
         print('📧 🔌 Connection manager initialized');
       }
@@ -2361,6 +2387,8 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
                 previewText: preview,
                 hasAttachments: hasAtt,
               );
+              // Also persist envelope + basic meta for accurate tiles
+              await storage?.updateEnvelopeFromMessage(full);
             } catch (_) {}
 
             // Persist sanitized blocked HTML to offline store (no attachments here)
@@ -2506,6 +2534,131 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     } catch (_) {
       // Best-effort prefetch; ignore errors
     }
+  }
+
+  // Fast preview builder for handful of new messages to update tiles immediately
+  Future<void> _fastPreviewForNewMessages(Mailbox mailbox, List<MimeMessage> messages) async {
+    try {
+      if (messages.isEmpty) return;
+
+      // Ensure selection (best-effort, short timeout)
+      try {
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await mailService.client
+              .selectMailbox(mailbox)
+              .timeout(const Duration(seconds: 6));
+        }
+      } catch (_) {}
+
+      final storage = mailboxStorage[mailbox];
+
+      for (final base in messages) {
+        try {
+          // Fetch full content quick path
+          final seq = MessageSequence.fromMessage(base);
+          final fetched = await mailService.client
+              .fetchMessageSequence(
+                seq,
+                fetchPreference: FetchPreference.fullWhenWithinSize,
+              )
+              .timeout(const Duration(seconds: 10), onTimeout: () => <MimeMessage>[]);
+          if (fetched.isEmpty) continue;
+          final full = fetched.first;
+
+          // Compute preview
+          String preview = '';
+          try {
+            final plain = full.decodeTextPlainPart();
+            if (plain != null && plain.isNotEmpty) {
+              preview = plain.replaceAll(RegExp(r'\s+'), ' ').trim();
+            } else {
+              final html = full.decodeTextHtmlPart();
+              if (html != null && html.isNotEmpty) {
+                final stripped = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
+                preview = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+              }
+            }
+            if (preview.length > 140) preview = preview.substring(0, 140);
+          } catch (_) {}
+
+          // Persist preview and stamp headers for tile
+          try {
+            if (preview.isNotEmpty) full.setHeader('x-preview', preview);
+            full.setHeader('x-ready', '1');
+          } catch (_) {}
+
+          try {
+            await storage?.updatePreviewAndAttachments(
+              uid: full.uid,
+              sequenceId: full.sequenceId,
+              previewText: preview,
+              hasAttachments: full.hasAttachments(),
+            );
+            // Persist envelope + basic meta so tiles can show sender/subject immediately
+            await storage?.updateEnvelopeFromMessage(full);
+          } catch (_) {}
+
+          // Replace in-memory instance if present for immediate UI update
+          try {
+            final listRef = emails[mailbox];
+            if (listRef != null) {
+              final idx = listRef.indexWhere((m) =>
+                  (full.uid != null && m.uid == full.uid) ||
+                  (full.sequenceId != null && m.sequenceId == full.sequenceId));
+              if (idx != -1) {
+                listRef[idx] = full;
+              }
+            }
+          } catch (_) {}
+
+          // Notify tile meta changes and refresh UI
+          try { bumpMessageMeta(mailbox, full); } catch (_) {}
+          emails.refresh();
+          update();
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  // Ensure envelope JSON exists for new messages to avoid Unknown/No Subject tiles
+  Future<void> _ensureEnvelopesForNewMessages(Mailbox mailbox, List<MimeMessage> messages) async {
+    try {
+      if (messages.isEmpty) return;
+      final storage = mailboxStorage[mailbox];
+      for (final base in messages) {
+        // Skip if envelope already has from+subject
+        final hasFrom = base.envelope?.from?.isNotEmpty == true || (base.from?.isNotEmpty == true);
+        final hasSubj = (base.envelope?.subject?.isNotEmpty == true) || ((base.decodeSubject() ?? '').isNotEmpty);
+        if (hasFrom && hasSubj) continue;
+        try {
+          final seq = MessageSequence.fromMessage(base);
+          final fetched = await mailService.client
+              .fetchMessageSequence(seq, fetchPreference: FetchPreference.envelope)
+              .timeout(const Duration(seconds: 8), onTimeout: () => <MimeMessage>[]);
+          if (fetched.isEmpty) continue;
+          final envMsg = fetched.first;
+          // Update in-memory instance if present
+          try {
+            final listRef = emails[mailbox];
+            if (listRef != null) {
+              final idx = listRef.indexWhere((m) =>
+                  (envMsg.uid != null && m.uid == envMsg.uid) ||
+                  (envMsg.sequenceId != null && m.sequenceId == envMsg.sequenceId));
+              if (idx != -1) {
+                // Merge envelope into existing message instance if full not available yet
+                listRef[idx].envelope = envMsg.envelope;
+                bumpMessageMeta(mailbox, listRef[idx]);
+              }
+            }
+          } catch (_) {}
+          // Persist in DB for future loads
+          try { await storage?.updateEnvelopeFromMessage(envMsg); } catch (_) {}
+        } catch (_) {}
+      }
+      // Refresh UI after warming envelopes
+      emails.refresh();
+      update();
+    } catch (_) {}
   }
 
   // Quiet foreground polling: start/stop and one-shot poll
@@ -2674,6 +2827,8 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
                 previewText: preview,
                 hasAttachments: hasAtt,
               );
+              // Also persist envelope + basic meta for accurate tiles
+              await storage?.updateEnvelopeFromMessage(full);
             } catch (_) {}
 
             // Persist sanitized blocked HTML to offline store

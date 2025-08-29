@@ -289,7 +289,7 @@ class RealtimeUpdateService extends GetxService {
       
       _mailboxUpdateStream.add(MailboxUpdate(
         mailbox: mailbox,
-        type: MailboxUpdateType.newMessages,
+        type: MailboxUpdateType.messagesAdded,
         messages: newMessages,
       ));
       
@@ -631,17 +631,36 @@ class MailboxUpdate {
 extension IncomingEmailExtension on RealtimeUpdateService {
   /// Notify about new incoming messages
   /// ENHANCED: Notify about new messages with event-driven architecture
-  Future<void> notifyNewMessages(List<MimeMessage> newMessages) async {
+  Future<void> notifyNewMessages(List<MimeMessage> newMessages, {Mailbox? mailbox}) async {
     try {
+      // If called with no concrete messages (e.g., from IDLE signal), perform a quick incremental sync
+      if (newMessages.isEmpty && mailbox != null) {
+        try {
+          final existing = _mailboxMessages[mailbox.path]?.length ?? 0;
+          await _loadNewMessages(mailbox, existing);
+        } catch (_) {}
+        return;
+      }
+
       RealtimeUpdateService._logger.i('📧 Processing ${newMessages.length} new messages');
       
       // Batch process messages for performance
       final Map<String, List<MimeMessage>> messagesByMailbox = {};
       final Map<String, int> unreadCountChanges = {};
       
+      final String targetMailboxKey = (mailbox != null && mailbox.name.isNotEmpty)
+          ? mailbox.name
+          : ((mailbox != null && mailbox.encodedName.isNotEmpty) ? mailbox.encodedName : 'INBOX');
+      final Mailbox targetMailbox = mailbox ?? (Mailbox(
+        encodedName: targetMailboxKey,
+        encodedPath: targetMailboxKey,
+        flags: [],
+        pathSeparator: '/',
+      )..name = targetMailboxKey);
+
       for (final message in newMessages) {
         // Determine target mailbox (usually INBOX for new messages)
-        const mailboxKey = 'INBOX';
+        final mailboxKey = targetMailboxKey;
         
         // Group messages by mailbox for batch processing
         messagesByMailbox.putIfAbsent(mailboxKey, () => []).add(message);
@@ -668,15 +687,10 @@ extension IncomingEmailExtension on RealtimeUpdateService {
         final mailboxKey = entry.key;
         final messages = entry.value;
         
-        // Emit mailbox update event
+        // Emit mailbox update event using the correct type expected by UI
         _mailboxUpdateStream.add(MailboxUpdate(
-          mailbox: Mailbox(
-            encodedName: mailboxKey,
-            encodedPath: mailboxKey,
-            flags: [],
-            pathSeparator: '/',
-          )..name = mailboxKey,
-          type: MailboxUpdateType.newMessages,
+          mailbox: targetMailbox,
+          type: MailboxUpdateType.messagesAdded,
           messages: messages,
           metadata: {'unreadCount': _unreadCounts[mailboxKey] ?? 0},
         ));
@@ -691,8 +705,8 @@ extension IncomingEmailExtension on RealtimeUpdateService {
         }
       }
       
-      // Update reactive streams
-      _messagesStream.add(_mailboxMessages['INBOX'] ?? []);
+      // Update reactive streams (default to target mailbox list)
+      _messagesStream.add(_mailboxMessages[targetMailboxKey] ?? []);
       _unreadCountsStream.add(Map.from(_unreadCounts));
       
       RealtimeUpdateService._logger.i('📧 Successfully processed ${newMessages.length} new messages');
