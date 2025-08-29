@@ -11,6 +11,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:wahda_bank/models/sqlite_database_helper.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
+import 'package:wahda_bank/services/preview_service.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:workmanager/workmanager.dart';
 
 /// Service responsible for handling email notifications using IMAP IDLE with SQLite support
@@ -220,30 +222,19 @@ class EmailNotificationService {
 
     final subject = message.decodeSubject() ?? 'No Subject';
 
-    // Get message preview (first 150 chars of text content)
-    String preview = '';
-    try {
-      final textPlain = message.decodeTextPlainPart();
-      if (textPlain != null && textPlain.isNotEmpty) {
-        preview = textPlain.trim();
-        if (preview.length > 150) {
-          preview = '${preview.substring(0, 147)}...';
-        }
-      }
-    } catch (e) {
-      // Ignore errors in preview generation
-    }
-
-    // Store the message UID as last seen
+    // Store the message UID as last seen (prevents duplicate notifications)
     final uid = message.uid;
     if (uid != null) {
       await _storage.write(lastSeenUidKey, uid);
     }
 
-    // Save message to SQLite database
+    // Ensure a preview is available: try immediate sources, then wait up to 3s for a fetched preview
+    String preview = await _obtainPreviewWithShortDelay(message, mailbox, timeout: const Duration(seconds: 3));
+
+    // Persist minimal row to SQLite (best-effort) and include preview when available
     try {
-      // Get mailbox ID from database
       final db = await SQLiteDatabaseHelper.instance.database;
+      // Get mailbox ID from database
       final List<Map<String, dynamic>> mailboxResult = await db.query(
         SQLiteDatabaseHelper.tableMailboxes,
         columns: [SQLiteDatabaseHelper.columnId],
@@ -254,16 +245,16 @@ class EmailNotificationService {
       if (mailboxResult.isNotEmpty) {
         final mailboxId = mailboxResult.first[SQLiteDatabaseHelper.columnId] as int;
 
-        // Convert message to map for database
+        // Convert message to map for database (store preview if we have it)
         final Map<String, dynamic> messageMap = {
           SQLiteDatabaseHelper.columnMailboxId: mailboxId,
           SQLiteDatabaseHelper.columnUid: message.uid,
           SQLiteDatabaseHelper.columnMessageId: message.getHeaderValue('message-id')?.replaceAll('<', '').replaceAll('>', ''),
-          SQLiteDatabaseHelper.columnSubject: message.decodeSubject(),
+          SQLiteDatabaseHelper.columnSubject: subject,
           SQLiteDatabaseHelper.columnFrom: from,
           SQLiteDatabaseHelper.columnDate: message.decodeDate()?.millisecondsSinceEpoch,
-          SQLiteDatabaseHelper.columnContent: message.decodeTextPlainPart(),
-          SQLiteDatabaseHelper.columnHtmlContent: message.decodeTextHtmlPart(),
+          SQLiteDatabaseHelper.columnContent: null,
+          SQLiteDatabaseHelper.columnHtmlContent: null,
           SQLiteDatabaseHelper.columnIsSeen: SQLiteDatabaseHelper.boolToInt(message.isSeen),
           SQLiteDatabaseHelper.columnIsFlagged: SQLiteDatabaseHelper.boolToInt(message.isFlagged),
           SQLiteDatabaseHelper.columnIsDeleted: SQLiteDatabaseHelper.boolToInt(message.isDeleted),
@@ -272,6 +263,9 @@ class EmailNotificationService {
           SQLiteDatabaseHelper.columnIsRecent: SQLiteDatabaseHelper.boolToInt(false),
           SQLiteDatabaseHelper.columnHasAttachments: SQLiteDatabaseHelper.boolToInt(message.hasAttachments()),
           SQLiteDatabaseHelper.columnSize: message.size,
+          // If schema supports preview_text, persist it (no-op if column missing)
+          if (SQLiteDatabaseHelper.columnPreviewText.isNotEmpty)
+            SQLiteDatabaseHelper.columnPreviewText: preview,
         };
 
         // Insert or update message in database
@@ -290,7 +284,7 @@ class EmailNotificationService {
     // Build notification body as subject + preview
     final bodyText = (preview.isNotEmpty) ? '$subject — $preview' : subject;
 
-    // Show notification
+    // Show notification (replace if later runs reuse same ID)
     NotificationService.instance.showFlutterNotification(
       from,
       bodyText,
@@ -300,9 +294,122 @@ class EmailNotificationService {
         'mailbox': mailbox.path,
         'preview': preview,
       },
-      // Use message UID as notification ID to prevent duplicates
+      // Use message UID as notification ID to prevent duplicates/allow updates
       uid?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
     );
+  }
+
+  /// Try to obtain a preview quickly; if not available, wait up to [timeout]
+  /// and attempt a fast fetch to compute it. Also updates UI live when possible.
+  Future<String> _obtainPreviewWithShortDelay(MimeMessage message, Mailbox mailbox, {Duration timeout = const Duration(seconds: 3)}) async {
+    // 1) Immediate sources: header, plain, html
+    try {
+      final hdr = message.getHeaderValue('x-preview');
+      if (hdr != null && hdr.trim().isNotEmpty) return hdr.trim();
+      final plain = message.decodeTextPlainPart();
+      if (plain != null && plain.trim().isNotEmpty) {
+        final t = plain.replaceAll(RegExp(r'\s+'), ' ').trim();
+        return t.length > 150 ? '${t.substring(0, 147)}...' : t;
+      }
+      final html = message.decodeTextHtmlPart();
+      if (html != null && html.trim().isNotEmpty) {
+        final stripped = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
+        final t = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+        return t.length > 150 ? '${t.substring(0, 147)}...' : t;
+      }
+    } catch (_) {}
+
+    // 2) Check SQLite for persisted preview_text
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      // Lookup mailbox id
+      final mbRows = await db.query(
+        SQLiteDatabaseHelper.tableMailboxes,
+        columns: [SQLiteDatabaseHelper.columnId],
+        where: '${SQLiteDatabaseHelper.columnPath} = ?',
+        whereArgs: [mailbox.path],
+        limit: 1,
+      );
+      if (mbRows.isNotEmpty) {
+        final mailboxId = mbRows.first[SQLiteDatabaseHelper.columnId] as int;
+        final rows = await db.query(
+          SQLiteDatabaseHelper.tableEmails,
+          columns: [SQLiteDatabaseHelper.columnPreviewText],
+          where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
+          whereArgs: [mailboxId, message.uid],
+          limit: 1,
+        );
+        if (rows.isNotEmpty) {
+          final pv = (rows.first[SQLiteDatabaseHelper.columnPreviewText] ?? '').toString();
+          if (pv.trim().isNotEmpty) return pv;
+        }
+      }
+    } catch (_) {}
+
+    // 3) As a last resort, fetch full content quickly within timeout and compute preview
+    try {
+      final mailService = MailService.instance;
+      // Ensure connection and selection (best-effort)
+      if (!mailService.client.isConnected) {
+        try { await mailService.connect().timeout(const Duration(seconds: 5)); } catch (_) {}
+      }
+      try {
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 5));
+        }
+      } catch (_) {}
+
+      // Fetch with an overall timeout budget (<= timeout)
+      final fetch = mailService.client
+          .fetchMessageSequence(
+            MessageSequence.fromMessage(message),
+            fetchPreference: FetchPreference.fullWhenWithinSize,
+          )
+          .timeout(timeout, onTimeout: () => <MimeMessage>[]);
+      final msgs = await fetch;
+      if (msgs.isEmpty) return '';
+      final full = msgs.first;
+
+      // Compute preview
+      String preview = '';
+      try {
+        final plain = full.decodeTextPlainPart();
+        if (plain != null && plain.isNotEmpty) {
+          preview = plain.replaceAll(RegExp(r'\s+'), ' ').trim();
+        } else {
+          final html = full.decodeTextHtmlPart();
+          if (html != null && html.isNotEmpty) {
+            final stripped = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
+            preview = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+          }
+        }
+        if (preview.length > 150) preview = '${preview.substring(0, 147)}...';
+      } catch (_) {}
+
+      // Persist preview to DB if available and stamp header
+      try {
+        final db = await SQLiteDatabaseHelper.instance.database;
+        // Update preview_text if column exists
+        await db.update(
+          SQLiteDatabaseHelper.tableEmails,
+          { SQLiteDatabaseHelper.columnPreviewText: preview },
+          where: '${SQLiteDatabaseHelper.columnUid} = ?',
+          whereArgs: [full.uid],
+        );
+      } catch (_) {}
+      try { message.setHeader('x-preview', preview); } catch (_) {}
+
+      // Notify UI live if possible
+      try {
+        if (Get.isRegistered<MailBoxController>()) {
+          Get.find<MailBoxController>().bumpMessageMeta(mailbox, message);
+        }
+      } catch (_) {}
+
+      return preview;
+    } catch (_) {
+      return '';
+    }
   }
 
   /// Schedule periodic background checks for new emails
@@ -403,9 +510,11 @@ class EmailNotificationService {
     final preview = message['preview'] as String? ?? '';
     final uid = message['uid'] as int? ?? DateTime.now().millisecondsSinceEpoch;
 
+    final bodyText = (preview.isNotEmpty) ? '$subject — $preview' : subject;
+
     NotificationService.instance.showFlutterNotification(
       from,
-      subject,
+      bodyText,
       {
         'action': 'view_message',
         'message_uid': uid.toString(),
