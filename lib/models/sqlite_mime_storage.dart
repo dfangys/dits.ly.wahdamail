@@ -720,6 +720,19 @@ final isUid = sequence.isUidSequence;
             }
           }
         }
+
+        // NEW: Inject robust fallbacks for sender and subject so UI never shows Unknown/missing after refresh
+        try {
+          if ((message.from == null || message.from!.isEmpty) && (message.envelope?.from?.isNotEmpty == true)) {
+            message.from = message.envelope!.from;
+          }
+        } catch (_) {}
+        try {
+          final subj = message.envelope?.subject;
+          if ((message.getHeaderValue('subject') == null || message.getHeaderValue('subject')!.isEmpty) && (subj != null && subj.isNotEmpty)) {
+            message.setHeader('subject', subj);
+          }
+        } catch (_) {}
       } catch (e) {
         if (kDebugMode) {
           print('📧 Error parsing envelope: $e');

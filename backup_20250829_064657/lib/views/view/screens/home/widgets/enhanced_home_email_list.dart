@@ -8,9 +8,8 @@ import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:wahda_bank/widgets/listile/shimmer_mail_loader.dart';
-import 'package:wahda_bank/services/logger.dart';
-import 'package:wahda_bank/services/feature_flags.dart';
 
 /// Enhanced Home Email List with proper first-time initialization
 /// Best practices implementation for email loading and error handling
@@ -98,7 +97,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     });
 
     try {
-      AppLogger.i('🏠 Starting first-time home initialization...');
+      debugPrint('🏠 Starting first-time home initialization...');
       
       // Step 1: Ensure inbox is initialized
       await _ensureInboxInitialized();
@@ -110,16 +109,16 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       _hasInitialized = true;
       _retryCount = 0;
       
-      AppLogger.i('🏠 ✅ First-time initialization completed successfully');
+      debugPrint('🏠 ✅ First-time initialization completed successfully');
       
     } catch (e) {
-      AppLogger.e('🏠 ❌ First-time initialization failed: $e', error: e);
+      debugPrint('🏠 ❌ First-time initialization failed: $e');
       _lastError = e.toString();
       
       // Schedule retry if not exceeded max attempts
       if (_retryCount < _maxRetries) {
         _retryCount++;
-        AppLogger.w('🏠 ⏳ Scheduling retry $_retryCount/$_maxRetries in ${_retryDelay.inSeconds}s');
+        debugPrint('🏠 ⏳ Scheduling retry $_retryCount/$_maxRetries in ${_retryDelay.inSeconds}s');
         
         Future.delayed(_retryDelay, () {
           if (mounted && !_hasInitialized) {
@@ -141,7 +140,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     try {
       // Initialize inbox if not already done
       if (controller.mailBoxInbox.path.isEmpty) {
-      AppLogger.i('🏠 Initializing inbox...');
+        debugPrint('🏠 Initializing inbox...');
         await controller.initInbox();
         
         // Wait for inbox to be properly set up
@@ -153,10 +152,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
         throw Exception('Inbox initialization failed - path is empty');
       }
       
-      AppLogger.i('🏠 ✅ Inbox initialized: ${controller.mailBoxInbox.path}');
+      debugPrint('🏠 ✅ Inbox initialized: ${controller.mailBoxInbox.path}');
       
     } catch (e) {
-      AppLogger.e('🏠 ❌ Inbox initialization error: $e', error: e);
+      debugPrint('🏠 ❌ Inbox initialization error: $e');
       rethrow;
     }
   }
@@ -166,7 +165,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     const Duration timeout = Duration(seconds: 30);
     
     try {
-      AppLogger.i('🏠 Loading initial emails...');
+      debugPrint('🏠 Loading initial emails...');
       
       // Load emails with timeout
       await controller.loadEmailsForBox(controller.mailBoxInbox)
@@ -174,10 +173,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       
       // Verify emails were loaded
       final emailCount = controller.boxMails.length;
-      AppLogger.i('🏠 ✅ Loaded $emailCount emails');
+      debugPrint('🏠 ✅ Loaded $emailCount emails');
       
       if (emailCount == 0) {
-        AppLogger.w('🏠 ⚠️ No emails found in inbox');
+        debugPrint('🏠 ⚠️ No emails found in inbox');
       }
       
     } catch (e) {
@@ -202,10 +201,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     try {
       HapticFeedback.lightImpact();
       await controller.loadMoreEmails(controller.mailBoxInbox, 50);
-      AppLogger.i('🏠 ✅ Loaded more emails');
+      debugPrint('🏠 ✅ Loaded more emails');
       
     } catch (e) {
-      AppLogger.e('🏠 ❌ Error loading more emails: $e', error: e);
+      debugPrint('🏠 ❌ Error loading more emails: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -221,10 +220,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       HapticFeedback.mediumImpact();
       _processedUIDs.clear();
       await controller.refreshMailbox(controller.mailBoxInbox);
-      AppLogger.i('🏠 ✅ Emails refreshed');
+      debugPrint('🏠 ✅ Emails refreshed');
       
     } catch (e) {
-      AppLogger.e('🏠 ❌ Error refreshing emails: $e', error: e);
+      debugPrint('🏠 ❌ Error refreshing emails: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -328,17 +327,19 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
 
   /// Build main email list
   Widget _buildEmailList(bool isDarkMode) {
-    // Guard against not-yet-initialized inbox
-    try {
-      if (controller.mailBoxInbox.path.isEmpty) {
-        return const ShimmerMailLoader();
-      }
-    } catch (_) {
-      return const ShimmerMailLoader();
-    }
-
-    // Include all messages. Avoid sorting on every build; controller keeps order.
-    final allEmails = controller.boxMails;
+    // Include all messages. Unready ones will render as shimmer and update in real-time.
+    final allEmails = controller.boxMails.toList(growable: false)
+      ..sort((a, b) {
+        final ua = a.uid ?? a.sequenceId ?? 0;
+        final ub = b.uid ?? b.sequenceId ?? 0;
+        if (ua != ub) return ub.compareTo(ua);
+        final da = a.decodeDate();
+        final db = b.decodeDate();
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return db.compareTo(da);
+      });
     
     if (allEmails.isEmpty) {
       return _buildEmptyState(isDarkMode);
@@ -350,15 +351,6 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        itemExtent: FeatureFlags.instance.fixedExtentListEnabled
-            ? () {
-                final t = MediaQuery.of(context).textScaler.scale(14.0) / 14.0;
-                // Scale-safe fixed heights: 92 (default), 100 (medium), 108 (large)
-                if (t >= 1.30) return 108.0;
-                if (t >= 1.15) return 100.0;
-                return 92.0;
-              }()
-            : null,
         itemCount: allEmails.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= allEmails.length) {
@@ -485,38 +477,42 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
 
     Widget shimmerRow() => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    shape: BoxShape.circle,
+          child: Shimmer.fromColors(
+            baseColor: Colors.grey.shade200,
+            highlightColor: Colors.grey.shade100,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(height: 12, width: 160, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(6))),
-                      const SizedBox(height: 8),
-                      Container(height: 10, width: double.infinity, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(6))),
-                      const SizedBox(height: 6),
-                      Container(height: 10, width: MediaQuery.of(context).size.width * 0.5, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(6))),
-                    ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(height: 12, width: 160, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                        const SizedBox(height: 8),
+                        Container(height: 10, width: double.infinity, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                        const SizedBox(height: 6),
+                        Container(height: 10, width: MediaQuery.of(context).size.width * 0.5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Container(height: 10, width: 40, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(6))),
-              ],
+                  const SizedBox(width: 12),
+                  Container(height: 10, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                ],
+              ),
             ),
           ),
         );

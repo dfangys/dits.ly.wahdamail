@@ -174,13 +174,17 @@ class IncomingEmailService extends GetxService {
       final mailService = _mailService;
       if (mailService == null) return;
 
-      // Fetch the latest messages using correct API
-      
-      final fetchResult = await mailService.client.fetchMessages(
+      // Ensure we have the inbox selected
+      final inbox = mailService.client.selectedMailbox ?? await mailService.client.selectInbox();
+      if (inbox == null) return;
+
+      // Fetch exactly the last [count] messages from the inbox
+      final newMessages = await mailService.client.fetchMessages(
+        mailbox: inbox,
+        count: count,
+        page: 1,
         fetchPreference: FetchPreference.envelope,
       );
-
-      final newMessages = fetchResult;
       
       if (newMessages.isNotEmpty) {
         // Filter out already processed messages
@@ -206,9 +210,9 @@ class IncomingEmailService extends GetxService {
             await _showNewEmailNotification(message);
           }
 
-          // Update realtime service
+          // Update realtime service, specifying the mailbox to keep caches consistent
           final realtimeService = RealtimeUpdateService.instance;
-          await realtimeService.notifyNewMessages(unprocessedMessages);
+          await realtimeService.notifyNewMessages(unprocessedMessages, mailbox: inbox);
 
           if (kDebugMode) {
             print('📧 Processed ${unprocessedMessages.length} new messages');

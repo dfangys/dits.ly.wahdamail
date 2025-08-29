@@ -287,10 +287,11 @@ class EmailNotificationService {
       }
     }
 
-    // Show notification
+    // Show notification with preview
+    final body = preview.isNotEmpty ? '$subject — $preview' : subject;
     NotificationService.instance.showFlutterNotification(
       from,
-      subject,
+      body,
       {
         'action': 'view_message',
         'message_uid': uid?.toString() ?? '',
@@ -563,10 +564,11 @@ Future<void> _backgroundCheckForNewEmails() async {
           }
         }
 
-        // Show notification
+        // Show notification with preview
+        final body = preview.isNotEmpty ? '$subject — $preview' : subject;
         NotificationService.instance.showFlutterNotification(
           from,
-          subject,
+          body,
           {
             'action': 'view_message',
             'message_uid': message.uid?.toString() ?? '',

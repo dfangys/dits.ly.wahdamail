@@ -65,6 +65,8 @@ onPopInvokedWithResult: (didPop, result) => selectionController.selected.clear()
               padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
               child: EnhancedMailboxView(
                 mailbox: mailbox,
+                theme: theme,
+                isDarkMode: isDarkMode,
               ),
             ),
           ),

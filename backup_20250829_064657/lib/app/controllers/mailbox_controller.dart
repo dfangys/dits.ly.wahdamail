@@ -123,7 +123,7 @@ class MailBoxController extends GetxController {
     pathSeparator: '',
   );
 
-  final Logger logger = Logger(level: Level.warning);
+  final Logger logger = Logger();
   RxList<Mailbox> mailboxes = <Mailbox>[].obs;
 
   // CRITICAL FIX: Add getter for drafts mailbox using proper enough_mail API
@@ -317,9 +317,6 @@ class MailBoxController extends GetxController {
   /// Handle new message received
   void _handleNewMessageReceived(MimeMessage message) {
     try {
-      // Ensure minimal envelope for display (unknown sender / no subject fallbacks)
-      _ensureMinimalEnvelope(message);
-
       // Add to inbox if it's the current mailbox
       if (currentMailbox?.isInbox == true) {
         final inboxMessages = emails[currentMailbox];
@@ -332,12 +329,10 @@ class MailBoxController extends GetxController {
           
           if (!exists) {
             inboxMessages.insert(0, message); // Add to beginning
-            // Nudge tiles that depend on headers
-            try { bumpMessageMeta(currentMailbox!, message); } catch (_) {}
             update(); // Trigger UI update
             
             if (kDebugMode) {
-              print('📧 Added new message to UI: ${message.decodeSubject() ?? message.envelope?.subject ?? 'No Subject'}');
+              print('📧 Added new message to UI: ${message.decodeSubject()}');
             }
           }
         }
@@ -346,74 +341,6 @@ class MailBoxController extends GetxController {
       if (kDebugMode) {
         print('📧 Error handling new message: $e');
       }
-    }
-  }
-
-  void _ensureMinimalEnvelope(MimeMessage message) {
-    try {
-      // Subject fallback
-      String? subject = message.decodeSubject();
-      if (subject == null || subject.trim().isEmpty) {
-        subject = message.envelope?.subject ?? message.getHeaderValue('subject') ?? 'No Subject';
-      }
-
-      // From fallback
-      MailAddress sender;
-      if (message.from != null && message.from!.isNotEmpty) {
-        sender = message.from!.first;
-      } else if (message.envelope?.from != null && message.envelope!.from!.isNotEmpty) {
-        sender = message.envelope!.from!.first;
-      } else {
-        // Try header
-        final fromHeader = message.getHeaderValue('from');
-        if (fromHeader != null && fromHeader.isNotEmpty) {
-          try {
-            sender = MailAddress.parse(fromHeader);
-          } catch (_) {
-            sender = const MailAddress('Unknown Sender', 'unknown@unknown.com');
-          }
-        } else {
-          sender = const MailAddress('Unknown Sender', 'unknown@unknown.com');
-        }
-      }
-
-      // Apply envelope
-      message.envelope ??= Envelope(
-        subject: subject,
-        from: [sender],
-        date: message.decodeDate() ?? DateTime.now(),
-      );
-      // Make sure envelope has subject and from
-      message.envelope = Envelope(
-        subject: subject,
-        from: [sender],
-        date: message.envelope?.date ?? message.decodeDate() ?? DateTime.now(),
-        to: message.envelope?.to,
-        replyTo: message.envelope?.replyTo,
-        sender: message.envelope?.sender ?? sender,
-      );
-
-      // Ensure x-preview exists minimally to avoid heavy parsing on UI thread
-      final hp = message.getHeaderValue('x-preview');
-      if (hp == null || hp.trim().isEmpty) {
-        final text = message.decodeTextPlainPart();
-        if (text != null && text.trim().isNotEmpty) {
-          final p = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-          final clipped = p.length > 120 ? p.substring(0, 120) : p;
-          try { message.setHeader('x-preview', clipped); } catch (_) {}
-        }
-      }
-
-      // Stamp attachment hint fast-path
-      final ha = message.getHeaderValue('x-has-attachments');
-      if (ha == null) {
-        bool hasAtt = false;
-        try { hasAtt = message.hasAttachments(); } catch (_) {}
-        try { message.setHeader('x-has-attachments', hasAtt ? '1' : '0'); } catch (_) {}
-      }
-
-    } catch (_) {
-      // Non-fatal
     }
   }
 

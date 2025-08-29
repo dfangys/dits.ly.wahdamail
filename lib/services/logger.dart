@@ -14,8 +14,10 @@ class AppLogger {
   }
 
   static void i(String message, {String tag = _defaultTag}) {
-    // Info logs are useful in both dev and prod for observability.
-    developer.log(message, name: tag, level: 800);
+    // Gate info logs in release to reduce runtime overhead.
+    if (kDebugMode) {
+      developer.log(message, name: tag, level: 800);
+    }
   }
 
   static void w(String message, {String tag = _defaultTag, Object? error, StackTrace? stack}) {

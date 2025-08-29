@@ -5,23 +5,26 @@ import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/view/screens/home/widgets/appbar.dart';
-import 'package:wahda_bank/views/box/enhanced_mailbox_view.dart';
 import 'package:wahda_bank/widgets/bottomnavs/selection_botttom_nav.dart';
 import 'package:wahda_bank/widgets/drawer/drawer.dart';
 import 'package:wahda_bank/services/home_init_guard.dart';
+import 'package:wahda_bank/views/view/screens/home/widgets/enhanced_home_email_list.dart';
+import 'package:wahda_bank/views/box/enhanced_mailbox_view.dart' as boxview;
 
+/// Enterprise-grade Home screen: initializes once, shows Gmail-like inbox list,
+/// and keeps UI responsive while background sync and real-time updates run.
 class HomeScreen extends GetView<MailBoxController> {
   const HomeScreen({super.key});
-  
+
   @override
   Widget build(BuildContext context) {
     final selectionController = Get.find<SelectionController>();
-    
-    // Initialize Home once per app session (single init guard)
+
+    // One-time guarded initialization per app session.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       HomeInitGuard.instance.ensureInitialized(controller);
     });
-    
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: PreferredSize(
@@ -29,70 +32,33 @@ class HomeScreen extends GetView<MailBoxController> {
         child: appBar(),
       ),
       drawer: const Drawer1(),
-      body: Obx(() {
-        if (controller.isBusy()) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      AppTheme.primaryColor,
-                    ),
-                    strokeWidth: 2.5,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Loading inbox...',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context).brightness == Brightness.dark 
-                        ? Colors.white70 
-                        : Colors.grey.shade700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Please wait',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).brightness == Brightness.dark 
-                        ? Colors.white54 
-                        : Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
+      body: Builder(
+        builder: (context) {
+          final theme = Theme.of(context);
+          final isDark = theme.brightness == Brightness.dark;
+          // Prefer mailbox-centric optimized view (backup baseline) for energy efficiency
+return boxview.EnhancedMailboxLegacyView(
+            mailbox: controller.mailBoxInbox,
+            theme: theme,
+            isDarkMode: isDark,
           );
-        }
-        
-        // Use EnhancedMailboxView directly to avoid nested Scaffold and duplicate refresh/actions
-        return EnhancedMailboxView(
-          mailbox: controller.mailBoxInbox,
-          theme: Theme.of(context),
-          isDarkMode: Theme.of(context).brightness == Brightness.dark,
-        );
-      }),
+        },
+      ),
       floatingActionButton: Obx(
         () => selectionController.isSelecting
-          ? const SizedBox.shrink()
-          : FloatingActionButton(
-              onPressed: () {
-                Get.to(() => const RedesignedComposeScreen());
-              },
-              backgroundColor: AppTheme.primaryColor,
-              child: const Icon(Icons.edit_outlined, color: Colors.white),
-            ),
+            ? const SizedBox.shrink()
+            : FloatingActionButton(
+                onPressed: () {
+                  Get.to(() => const RedesignedComposeScreen());
+                },
+                backgroundColor: AppTheme.primaryColor,
+                child: const Icon(Icons.edit_outlined, color: Colors.white),
+              ),
       ),
       bottomNavigationBar: Obx(
         () => selectionController.isSelecting
-          ? SelectionBottomNav(box: controller.mailBoxInbox)
-          : const SizedBox.shrink(),
+            ? SelectionBottomNav(box: controller.mailBoxInbox)
+            : const SizedBox.shrink(),
       ),
     );
   }

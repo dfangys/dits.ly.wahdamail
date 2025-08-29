@@ -11,6 +11,9 @@ class FeatureFlags {
   static const _kPreviewWorker = 'ff_preview_worker_enabled';
   static const _kAnimationsCapped = 'ff_animations_capped_enabled';
   static const _kFixedExtentList = 'ff_fixed_extent_list_enabled';
+  // UI perf toggles
+  static const _kTileShadowsEnabled = 'ff_tile_shadows_enabled';
+  static const _kShimmerRowEnabled = 'ff_shimmer_row_enabled';
 
   // New flags for mail sync behavior
   static const _kForegroundPollingEnabled = 'ff_foreground_polling_enabled';
@@ -27,7 +30,11 @@ class FeatureFlags {
   bool get virtualizationTuningEnabled => _box.read(_kVirtualizationTuning) ?? true;
   bool get previewWorkerEnabled => _box.read(_kPreviewWorker) ?? true;
   bool get animationsCappedEnabled => _box.read(_kAnimationsCapped) ?? true;
-  bool get fixedExtentListEnabled => _box.read(_kFixedExtentList) ?? false;
+  // Enable fixed extent list by default for better scroll perf
+  bool get fixedExtentListEnabled => _box.read(_kFixedExtentList) ?? true;
+  // UI perf toggles defaults
+  bool get tileShadowsEnabled => _box.read(_kTileShadowsEnabled) ?? false;
+  bool get shimmerRowEnabled => _box.read(_kShimmerRowEnabled) ?? false;
 
   // New getters with sensible defaults
   bool get foregroundPollingEnabled => _box.read(_kForegroundPollingEnabled) ?? true;
@@ -44,6 +51,8 @@ class FeatureFlags {
   Future<void> setPreviewWorker(bool enabled) => _box.write(_kPreviewWorker, enabled);
   Future<void> setAnimationsCapped(bool enabled) => _box.write(_kAnimationsCapped, enabled);
   Future<void> setFixedExtentList(bool enabled) => _box.write(_kFixedExtentList, enabled);
+  Future<void> setTileShadowsEnabled(bool enabled) => _box.write(_kTileShadowsEnabled, enabled);
+  Future<void> setShimmerRowEnabled(bool enabled) => _box.write(_kShimmerRowEnabled, enabled);
 
   // New setters
   Future<void> setForegroundPollingEnabled(bool enabled) => _box.write(_kForegroundPollingEnabled, enabled);

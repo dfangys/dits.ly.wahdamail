@@ -13,24 +13,14 @@ import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wahda_bank/widgets/listile/shimmer_mail_loader.dart';
 
-/// Public wrapper to use the optimized mailbox view outside this library
-class EnhancedMailboxLegacyView extends _LegacyEnhancedMailboxView {
-  const EnhancedMailboxLegacyView({
-    super.key,
-    required super.mailbox,
-    required super.theme,
-    required super.isDarkMode,
-  });
-}
-
 /// Enhanced Mailbox View with proper first-time initialization
 /// Best practices implementation for mailbox email loading and error handling
-class _LegacyEnhancedMailboxView extends StatefulWidget {
+class EnhancedMailboxView extends StatefulWidget {
   final Mailbox mailbox;
   final ThemeData theme;
   final bool isDarkMode;
 
-  const _LegacyEnhancedMailboxView({
+  const EnhancedMailboxView({
     super.key,
     required this.mailbox,
     required this.theme,
@@ -38,10 +28,10 @@ class _LegacyEnhancedMailboxView extends StatefulWidget {
   });
 
   @override
-  State<_LegacyEnhancedMailboxView> createState() => _EnhancedMailboxViewState();
+  State<EnhancedMailboxView> createState() => _EnhancedMailboxViewState();
 }
 
-class _EnhancedMailboxViewState extends State<_LegacyEnhancedMailboxView>
+class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
   
   // Controllers
@@ -492,48 +482,45 @@ class _EnhancedMailboxViewState extends State<_LegacyEnhancedMailboxView>
     final meta = controller.getMessageMetaNotifier(widget.mailbox, message);
     bool isReady() => _isMessageReady(message);
 
-    // Define the placeholder first so it can be referenced by shimmerRow.
-    Widget staticPlaceholder() => Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade900 : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade200,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(height: 12, width: 160, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                    const SizedBox(height: 8),
-                    Container(height: 10, width: double.infinity, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                    const SizedBox(height: 6),
-                    Container(height: 10, width: MediaQuery.of(context).size.width * 0.5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(height: 10, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-            ],
-          ),
-        );
-
     Widget shimmerRow() => Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Shimmer.fromColors(
             baseColor: Colors.grey.shade200,
             highlightColor: Colors.grey.shade100,
-            child: staticPlaceholder(),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(height: 12, width: 160, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                        const SizedBox(height: 8),
+                        Container(height: 10, width: double.infinity, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                        const SizedBox(height: 6),
+                        Container(height: 10, width: MediaQuery.of(context).size.width * 0.5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(height: 10, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
+                ],
+              ),
+            ),
           ),
         );
 
@@ -541,9 +528,8 @@ class _EnhancedMailboxViewState extends State<_LegacyEnhancedMailboxView>
       valueListenable: meta,
       builder: (_, __, ___) {
         if (!isReady()) {
-          // Energy-aware: use static placeholder when shimmer is disabled
-          final useShimmer = FeatureFlags.instance.shimmerRowEnabled;
-          return useShimmer ? shimmerRow() : staticPlaceholder();
+          // Show shimmer placeholder until full content prefetch marks x-ready
+          return shimmerRow();
         }
         return _animatedTile(message);
       },
@@ -743,226 +729,6 @@ class _EnhancedMailboxViewState extends State<_LegacyEnhancedMailboxView>
     // Refresh when app comes to foreground
     if (state == AppLifecycleState.resumed && _hasInitialized) {
       _refreshEmails();
-    }
-  }
-}
-
-/// New enterprise-grade mailbox view (Gmail-like) built from scratch.
-/// Uses enough_mail 2.1.7 APIs via MailBoxController, supports readiness
-/// gating (x-ready or non-empty x-preview), infinite scroll and pull-to-refresh.
-class EnhancedMailboxView extends StatefulWidget {
-  final Mailbox mailbox;
-  const EnhancedMailboxView({super.key, required this.mailbox});
-
-  @override
-  State<EnhancedMailboxView> createState() => _EnhancedMailboxViewStateV2();
-}
-
-class _EnhancedMailboxViewStateV2 extends State<EnhancedMailboxView> {
-  late final MailBoxController _controller;
-  late final SelectionController _selection;
-  final ScrollController _scroll = ScrollController();
-  bool _isLoadingMore = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = Get.find<MailBoxController>();
-    _selection = Get.find<SelectionController>();
-    _scroll.addListener(_onScroll);
-
-    // Ensure mailbox is selected and initial window loaded.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      try {
-        if (_controller.currentMailbox?.path != widget.mailbox.path) {
-          await _controller.loadEmailsForBox(widget.mailbox);
-        }
-      } catch (_) {}
-    });
-  }
-
-  @override
-  void dispose() {
-    _scroll.removeListener(_onScroll);
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (!_scroll.hasClients || _isLoadingMore) return;
-    final pos = _scroll.position;
-    if (pos.pixels >= pos.maxScrollExtent - 400) {
-      _loadMore();
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_isLoadingMore) return;
-    setState(() => _isLoadingMore = true);
-    try {
-      await _controller.loadMoreEmails(widget.mailbox, 50);
-    } finally {
-      if (mounted) setState(() => _isLoadingMore = false);
-    }
-  }
-
-  Future<void> _refresh() async {
-    await _controller.refreshMailbox(widget.mailbox);
-  }
-
-  bool _isReady(MimeMessage m) {
-    final xr = m.getHeaderValue('x-ready') == '1';
-    final xp = (m.getHeaderValue('x-preview')?.trim().isNotEmpty ?? false);
-    return xr || xp;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final storage = _controller.mailboxStorage[widget.mailbox];
-
-    if (storage != null) {
-      return ValueListenableBuilder<List<MimeMessage>>(
-        valueListenable: storage.dataNotifier,
-        builder: (context, messages, _) => _buildScaffold(messages),
-      );
-    }
-
-    return Obx(() {
-      final messages = _controller.emails[widget.mailbox] ?? const <MimeMessage>[];
-      return _buildScaffold(messages);
-    });
-  }
-
-  Widget _buildScaffold(List<MimeMessage> messages) {
-    // Sort newest first by UID, then date.
-    final sorted = messages.toList(growable: false)
-      ..sort((a, b) {
-        final ua = a.uid ?? a.sequenceId ?? 0;
-        final ub = b.uid ?? b.sequenceId ?? 0;
-        if (ua != ub) return ub.compareTo(ua);
-        final da = a.decodeDate();
-        final db = b.decodeDate();
-        if (da == null && db == null) return 0;
-        if (da == null) return 1;
-        if (db == null) return -1;
-        return db.compareTo(da);
-      });
-
-    final isPreparing = _controller.isLoadingEmails.value || _controller.isPrefetching.value;
-    if (sorted.isEmpty && isPreparing) {
-      return const ShimmerMailLoader();
-    }
-
-    return RefreshIndicator(
-      onRefresh: _refresh,
-      color: AppTheme.primaryColor,
-      child: ListView.builder(
-        controller: _scroll,
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: sorted.length + (_isLoadingMore ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index >= sorted.length) {
-            return _loadingMore();
-          }
-          final m = sorted[index];
-          return _buildRow(m);
-        },
-      ),
-    );
-  }
-
-  Widget _loadingMore() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          SizedBox(
-            height: 20,
-            width: 20,
-            child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor)),
-          ),
-          SizedBox(width: 12),
-          Text('Loading more emails…'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRow(MimeMessage message) {
-    final meta = _controller.getMessageMetaNotifier(widget.mailbox, message);
-
-    Widget shimmerRow() => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Shimmer.fromColors(
-            baseColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade200,
-            highlightColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade700 : Colors.grey.shade100,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade900 : Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Row(
-                children: [
-                  Container(width: 40, height: 40, decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.grey)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(height: 12, width: 160, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                        const SizedBox(height: 8),
-                        Container(height: 10, width: double.infinity, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                        const SizedBox(height: 6),
-                        Container(height: 10, width: MediaQuery.of(context).size.width * 0.5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(height: 10, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                ],
-              ),
-            ),
-          ),
-        );
-
-    return ValueListenableBuilder<int>(
-      valueListenable: meta,
-      builder: (_, __, ___) {
-        if (!_isReady(message)) {
-          return GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _onOpen(message),
-            child: shimmerRow(),
-          );
-        }
-        return MailTile(
-          message: message,
-          mailBox: widget.mailbox,
-          onTap: () => _onOpen(message),
-        );
-      },
-    );
-  }
-
-  void _onOpen(MimeMessage message) {
-    if (_selection.isSelecting) {
-      _selection.toggle(message);
-      return;
-    }
-    try {
-      final listRef = _controller.emails[widget.mailbox] ?? const <MimeMessage>[];
-      int index = 0;
-      if (listRef.isNotEmpty) {
-        index = listRef.indexWhere((m) =>
-            (message.uid != null && m.uid == message.uid) ||
-            (message.sequenceId != null && m.sequenceId == message.sequenceId));
-        if (index < 0) index = 0;
-      }
-      Get.to(() => ShowMessagePager(mailbox: widget.mailbox, initialMessage: message));
-    } catch (_) {
-      Get.to(() => ShowMessage(message: message, mailbox: widget.mailbox));
     }
   }
 }

@@ -8,6 +8,7 @@ import 'package:logger/logger.dart';
 
 import 'cache_manager.dart';
 import 'mail_service.dart';
+import 'package:wahda_bank/services/notifications_service.dart';
 
 /// ENHANCED: Real-time update service with event-driven architecture
 /// Based on enough_mail_app patterns for high-performance reactive updates
@@ -47,6 +48,51 @@ class RealtimeUpdateService extends GetxService {
   final Map<String, List<MimeMessage>> _mailboxMessages = {};
   final Map<String, int> _unreadCounts = {};
   final Set<String> _flaggedMessages = {};
+  
+  // Track unique message identifiers per mailbox to avoid duplicates
+  final Map<String, Set<String>> _mailboxMessageIds = {};
+  // Reverse index: messageId -> mailboxKey
+  final Map<String, String> _messageIdToMailboxKey = {};
+  
+  // Track the highest UID we have already notified per mailbox to avoid
+  // treating historical mail as "new" on first IDLE/poll.
+  final Map<String, int> _lastNotifiedUid = {};
+  // Guard concurrent fetches per mailbox
+  final Map<String, bool> _fetchInProgress = {};
+
+  // Use mailbox.path as the canonical key (consistent with existing code)
+  String _mbKey(Mailbox m) => m.path;
+
+  String? _messageKey(MimeMessage m) {
+    final uid = m.uid;
+    if (uid != null) return 'uid:$uid';
+    final seq = m.sequenceId;
+    if (seq != null) return 'seq:$seq';
+    final headerId = m.getHeaderValue('message-id') ?? m.getHeaderValue('Message-ID');
+    if (headerId != null && headerId.isNotEmpty) return 'mid:$headerId';
+    return null;
+  }
+
+  void _indexMessage(String mailboxKey, MimeMessage m) {
+    final id = _messageKey(m);
+    if (id == null) return;
+    _mailboxMessageIds.putIfAbsent(mailboxKey, () => <String>{}).add(id);
+    _messageIdToMailboxKey[id] = mailboxKey;
+  }
+
+  bool _isDuplicate(String mailboxKey, MimeMessage m) {
+    final id = _messageKey(m);
+    if (id == null) return false;
+    final set = _mailboxMessageIds[mailboxKey];
+    return set != null && set.contains(id);
+  }
+
+  String? _findMailboxKeyForMessage(MimeMessage m) {
+    final id = _messageKey(m);
+    if (id == null) return null;
+    return _messageIdToMailboxKey[id];
+  }
+
   Timer? _periodicSyncTimer;
   Timer? _connectionCheckTimer;
   bool _isInitialized = false;
@@ -265,33 +311,21 @@ class RealtimeUpdateService extends GetxService {
       final newMessageCount = mailbox.messagesExists - currentCount;
       if (newMessageCount <= 0) return;
       
-      // Fetch new messages
+      // Fetch new messages (envelope to ensure subject/from are ready)
       final newMessages = await mailService.client.fetchMessages(
         mailbox: mailbox,
         count: newMessageCount,
         page: 1,
+        fetchPreference: FetchPreference.envelope,
       );
-      
-      // Update cache and streams
-      final existingMessages = _mailboxMessages[mailbox.path] ?? [];
-      final updatedMessages = [...existingMessages, ...newMessages];
-      _mailboxMessages[mailbox.path] = updatedMessages;
       
       // Cache new messages
       for (final message in newMessages) {
         _cacheManager.cacheMessage(message);
       }
       
-      // Emit updates
-      if (mailbox.isInbox) {
-        _messagesStream.add(updatedMessages);
-      }
-      
-      _mailboxUpdateStream.add(MailboxUpdate(
-        mailbox: mailbox,
-        type: MailboxUpdateType.newMessages,
-        messages: newMessages,
-      ));
+      // Emit updates via central notifier (handles de-dup & internal state)
+      await notifyNewMessages(newMessages, mailbox: mailbox);
       
     } catch (e) {
       if (kDebugMode) {
@@ -351,6 +385,7 @@ class RealtimeUpdateService extends GetxService {
           mailbox: mailbox,
           count: count,
           page: page,
+          fetchPreference: FetchPreference.envelope,
         );
         messages.addAll(batchMessages);
         
@@ -360,7 +395,26 @@ class RealtimeUpdateService extends GetxService {
         }
       }
       
-      _mailboxMessages[mailbox.path] = messages;
+      final mbKey = mailbox.path;
+      _mailboxMessages[mbKey] = messages;
+      _mailboxMessageIds[mbKey] = {};
+      for (final m in messages) { _indexMessage(mbKey, m); }
+      
+      // Establish baseline so we don't spam "new" events for historical mail
+      try {
+        final uidNext = mailbox.uidNext;
+        if (uidNext != null && uidNext > 0) {
+          _lastNotifiedUid[mbKey] = uidNext - 1;
+        } else {
+          // Fallback to highest UID seen in the loaded page
+          int maxUid = 0;
+          for (final m in messages) {
+            final u = m.uid ?? 0;
+            if (u > maxUid) maxUid = u;
+          }
+          if (maxUid > 0) _lastNotifiedUid[mbKey] = maxUid;
+        }
+      } catch (_) {}
       
       if (mailbox.isInbox) {
         _messagesStream.add(messages);
@@ -404,8 +458,9 @@ class RealtimeUpdateService extends GetxService {
       // Update local state only after server success
       message.isSeen = true;
       
-      // Update unread counts
-      final mailboxKey = mailService.client.selectedMailbox?.name ?? 'INBOX';
+      // Update unread counts based on the mailbox that contains this message
+      final id = _messageKey(message);
+      final mailboxKey = (id != null ? _messageIdToMailboxKey[id] : null) ?? mailService.client.selectedMailbox?.path ?? 'INBOX';
       if (_unreadCounts[mailboxKey] != null && _unreadCounts[mailboxKey]! > 0) {
         _unreadCounts[mailboxKey] = _unreadCounts[mailboxKey]! - 1;
         _unreadCountsStream.add(Map.from(_unreadCounts));
@@ -417,8 +472,10 @@ class RealtimeUpdateService extends GetxService {
         type: MessageUpdateType.statusChanged,
       ));
       
-      // Refresh messages stream
-      _messagesStream.add(_mailboxMessages.values.expand((msgs) => msgs).toList());
+      // Refresh messages stream for INBOX only
+      if (mailboxKey.toUpperCase() == 'INBOX') {
+        _messagesStream.add(_mailboxMessages[mailboxKey] ?? []);
+      }
       
     } catch (e) {
       if (kDebugMode) {
@@ -458,8 +515,9 @@ class RealtimeUpdateService extends GetxService {
       // Update local state only after server success
       message.isSeen = false;
       
-      // Update unread counts
-      final mailboxKey = mailService.client.selectedMailbox?.name ?? 'INBOX';
+      // Update unread counts based on the mailbox that contains this message
+      final id = _messageKey(message);
+      final mailboxKey = (id != null ? _messageIdToMailboxKey[id] : null) ?? mailService.client.selectedMailbox?.path ?? 'INBOX';
       _unreadCounts[mailboxKey] = (_unreadCounts[mailboxKey] ?? 0) + 1;
       _unreadCountsStream.add(Map.from(_unreadCounts));
       
@@ -469,8 +527,10 @@ class RealtimeUpdateService extends GetxService {
         type: MessageUpdateType.statusChanged,
       ));
       
-      // Refresh messages stream
-      _messagesStream.add(_mailboxMessages.values.expand((msgs) => msgs).toList());
+      // Refresh messages stream for INBOX only
+      if (mailboxKey.toUpperCase() == 'INBOX') {
+        _messagesStream.add(_mailboxMessages[mailboxKey] ?? []);
+      }
       
     } catch (e) {
       if (kDebugMode) {
@@ -548,12 +608,21 @@ class RealtimeUpdateService extends GetxService {
       final sequence = MessageSequence.fromMessage(message);
       await mailService.client.deleteMessages(sequence, expunge: true);
       
-      // Remove from local state
-      for (final messages in _mailboxMessages.values) {
-        messages.removeWhere((m) => 
-          (m.uid != null && m.uid == message.uid) ||
-          (m.sequenceId != null && m.sequenceId == message.sequenceId)
-        );
+      // Remove from local state with copy-on-write and update indexes
+      final id = _messageKey(message);
+      final mailboxKey = (id != null ? _messageIdToMailboxKey[id] : null);
+      if (mailboxKey != null && _mailboxMessages.containsKey(mailboxKey)) {
+        final list = _mailboxMessages[mailboxKey] ?? const <MimeMessage>[];
+        final updated = list.where((m) => !((m.uid != null && m.uid == message.uid) || (m.sequenceId != null && m.sequenceId == message.sequenceId))).toList(growable: false);
+        _mailboxMessages[mailboxKey] = updated;
+        if (id != null) {
+          _mailboxMessageIds[mailboxKey]?.remove(id);
+          _messageIdToMailboxKey.remove(id);
+        }
+        // Update messages stream for INBOX if applicable
+        if (mailboxKey.toUpperCase() == 'INBOX') {
+          _messagesStream.add(updated);
+        }
       }
       
       // Update streams
@@ -561,9 +630,6 @@ class RealtimeUpdateService extends GetxService {
         message: message,
         type: MessageUpdateType.deleted,
       ));
-      
-      // Refresh current messages
-      _messagesStream.add(List.from(_messagesStream.value));
       
     } catch (e) {
       _errorStream.add('Failed to delete message: $e');
@@ -629,78 +695,332 @@ class MailboxUpdate {
 
 /// Extension to RealtimeUpdateService for incoming email notifications
 extension IncomingEmailExtension on RealtimeUpdateService {
-  /// Notify about new incoming messages
-  /// ENHANCED: Notify about new messages with event-driven architecture
-  Future<void> notifyNewMessages(List<MimeMessage> newMessages) async {
+  /// Notify about new incoming messages. Optionally specify the mailbox the messages belong to.
+  /// This avoids hard-coding to INBOX and keeps internal caches consistent.
+  Future<void> notifyNewMessages(List<MimeMessage> newMessages, {Mailbox? mailbox}) async {
     try {
       RealtimeUpdateService._logger.i('📧 Processing ${newMessages.length} new messages');
-      
-      // Batch process messages for performance
-      final Map<String, List<MimeMessage>> messagesByMailbox = {};
-      final Map<String, int> unreadCountChanges = {};
-      
-      for (final message in newMessages) {
-        // Determine target mailbox (usually INBOX for new messages)
-        const mailboxKey = 'INBOX';
-        
-        // Group messages by mailbox for batch processing
-        messagesByMailbox.putIfAbsent(mailboxKey, () => []).add(message);
-        
-        // Track unread count changes
-        if (!message.isSeen) {
-          unreadCountChanges[mailboxKey] = (unreadCountChanges[mailboxKey] ?? 0) + 1;
-        }
-        
-        // Update internal state
-        if (_mailboxMessages[mailboxKey] == null) {
-          _mailboxMessages[mailboxKey] = [];
-        }
-        _mailboxMessages[mailboxKey]!.insert(0, message); // Add to beginning
+
+      // Resolve mailbox key (default to currently selected or INBOX)
+      String mailboxKey;
+      if (mailbox != null) {
+        mailboxKey = mailbox.path;
+      } else {
+        final mailService = _mailService;
+        final selected = mailService?.client.selectedMailbox;
+        mailboxKey = selected?.path ?? 'INBOX';
       }
-      
-      // Batch update unread counts
-      for (final entry in unreadCountChanges.entries) {
-        _unreadCounts[entry.key] = (_unreadCounts[entry.key] ?? 0) + entry.value;
+
+      // Determine actual mailbox object to associate with these messages
+      final mailService = _mailService;
+      Mailbox? mb = mailbox ?? mailService?.client.selectedMailbox;
+      final mbKey = mb?.path ?? mailboxKey;
+
+      // Prepare existing state
+      final existingList = _mailboxMessages[mbKey] ?? const <MimeMessage>[];
+      final existingIds = _mailboxMessageIds.putIfAbsent(mbKey, () => <String>{});
+
+      // Filter out duplicates and collect messages to prepend
+      final List<MimeMessage> toPrepend = [];
+      int unreadAdded = 0;
+      for (final m in newMessages) {
+        final id = _messageKey(m);
+        if (id != null && existingIds.contains(id)) {
+          continue; // skip duplicates
+        }
+        toPrepend.add(m);
+        if (id != null) {
+          existingIds.add(id);
+          _messageIdToMailboxKey[id] = mbKey;
+        }
+        if (!m.isSeen) unreadAdded++;
       }
-      
-      // Emit batched updates for better performance
-      for (final entry in messagesByMailbox.entries) {
-        final mailboxKey = entry.key;
-        final messages = entry.value;
-        
-        // Emit mailbox update event
+
+      if (toPrepend.isEmpty) {
+        // Nothing new after de-dup
+        return;
+      }
+
+      // Ensure envelope exists for toPrepend; fetch ENVELOPE for missing ones in a single batch when possible
+      try {
+        final mailService2 = _mailService;
+        if (mailService2 != null) {
+          final uidsNeedingEnv = <int>[];
+          for (final m in toPrepend) {
+            if (m.envelope == null && m.uid != null) {
+              uidsNeedingEnv.add(m.uid!);
+            }
+          }
+          if (uidsNeedingEnv.isNotEmpty) {
+            try {
+              // Select the actual mailbox if known; otherwise skip selection
+              final selected = mb ?? mailService2.client.selectedMailbox ?? mailService2.client.mailboxes?.firstWhereOrNull((mm) => mm.path == mbKey);
+              if (selected != null) {
+                await mailService2.client.selectMailbox(selected);
+              }
+            } catch (_) {}
+            try {
+              final seq = MessageSequence.fromIds(uidsNeedingEnv);
+              final fetched = await mailService2.client.fetchMessageSequence(
+                seq,
+                fetchPreference: FetchPreference.envelope,
+              );
+              final byUid = {for (final f in fetched) f.uid: f};
+              for (var i = 0; i < toPrepend.length; i++) {
+                final m = toPrepend[i];
+                if (m.envelope == null && m.uid != null) {
+                  final rep = byUid[m.uid];
+                  if (rep != null) {
+                    // Replace with the fetched message that includes envelope
+                    toPrepend[i] = rep;
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
+      // Prepend new messages (keep order as received)
+      final updated = [...toPrepend, ...existingList];
+      _mailboxMessages[mbKey] = updated;
+
+      // Update unread counts only for actually added messages
+      _unreadCounts[mbKey] = (_unreadCounts[mbKey] ?? 0) + unreadAdded;
+
+      // Emit mailbox update event (use the real mailbox when available)
+      if (mb != null) {
+        _mailboxUpdateStream.add(MailboxUpdate(
+          mailbox: mb,
+          type: MailboxUpdateType.messagesAdded,
+          messages: toPrepend,
+          metadata: {'unreadCount': _unreadCounts[mbKey] ?? 0},
+        ));
+      } else {
+        // Fallback minimal event without real mailbox
         _mailboxUpdateStream.add(MailboxUpdate(
           mailbox: Mailbox(
-            encodedName: mailboxKey,
-            encodedPath: mailboxKey,
-            flags: [],
+            encodedName: mbKey,
+            encodedPath: mbKey,
+            flags: const [],
             pathSeparator: '/',
-          )..name = mailboxKey,
-          type: MailboxUpdateType.newMessages,
-          messages: messages,
-          metadata: {'unreadCount': _unreadCounts[mailboxKey] ?? 0},
+          )..name = mbKey,
+          type: MailboxUpdateType.messagesAdded,
+          messages: toPrepend,
+          metadata: {'unreadCount': _unreadCounts[mbKey] ?? 0},
         ));
-        
-        // Emit individual message events for UI reactivity
-        for (final message in messages) {
-          _messageUpdateStream.add(MessageUpdate(
-            message: message,
-            type: MessageUpdateType.received,
-            metadata: {'mailboxName': mailboxKey},
-          ));
-        }
       }
-      
-      // Update reactive streams
-      _messagesStream.add(_mailboxMessages['INBOX'] ?? []);
+
+      // Emit individual message events
+      for (final m in toPrepend) {
+        _messageUpdateStream.add(MessageUpdate(
+          message: m,
+          type: MessageUpdateType.received,
+          metadata: {'mailboxName': mbKey},
+        ));
+      }
+
+      // Update reactive streams (only push to messages stream for INBOX to reduce noise)
+      if (mb?.isInbox == true || mbKey.toUpperCase() == 'INBOX') {
+        _messagesStream.add(updated);
+      }
       _unreadCountsStream.add(Map.from(_unreadCounts));
-      
-      RealtimeUpdateService._logger.i('📧 Successfully processed ${newMessages.length} new messages');
-      
+
+      // Fast-path: prefetch details for a few newest messages and fire notifications with previews
+      try {
+        if (mb != null && toPrepend.isNotEmpty) {
+          // Prefetch 1-3 messages to make subject/attachments/preview available quickly
+          unawaited(_prefetchNewMessageDetailsAndNotify(mb, toPrepend.take(3).toList()));
+        }
+      } catch (_) {}
+
+      RealtimeUpdateService._logger.i('📧 Successfully processed ${toPrepend.length} new messages (de-duplicated)');
+
     } catch (e) {
       RealtimeUpdateService._logger.e('📧 Error processing new messages: $e');
       _errorStream.add('Failed to process new messages: $e');
     }
   }
+
+  /// Fetch new messages for the currently selected (or specified) mailbox and notify listeners.
+  /// This is used by the optimized IDLE/polling service to actually load server-side changes.
+  Future<void> fetchAndNotifyNewMessages({Mailbox? mailbox}) async {
+    try {
+      final mailService = _mailService;
+      if (mailService == null) return;
+      if (!mailService.client.isConnected) {
+        await mailService.connect();
+      }
+
+      // Resolve mailbox
+      Mailbox? mb = mailbox ?? mailService.client.selectedMailbox;
+      mb ??= mailService.client.mailboxes?.firstWhereOrNull((m) => m.isInbox);
+      if (mb == null) return;
+
+      // Ensure mailbox is selected
+      await mailService.client.selectMailbox(mb);
+
+      final key = mb.path;
+      // Concurrency guard for this mailbox
+      if (_fetchInProgress[key] == true) return;
+      _fetchInProgress[key] = true;
+
+      try {
+        // Use UIDNEXT to determine the new range and avoid treating history as new
+        final uidNext = mb.uidNext;
+        if (uidNext == null || uidNext <= 1) {
+          return; // can't determine
+        }
+        final endUid = uidNext - 1;
+        final last = _lastNotifiedUid[key];
+
+        // First-run baseline: do not notify historical messages
+        if (last == null) {
+          _lastNotifiedUid[key] = endUid;
+          return;
+        }
+
+        // Nothing new
+        if (endUid <= last) {
+          return;
+        }
+
+        int startUid = last + 1;
+        // Safety cap to avoid massive UI spikes; still advance baseline
+        const int maxBatch = 50;
+        final totalNew = endUid - startUid + 1;
+        if (totalNew > maxBatch) {
+          startUid = endUid - maxBatch + 1;
+        }
+
+        // Fetch only the new UID range, envelope-only for speed
+        final seq = MessageSequence.fromRange(startUid, endUid, isUidSequence: true);
+        final fetched = await mailService.client.fetchMessageSequence(
+          seq,
+          fetchPreference: FetchPreference.envelope,
+        );
+
+        if (fetched.isNotEmpty) {
+          await notifyNewMessages(fetched, mailbox: mb);
+        }
+
+        // Advance baseline to current end, regardless of batch size
+        _lastNotifiedUid[key] = endUid;
+      } finally {
+        _fetchInProgress[key] = false;
+      }
+
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Error fetching and notifying new messages: $e');
+      }
+      _errorStream.add('Failed to fetch new messages: $e');
+    }
+  }
 }
 
+extension _RealtimeFastPath on RealtimeUpdateService {
+  Future<void> _prefetchNewMessageDetailsAndNotify(Mailbox mailbox, List<MimeMessage> messages) async {
+    try {
+      final mailService = _mailService;
+      if (mailService == null || messages.isEmpty) return;
+      // Ensure mailbox selected once
+      try {
+        if (!mailService.client.isConnected) await mailService.connect();
+        await mailService.client.selectMailbox(mailbox);
+      } catch (_) {}
+
+      for (final m in messages) {
+        try {
+          // Fetch full if within size for attachments/preview
+          MessageSequence seq;
+          if (m.uid != null) {
+            seq = MessageSequence.fromRange(m.uid!, m.uid!, isUidSequence: true);
+          } else {
+            seq = MessageSequence.fromMessage(m);
+          }
+          final fetched = await mailService.client.fetchMessageSequence(
+            seq,
+            fetchPreference: FetchPreference.fullWhenWithinSize,
+          );
+          if (fetched.isEmpty) continue;
+          final full = fetched.first;
+
+          // Compute preview
+          String preview = '';
+          try {
+            final plain = full.decodeTextPlainPart();
+            if (plain != null && plain.isNotEmpty) {
+              preview = plain.replaceAll(RegExp(r'\s+'), ' ').trim();
+            } else {
+              final html = full.decodeTextHtmlPart();
+              if (html != null && html.isNotEmpty) {
+                final stripped = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
+                preview = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+              }
+            }
+            if (preview.length > 140) preview = preview.substring(0, 140);
+          } catch (_) {}
+
+          bool hasAtt = false;
+          try { hasAtt = full.hasAttachments(); } catch (_) {}
+
+          // Update internal list with full version (copy-on-write)
+          final key = mailbox.path;
+          final list = _mailboxMessages[key] ?? const <MimeMessage>[];
+          int idx = list.indexWhere((mm) =>
+              (full.uid != null && mm.uid == full.uid) ||
+              (full.sequenceId != null && mm.sequenceId == full.sequenceId));
+          List<MimeMessage> updated;
+          if (idx >= 0) {
+            updated = List<MimeMessage>.from(list);
+            updated[idx] = full;
+          } else {
+            updated = [full, ...list];
+          }
+          _mailboxMessages[key] = updated;
+
+          // Stamp headers (both full and original placeholder if still referenced)
+          try { full.setHeader('x-preview', preview); } catch (_) {}
+          try { m.setHeader('x-preview', preview); } catch (_) {}
+          try { full.setHeader('x-has-attachments', hasAtt ? '1' : '0'); } catch (_) {}
+          try { m.setHeader('x-has-attachments', hasAtt ? '1' : '0'); } catch (_) {}
+          try { full.setHeader('x-ready', '1'); } catch (_) {}
+          try { m.setHeader('x-ready', '1'); } catch (_) {}
+
+          // Emit a status-changed update to refresh UI tiles immediately
+          _messageUpdateStream.add(MessageUpdate(
+            message: full,
+            type: MessageUpdateType.statusChanged,
+            metadata: {'mailboxName': key},
+          ));
+          if (mailbox.isInbox) {
+            _messagesStream.add(updated);
+          }
+
+          // Fire local notification with preview
+          try {
+            final from = full.from != null && full.from!.isNotEmpty
+                ? (full.from!.first.personalName ?? full.from!.first.email)
+                : 'New Email';
+            final subject = full.decodeSubject() ?? 'No Subject';
+            final notifBody = preview.isNotEmpty ? '$subject — $preview' : subject;
+            NotificationService.instance.showFlutterNotification(
+              from,
+              notifBody,
+              {
+                'action': 'view_message',
+                'message_uid': full.uid?.toString() ?? '',
+                'mailbox': mailbox.path,
+                'preview': preview,
+              },
+              full.uid?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+            );
+          } catch (_) {}
+        } catch (_) {
+          // ignore per-message failure
+        }
+      }
+    } catch (_) {}
+  }
+}

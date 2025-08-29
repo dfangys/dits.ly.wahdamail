@@ -284,7 +284,10 @@ class OptimizedIdleService extends GetxService {
       // This is more compatible with different versions of enough_mail
       final eventType = event.runtimeType.toString();
       
-      if (eventType.contains('MessagesAdded') || eventType.contains('NewMessage')) {
+      if (eventType.contains('MessagesAdded') ||
+          eventType.contains('NewMessage') ||
+          eventType.contains('MessagesExist') || // enough_mail may emit ImapMessagesExistEvent
+          eventType.contains('Exists')) {
         await _handleNewMessagesGeneric(event);
       } else if (eventType.contains('Flags') || eventType.contains('FlagChanged')) {
         await _handleFlagChangesGeneric(event);
@@ -365,9 +368,8 @@ class OptimizedIdleService extends GetxService {
         print('📧 ✅ Triggered mailbox refresh via notifyNewMessages');
       }
       
-      // Use the public method to notify about potential new messages
-      // This will trigger a refresh of the mailbox
-      await _realtimeService.notifyNewMessages([]);
+      // Actively fetch any new messages for the selected mailbox and emit updates
+      await _realtimeService.fetchAndNotifyNewMessages();
       
     } catch (e) {
       if (kDebugMode) {

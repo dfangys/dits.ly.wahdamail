@@ -1,63 +1,91 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
+/// Gmail-like shimmer skeleton list for email rows.
+/// Matches the general shape and spacing of MailTile for smooth transitions.
 class ShimmerMailLoader extends StatelessWidget {
-  const ShimmerMailLoader({
-    super.key,
-  });
+  const ShimmerMailLoader({super.key, this.itemCount = 12, this.padding});
+
+  final int itemCount;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final base = isDark ? Colors.grey.shade800 : Colors.grey.shade200;
+    final highlight = isDark ? Colors.grey.shade700 : Colors.grey.shade100;
+
     return ListView.separated(
-      itemCount: 10,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: padding ?? const EdgeInsets.symmetric(vertical: 8),
+      itemCount: itemCount,
       itemBuilder: (context, index) {
-        return const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              leading: CircleAvatar(
-                radius: 30,
-                child: TShimmerEffect(
-                  width: double.infinity,
-                  height: 100,
-                  radius: 100,
-                ),
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Shimmer.fromColors(
+            baseColor: base,
+            highlightColor: highlight,
+            period: const Duration(milliseconds: 1200),
+            child: Container(
+              decoration: BoxDecoration(
+                color: base,
+                borderRadius: BorderRadius.circular(12),
               ),
-              title: TShimmerEffect(width: 100, height: 50),
-              trailing: TShimmerEffect(width: 60, height: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                children: [
+                  // Avatar placeholder
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: base,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Text lines
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Sender line
+                        _shimmerBar(width: 160, height: 12, base: base),
+                        const SizedBox(height: 8),
+                        // Subject line
+                        _shimmerBar(width: double.infinity, height: 10, base: base),
+                        const SizedBox(height: 6),
+                        // Preview line (half width)
+                        _shimmerBar(width: MediaQuery.of(context).size.width * 0.5, height: 10, base: base),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Time pill placeholder
+                  _shimmerBar(width: 44, height: 10, base: base, radius: 6),
+                ],
+              ),
             ),
-          ],
+          ),
         );
       },
-      separatorBuilder: (context, index) => Divider(
-        color: Colors.grey.shade200,
+      separatorBuilder: (_, __) => Divider(
+        height: 0,
+        thickness: 0,
+        color: Colors.transparent,
       ),
     );
   }
-}
 
-class TShimmerEffect extends StatelessWidget {
-  const TShimmerEffect(
-      {super.key,
-      required this.width,
-      required this.height,
-      this.radius = 15,
-      this.color});
-  final double width, height, radius;
-  final Color? color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey.shade200,
-      highlightColor: Colors.grey.shade200,
-      child: Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(radius),
-        ),
+  Widget _shimmerBar({required double width, required double height, required Color base, double radius = 6}) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: base,
+        borderRadius: BorderRadius.circular(radius),
       ),
     );
   }

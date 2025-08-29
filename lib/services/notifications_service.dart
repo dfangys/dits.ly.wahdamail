@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:get/get.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 
 // @pragma('vm:entry-point')
 // Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -60,7 +62,35 @@ class NotificationService {
           requestSoundPermission: true,
         ),
       ),
-      onDidReceiveNotificationResponse: (details) {},
+      onDidReceiveNotificationResponse: (details) async {
+        try {
+          final payload = details.payload;
+          if (payload == null || payload.isEmpty) return;
+          final data = jsonDecode(payload) as Map<String, dynamic>;
+          final action = data['action'] as String?;
+          if (action == 'view_message') {
+            final uidStr = data['message_uid']?.toString();
+            final mailboxPath = data['mailbox']?.toString();
+            if (uidStr == null || mailboxPath == null) return;
+            final uid = int.tryParse(uidStr);
+            if (uid == null || uid <= 0) return;
+
+            MailBoxController controller;
+            if (Get.isRegistered<MailBoxController>()) {
+              controller = Get.find<MailBoxController>();
+            } else {
+              controller = Get.put(MailBoxController());
+            }
+
+            // Open the specific email by UID
+            await controller.openEmailByUid(mailboxPath, uid);
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Notification tap handling error: $e');
+          }
+        }
+      },
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
     if (Platform.isAndroid) {

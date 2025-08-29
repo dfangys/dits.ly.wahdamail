@@ -5,6 +5,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/app.dart';
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
+import 'package:wahda_bank/services/email_notification_service.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wahda_bank/models/sqlite_database_helper.dart';
 import 'package:wahda_bank/services/offline_http_server.dart';
@@ -14,6 +15,13 @@ Future main() async {
   await GetStorage.init();
 
   await NotificationService.instance.setup();
+  // Start email notifications with preview (foreground IDLE + periodic checks)
+  try {
+    await EmailNotificationService.instance.initialize();
+    await EmailNotificationService.instance.startListening();
+  } catch (e) {
+    debugPrint('EmailNotificationService init/start error: $e');
+  }
 
   // Initialize SQLite database
   await SQLiteDatabaseHelper.instance.database;
