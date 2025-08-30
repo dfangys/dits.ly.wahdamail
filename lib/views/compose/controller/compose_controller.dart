@@ -37,6 +37,17 @@ extension EmailValidator on String {
 enum DraftSyncState { idle, syncing, synced, failed }
 
 class ComposeController extends GetxController {
+  // Normalize top-level transfer-encoding for multipart messages
+  void _normalizeTopLevelTransferEncoding(MimeMessage msg) {
+    try {
+      final ct = (msg.getHeaderValue('Content-Type') ?? msg.getHeaderValue('content-type') ?? '').toLowerCase();
+      if (ct.contains('multipart/')) {
+        // For multipart containers, top-level CTE should not be base64.
+        // Force 7bit to avoid downstream parsers trying to base64-decode boundaries.
+        msg.setHeader('Content-Transfer-Encoding', '7bit');
+      }
+    } catch (_) {}
+  }
   // Email client and account
   final MailAccount account = MailService.instance.account;
   final MailClient client = MailService.instance.client;
@@ -577,6 +588,8 @@ class ComposeController extends GetxController {
 
       // Build message
       final draftMessage = messageBuilder.buildMimeMessage();
+      // Ensure top-level transfer-encoding is safe for multipart containers
+      _normalizeTopLevelTransferEncoding(draftMessage);
 
       // Queue background server sync with backoff; do not block UI
       syncState.value = DraftSyncState.syncing;
@@ -798,6 +811,8 @@ class ComposeController extends GetxController {
 
       // Build message
       final message = messageBuilder.buildMimeMessage();
+      // Ensure top-level transfer-encoding is safe for multipart containers
+      _normalizeTopLevelTransferEncoding(message);
 
       // Send message with optimistic UI and append-to-Sent flow
       final boxController = Get.find<MailBoxController>();
@@ -1140,6 +1155,56 @@ class ComposeController extends GetxController {
     }
   }
 
+  // Decode a text part by fetching it directly, ignoring broken top-level encodings
+  Future<String?> _fetchTextBodyViaPart({
+    required MimeMessage message,
+    required Mailbox mailbox,
+    bool preferHtml = true,
+  }) async {
+    try {
+      // Ensure connection and mailbox selection for part fetch
+      try {
+        if (!client.isConnected) {
+          await client.connect();
+        }
+        if (client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await client.selectMailbox(mailbox);
+        }
+      } catch (_) {}
+
+      // Collect all parts and filter by content-type string to avoid MediaType construction
+      final allInfos = message.findContentInfo().toList();
+      bool isHtml(ContentInfo ci) =>
+          (ci.contentType?.mediaType.toString().toLowerCase() ?? '').startsWith('text/html');
+      bool isPlain(ContentInfo ci) =>
+          (ci.contentType?.mediaType.toString().toLowerCase() ?? '').startsWith('text/plain');
+
+      final htmlInfos = allInfos.where(isHtml);
+      final plainInfos = allInfos.where(isPlain);
+      final candidates = <ContentInfo>[];
+      if (preferHtml) {
+        candidates..addAll(htmlInfos)..addAll(plainInfos);
+      } else {
+        candidates..addAll(plainInfos)..addAll(htmlInfos);
+      }
+
+      for (final info in candidates) {
+        try {
+          final part = await client.fetchMessagePart(message, info.fetchId);
+          final text = part.decodeContentText();
+          if (text != null && text.trim().isNotEmpty) {
+            return text.trim();
+          }
+        } catch (_) {
+          // Try next candidate
+        }
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // Background hydration for body and attachments metadata (non-blocking)
   Future<void> _hydrateDraftInBackground(MimeMessage message) async {
     try {
@@ -1198,26 +1263,55 @@ class ComposeController extends GetxController {
       String bodyContent = '';
       bool isHtmlContent = false;
 
+      // If top-level is a multipart with base64 CTE, skip direct decoding and fetch parts directly
+      bool skipDirectDecode = false;
       try {
-        final htmlContent = base.decodeTextHtmlPart();
-        if (htmlContent != null && htmlContent.trim().isNotEmpty) {
-          bodyContent = htmlContent;
-          isHtmlContent = true;
-        } else {
-          final plainContent = base.decodeTextPlainPart();
-          if (plainContent != null && plainContent.trim().isNotEmpty) {
-            bodyContent = plainContent;
-            isHtmlContent = false;
+        final topCte = (base.getHeaderValue('content-transfer-encoding') ?? '').toLowerCase();
+        final topCt = (base.getHeaderValue('content-type') ?? '').toLowerCase();
+        if (topCt.contains('multipart/') && topCte.contains('base64')) {
+          skipDirectDecode = true;
+        }
+      } catch (_) {}
+
+      if (!skipDirectDecode) {
+        try {
+          final htmlContent = base.decodeTextHtmlPart();
+          if (htmlContent != null && htmlContent.trim().isNotEmpty) {
+            bodyContent = htmlContent;
+            isHtmlContent = true;
           } else {
-            final bodyText = base.decodeContentText();
-            if (bodyText != null && bodyText.trim().isNotEmpty) {
-              bodyContent = bodyText;
+            final plainContent = base.decodeTextPlainPart();
+            if (plainContent != null && plainContent.trim().isNotEmpty) {
+              bodyContent = plainContent;
               isHtmlContent = false;
+            } else {
+              final bodyText = base.decodeContentText();
+              if (bodyText != null && bodyText.trim().isNotEmpty) {
+                bodyContent = bodyText;
+                isHtmlContent = false;
+              }
             }
           }
+        } catch (_) {
+          // Will fallback below
         }
-      } catch (e) {
-        debugPrint('Error extracting draft body: $e');
+      }
+
+      // Fallback: fetch text/html or text/plain part directly, ignoring broken top-level CTE
+      if (bodyContent.trim().isEmpty) {
+        try {
+          final mbc = Get.find<MailBoxController>();
+          final mailboxHint = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+          if (mailboxHint != null) {
+            final fetchedText = await _fetchTextBodyViaPart(message: base, mailbox: mailboxHint, preferHtml: true);
+            if (fetchedText != null && fetchedText.trim().isNotEmpty) {
+              // Heuristically decide if it looks like HTML
+              final looksHtml = RegExp(r'<\w+[^>]*>').hasMatch(fetchedText);
+              bodyContent = fetchedText;
+              isHtmlContent = looksHtml;
+            }
+          }
+        } catch (_) {}
       }
 
       if (isHtmlContent && bodyContent.isNotEmpty) {

@@ -23,6 +23,7 @@ import 'package:wahda_bank/services/optimized_idle_service.dart';
 import 'package:wahda_bank/services/connection_manager.dart' as conn;
 import 'package:wahda_bank/services/background_service.dart';
 import 'package:wahda_bank/services/email_notification_service.dart';
+import 'package:wahda_bank/services/outbox_service.dart';
 import 'package:rxdart/rxdart.dart' hide Rx;
 import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
@@ -2124,12 +2125,11 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     }
 
     // Optimistic UI insertion to Sent
+    String optimisticId = DateTime.now().microsecondsSinceEpoch.toString();
     try {
       if (sent != null) {
-        // Mark as optimistic
-        try { message.setHeader('x-optimistic', '1'); } catch (_) {}
+        // Mark as optimistic and insert into UI
         try { message.isSeen = true; } catch (_) {}
-        // Ensure emails list exists
         emails[sent] ??= <MimeMessage>[];
         emails[sent]!.insert(0, message);
         // Persist envelope for fast subsequent loads
@@ -2137,6 +2137,16 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
         if (storage != null) {
           try { await storage.saveMessageEnvelopes([message]); } catch (_) {}
         }
+        // Track in outbox for restart resilience
+        try {
+          await OutboxService.instance.init();
+          final key = '${sent.encodedPath}:$optimisticId';
+          OutboxService.instance.add(key, {
+            'mailboxPath': sent.encodedPath,
+            'subject': message.decodeSubject() ?? '',
+            'date': (message.decodeDate() ?? DateTime.now()).millisecondsSinceEpoch,
+          });
+        } catch (_) {}
         emails.refresh();
         update();
       }
@@ -2158,6 +2168,13 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
 
     // Perform SMTP send
     try {
+      // Safety: ensure multipart containers are not base64-encoded at top-level
+      try {
+        final ct = (message.getHeaderValue('Content-Type') ?? message.getHeaderValue('content-type') ?? '').toLowerCase();
+        if (ct.contains('multipart/')) {
+          message.setHeader('Content-Transfer-Encoding', '7bit');
+        }
+      } catch (_) {}
       await mailService.client.sendMessage(message);
     } catch (e) {
       logger.e('SMTP send failed: $e');
@@ -2185,28 +2202,99 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       return false;
     }
 
-    // Best-effort append: move the original draft message to Sent if available
+    // Confirm append: check if server already appended to Sent (to avoid duplicates); append if missing
     bool appended = false;
     final needAppend = (draftMailbox != null && draftMessage != null);
-    if (needAppend && sent != null) {
+    if (sent != null) {
       try {
-        await moveMails([draftMessage!], draftMailbox!, sent);
-        appended = true;
+        // Ensure Sent is selected
+        if (!mailService.client.isConnected) {
+          try { await mailService.connect(); } catch (_) {}
+        }
+        try { await mailService.client.selectMailbox(sent); } catch (_) {}
+        // Fetch recent messages and look for matching Message-Id
+        final msgId = (message.getHeaderValue('message-id') ?? message.getHeaderValue('Message-Id'))?.trim();
+        int max = sent.messagesExists;
+        if (max > 0) {
+          final start = math.max(1, max - 20 + 1);
+          final end = max;
+          final seq = MessageSequence.fromRange(start, end);
+          final recents = await mailService.client.fetchMessageSequence(
+            seq,
+            fetchPreference: FetchPreference.fullWhenWithinSize,
+          ).timeout(const Duration(seconds: 20), onTimeout: () => <MimeMessage>[]);
+          if (msgId != null) {
+            appended = recents.any((m) {
+              final mid = (m.getHeaderValue('message-id') ?? m.getHeaderValue('Message-Id'))?.trim();
+              return mid != null && mid == msgId;
+            });
+          }
+        }
+        if (!appended) {
+          try {
+            await mailService.client.appendMessage(message, sent);
+            appended = true;
+          } catch (e) {
+            logger.w('APPEND to Sent failed: $e');
+          }
+        }
       } catch (e) {
-        logger.w('Move draft to Sent failed: $e');
+        logger.w('Sent confirmation step failed: $e');
       }
-    } else if (!needAppend && sent != null) {
-      // If there is no server draft to move, rely on server auto-append or later IDLE event
-      appended = true; // Acceptable: UI shows optimistic sent; server will likely add the message
+
+      if (!appended && needAppend) {
+        // Fallback: if editing a draft, move it to Sent as a server-side record
+        try {
+          await moveMails([draftMessage!], draftMailbox!, sent);
+          appended = true;
+        } catch (err) {
+          logger.w('Move draft to Sent failed as fallback: $err');
+        }
+      }
+    } else {
+      // No Sent mailbox available; accept SMTP-only success
+      appended = !needAppend; // true if not a draft send; false if draft (we want append confirmation)
     }
 
-    // Mark optimistic message as delivered
+    // If append failed for edited drafts, rollback optimistic UI and restore draft
+    if (needAppend && !appended) {
+      if (sent != null) {
+        try {
+          final list = emails[sent];
+          list?.removeWhere((m) => identical(m, message));
+          emails.refresh();
+          update();
+        } catch (_) {}
+      }
+      // Restore draft back into Drafts UI
+      if (draftMailbox != null && draftMessage != null) {
+        try {
+          emails[draftMailbox] ??= <MimeMessage>[];
+          emails[draftMailbox]!.insert(0, draftMessage);
+          emails.refresh();
+          update();
+        } catch (_) {}
+      }
+      // Remove from outbox
+      try {
+        if (sent != null) {
+          final key = '${sent.encodedPath}:$optimisticId';
+          OutboxService.instance.remove(key);
+        }
+      } catch (_) {}
+      return false;
+    }
+
+    // Mark optimistic message as delivered and clear outbox tracking
     try {
       if (sent != null) {
         final list = emails[sent] ?? const <MimeMessage>[];
         final idx = list.indexWhere((m) => identical(m, message));
         if (idx >= 0) {
-          try { message.setHeader('x-optimistic', '0'); } catch (_) {}
+          try {
+            final key = '${sent.encodedPath}:$optimisticId';
+            OutboxService.instance.remove(key);
+          } catch (_) {}
           emails.refresh();
           update();
         }

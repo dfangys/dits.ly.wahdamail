@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get/get.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
@@ -28,116 +29,111 @@ class RedesignedComposeView extends StatelessWidget {
         children: [
           // Header with visual indicator
           _buildHeader(theme),
-          
-          // Main content area
+
+          // Main content area with responsive two-pane layout on wide screens
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 16),
-                  
-                  // Last saved time indicator (like original)
-                  Obx(() => controller.lastSavedTime.isNotEmpty
-                      ? Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: theme.colorScheme.outline.withValues(alpha: 0.2),
-                            ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+final isWide = false;
+
+                Widget lastSaved = Obx(() => controller.lastSavedTime.isNotEmpty
+                    ? Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: theme.colorScheme.outline.withValues(alpha: 0.2),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.access_time_outlined,
-                                size: 14,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.access_time_outlined,
+                              size: 14,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${'last_saved'.tr}: ${controller.lastSavedTime}',
+                              style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
+                                fontStyle: FontStyle.italic,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '${'last_saved'.tr}: ${controller.lastSavedTime}',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : const SizedBox.shrink()),
-                  
-                  // From field with enhanced styling
-                  _buildFromField(theme),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Recipients section with improved UX
-                  _buildRecipientsSection(theme),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Subject field with enhanced design
-                  _buildSubjectField(theme),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Attachments section (if any)
-                  _buildAttachmentsSection(theme),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Message composition area
-                  _buildMessageComposer(theme),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Signature section
-                  _buildSignatureSection(theme),
-                  
-                  // Autosave indicator (like original)
-                  Obx(() => controller.isAutosaving
-                      ? Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: theme.colorScheme.outline.withValues(alpha: 0.2),
                             ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink());
+
+                if (isWide) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Left pane: From, Recipients, Subject
+                        Expanded(
+                          flex: 1,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                'autosaving'.tr,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                              lastSaved,
+                              _buildFromField(theme),
+                              const SizedBox(height: 16),
+                              _buildRecipientsSection(theme),
+                              const SizedBox(height: 16),
+                              _buildSubjectField(theme),
                             ],
                           ),
-                        )
-                      : const SizedBox.shrink()),
-                  
-                  const SizedBox(height: 100), // Bottom padding for FAB
-                ],
-              ),
+                        ),
+                        const SizedBox(width: 16),
+                        // Right pane: Editor, Attachments, Signature
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildMessageComposer(theme),
+                              const SizedBox(height: 16),
+                              _buildAttachmentsSection(theme),
+                              const SizedBox(height: 16),
+                              _buildSignatureSection(theme),
+                              const SizedBox(height: 100),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                // Narrow: stacked layout
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 16),
+                      lastSaved,
+                      _buildFromField(theme),
+                      const SizedBox(height: 16),
+                      _buildRecipientsSection(theme),
+                      const SizedBox(height: 16),
+                      _buildSubjectField(theme),
+                      const SizedBox(height: 16),
+                      _buildMessageComposer(theme),
+                      const SizedBox(height: 16),
+                      _buildAttachmentsSection(theme),
+                      const SizedBox(height: 16),
+                      _buildSignatureSection(theme),
+                      const SizedBox(height: 100), // Bottom padding for FAB
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -217,16 +213,13 @@ class RedesignedComposeView extends StatelessWidget {
   }
 
   Widget _buildFromField(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.2),
-        ),
-      ),
+    final name = controller.name;
+    final email = controller.email;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(8),
@@ -235,7 +228,7 @@ class RedesignedComposeView extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              Icons.person_outline,
+              Icons.alternate_email,
               color: theme.colorScheme.primary,
               size: 20,
             ),
@@ -253,10 +246,34 @@ class RedesignedComposeView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  controller.fromController.text,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
+                if (name.isNotEmpty) ...[
+                  Text(
+                    name,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                ],
+                InkWell(
+                  onLongPress: () {
+                    Clipboard.setData(ClipboardData(text: email));
+                    ScaffoldMessenger.of(Get.context!).showSnackBar(
+                      SnackBar(
+                        content: Text('copied_to_clipboard'.trParams({'field': 'email'})),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: theme.colorScheme.primary,
+                      ),
+                    );
+                  },
+                  child: Text(
+                    email,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      letterSpacing: 0.1,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -269,13 +286,7 @@ class RedesignedComposeView extends StatelessWidget {
 
   Widget _buildRecipientsSection(ThemeData theme) {
     return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.2),
-        ),
-      ),
+      decoration: const BoxDecoration(),
       child: Column(
         children: [
           // To field
@@ -331,92 +342,63 @@ class RedesignedComposeView extends StatelessWidget {
   }
 
   Widget _buildCcBccToggle(ThemeData theme) {
-          return Obx(() => AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            child: InkWell(
-              onTap: () => controller.isCcAndBccVisible.toggle(),
+    return Obx(() => InkWell(
+          onTap: () => controller.isCcAndBccVisible.toggle(),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: controller.isCcAndBccVisible()
+                  ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                  : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: controller.isCcAndBccVisible()
-                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                      : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                controller.isCcAndBccVisible()
-                    ? Icons.expand_less
-                    : Icons.expand_more,
-                size: 16,
-                color: controller.isCcAndBccVisible()
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                controller.isCcAndBccVisible() ? 'hide_cc_bcc'.tr : 'cc_bcc'.tr,
-                style: theme.textTheme.bodySmall?.copyWith(
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  controller.isCcAndBccVisible()
+                      ? Icons.expand_less
+                      : Icons.expand_more,
+                  size: 16,
                   color: controller.isCcAndBccVisible()
                       ? theme.colorScheme.primary
                       : theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w500,
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Text(
+                  controller.isCcAndBccVisible() ? 'hide_cc_bcc'.tr : 'cc_bcc'.tr,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: controller.isCcAndBccVisible()
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ),
-    ));
+        ));
   }
 
   Widget _buildSubjectField(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.2),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: TextFormField(
+        controller: controller.subjectController,
+        decoration: InputDecoration(
+          hintText: "subject".tr,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.secondary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.subject_outlined,
-              color: theme.colorScheme.secondary,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: TextFormField(
-              controller: controller.subjectController,
-              decoration: InputDecoration(
-                labelText: "subject".tr,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                labelStyle: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -558,9 +540,11 @@ class RedesignedComposeView extends StatelessWidget {
   }
 
   Widget _buildHtmlEditor(ThemeData theme) {
+    final isWide = MediaQuery.of(Get.context!).size.width > 900;
+    final editorHeight = isWide ? 420.0 : 300.0;
     return SizedBox(
       key: const ValueKey('html_editor'),
-      height: 300,
+      height: editorHeight,
       child: HtmlEditor(
         controller: controller.htmlController,
         htmlToolbarOptions: const HtmlToolbarOptions(
@@ -584,7 +568,7 @@ class RedesignedComposeView extends StatelessWidget {
           adjustHeightForKeyboard: true,
         ),
         otherOptions: OtherOptions(
-          height: 300,
+          height: editorHeight,
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
             borderRadius: const BorderRadius.vertical(

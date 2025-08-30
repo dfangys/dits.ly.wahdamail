@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
+import 'package:wahda_bank/views/compose/widgets/compose_modal.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 
 class HomeAppBarIcon extends StatelessWidget {
@@ -12,7 +11,7 @@ class HomeAppBarIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
-        Get.to(() => const RedesignedComposeScreen());
+        ComposeModal.show(context);
       },
       child: Container(
         margin: const EdgeInsets.only(top: 10, bottom: 10, right: 16, left: 10),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
@@ -37,6 +36,7 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
   final composeController = Get.find<ComposeController>();
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
+
 
   @override
   void initState() {
@@ -146,22 +146,8 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primaryContainer,
-                    theme.colorScheme.primaryContainer.withValues(alpha: 0.8),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.shadowColor.withValues(alpha: 0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                color: theme.colorScheme.surfaceVariant.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -194,8 +180,8 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
                       personal.isNotEmpty ? personal : email.email,
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.w500,
-                        color: theme.colorScheme.onPrimaryContainer,
-                      ),
+                        color: theme.colorScheme.onSurface,
+             ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -208,7 +194,7 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
                     child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.2),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
@@ -233,34 +219,35 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
       focusNode: focusNode,
       suggestionsCallback: (pattern) async {
         if (pattern.isEmpty) return [];
-        
-        // Search in existing contacts
-        final matches = composeController.mailAddresses
-            .where((element) => 
-                element.email.toLowerCase().contains(pattern.toLowerCase()) ||
-                (element.personalName?.toLowerCase().contains(pattern.toLowerCase()) ?? false))
-            .toList();
-        
-        // Sort by relevance (exact matches first, then starts with, then contains)
+
+        final searchPattern = pattern.toLowerCase();
+
+        // Only use app-stored addresses for suggestions
+        final all = composeController.mailAddresses;
+
+        // Filter by name or email
+        final matches = all.where((element) {
+          final email = element.email.toLowerCase();
+          final name = (element.personalName ?? '').toLowerCase();
+          return email.contains(searchPattern) || name.contains(searchPattern);
+        }).toList();
+
+        // Sort by relevance: exact > startsWith > contains, then email ASC
         matches.sort((a, b) {
-          final aEmail = a.email.toLowerCase();
-          final bEmail = b.email.toLowerCase();
-          final aName = a.personalName?.toLowerCase() ?? '';
-          final bName = b.personalName?.toLowerCase() ?? '';
-          final searchPattern = pattern.toLowerCase();
-          
-          // Exact matches first
-          if (aEmail == searchPattern || aName == searchPattern) return -1;
-          if (bEmail == searchPattern || bName == searchPattern) return 1;
-          
-          // Starts with matches
-          if (aEmail.startsWith(searchPattern) || aName.startsWith(searchPattern)) return -1;
-          if (bEmail.startsWith(searchPattern) || bName.startsWith(searchPattern)) return 1;
-          
-          return 0;
+          int rank(MailAddress x) {
+            final e = x.email.toLowerCase();
+            final n = (x.personalName ?? '').toLowerCase();
+            if (e == searchPattern || n == searchPattern) return 0;
+            if (e.startsWith(searchPattern) || n.startsWith(searchPattern)) return 1;
+            return 2;
+          }
+          final ra = rank(a);
+          final rb = rank(b);
+          if (ra != rb) return ra.compareTo(rb);
+          return a.email.toLowerCase().compareTo(b.email.toLowerCase());
         });
-        
-        return matches.take(5).toList(); // Limit to 5 suggestions
+
+        return matches.take(8).toList();
       },
       itemBuilder: (context, suggestion) {
         final personal = suggestion.personalName ?? '';
@@ -374,49 +361,7 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
                 color: theme.colorScheme.onSurfaceVariant,
                 size: 20,
               ),
-              suffixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Contact picker button
-                  IconButton(
-                    onPressed: () async {
-                      final messenger = ScaffoldMessenger.of(context);
-                      final themeSnapshot = Theme.of(context);
-                      try {
-                        if (await FlutterContacts.requestPermission(readonly: true)) {
-                          final contact = await FlutterContacts.openExternalPick();
-                          if (contact != null && contact.emails.isNotEmpty) {
-                            widget.onInsert(
-                              MailAddress(
-                                contact.displayName,
-                                contact.emails.first.address,
-                              ),
-                            );
-                          }
-                        }
-                      } catch (e) {
-                        // Handle permission denied or other errors
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text('contact_picker_error'.tr),
-                            backgroundColor: themeSnapshot.colorScheme.error,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                    icon: Icon(
-                      Icons.contacts_outlined,
-                      color: theme.colorScheme.primary.withValues(alpha: 0.8),
-                      size: 20,
-                    ),
-                    tooltip: 'select_from_contacts'.tr,
-                  ),
-                ],
-              ),
+              suffixIcon: null,
             ),
             style: theme.textTheme.bodyMedium,
             keyboardType: TextInputType.emailAddress,

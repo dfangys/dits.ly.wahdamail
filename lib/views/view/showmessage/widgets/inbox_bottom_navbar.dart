@@ -2,7 +2,7 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
+import 'package:wahda_bank/views/compose/widgets/compose_modal.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import '../../../../app/controllers/mailbox_controller.dart';
 
@@ -132,7 +132,7 @@ class ViewMessageBottomNav extends StatelessWidget {
   }
 
   void _navigateToCompose(String type) {
-    Get.to(() => const RedesignedComposeScreen(), arguments: {
+    ComposeModal.show(Get.context!, arguments: {
       'message': message,
       'type': type,
     });

@@ -31,20 +31,30 @@ class AttachmentTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // File icon
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: _getFileColor(fileExtension).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              _getFileIcon(fileExtension),
-              color: _getFileColor(fileExtension),
-              size: 20,
-            ),
-          ),
+          // File icon or thumbnail
+          _isImage(fileExtension)
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    file,
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              : Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _getFileColor(fileExtension).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    _getFileIcon(fileExtension),
+                    color: _getFileColor(fileExtension),
+                    size: 20,
+                  ),
+                ),
           
           const SizedBox(width: 12),
           
@@ -155,6 +165,20 @@ class AttachmentTile extends StatelessWidget {
         return Icons.code_outlined;
       default:
         return Icons.insert_drive_file_outlined;
+    }
+  }
+
+  bool _isImage(String extension) {
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+      case 'bmp':
+      case 'webp':
+        return true;
+      default:
+        return false;
     }
   }
 

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
@@ -159,18 +160,58 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
           await _handleBackPress();
         }
       },
-      child: Scaffold(
-        backgroundColor: theme.colorScheme.surface,
-        appBar: _buildAppBar(theme),
-        body: SlideTransition(
-          position: _slideAnimation,
-          child: Form(
-            key: composeFormKey,
-            child: RedesignedComposeView(),
+      child: Shortcuts(
+        shortcuts: <LogicalKeySet, Intent>{
+          // Cmd/Ctrl + Enter to send
+          LogicalKeySet(
+            LogicalKeyboardKey.meta, LogicalKeyboardKey.enter,
+          ): const ActivateIntent(),
+          LogicalKeySet(
+            LogicalKeyboardKey.control, LogicalKeyboardKey.enter,
+          ): const ActivateIntent(),
+          // Cmd/Ctrl + S to save draft
+          LogicalKeySet(
+            LogicalKeyboardKey.meta, LogicalKeyboardKey.keyS,
+          ): const ActivateIntent(),
+          LogicalKeySet(
+            LogicalKeyboardKey.control, LogicalKeyboardKey.keyS,
+          ): const ActivateIntent(),
+        },
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            ActivateIntent: CallbackAction<ActivateIntent>(
+              onInvoke: (intent) {
+                // Heuristic: if subject or body focused longer, treat as send (Enter shortcut);
+                // otherwise, save draft on S.
+                // We can't differentiate intents easily with shared ActivateIntent,
+                // so default to save on S by checking currently pressed keys.
+                final keysPressed = RawKeyboard.instance.keysPressed;
+                if (keysPressed.contains(LogicalKeyboardKey.enter)) {
+                  _sendEmail();
+                } else if (keysPressed.contains(LogicalKeyboardKey.keyS)) {
+                  _saveDraft();
+                }
+                return null;
+              },
+            ),
+          },
+          child: Focus(
+            autofocus: true,
+            child: Scaffold(
+              backgroundColor: theme.colorScheme.surface,
+              appBar: _buildAppBar(theme),
+              body: SlideTransition(
+                position: _slideAnimation,
+                child: Form(
+                  key: composeFormKey,
+                  child: RedesignedComposeView(),
+                ),
+              ),
+              floatingActionButton: _buildFloatingActionButton(theme),
+              floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+            ),
           ),
         ),
-        floatingActionButton: _buildFloatingActionButton(theme),
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       ),
     );
   }
@@ -240,24 +281,28 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
               )
             : const SizedBox.shrink()),
         
-        // Send button
-        Obx(() => IconButton(
-          onPressed: controller.isSending.value ? null : _sendEmail,
-          icon: controller.isSending.value
-              ? SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
+        // Send button (with accessibility)
+        Obx(() => Semantics(
+          button: true,
+          label: 'send_email'.tr,
+          child: IconButton(
+            onPressed: controller.isSending.value ? null : _sendEmail,
+            icon: controller.isSending.value
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: theme.colorScheme.primary,
+                    ),
+                  )
+                : Icon(
+                    Icons.send_rounded,
                     color: theme.colorScheme.primary,
+                    size: 22,
                   ),
-                )
-              : Icon(
-                  Icons.send_rounded,
-                  color: theme.colorScheme.primary,
-                  size: 22,
-                ),
-          tooltip: 'send_email'.tr,
+            tooltip: 'send_email'.tr,
+          ),
         )),
         
         // Attachment button
@@ -288,28 +333,32 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
   Widget _buildFloatingActionButton(ThemeData theme) {
     return ScaleTransition(
       scale: _fabScaleAnimation,
-      child: Obx(() => FloatingActionButton.extended(
-        onPressed: controller.isSending.value ? null : _sendEmail,
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: theme.colorScheme.onPrimary,
-        elevation: 8,
-        icon: controller.isSending.value
-            ? SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    theme.colorScheme.onPrimary,
+      child: Obx(() => Semantics(
+        button: true,
+        label: controller.isSending.value ? 'sending'.tr : 'send_email'.tr,
+        child: FloatingActionButton.extended(
+          onPressed: controller.isSending.value ? null : _sendEmail,
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
+          elevation: 8,
+          icon: controller.isSending.value
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      theme.colorScheme.onPrimary,
+                    ),
                   ),
-                ),
-              )
-            : const Icon(Icons.send_rounded),
-        label: Text(
-          controller.isSending.value ? 'sending'.tr : 'send'.tr,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onPrimary,
+                )
+              : const Icon(Icons.send_rounded),
+          label: Text(
+            controller.isSending.value ? 'sending'.tr : 'send'.tr,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onPrimary,
+            ),
           ),
         ),
       )),
@@ -434,7 +483,7 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
             ),
           ),
         );
-        Navigator.pop(context);
+        // Do not pop here; controller.sendEmail already closes the compose view.
       }
     } catch (e) {
       if (mounted) {
