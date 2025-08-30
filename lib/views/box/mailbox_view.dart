@@ -24,6 +24,7 @@ class MailBoxView extends GetView<MailBoxController> {
     return PopScope(
 onPopInvokedWithResult: (didPop, result) => selectionController.selected.clear(),
       child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           title: Text(
             mailbox.name.toLowerCase().tr,
@@ -45,31 +46,11 @@ onPopInvokedWithResult: (didPop, result) => selectionController.selected.clear()
             ),
           ),
         ),
-        body: RefreshIndicator(
-          onRefresh: () async {
-            await controller.refreshMailbox(mailbox);
-          },
-          color: theme.colorScheme.primary,
-          backgroundColor: isDarkMode ? Colors.grey.shade900 : Colors.white,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: isDarkMode
-                    ? [Colors.black, Colors.grey.shade900]
-                    : [Colors.grey.shade50, Colors.white],
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-              child: EnhancedMailboxView(
-                mailbox: mailbox,
-                theme: theme,
-                isDarkMode: isDarkMode,
-              ),
-            ),
-          ),
+        // Single source of pull-to-refresh: handled inside EnhancedMailboxView
+        body: EnhancedMailboxView(
+          mailbox: mailbox,
+          theme: theme,
+          isDarkMode: isDarkMode,
         ),
         bottomNavigationBar: Obx(() {
           return selectionController.selected.isNotEmpty
