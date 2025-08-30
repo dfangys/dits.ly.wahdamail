@@ -769,6 +769,37 @@ final isUid = sequence.isUidSequence;
           print('📧 Error parsing envelope: $e');
         }
       }
+    } else {
+      // No envelope JSON persisted: synthesize minimal envelope and headers from denormalized columns
+      try {
+        final dateValue = row[SQLiteDatabaseHelper.columnDate];
+        DateTime? date;
+        if (dateValue != null) {
+          final dateMillis = dateValue is int ? dateValue : int.tryParse(dateValue.toString());
+          if (dateMillis != null) {
+            date = DateTime.fromMillisecondsSinceEpoch(dateMillis);
+          }
+        }
+        final subjRow = row[SQLiteDatabaseHelper.columnSubject]?.toString() ?? '';
+        final fromRow = row[SQLiteDatabaseHelper.columnFrom]?.toString() ?? '';
+        final senderName = row[SQLiteDatabaseHelper.columnSenderName]?.toString();
+        if (subjRow.isNotEmpty || fromRow.isNotEmpty || date != null) {
+          final env = Envelope(
+            date: date,
+            subject: subjRow.isNotEmpty ? subjRow : null,
+            from: fromRow.isNotEmpty ? [MailAddress(senderName ?? '', fromRow)] : null,
+          );
+          message.envelope = env;
+          // Hydrate top-level fields and headers to aid tile rendering fallbacks
+          if (message.from == null || message.from!.isEmpty) {
+            message.from = env.from;
+          }
+          if (subjRow.isNotEmpty) {
+            try { message.setHeader('subject', subjRow); } catch (_) {}
+          }
+          try { message.setHeader('x-ready', '1'); } catch (_) {}
+        }
+      } catch (_) {}
     }
     
     return message;

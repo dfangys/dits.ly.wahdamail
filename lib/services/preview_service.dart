@@ -6,6 +6,7 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/services/imap_fetch_pool.dart';
 
 /// Background preview generation service with a bounded queue.
 ///
@@ -93,11 +94,12 @@ class PreviewService extends GetxService {
       // Fetch full message from server for preview if needed
       MimeMessage? full;
       try {
-        // Build a sequence for this message using v2.1.7 API
-        final seq = MessageSequence.fromMessage(job.messageRef);
-        final fetched = await mailService.client.fetchMessageSequence(
-          seq,
+        // Use the dedicated fetch pool to avoid interfering with IDLE/polling
+        final fetched = await ImapFetchPool.instance.fetchForMessage(
+          base: job.messageRef,
+          mailboxHint: job.mailbox,
           fetchPreference: FetchPreference.fullWhenWithinSize,
+          timeout: const Duration(seconds: 10),
         );
         if (fetched.isEmpty) return;
         full = fetched.first;

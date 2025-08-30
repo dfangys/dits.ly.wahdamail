@@ -9,6 +9,7 @@ import 'realtime_update_service.dart';
 import 'connection_manager.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'imap_command_queue.dart';
+import 'imap_fetch_pool.dart';
 
 /// Optimized IMAP IDLE service for high-performance real-time email updates
 /// Compatible with enough_mail v2.1.7 API
@@ -363,12 +364,13 @@ class OptimizedIdleService extends GetxService {
           int start = (max - take + 1);
           if (start < 1) start = 1;
           final seq = MessageSequence.fromRange(start, max);
-          newest = await ImapCommandQueue.instance.run('fetch newest batch (envelope)', () async {
-            return await mailService.client.fetchMessageSequence(
-              seq,
-              fetchPreference: FetchPreference.envelope,
-            ).timeout(const Duration(seconds: 12), onTimeout: () => <MimeMessage>[]);
-          });
+          // Use the dedicated fetch pool to avoid interfering with polling/IDLE on the main client
+          newest = await ImapFetchPool.instance.fetchBySequence(
+            sequence: seq,
+            mailboxHint: mailbox,
+            fetchPreference: FetchPreference.envelope,
+            timeout: const Duration(seconds: 12),
+          );
         }
       } catch (e) {
         if (kDebugMode) {

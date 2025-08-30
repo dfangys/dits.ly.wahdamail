@@ -9,6 +9,7 @@ import 'package:logger/logger.dart';
 import 'cache_manager.dart';
 import 'mail_service.dart';
 import 'imap_command_queue.dart';
+import 'imap_fetch_pool.dart';
 
 /// ENHANCED: Real-time update service with event-driven architecture
 /// Based on enough_mail_app patterns for high-performance reactive updates
@@ -722,15 +723,12 @@ extension IncomingEmailExtension on RealtimeUpdateService {
             final fetchList = toFetch.take(4).toList();
             for (final base in fetchList) {
               try {
-                final seq = MessageSequence.fromMessage(base);
-                final fetched = await ImapCommandQueue.instance.run('fetchMessageSequence(rt:env)', () async {
-                  return await mailService.client
-                      .fetchMessageSequence(
-                        seq,
-                        fetchPreference: FetchPreference.envelope,
-                      )
-                      .timeout(const Duration(seconds: 4), onTimeout: () => <MimeMessage>[]);
-                });
+                final fetched = await ImapFetchPool.instance.fetchForMessage(
+                  base: base,
+                  mailboxHint: targetMailbox,
+                  fetchPreference: FetchPreference.envelope,
+                  timeout: const Duration(seconds: 4),
+                );
                 if (fetched.isNotEmpty) {
                   final env = fetched.first.envelope;
                   if (env != null) {

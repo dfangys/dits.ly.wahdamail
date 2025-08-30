@@ -19,6 +19,7 @@ import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:wahda_bank/services/ui_context_service.dart';
 import 'package:workmanager/workmanager.dart';
 import 'imap_command_queue.dart';
+import 'imap_fetch_pool.dart';
 
 /// Service responsible for handling email notifications using IMAP IDLE with SQLite support
 ///
@@ -278,12 +279,12 @@ class EmailNotificationService {
         if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
           try { await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 5)); } catch (_) {}
         }
-        final envMsgs = await ImapCommandQueue.instance.run('fetchMessageSequence(notif:env)', () async {
-          return await mailService.client.fetchMessageSequence(
-            MessageSequence.fromMessage(message),
-            fetchPreference: FetchPreference.envelope,
-          ).timeout(const Duration(seconds: 3), onTimeout: () => <MimeMessage>[]);
-        });
+        final envMsgs = await ImapFetchPool.instance.fetchForMessage(
+          base: message,
+          mailboxHint: mailbox,
+          fetchPreference: FetchPreference.envelope,
+          timeout: const Duration(seconds: 3),
+        );
         if (envMsgs.isNotEmpty) {
           final env = envMsgs.first.envelope;
           if (env != null) {
@@ -612,15 +613,12 @@ class EmailNotificationService {
       } catch (_) {}
 
       // Fetch with an overall timeout budget (<= timeout)
-      final msgs = await ImapCommandQueue.instance.run('fetchMessageSequence(notif:preview full)', () async {
-        final fetch = mailService.client
-            .fetchMessageSequence(
-              MessageSequence.fromMessage(message),
-              fetchPreference: FetchPreference.fullWhenWithinSize,
-            )
-            .timeout(timeout, onTimeout: () => <MimeMessage>[]);
-        return await fetch;
-      });
+      final msgs = await ImapFetchPool.instance.fetchForMessage(
+        base: message,
+        mailboxHint: mailbox,
+        fetchPreference: FetchPreference.fullWhenWithinSize,
+        timeout: timeout,
+      );
       if (msgs.isEmpty) return '';
       final full = msgs.first;
 
@@ -693,14 +691,12 @@ class EmailNotificationService {
       // Fetch ENVELOPE with a strict timeout
       List<MimeMessage> fetched = [];
       try {
-        fetched = await ImapCommandQueue.instance.run('fetchMessageSequence(notif:ensureEnv)', () async {
-          return await mailService.client
-              .fetchMessageSequence(
-                MessageSequence.fromMessage(message),
-                fetchPreference: FetchPreference.envelope,
-              )
-              .timeout(timeout, onTimeout: () => <MimeMessage>[]);
-        });
+        fetched = await ImapFetchPool.instance.fetchForMessage(
+          base: message,
+          mailboxHint: mailbox,
+          fetchPreference: FetchPreference.envelope,
+          timeout: timeout,
+        );
       } catch (_) {}
       if (fetched.isEmpty) return;
       final envMsg = fetched.first;
