@@ -471,6 +471,7 @@ class MailBoxController extends GetxController {
             
             if (!exists) {
               currentMessages.insert(0, message); // Add to beginning
+              try { bumpMessageMeta(current!, message); } catch (_) {}
             }
           }
           // Trigger reactive updates
@@ -2734,7 +2735,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     } catch (_) {}
   }
 
-  /// Public method to apply updated polling settings immediately
+  // Public method to apply updated polling settings immediately
   void restartForegroundPolling() {
     try {
       final m = currentMailbox;
@@ -3029,6 +3030,31 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
           // Ignore individual attachment errors
         }
       }
+    } catch (_) {}
+  }
+
+  /// Quick refresh of top-of-list messages without full reload. Useful for pull-to-refresh.
+  Future<void> refreshTopNow() async {
+    try {
+      final m = currentMailbox ?? mailBoxInbox;
+      if (m.name.isEmpty) return;
+      await _pollOnce(m);
+      // Ensure newest first and trigger UI
+      try {
+        final list = emails[m];
+        if (list != null && list.isNotEmpty) {
+          list.sort((a, b) {
+            final da = a.decodeDate();
+            final db = b.decodeDate();
+            if (da == null && db == null) return 0;
+            if (da == null) return 1;
+            if (db == null) return -1;
+            return db.compareTo(da);
+          });
+        }
+      } catch (_) {}
+      emails.refresh();
+      update();
     } catch (_) {}
   }
 

@@ -644,12 +644,21 @@ extension IncomingEmailExtension on RealtimeUpdateService {
 
       RealtimeUpdateService._logger.i('📧 Processing ${newMessages.length} new messages');
 
-      // Ensure tiles can render immediately even if preview is not yet computed
+      // Ensure tiles can render immediately and hydrate minimal sender/subject
       for (final m in newMessages) {
         try {
+          // Hydrate top-level from if missing
+          if ((m.from == null || m.from!.isEmpty) && (m.envelope?.from?.isNotEmpty ?? false)) {
+            m.from = m.envelope!.from;
+          }
+          // Normalize subject
+          final subj = m.decodeSubject() ?? m.envelope?.subject;
+          if (subj == null || subj.trim().isEmpty) {
+            try { m.setHeader('subject', 'No Subject'); } catch (_) {}
+          }
+          // Mark ready so tiles avoid shimmer when metadata is present
           if ((m.getHeaderValue('x-ready') ?? '') != '1') {
             m.setHeader('x-ready', '1');
-            // Do not force a placeholder preview; leave empty so tile can still render
           }
         } catch (_) {}
       }

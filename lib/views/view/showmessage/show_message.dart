@@ -426,7 +426,42 @@ class _ShowMessageState extends State<ShowMessage> {
     }
   }
 
-  // Enhanced subject with proper fallback handling (enough_mail best practice)
+  // Parse sender from raw headers using enough_mail's MailAddress parser first.
+  // Falls back to a minimal regex only if parsing fails, to avoid heavy custom logic.
+  Map<String, String>? _parseSenderFromHeaders() {
+    try {
+      final raw = message.getHeaderValue('from') ?? message.getHeaderValue('reply-to');
+      if (raw == null || raw.trim().isEmpty) return null;
+      try {
+        final addr = MailAddress.parse(raw);
+        final displayName = (addr.personalName != null && addr.personalName!.trim().isNotEmpty)
+            ? addr.personalName!.trim()
+            : addr.email;
+        return {'name': displayName, 'email': addr.email};
+      } catch (_) {
+        // Minimal best-effort extraction to avoid Unknown states
+        final re = RegExp(r'([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})');
+        final m = re.firstMatch(raw);
+        final email = m != null ? m.group(1)!.trim() : 'unknown@example.com';
+        String name = raw.trim();
+        // Prefer quoted name or left side before '<'
+        final quoted = RegExp(r'"([^"]+)"').firstMatch(raw)?.group(1)?.trim();
+        if (quoted != null && quoted.isNotEmpty) {
+          name = quoted;
+        } else if (raw.contains('<')) {
+          name = raw.split('<').first.trim();
+        } else if (email != 'unknown@example.com' && raw.trim() == email) {
+          name = email;
+        }
+        if (name.isEmpty) name = email;
+        return {'name': name, 'email': email};
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Enhanced subject with proper fallback handling (enough_mail first)
   String get subject {
     final decodedSubject = message.decodeSubject();
     if (kDebugMode) {
@@ -434,18 +469,24 @@ class _ShowMessageState extends State<ShowMessage> {
       print('DEBUG: Subject - envelope.subject: ${message.envelope?.subject}');
       print('DEBUG: Subject - headers: ${message.headers}');
     }
-    
+
     if (decodedSubject == null || decodedSubject.trim().isEmpty) {
       // Try envelope subject as fallback
-      if (message.envelope?.subject != null && message.envelope!.subject!.trim().isNotEmpty) {
-        return message.envelope!.subject!.trim();
+      final envSubject = message.envelope?.subject;
+      if (envSubject != null && envSubject.trim().isNotEmpty) {
+        return envSubject.trim();
+      }
+      // Last resort: raw Subject header if present
+      final hdr = message.getHeaderValue('subject');
+      if (hdr != null && hdr.trim().isNotEmpty) {
+        return hdr.trim();
       }
       return 'No Subject';
     }
     return decodedSubject.trim();
   }
 
-  // Enhanced sender name with proper fallback chain (enough_mail best practice)
+  // Enhanced sender name with proper fallback chain (prefer enough_mail, then header parse)
   String get name {
     // Try from field first
     if (message.from != null && message.from!.isNotEmpty) {
@@ -455,7 +496,7 @@ class _ShowMessageState extends State<ShowMessage> {
       }
       return from.email;
     }
-    
+
     // Try sender field as fallback
     if (message.sender != null) {
       if (message.sender!.personalName != null && message.sender!.personalName!.trim().isNotEmpty) {
@@ -463,33 +504,41 @@ class _ShowMessageState extends State<ShowMessage> {
       }
       return message.sender!.email;
     }
-    
-    // Try fromEmail as last resort
+
+    // Try fromEmail as fallback
     if (message.fromEmail != null && message.fromEmail!.trim().isNotEmpty) {
       return message.fromEmail!.trim();
     }
-    
-    return "Unknown Sender";
+
+    // Last resort: parse from raw headers using enough_mail, then minimal regex
+    final parsed = _parseSenderFromHeaders();
+    if (parsed != null) return parsed['name'] ?? 'Unknown Sender';
+
+    return 'Unknown Sender';
   }
 
-  // Enhanced email address with proper fallback chain (enough_mail best practice)
+  // Enhanced email address with proper fallback chain (prefer enough_mail, then header parse)
   String get email {
     // Try from field first
     if (message.from != null && message.from!.isNotEmpty) {
       return message.from!.first.email;
     }
-    
+
     // Try sender field as fallback
     if (message.sender != null) {
       return message.sender!.email;
     }
-    
-    // Try fromEmail as last resort
+
+    // Try fromEmail as fallback
     if (message.fromEmail != null && message.fromEmail!.trim().isNotEmpty) {
       return message.fromEmail!.trim();
     }
-    
-    return "unknown@example.com";
+
+    // Last resort: parse from raw headers using enough_mail, then minimal regex
+    final parsed = _parseSenderFromHeaders();
+    if (parsed != null && (parsed['email']?.isNotEmpty ?? false)) return parsed['email']!;
+
+    return 'unknown@example.com';
   }
 
   // Enhanced date formatting with timezone awareness (enough_mail best practice)

@@ -202,8 +202,8 @@ class IncomingEmailService extends GetxService {
             final msgId = '${message.uid ?? message.sequenceId}';
             _processedMessageIds.add(msgId);
             
-            // Show notification
-            await _showNewEmailNotification(message);
+            // Notifications are handled centrally by EmailNotificationService to avoid duplicates.
+            // This service only updates in-app indicators and streams.
           }
 
           // Update realtime service

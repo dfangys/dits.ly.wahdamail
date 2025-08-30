@@ -15,6 +15,7 @@ import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
+import 'package:wahda_bank/services/ui_context_service.dart';
 import 'package:workmanager/workmanager.dart';
 
 /// Service responsible for handling email notifications using IMAP IDLE with SQLite support
@@ -28,6 +29,12 @@ class EmailNotificationService {
   }
 
   EmailNotificationService._();
+
+  // Notification de-duplication and update tracking
+  final Map<String, int> _notificationIdsByKey = {};
+  final Set<String> _notifiedKeys = {};
+  final Map<String, Timer> _notificationDebouncers = {};
+  final Map<String, Map<String, dynamic>> _pendingNotifications = {};
 
   // Constants
   static const String backgroundTaskName = 'com.wahda_bank.emailCheck';
@@ -211,27 +218,196 @@ class EmailNotificationService {
     checkForNewMessages();
   }
 
+  /// Compute a stable key for a message to dedupe/update notifications
+  String _stableKeyForMessage(MimeMessage message, Mailbox mailbox) {
+    final msgId = (message.getHeaderValue('message-id') ?? '').trim();
+    final seq = message.sequenceId?.toString();
+    final date = message.decodeDate()?.millisecondsSinceEpoch.toString();
+    final uid = message.uid?.toString();
+    final boxRaw = mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : mailbox.path;
+    final box = boxRaw.toLowerCase();
+    if (msgId.isNotEmpty) {
+      return 'mb=$box|mid=$msgId';
+    }
+    if (seq != null && date != null) {
+      return 'mb=$box|seq=$seq|d=$date';
+    }
+    if (uid != null && date != null) {
+      return 'mb=$box|uid=$uid|d=$date';
+    }
+    // Fallback: subject + date signature
+    final subj = (message.decodeSubject() ?? '').trim();
+    return 'mb=$box|s=${subj.hashCode}|d=${date ?? '0'}';
+  }
+
   /// Process a new message and show notification
   void _processNewMessage(MimeMessage message) async {
     // Skip if not from inbox (customize this based on requirements)
     final mailbox = MailService.instance.client.selectedMailbox;
     if (mailbox == null || !mailbox.isInbox) return;
 
-    // Extract message details
-    final from = message.from != null && message.from!.isNotEmpty
-        ? message.from!.first.personalName ?? message.from!.first.email
-        : 'Unknown Sender';
+    // Build stable key and pick/update a deterministic notification id
+    final key = _stableKeyForMessage(message, mailbox);
 
-    final subject = message.decodeSubject() ?? 'No Subject';
+    // If we've already notified for this key, skip duplicate updates within a short TTL
+    if (_notifiedKeys.contains(key)) {
+      return;
+    }
 
-    // Store the message UID as last seen (prevents duplicate notifications)
+    // Ensure envelope has usable sender and subject; try a quick envelope fetch if needed
+    String sender;
+    String subject;
+    try {
+      sender = message.from != null && message.from!.isNotEmpty
+          ? (message.from!.first.personalName ?? message.from!.first.email)
+          : (message.envelope?.from?.isNotEmpty == true
+              ? (message.envelope!.from!.first.personalName ?? message.envelope!.from!.first.email)
+              : '');
+      subject = message.decodeSubject() ?? (message.envelope?.subject ?? '');
+    } catch (_) {
+      sender = '';
+      subject = '';
+    }
+
+    if (sender.isEmpty || subject.isEmpty) {
+      try {
+        final mailService = MailService.instance;
+        if (!mailService.client.isConnected) {
+          try { await mailService.connect().timeout(const Duration(seconds: 5)); } catch (_) {}
+        }
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          try { await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 5)); } catch (_) {}
+        }
+        final envMsgs = await mailService.client.fetchMessageSequence(
+          MessageSequence.fromMessage(message),
+          fetchPreference: FetchPreference.envelope,
+        ).timeout(const Duration(seconds: 3), onTimeout: () => <MimeMessage>[]);
+        if (envMsgs.isNotEmpty) {
+          final env = envMsgs.first.envelope;
+          if (env != null) {
+            message.envelope = env;
+            if ((message.from == null || message.from!.isEmpty) && env.from?.isNotEmpty == true) {
+              message.from = env.from;
+            }
+            sender = sender.isNotEmpty
+                ? sender
+                : (env.from?.isNotEmpty == true
+                    ? (env.from!.first.personalName ?? env.from!.first.email)
+                    : '');
+            subject = subject.isNotEmpty ? subject : (env.subject ?? '');
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (sender.isEmpty) sender = 'Unknown Sender';
+    if (subject.isEmpty) subject = 'No Subject';
+
+    // Store the message UID as last seen (prevents duplicate notifications in background checks)
     final uid = message.uid;
     if (uid != null) {
       await _storage.write(lastSeenUidKey, uid);
     }
 
-    // Ensure a preview is available: try immediate sources, then wait up to 3s for a fetched preview
-    String preview = await _obtainPreviewWithShortDelay(message, mailbox, timeout: const Duration(seconds: 3));
+    // Prepare a pending notif payload; we will debounce to coalesce quick successive events
+    // Capture the best-known values immediately
+    String bestPreview = '';
+    try {
+      final hdr = message.getHeaderValue('x-preview');
+      if (hdr != null && hdr.trim().isNotEmpty) bestPreview = hdr.trim();
+      if (bestPreview.isEmpty) {
+        final plain = message.decodeTextPlainPart();
+        if (plain != null && plain.trim().isNotEmpty) {
+          final t = plain.replaceAll(RegExp(r'\s+'), ' ').trim();
+          bestPreview = t.length > 150 ? '${t.substring(0, 147)}...' : t;
+        }
+      }
+      if (bestPreview.isEmpty) {
+        final html = message.decodeTextHtmlPart();
+        if (html != null && html.trim().isNotEmpty) {
+          final stripped = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
+          final t = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+          bestPreview = t.length > 150 ? '${t.substring(0, 147)}...' : t;
+        }
+      }
+    } catch (_) {}
+
+    _pendingNotifications[key] = {
+      'sender': sender,
+      'subject': subject,
+      'preview': bestPreview,
+      'uid': uid,
+      'mailboxPath': mailbox.path,
+      'message': message,
+    };
+
+    // Debounce window to allow preview/envelope to arrive; resets on repeated events
+    _notificationDebouncers[key]?.cancel();
+    _notificationDebouncers[key] = Timer(const Duration(milliseconds: 1200), () async {
+      try {
+        final pending = _pendingNotifications[key];
+        if (pending == null) return;
+
+        // Try to obtain a better preview just-in-time if still empty
+        String finalPreview = (pending['preview'] as String?) ?? '';
+        if (finalPreview.isEmpty) {
+          finalPreview = await _obtainPreviewWithShortDelay(message, mailbox, timeout: const Duration(seconds: 2));
+        }
+
+        // Stamp preview and ready on the in-memory message so UI can render immediately
+        try {
+          if (finalPreview.isNotEmpty) {
+            message.setHeader('x-preview', finalPreview);
+          }
+          message.setHeader('x-ready', '1');
+        } catch (_) {}
+
+        // Use a deterministic ID per stable key to ensure updates replace
+        int notifId;
+        if (_notificationIdsByKey.containsKey(key)) {
+          notifId = _notificationIdsByKey[key]!;
+        } else {
+          final rawId = uid ?? key.hashCode;
+          notifId = rawId & 0x7fffffff;
+          _notificationIdsByKey[key] = notifId;
+        }
+
+        final bodyText = (finalPreview.isNotEmpty) ? '$subject — $finalPreview' : subject;
+
+        // If the app is foreground and inbox is visible, prefer an in-app banner instead of OS notification
+        final ui = UiContextService.instance;
+        if (ui.isAppForeground && ui.inboxVisible) {
+          try {
+            // Lightweight in-app banner; avoids OS notification noise while user is in Inbox
+            Get.snackbar(
+              'New email from $sender',
+              bodyText,
+              snackPosition: SnackPosition.TOP,
+              duration: const Duration(seconds: 3),
+              isDismissible: true,
+            );
+          } catch (_) {}
+        } else {
+          // Show/update OS notification
+          NotificationService.instance.showFlutterNotification(
+            sender,
+            bodyText,
+            {
+              'action': 'view_message',
+              'message_uid': uid?.toString() ?? '',
+              'mailbox': mailbox.path,
+              'preview': finalPreview,
+            },
+            notifId,
+          );
+        }
+
+        _notifiedKeys.add(key);
+      } finally {
+        _notificationDebouncers.remove(key)?.cancel();
+        _pendingNotifications.remove(key);
+      }
+    });
 
     // Persist minimal row to SQLite (best-effort) and include preview when available
     try {
@@ -253,7 +429,7 @@ class EmailNotificationService {
           SQLiteDatabaseHelper.columnUid: message.uid,
           SQLiteDatabaseHelper.columnMessageId: message.getHeaderValue('message-id')?.replaceAll('<', '').replaceAll('>', ''),
           SQLiteDatabaseHelper.columnSubject: subject,
-          SQLiteDatabaseHelper.columnFrom: from,
+          SQLiteDatabaseHelper.columnFrom: sender,
           SQLiteDatabaseHelper.columnDate: message.decodeDate()?.millisecondsSinceEpoch,
           SQLiteDatabaseHelper.columnContent: null,
           SQLiteDatabaseHelper.columnHtmlContent: null,
@@ -265,9 +441,8 @@ class EmailNotificationService {
           SQLiteDatabaseHelper.columnIsRecent: SQLiteDatabaseHelper.boolToInt(false),
           SQLiteDatabaseHelper.columnHasAttachments: SQLiteDatabaseHelper.boolToInt(message.hasAttachments()),
           SQLiteDatabaseHelper.columnSize: message.size,
-          // If schema supports preview_text, persist it (no-op if column missing)
           if (SQLiteDatabaseHelper.columnPreviewText.isNotEmpty)
-            SQLiteDatabaseHelper.columnPreviewText: preview,
+            SQLiteDatabaseHelper.columnPreviewText: bestPreview,
         };
 
         // Insert or update message in database
@@ -283,35 +458,8 @@ class EmailNotificationService {
       }
     }
 
-    // Stamp preview on the in-memory message so UI can render immediately
-    try {
-      if (preview.isNotEmpty) {
-        message.setHeader('x-preview', preview);
-        message.setHeader('x-ready', '1');
-      }
-    } catch (_) {}
-
-    // Build notification body as subject + preview
-    final bodyText = (preview.isNotEmpty) ? '$subject — $preview' : subject;
-
-    // Show notification (replace if later runs reuse same ID)
-    NotificationService.instance.showFlutterNotification(
-      from,
-      bodyText,
-      {
-        'action': 'view_message',
-        'message_uid': uid?.toString() ?? '',
-        'mailbox': mailbox.path,
-        'preview': preview,
-      },
-      // Use message UID as notification ID to prevent duplicates/allow updates
-      uid?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
-    );
-
-    // Immediately update the on-screen list with this incoming message
-    try {
-      await RealtimeUpdateService.instance.notifyNewMessages([message], mailbox: mailbox);
-    } catch (_) {}
+    // Note: notification display is debounced above; do not show here immediately
+    // Also, do not re-publish to realtime service here to avoid duplicate UI insertions.
   }
 
   /// Try to obtain a preview quickly; if not available, wait up to [timeout]

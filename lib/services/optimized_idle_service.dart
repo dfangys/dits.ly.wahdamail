@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import 'mail_service.dart';
 import 'realtime_update_service.dart';
 import 'connection_manager.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 
 /// Optimized IMAP IDLE service for high-performance real-time email updates
 /// Compatible with enough_mail v2.1.7 API
@@ -317,9 +318,75 @@ class OptimizedIdleService extends GetxService {
         print('📧 📬 New message event detected');
       }
 
-      // Trigger a refresh of the mailbox to get new messages
-      // This is a safer approach than trying to parse specific event data
-      await _triggerMailboxRefresh();
+      final mailService = _mailService;
+      if (mailService == null) {
+        await _triggerMailboxRefresh();
+        return;
+      }
+
+      // Determine target mailbox (prefer currently selected; fallback to INBOX)
+      Mailbox? mailbox = mailService.client.selectedMailbox;
+      mailbox ??= mailService.client.mailboxes?.firstWhere(
+        (mb) => mb.isInbox,
+        orElse: () => mailService.client.mailboxes?.isNotEmpty == true
+            ? mailService.client.mailboxes!.first
+            : Mailbox(encodedName: 'inbox', encodedPath: 'inbox', flags: [], pathSeparator: '/'),
+      );
+
+      if (mailbox == null) {
+        await _triggerMailboxRefresh();
+        return;
+      }
+
+      // Ensure the mailbox is selected before fetching by sequence
+      try {
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await mailService.client.selectMailbox(mailbox).timeout(_connectionTimeout);
+        }
+      } catch (_) {}
+
+      // Fetch a small batch of the newest messages (envelope-only) to minimize latency
+      List<MimeMessage> newest = const <MimeMessage>[];
+      try {
+        final int max = mailbox.messagesExists;
+        if (max > 0) {
+          final int take = max >= 10 ? 10 : max;
+          int start = (max - take + 1);
+          if (start < 1) start = 1;
+          final seq = MessageSequence.fromRange(start, max);
+          newest = await mailService.client.fetchMessageSequence(
+            seq,
+            fetchPreference: FetchPreference.envelope,
+          ).timeout(const Duration(seconds: 12), onTimeout: () => <MimeMessage>[]);
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('📧 ⚠️ Failed to fetch newest messages quickly: $e');
+        }
+      }
+
+      if (newest.isNotEmpty) {
+        // Hydrate minimal metadata and mark display-ready so UI tiles render immediately
+        for (final m in newest) {
+          try {
+            if ((m.from == null || m.from!.isEmpty) && (m.envelope?.from?.isNotEmpty ?? false)) {
+              m.from = m.envelope!.from;
+            }
+            m.setHeader('x-ready', '1');
+          } catch (_) {}
+        }
+        // Publish to realtime streams so controllers update UI instantly
+        await _realtimeService.notifyNewMessages(newest, mailbox: mailbox);
+      } else {
+        // Fall back to targeted refresh if we couldn't fetch a batch
+        await _triggerMailboxRefresh(targetMailbox: mailbox);
+      }
+
+      // Nudge the controller to do a very fast top-of-list refresh for hydration
+      try {
+        final c = Get.find<MailBoxController>();
+        await c.refreshTopNow();
+      } catch (_) {}
       
     } catch (e) {
       if (kDebugMode) {
@@ -363,15 +430,26 @@ class OptimizedIdleService extends GetxService {
   }
 
   /// Trigger mailbox refresh through the realtime service
-  Future<void> _triggerMailboxRefresh() async {
+  Future<void> _triggerMailboxRefresh({Mailbox? targetMailbox}) async {
     try {
       if (kDebugMode) {
         print('📧 ✅ Triggered mailbox refresh via notifyNewMessages');
       }
       
-      // Use the public method to notify about potential new messages
-      // This will trigger a refresh of the mailbox
-      await _realtimeService.notifyNewMessages([]);
+      // Determine mailbox if not provided
+      final mailService = _mailService;
+      Mailbox? mb = targetMailbox;
+      if (mb == null && mailService != null) {
+        mb = mailService.client.selectedMailbox ?? mailService.client.mailboxes?.firstWhere(
+          (m) => m.isInbox,
+          orElse: () => mailService.client.mailboxes?.isNotEmpty == true
+              ? mailService.client.mailboxes!.first
+              : Mailbox(encodedName: 'inbox', encodedPath: 'inbox', flags: [], pathSeparator: '/'),
+        );
+      }
+
+      // Use the public method to notify about potential new messages for the target mailbox
+      await _realtimeService.notifyNewMessages([], mailbox: mb);
       
     } catch (e) {
       if (kDebugMode) {

@@ -9,6 +9,7 @@ import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:wahda_bank/services/ui_context_service.dart';
 
 class HomeEmailList extends StatefulWidget {
   const HomeEmailList({super.key});
@@ -17,7 +18,7 @@ class HomeEmailList extends StatefulWidget {
   State<HomeEmailList> createState() => _HomeEmailListState();
 }
 
-class _HomeEmailListState extends State<HomeEmailList> {
+class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   final MailBoxController controller = Get.find<MailBoxController>();
   final SelectionController selectionController = Get.find<SelectionController>();
@@ -36,7 +37,12 @@ class _HomeEmailListState extends State<HomeEmailList> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scrollController.addListener(_onScroll);
+
+    // Mark inbox visible
+    try { UiContextService.instance.inboxVisible = true; } catch (_) {}
+    try { UiContextService.instance.isAppForeground = true; } catch (_) {}
     
     // Initialize email loading for home screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -46,7 +52,9 @@ class _HomeEmailListState extends State<HomeEmailList> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
+    try { UiContextService.instance.inboxVisible = false; } catch (_) {}
     super.dispose();
   }
 
@@ -274,6 +282,7 @@ class _HomeEmailListState extends State<HomeEmailList> {
           _processedUIDs.clear();
           _lastSignature = '';
           await controller.refreshMailbox(controller.mailBoxInbox);
+          await controller.refreshTopNow();
           _processMessages(controller.boxMails);
         },
         child: ListView.builder(
@@ -547,6 +556,15 @@ class _HomeEmailListState extends State<HomeEmailList> {
       return weekdays[date.weekday - 1];
     } else {
       return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      try { UiContextService.instance.isAppForeground = true; } catch (_) {}
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      try { UiContextService.instance.isAppForeground = false; } catch (_) {}
     }
   }
 }

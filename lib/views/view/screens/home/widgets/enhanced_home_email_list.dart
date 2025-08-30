@@ -9,6 +9,7 @@ import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:wahda_bank/services/ui_context_service.dart';
 
 /// Enhanced Home Email List with proper first-time initialization
 /// Best practices implementation for email loading and error handling
@@ -49,6 +50,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
     _setupScrollListener();
+
+    // Mark inbox visible in UI context
+    try { UiContextService.instance.inboxVisible = true; } catch (_) {}
+    try { UiContextService.instance.isAppForeground = true; } catch (_) {}
     
     // Delayed initialization to ensure proper widget tree setup
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -60,6 +65,8 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
+    // Mark inbox no longer visible
+    try { UiContextService.instance.inboxVisible = false; } catch (_) {}
     super.dispose();
   }
 
@@ -219,6 +226,8 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       HapticFeedback.mediumImpact();
       _processedUIDs.clear();
       await controller.refreshMailbox(controller.mailBoxInbox);
+      // Force a fast top-of-list sync
+      await controller.refreshTopNow();
       debugPrint('🏠 ✅ Emails refreshed');
       
     } catch (e) {
@@ -594,7 +603,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     
     // Refresh when app comes to foreground
     if (state == AppLifecycleState.resumed && _hasInitialized) {
+      try { UiContextService.instance.isAppForeground = true; } catch (_) {}
       _refreshEmails();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      try { UiContextService.instance.isAppForeground = false; } catch (_) {}
     }
   }
 }
