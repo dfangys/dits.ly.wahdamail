@@ -2765,11 +2765,11 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     } catch (_) {}
   }
 
-  Future<void> _pollOnce(Mailbox mailbox) async {
+  Future<void> _pollOnce(Mailbox mailbox, {bool force = false}) async {
     try {
-      // Skip polling if optimized IDLE is active to avoid IDLE/DONE contention
+      // Skip polling if optimized IDLE is active to avoid IDLE/DONE contention, unless forced
       final idle = OptimizedIdleService.instance;
-      if (idle.isRunning || idle.isIdleActive) return;
+      if (!force && (idle.isRunning || idle.isIdleActive)) return;
 
       final storage = mailboxStorage[mailbox];
       if (storage == null) return;
@@ -3061,7 +3061,12 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     try {
       final m = currentMailbox ?? mailBoxInbox;
       if (m.name.isEmpty) return;
-      await _pollOnce(m);
+
+      // Force an incremental sync even if optimized IDLE is active, pausing IDLE briefly to avoid contention
+      await _withIdlePause(() async {
+        await _pollOnce(m, force: true);
+      });
+
       // Ensure newest first and trigger UI
       try {
         final list = emails[m];
@@ -3079,6 +3084,22 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       emails.refresh();
       update();
     } catch (_) {}
+  }
+
+  // Pause optimized IDLE around a critical foreground sync to avoid DONE contention
+  Future<T> _withIdlePause<T>(Future<T> Function() action) async {
+    final idle = OptimizedIdleService.instance;
+    final wasRunning = idle.isRunning || idle.isIdleActive;
+    if (wasRunning) {
+      try { await idle.stopOptimizedIdle(); } catch (_) {}
+    }
+    try {
+      return await action();
+    } finally {
+      if (wasRunning) {
+        try { await idle.startOptimizedIdle(); } catch (_) {}
+      }
+    }
   }
 
   @override

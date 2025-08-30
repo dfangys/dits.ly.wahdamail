@@ -673,17 +673,19 @@ class EmailNotificationService {
 
     final bodyText = (preview.isNotEmpty) ? '$subject — $preview' : subject;
 
-    NotificationService.instance.showFlutterNotification(
-      from,
-      bodyText,
-      {
-        'action': 'view_message',
-        'message_uid': uid.toString(),
-        'mailbox': 'INBOX',
-        'preview': preview,
-      },
-      uid,
-    );
+          NotificationService.instance.showFlutterNotification(
+            from,
+            bodyText,
+            {
+              'action': 'view_message',
+              'message_uid': uid.toString(),
+              'mailbox': 'INBOX',
+              'preview': preview,
+              'sender': from,
+              'subject': subject,
+            },
+            uid,
+          );
 
     // Also reflect the new mail immediately in the on-screen list (if app is running)
     try {
