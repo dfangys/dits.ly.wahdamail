@@ -64,38 +64,84 @@ class _ThreadViewerState extends State<ThreadViewer> {
       setState(() { _loading = true; _error = null; });
       final seq = widget.message.threadSequence;
       if (seq == null || seq.isEmpty) {
-        // Fallback: derive using headers/subject within current mailbox window
+        // Strict header-only fallback: build a small relationship graph from Message-ID, In-Reply-To, and References.
         final ctrl = Get.find<MailBoxController>();
         final list = List<MimeMessage>.from(ctrl.emails[widget.mailbox] ?? const <MimeMessage>[]);
-        String norm(String? s) {
-          if (s == null) return '';
-          var t = s.trim();
-          final rx = RegExp(r'^(?:(re|fw|fwd|aw|wg)\s*:\s*)+', caseSensitive: false);
-          t = t.replaceAll(rx, '').trim();
-          return t.toLowerCase();
+
+        List<String> _ids(String? raw) {
+          if (raw == null || raw.isEmpty) return const <String>[];
+          final matches = RegExp(r'<([^>]+)>').allMatches(raw);
+          if (matches.isNotEmpty) {
+            return matches.map((m) => (m.group(1) ?? '').trim().toLowerCase()).where((e) => e.isNotEmpty).toList();
+          }
+          // Fallback: single token without angle brackets (rare)
+          final t = raw.trim();
+          if (t.contains('@')) {
+            return [t.replaceAll(RegExp(r'[<>]'), '').trim().toLowerCase()];
+          }
+          return const <String>[];
         }
-        String keyFor(MimeMessage m) {
-          final refs = m.getHeaderValue('references');
-          if (refs != null && refs.isNotEmpty) {
-            final ids = RegExp(r'<[^>]+>').allMatches(refs).map((mm) => mm.group(0)!).toList();
-            if (ids.isNotEmpty) return ids.first;
-          }
-          final irt = m.getHeaderValue('in-reply-to');
-          if (irt != null && irt.isNotEmpty) {
-            final id = RegExp(r'<[^>]+>').firstMatch(irt)?.group(0);
-            if (id != null) return id;
-          }
-          return 'subj::'+norm(m.decodeSubject() ?? m.envelope?.subject);
+
+        String _msgKey(MimeMessage m) =>
+            (m.uid != null) ? 'uid:${m.uid}' : (m.sequenceId != null ? 'seq:${m.sequenceId}' : 'hash:${m.hashCode}');
+
+        // Seed conversation IDs from the current message
+        final convIds = <String>{};
+        convIds.addAll(_ids(widget.message.getHeaderValue('message-id')));
+        convIds.addAll(_ids(widget.message.getHeaderValue('in-reply-to')));
+        convIds.addAll(_ids(widget.message.getHeaderValue('references')));
+
+        // If no IDs at all, we cannot build a header-based conversation; return empty.
+        if (convIds.isEmpty) {
+          setState(() { _thread = const <MimeMessage>[]; _loading = false; });
+          _attachMetaNotifiers();
+          return;
         }
-        final targetKey = keyFor(widget.message);
-        final others = list.where((m) {
-          if ((widget.message.uid != null && m.uid == widget.message.uid) || (widget.message.sequenceId != null && m.sequenceId == widget.message.sequenceId)) {
-            return false;
+
+        final result = <MimeMessage>[];
+        final visited = <String>{};
+        // Limit the passes to keep it efficient while still linking multi-hop replies
+        const int maxPasses = 3;
+        int pass = 0;
+        bool grew = true;
+        while (grew && pass < maxPasses) {
+          grew = false;
+          pass++;
+          for (final m in list) {
+            // Skip current message and already added ones
+            if ((widget.message.uid != null && m.uid == widget.message.uid) || (widget.message.sequenceId != null && m.sequenceId == widget.message.sequenceId)) {
+              continue;
+            }
+            final key = _msgKey(m);
+            if (visited.contains(key)) continue;
+
+            final mid = _ids(m.getHeaderValue('message-id'));
+            final irt = _ids(m.getHeaderValue('in-reply-to'));
+            final refs = _ids(m.getHeaderValue('references'));
+
+            bool matches = false;
+            if (mid.any(convIds.contains)) {
+              matches = true;
+            } else if (irt.any(convIds.contains)) {
+              matches = true;
+            } else if (refs.any(convIds.contains)) {
+              matches = true;
+            }
+
+            if (matches) {
+              result.add(m);
+              visited.add(key);
+              // Expand the frontier with this message's IDs for the next pass
+              convIds.addAll(mid);
+              convIds.addAll(irt);
+              convIds.addAll(refs);
+              grew = true;
+            }
           }
-          return keyFor(m) == targetKey;
-        }).toList();
-        _sort(others);
-        setState(() { _thread = others; _loading = false; });
+        }
+
+        _sort(result);
+        setState(() { _thread = result; _loading = false; });
         _attachMetaNotifiers();
         return;
       }
