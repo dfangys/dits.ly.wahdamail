@@ -179,17 +179,18 @@ class _ThreadViewerState extends State<ThreadViewer> {
                 )
                 .timeout(const Duration(seconds: 12));
             if (!mounted || gen != _loadGen) return;
-            final found = searchRes?.messages ?? const <MimeMessage>[];
+            final found = searchRes.messages ?? const <MimeMessage>[];
             for (final m in found) {
               if ((widget.message.uid != null && m.uid == widget.message.uid) || (widget.message.sequenceId != null && m.sequenceId == widget.message.sequenceId)) {
                 continue;
               }
-              result.add(m        _sort(result);
+              result.add(m);
+            }
+          } catch (_) {}
+        }
+        _sort(result);
         if (!mounted || gen != _loadGen) return;
         setState(() { _thread = result; _loading = false; });
-        _attachMetaNotifiers();
-        return;
-setState(() { _thread = result; _loading = false; });
         _attachMetaNotifiers();
         return;
       }

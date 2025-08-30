@@ -8,6 +8,7 @@ import 'package:logger/logger.dart';
 
 import 'cache_manager.dart';
 import 'mail_service.dart';
+import 'imap_command_queue.dart';
 
 /// ENHANCED: Real-time update service with event-driven architecture
 /// Based on enough_mail_app patterns for high-performance reactive updates
@@ -234,7 +235,9 @@ class RealtimeUpdateService extends GetxService {
         await mailService.connect();
       }
       
-      await mailService.client.selectMailbox(mailbox);
+      await ImapCommandQueue.instance.run('selectMailbox(syncMailbox:${mailbox.name})', () async {
+        await mailService.client.selectMailbox(mailbox);
+      });
       
       // Check for new messages
       final currentCount = _mailboxMessages[mailbox.path]?.length ?? 0;
@@ -265,12 +268,23 @@ class RealtimeUpdateService extends GetxService {
       final newMessageCount = mailbox.messagesExists - currentCount;
       if (newMessageCount <= 0) return;
       
+      // Ensure the correct mailbox is selected to avoid server errors
+      try {
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await ImapCommandQueue.instance.run('selectMailbox(loadNewMessages:${mailbox.name})', () async {
+            await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 8));
+          });
+        }
+      } catch (_) {}
+
       // Fetch new messages
-      final newMessages = await mailService.client.fetchMessages(
-        mailbox: mailbox,
-        count: newMessageCount,
-        page: 1,
-      );
+      final newMessages = await ImapCommandQueue.instance.run('fetchMessages(loadNewMessages:${mailbox.name})', () async {
+        return await mailService.client.fetchMessages(
+          mailbox: mailbox,
+          count: newMessageCount,
+          page: 1,
+        );
+      });
       
       // Update cache and streams
       final existingMessages = _mailboxMessages[mailbox.path] ?? [];
@@ -335,7 +349,9 @@ class RealtimeUpdateService extends GetxService {
         await mailService.connect();
       }
       
-      await mailService.client.selectMailbox(mailbox);
+      await ImapCommandQueue.instance.run('selectMailbox(loadMailboxMessages:${mailbox.name})', () async {
+        await mailService.client.selectMailbox(mailbox);
+      });
       
       // Load messages in batches
       const batchSize = 20;
@@ -347,11 +363,13 @@ class RealtimeUpdateService extends GetxService {
         final count = end - i;
         final page = (i ~/ batchSize) + 1;
         
-        final batchMessages = await mailService.client.fetchMessages(
-          mailbox: mailbox,
-          count: count,
-          page: page,
-        );
+        final batchMessages = await ImapCommandQueue.instance.run('fetchMessages(batch:${mailbox.name}:p$page:c$count)', () async {
+          return await mailService.client.fetchMessages(
+            mailbox: mailbox,
+            count: count,
+            page: page,
+          );
+        });
         messages.addAll(batchMessages);
         
         // Cache messages
@@ -395,7 +413,9 @@ class RealtimeUpdateService extends GetxService {
       }
       
       // Perform server operation
-      await mailService.client.markSeen(sequence);
+      await ImapCommandQueue.instance.run('markSeen', () async {
+        await mailService.client.markSeen(sequence);
+      });
       
       if (kDebugMode) {
         print('📧 Successfully marked message as read on server');
@@ -449,7 +469,9 @@ class RealtimeUpdateService extends GetxService {
       }
       
       // Perform server operation
-      await mailService.client.markUnseen(sequence);
+      await ImapCommandQueue.instance.run('markUnseen', () async {
+        await mailService.client.markUnseen(sequence);
+      });
       
       if (kDebugMode) {
         print('📧 Successfully marked message as unread on server');
@@ -490,7 +512,9 @@ class RealtimeUpdateService extends GetxService {
       }
       
       final sequence = MessageSequence.fromMessage(message);
-      await mailService.client.markFlagged(sequence);
+      await ImapCommandQueue.instance.run('markFlagged', () async {
+        await mailService.client.markFlagged(sequence);
+      });
       
       // Update local state
       message.isFlagged = true;
@@ -518,7 +542,9 @@ class RealtimeUpdateService extends GetxService {
       }
       
       final sequence = MessageSequence.fromMessage(message);
-      await mailService.client.markUnflagged(sequence);
+      await ImapCommandQueue.instance.run('markUnflagged', () async {
+        await mailService.client.markUnflagged(sequence);
+      });
       
       // Update local state
       message.isFlagged = false;
@@ -546,7 +572,9 @@ class RealtimeUpdateService extends GetxService {
       }
       
       final sequence = MessageSequence.fromMessage(message);
-      await mailService.client.deleteMessages(sequence, expunge: true);
+      await ImapCommandQueue.instance.run('deleteMessages(expunge:true)', () async {
+        await mailService.client.deleteMessages(sequence, expunge: true);
+      });
       
       // Remove from local state
       for (final messages in _mailboxMessages.values) {

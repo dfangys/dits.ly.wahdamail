@@ -626,6 +626,17 @@ class MailBoxController extends GetxController {
       // CRITICAL FIX: Force UI update to reflect mailbox change immediately
       update();
 
+      // Ensure connection and mailbox selection, then start optimized IDLE even when using cache
+      try {
+        if (!mailService.client.isConnected) {
+          await mailService.connect().timeout(const Duration(seconds: 8));
+        }
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 8));
+        }
+        // NOTE: Defer starting optimized IDLE until after initial load/prefetch completes
+      } catch (_) {}
+
       // PERFORMANCE FIX: If emails already exist, just return them (use cache)
       if (hasExistingEmails) {
         logger.i("Using cached emails for ${mailbox.name} (${emails[mailbox]!.length} messages)");
@@ -642,8 +653,8 @@ class MailBoxController extends GetxController {
         isLoadingEmails.value = false;
         // Still ensure current mailbox is set correctly even when using cache
         currentMailbox = mailbox;
-        // Begin quiet foreground polling for incremental updates
-        _startForegroundPolling(mailbox);
+        // Begin real-time updates via optimized IDLE (preferred) after cache hydration
+        _initializeOptimizedIdleService();
         return;
       }
 
@@ -667,10 +678,7 @@ class MailBoxController extends GetxController {
         },
       );
       
-      // Start IDLE mode after successful mailbox selection
-      await mailService.startIdleMode();
-      // Now that a mailbox is selected, start optimized IDLE exactly once
-      _initializeOptimizedIdleService();
+      // NOTE: Defer starting optimized IDLE until after first-time load/prefetch completes
       
       // Fetch mailbox with timeout adapted for first-time loads
       progressController.updateStatus('Loading emails…');
@@ -926,8 +934,8 @@ class MailBoxController extends GetxController {
           );
           progressController.hide();
         }
-        // Start quiet polling for incremental updates after initial load
-        _startForegroundPolling(mailbox);
+        // Start real-time updates via optimized IDLE (preferred) after initial load
+        _initializeOptimizedIdleService();
         logger.i("Enterprise sync satisfied initial window for ${mailbox.name} (${emails[mailbox]!.length})");
         return;
       }
@@ -949,8 +957,8 @@ class MailBoxController extends GetxController {
         update();
         // Quiet prefetch for local-only satisfaction (no overlay)
         await _prefetchFullContentForWindow(mailbox, limit: maxToLoad, quiet: true);
-        // Start quiet polling for incremental updates after initial load
-        _startForegroundPolling(mailbox);
+        // Start real-time updates via optimized IDLE (preferred) after DB load
+        _initializeOptimizedIdleService();
         logger.i("Finished loading from local DB for ${mailbox.name} (${emails[mailbox]!.length} messages)");
         return;
       }
@@ -1087,8 +1095,8 @@ class MailBoxController extends GetxController {
       // Hide progress UI now that prefetch is complete
       progressController.hide();
       
-      // Start quiet polling for incremental updates after initial load
-      _startForegroundPolling(mailbox);
+      // Start real-time updates via optimized IDLE (preferred)
+      _initializeOptimizedIdleService();
       
       // Update background service for inbox
       if (mailbox.isInbox) {
@@ -2690,6 +2698,15 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
   // Quiet foreground polling: start/stop and one-shot poll
   void _startForegroundPolling(Mailbox mailbox) {
     try {
+      // If optimized IDLE is running, do not start foreground polling to avoid contention
+      final idle = OptimizedIdleService.instance;
+      if (idle.isRunning || idle.isIdleActive) {
+        if (kDebugMode) {
+          print('📧 ⏸️ Skipping foreground polling because optimized IDLE is active');
+        }
+        return;
+      }
+
       _stopForegroundPolling();
 
       // Respect user settings
@@ -2708,6 +2725,8 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       _pollTimer = Timer.periodic(pollingInterval, (t) async {
         if (_pollingMailboxPath != mailbox.encodedPath) return; // mailbox switched
         if (isLoadingEmails.value || isPrefetching.value) return; // avoid overlap
+        // Also skip if optimized IDLE has become active since starting the timer
+        if (idle.isRunning || idle.isIdleActive) return;
         try {
           await _pollOnce(mailbox);
         } catch (e) {
@@ -2748,6 +2767,10 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
 
   Future<void> _pollOnce(Mailbox mailbox) async {
     try {
+      // Skip polling if optimized IDLE is active to avoid IDLE/DONE contention
+      final idle = OptimizedIdleService.instance;
+      if (idle.isRunning || idle.isIdleActive) return;
+
       final storage = mailboxStorage[mailbox];
       if (storage == null) return;
 

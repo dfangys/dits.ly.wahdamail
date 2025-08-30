@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:flutter/foundation.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/services/background_service.dart';
+import 'package:wahda_bank/services/mail_service.dart';
 
 /// Ensures Home-level heavy initialization runs only once per app session.
 class HomeInitGuard extends GetxService {
@@ -23,6 +24,28 @@ class HomeInitGuard extends GetxService {
       debugPrint('🏠 HomeInitGuard: ensuring single initialization');
     }
 
+    // Ensure MailService is initialized and connected before touching mailboxes to avoid LateInitializationError.
+    try {
+      final mailService = Get.find<MailService>();
+      if (!mailService.isClientSet) {
+        await mailService.init();
+      }
+      if (!mailService.client.isConnected) {
+        try {
+          await mailService.connect().timeout(const Duration(seconds: 12));
+        } catch (e) {
+          if (kDebugMode) {
+            debugPrint('HomeInitGuard: mailService.connect failed (will retry via controller): $e');
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('HomeInitGuard: MailService not ready yet: $e');
+      }
+      // Continue; controller.initInbox has its own guards
+    }
+
     // Schedule derived fields backfill (safe to call repeatedly; fire-and-forget)
     try {
       BackgroundService.scheduleDerivedFieldsBackfill(
@@ -36,7 +59,11 @@ class HomeInitGuard extends GetxService {
       if (!controller.isInboxInitialized && !controller.isLoadingEmails.value) {
         await controller.initInbox();
       }
-    } catch (_) {}
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('HomeInitGuard: initInbox failed: $e');
+      }
+    }
   }
 }
 

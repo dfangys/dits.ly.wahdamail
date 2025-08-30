@@ -71,7 +71,7 @@ class MailService {
     );
     client = MailClient(
       account,
-      isLogEnabled: true,
+      isLogEnabled: kDebugMode,
       onBadCertificate: (x509Certificate) {
         return true;
       },
@@ -84,13 +84,17 @@ class MailService {
     try {
       if (!client.isConnected) {
         await client.connect();
-        await client.startPolling();
+        // Do not start polling here; a single service will manage it to avoid race conditions
         if (isSubscribed == false) {
           _subscribeEvents();
         }
 
-        // NOTE: IDLE mode will be started after mailbox selection in MailBoxController
-        // This prevents "no mailbox selected" errors
+        // Ensure a mailbox is selected to prevent "No mailbox selected" errors on early fetches
+        try {
+          if (client.selectedMailbox == null) {
+            await client.selectInbox();
+          }
+        } catch (_) {}
 
         // Reset connection retries on successful connection
         _connectionRetries = 0;

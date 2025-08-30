@@ -8,6 +8,7 @@ import 'mail_service.dart';
 import 'realtime_update_service.dart';
 import 'connection_manager.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'imap_command_queue.dart';
 
 /// Optimized IMAP IDLE service for high-performance real-time email updates
 /// Compatible with enough_mail v2.1.7 API
@@ -36,6 +37,10 @@ class OptimizedIdleService extends GetxService {
   DateTime? _lastIdleStart;
   StreamSubscription<ImapEvent>? _eventSubscription;
   Completer<void>? _idleCompleter;
+
+  // Public read-only getters for coordination with controllers
+  bool get isRunning => _shouldKeepRunning;
+  bool get isIdleActive => _isIdleActive;
 
   // Performance metrics
   int _messagesReceived = 0;
@@ -171,7 +176,9 @@ class OptimizedIdleService extends GetxService {
         );
         
         if (inbox != null) {
-          await mailService.client.selectMailbox(inbox).timeout(_connectionTimeout);
+          await ImapCommandQueue.instance.run('selectMailbox(inbox for idle)', () async {
+            await mailService.client.selectMailbox(inbox).timeout(_connectionTimeout);
+          });
           if (kDebugMode) {
             print('📧 📥 Selected inbox for IDLE monitoring');
           }
@@ -341,7 +348,9 @@ class OptimizedIdleService extends GetxService {
       // Ensure the mailbox is selected before fetching by sequence
       try {
         if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
-          await mailService.client.selectMailbox(mailbox).timeout(_connectionTimeout);
+          await ImapCommandQueue.instance.run('selectMailbox(on new msg event)', () async {
+            await mailService.client.selectMailbox(mailbox!).timeout(_connectionTimeout);
+          });
         }
       } catch (_) {}
 
@@ -354,10 +363,12 @@ class OptimizedIdleService extends GetxService {
           int start = (max - take + 1);
           if (start < 1) start = 1;
           final seq = MessageSequence.fromRange(start, max);
-          newest = await mailService.client.fetchMessageSequence(
-            seq,
-            fetchPreference: FetchPreference.envelope,
-          ).timeout(const Duration(seconds: 12), onTimeout: () => <MimeMessage>[]);
+          newest = await ImapCommandQueue.instance.run('fetch newest batch (envelope)', () async {
+            return await mailService.client.fetchMessageSequence(
+              seq,
+              fetchPreference: FetchPreference.envelope,
+            ).timeout(const Duration(seconds: 12), onTimeout: () => <MimeMessage>[]);
+          });
         }
       } catch (e) {
         if (kDebugMode) {

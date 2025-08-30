@@ -211,8 +211,9 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                         if (exists) {
                           // Inspect file inner content; if effectively empty, prefer inline fallback immediately
                           bool useInline = false;
+                          String content = '';
                           try {
-                            final content = f.readAsStringSync();
+                            content = f.readAsStringSync();
                             final m = RegExp(r'<div class=\\\"wb-container\\\">([\\s\\S]*?)<\\/div>', caseSensitive: false).firstMatch(content);
                             if (m != null) {
                               final innerLen = (m.group(1) ?? '').replaceAll(RegExp(r'\\s+'), '').length;
@@ -229,7 +230,26 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                               setState(() { _expectFile = false; _usedInlineFallback = true; _isReady = true; });
                             }
                           } else {
-                            await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+                            // iOS: prefer loading file content via loadData to avoid file:// navigation being blocked
+                            if (Platform.isIOS) {
+                              try {
+                                await _controller?.loadData(data: content, baseUrl: WebUri("about:blank"));
+                                if (mounted) setState(() { _expectFile = false; _isReady = true; });
+                              } catch (e) {
+                                if (kDebugMode) { print('VIEWER:iOS file loadData error: $e'); }
+                              }
+                            } else {
+                              await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+                              // Safety net: if not ready shortly, fallback to inline
+                              Future.delayed(const Duration(milliseconds: 800), () async {
+                                if (!mounted) return;
+                                if (!_isReady && _expectFile) {
+                                  if (kDebugMode) { print('VIEWER:safety_fallback uid=${widget.mimeMessage.uid} (onWebViewCreated)'); }
+                                  await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+                                  if (mounted) setState(() { _expectFile = false; _usedInlineFallback = true; _isReady = true; });
+                                }
+                              });
+                            }
                           }
                         }
                       } catch (e) {
@@ -266,6 +286,10 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                   }
                   // Allow local server URLs to load inside the WebView
                   if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) {
+                    return NavigationActionPolicy.ALLOW;
+                  }
+                  // Allow local file URLs for offline HTML
+                  if (url.startsWith('file://') || url.startsWith('filesystem:')) {
                     return NavigationActionPolicy.ALLOW;
                   }
                   // External links: open in system browser
@@ -465,8 +489,9 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       } else if (path != null && path.isNotEmpty && File(path).existsSync()) {
         // Inspect file inner content; if effectively empty, prefer inline fallback immediately
         bool useInline = false;
+        String content = '';
         try {
-          final content = File(path).readAsStringSync();
+          content = File(path).readAsStringSync();
           final m = RegExp(r'<div class=\"wb-container\">([\s\S]*?)<\/div>', caseSensitive: false).firstMatch(content);
           if (m != null) {
             final innerLen = (m.group(1) ?? '').replaceAll(RegExp(r'\s+'), '').length;
@@ -483,7 +508,25 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
             setState(() { _expectFile = false; _usedInlineFallback = true; _isReady = true; });
           }
         } else {
-          await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+          if (Platform.isIOS) {
+            try {
+              await _controller?.loadData(data: content, baseUrl: WebUri("about:blank"));
+              if (mounted) setState(() { _expectFile = false; _isReady = true; });
+            } catch (e) {
+              if (kDebugMode) { print('VIEWER:iOS file loadData error (_reloadHtml): $e'); }
+            }
+          } else {
+            await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+            // Safety net: if not ready shortly, fallback to inline
+            Future.delayed(const Duration(milliseconds: 800), () async {
+              if (!mounted) return;
+              if (!_isReady && _expectFile) {
+                if (kDebugMode) { print('VIEWER:safety_fallback uid=${widget.mimeMessage.uid} (_reloadHtml)'); }
+                await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+                if (mounted) setState(() { _expectFile = false; _usedInlineFallback = true; _isReady = true; });
+              }
+            });
+          }
         }
       } else {
         await _controller?.loadData(data: _preparedHtml, baseUrl: WebUri("about:blank"));

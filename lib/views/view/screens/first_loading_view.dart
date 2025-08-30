@@ -3,9 +3,10 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'dart:io';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/views/view/models/box_model.dart';
-import 'package:workmanager/workmanager.dart';
+import 'package:wahda_bank/services/background_service.dart';
 import '../../../services/mail_service.dart';
 import '../../../utills/constants/image_strings.dart';
 
@@ -127,10 +128,15 @@ class _LoadingFirstViewState extends State<LoadingFirstView> with SingleTickerPr
 
     } finally {
       if (isReadyToRun) {
-        Workmanager().registerPeriodicTask(
-          "fetch-new-mails-identifier",
-          "simplePeriodicTask",
-        );
+        try {
+          if (Platform.isAndroid) {
+            await BackgroundService.startService();
+          } else {
+            debugPrint('Background scheduling skipped on non-Android platform');
+          }
+        } catch (e) {
+          debugPrint('Background service start error: $e');
+        }
         Get.offAllNamed('/home');
       } else {
         AwesomeDialog(

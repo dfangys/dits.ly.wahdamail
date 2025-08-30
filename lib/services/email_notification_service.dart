@@ -17,6 +17,7 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:wahda_bank/services/ui_context_service.dart';
 import 'package:workmanager/workmanager.dart';
+import 'imap_command_queue.dart';
 
 /// Service responsible for handling email notifications using IMAP IDLE with SQLite support
 ///
@@ -127,40 +128,8 @@ class EmailNotificationService {
       await mailService.connect();
     }
 
-    // Set up IDLE refresh timer to prevent timeout
-    _idleRefreshTimer = Timer.periodic(idleRefreshInterval, (_) async {
-      if (mailService.client.isConnected) {
-        try {
-          // Refresh IDLE connection to prevent timeout
-          // Note: Using polling instead of direct IDLE control
-          // as stopIdle() is not available in the current API
-          await mailService.client.stopPolling();
-          await mailService.client.startPolling();
-        } catch (e) {
-          if (kDebugMode) {
-            print('Error refreshing IDLE connection: $e');
-          }
-
-          // Try to reconnect if there was an error
-          try {
-            await mailService.connect();
-          } catch (e) {
-            if (kDebugMode) {
-              print('Failed to reconnect: $e');
-            }
-          }
-        }
-      } else {
-        // Try to reconnect if disconnected
-        try {
-          await mailService.connect();
-        } catch (e) {
-          if (kDebugMode) {
-            print('Failed to reconnect: $e');
-          }
-        }
-      }
-    });
+    // Polling/IDLE is centrally managed to avoid conflicts; do not toggle here.
+    // Just ensure we are connected and subscribed to events for notifications.
 
     // Subscribe to mail events
     _subscribeToMailEvents(mailService);
@@ -278,10 +247,12 @@ class EmailNotificationService {
         if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
           try { await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 5)); } catch (_) {}
         }
-        final envMsgs = await mailService.client.fetchMessageSequence(
-          MessageSequence.fromMessage(message),
-          fetchPreference: FetchPreference.envelope,
-        ).timeout(const Duration(seconds: 3), onTimeout: () => <MimeMessage>[]);
+        final envMsgs = await ImapCommandQueue.instance.run('fetchMessageSequence(notif:env)', () async {
+          return await mailService.client.fetchMessageSequence(
+            MessageSequence.fromMessage(message),
+            fetchPreference: FetchPreference.envelope,
+          ).timeout(const Duration(seconds: 3), onTimeout: () => <MimeMessage>[]);
+        });
         if (envMsgs.isNotEmpty) {
           final env = envMsgs.first.envelope;
           if (env != null) {
@@ -518,18 +489,22 @@ class EmailNotificationService {
       }
       try {
         if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
-          await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 5));
+          await ImapCommandQueue.instance.run('selectMailbox(notif:preview)', () async {
+            await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 5));
+          });
         }
       } catch (_) {}
 
       // Fetch with an overall timeout budget (<= timeout)
-      final fetch = mailService.client
-          .fetchMessageSequence(
-            MessageSequence.fromMessage(message),
-            fetchPreference: FetchPreference.fullWhenWithinSize,
-          )
-          .timeout(timeout, onTimeout: () => <MimeMessage>[]);
-      final msgs = await fetch;
+      final msgs = await ImapCommandQueue.instance.run('fetchMessageSequence(notif:preview full)', () async {
+        final fetch = mailService.client
+            .fetchMessageSequence(
+              MessageSequence.fromMessage(message),
+              fetchPreference: FetchPreference.fullWhenWithinSize,
+            )
+            .timeout(timeout, onTimeout: () => <MimeMessage>[]);
+        return await fetch;
+      });
       if (msgs.isEmpty) return '';
       final full = msgs.first;
 
@@ -577,7 +552,13 @@ class EmailNotificationService {
 
   /// Schedule periodic background checks for new emails
   Future<void> _scheduleBackgroundChecks() async {
-    if (!(Platform.isAndroid || Platform.isIOS)) return;
+    // Only attempt scheduling on Android; iOS has limited background execution and Workmanager may not implement periodic tasks.
+    if (!Platform.isAndroid) {
+      if (kDebugMode) {
+        print('Background email checks: skipping scheduling on non-Android platform');
+      }
+      return;
+    }
 
     try {
       // Cancel any existing tasks
@@ -597,7 +578,7 @@ class EmailNotificationService {
       );
       
       if (kDebugMode) {
-        print('Background email checks scheduled successfully');
+        print('Background email checks scheduled successfully (Android)');
       }
     } catch (e) {
       if (kDebugMode) {
