@@ -302,8 +302,52 @@ class EmailNotificationService {
       } catch (_) {}
     }
 
-    if (sender.isEmpty) sender = 'Unknown Sender';
-    if (subject.isEmpty) subject = 'No Subject';
+    // Synthesize minimal metadata for immediate tile display (without overwriting later hydration)
+    try {
+      // Stamp subject header if we have it
+      if (subject.isNotEmpty) {
+        final currentSubj = message.getHeaderValue('subject');
+        if (currentSubj == null || currentSubj.trim().isEmpty) {
+          try { message.setHeader('subject', subject); } catch (_) {}
+        }
+      }
+      // Build a minimal from list if needed
+      List<MailAddress>? fromList;
+      if (message.from?.isNotEmpty == true) {
+        fromList = message.from;
+      } else if (message.envelope?.from?.isNotEmpty == true) {
+        fromList = message.envelope!.from;
+      } else {
+        // Try to parse any available From header; else, use a name-only placeholder
+        String rawFrom = '';
+        try { rawFrom = message.getHeaderValue('from') ?? ''; } catch (_) {}
+        if (rawFrom.trim().isNotEmpty) {
+          try { fromList = [MailAddress.parse(rawFrom)]; } catch (_) { fromList = [MailAddress('', rawFrom.trim())]; }
+        } else if (sender.isNotEmpty) {
+          // If sender looks like an email or Name <email>, try to parse
+          if (sender.contains('@') || sender.contains('<')) {
+            try { fromList = [MailAddress.parse(sender)]; } catch (_) { fromList = [MailAddress(sender, 'unknown@sender')]; }
+          } else {
+            fromList = [MailAddress(sender, 'unknown@sender')];
+          }
+        }
+        if (fromList != null && fromList.isNotEmpty) {
+          try { message.setHeader('from', fromList.first.email.isNotEmpty ? '${fromList.first.personalName ?? ''} <${fromList.first.email}>' : (fromList.first.personalName ?? '')); } catch (_) {}
+          message.from = fromList;
+        }
+      }
+      // Synthesize a minimal envelope if needed
+      final needEnv = message.envelope == null ||
+          ((message.envelope?.subject ?? '').trim().isEmpty && subject.isNotEmpty) ||
+          ((message.envelope?.from?.isEmpty ?? true) && (message.from?.isNotEmpty ?? false));
+      if (needEnv) {
+        message.envelope = Envelope(
+          date: message.decodeDate() ?? DateTime.now(),
+          subject: subject.isNotEmpty ? subject : message.envelope?.subject,
+          from: message.from ?? fromList,
+        );
+      }
+    } catch (_) {}
 
     // Before showing OS notification, immediately reflect the new mail in the UI tile list.
     // Mark ready and best-effort attachment hint, then notify realtime service.
