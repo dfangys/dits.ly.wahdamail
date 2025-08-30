@@ -734,7 +734,7 @@ class ComposeController extends GetxController {
 
   /// Send the composed email
   Future<void> sendEmail() async {
-    if (isBusy.value) return;
+    if (isBusy.value || isSending.value) return;
 
     try {
       // Validate recipients
@@ -750,6 +750,7 @@ class ComposeController extends GetxController {
       }
 
       isBusy.value = true;
+      isSending.value = true;
       update();
 
       EasyLoading.show(status: 'sending_email'.tr);
@@ -798,15 +799,22 @@ class ComposeController extends GetxController {
       // Build message
       final message = messageBuilder.buildMimeMessage();
 
-      // Send message
+      // Send message with optimistic UI and append-to-Sent flow
       final boxController = Get.find<MailBoxController>();
-      await boxController.sendMail(message, msg);
+      final draftMailbox = sourceMailbox;
+      final sendOk = await boxController.sendMailOptimistic(
+        message: message,
+        draftMessage: msg,
+        draftMailbox: draftMailbox,
+      );
 
-      // Delete draft if editing
-      if (msg != null && type == 'draft' && _currentDraft != null) {
-        await client.deleteMessage(msg!);
-        final storage = Get.find<SQLiteDraftRepository>();
-        await storage.deleteDraft(_currentDraft!.id!);
+      if (!sendOk) {
+        throw Exception('error_sending_email'.tr);
+      }
+
+      // Delete local draft record only after successful send+append
+      if (_currentDraft?.id != null) {
+        try { await Get.find<SQLiteDraftRepository>().deleteDraft(_currentDraft!.id!); } catch (_) {}
       }
 
       // Update state
@@ -823,6 +831,7 @@ class ComposeController extends GetxController {
       EasyLoading.dismiss();
       _showErrorDialog(e.toString());
     } finally {
+      isSending.value = false;
       isBusy.value = false;
       update();
     }
@@ -1247,6 +1256,17 @@ class ComposeController extends GetxController {
         }
       } catch (e) {
         debugPrint('Attachment metadata collection failed: $e');
+      }
+
+      // 4b) Auto-hydrate small attachments into composer for resend UX
+      try {
+        final smallMetas = pendingDraftAttachments.where((m) => (m.size ?? 0) > 0 && (m.size ?? 0) <= _attachmentAutoHydrationLimitBytes).toList(growable: false);
+        for (final meta in smallMetas) {
+          // Fire-and-forget; individual failures are non-fatal
+          unawaited(reattachPendingAttachment(meta));
+        }
+      } catch (e) {
+        debugPrint('Auto-hydration of small attachments failed: $e');
       }
 
       // Persist sanitized content to offline store for fast re-open

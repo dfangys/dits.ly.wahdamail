@@ -153,8 +153,26 @@ class MailBoxController extends GetxController {
         (mailbox) => mailbox.isDrafts, // Use proper enough_mail API
       );
     } catch (e) {
+      // Fallback by name
+      try {
+        return mailboxes.firstWhere((m) => m.name.toLowerCase().contains('draft'));
+      } catch (_) {}
       logger.w("Drafts mailbox not found: $e");
       return null;
+    }
+  }
+
+  // Getter for Sent mailbox using flags with name fallbacks
+  Mailbox? get sentMailbox {
+    try {
+      return mailboxes.firstWhere((m) => m.isSent);
+    } catch (_) {
+      try {
+        return mailboxes.firstWhere((m) => m.name.toLowerCase() == 'sent' || m.name.toLowerCase().contains('sent'));
+      } catch (e) {
+        logger.w("Sent mailbox not found: $e");
+        return null;
+      }
     }
   }
 
@@ -2089,6 +2107,114 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     } catch (e) {
       logger.e(e);
     }
+  }
+
+  /// Enterprise-grade send flow with optimistic UI and best-effort append to Sent.
+  /// Returns true if SMTP send succeeded and message was appended/moved to Sent or will be shortly.
+  Future<bool> sendMailOptimistic({
+    required MimeMessage message,
+    MimeMessage? draftMessage,
+    Mailbox? draftMailbox,
+  }) async {
+    Mailbox? sent = sentMailbox;
+    if (sent == null) {
+      logger.e('Cannot send optimistically: Sent mailbox not found');
+      // Fallback: try to select inbox to avoid selection issues, but proceed with SMTP only
+      try { await mailService.connect(); } catch (_) {}
+    }
+
+    // Optimistic UI insertion to Sent
+    try {
+      if (sent != null) {
+        // Mark as optimistic
+        try { message.setHeader('x-optimistic', '1'); } catch (_) {}
+        try { message.isSeen = true; } catch (_) {}
+        // Ensure emails list exists
+        emails[sent] ??= <MimeMessage>[];
+        emails[sent]!.insert(0, message);
+        // Persist envelope for fast subsequent loads
+        final storage = mailboxStorage[sent];
+        if (storage != null) {
+          try { await storage.saveMessageEnvelopes([message]); } catch (_) {}
+        }
+        emails.refresh();
+        update();
+      }
+
+      // Remove draft from UI immediately
+      if (draftMailbox != null && draftMessage != null) {
+        try {
+          final list = emails[draftMailbox];
+          list?.removeWhere((m) =>
+              (draftMessage.uid != null && m.uid == draftMessage.uid) ||
+              (draftMessage.sequenceId != null && m.sequenceId == draftMessage.sequenceId));
+          emails.refresh();
+          update();
+        } catch (_) {}
+      }
+    } catch (e) {
+      logger.w('Optimistic UI setup failed: $e');
+    }
+
+    // Perform SMTP send
+    try {
+      await mailService.client.sendMessage(message);
+    } catch (e) {
+      logger.e('SMTP send failed: $e');
+      // Rollback optimistic UI
+      if (sent != null) {
+        try {
+          final list = emails[sent];
+          list?.removeWhere((m) =>
+              (message.uid != null && m.uid == message.uid) ||
+              (message.sequenceId != null && m.sequenceId == message.sequenceId) ||
+              (m.decodeSubject() == message.decodeSubject() && m.decodeDate()?.millisecondsSinceEpoch == message.decodeDate()?.millisecondsSinceEpoch));
+          emails.refresh();
+          update();
+        } catch (_) {}
+      }
+      // Reinsert draft back into Drafts UI
+      if (draftMailbox != null && draftMessage != null) {
+        try {
+          emails[draftMailbox] ??= <MimeMessage>[];
+          emails[draftMailbox]!.insert(0, draftMessage);
+          emails.refresh();
+          update();
+        } catch (_) {}
+      }
+      return false;
+    }
+
+    // Best-effort append: move the original draft message to Sent if available
+    bool appended = false;
+    final needAppend = (draftMailbox != null && draftMessage != null);
+    if (needAppend && sent != null) {
+      try {
+        await moveMails([draftMessage!], draftMailbox!, sent);
+        appended = true;
+      } catch (e) {
+        logger.w('Move draft to Sent failed: $e');
+      }
+    } else if (!needAppend && sent != null) {
+      // If there is no server draft to move, rely on server auto-append or later IDLE event
+      appended = true; // Acceptable: UI shows optimistic sent; server will likely add the message
+    }
+
+    // Mark optimistic message as delivered
+    try {
+      if (sent != null) {
+        final list = emails[sent] ?? const <MimeMessage>[];
+        final idx = list.indexWhere((m) => identical(m, message));
+        if (idx >= 0) {
+          try { message.setHeader('x-optimistic', '0'); } catch (_) {}
+          emails.refresh();
+          update();
+        }
+      }
+    } catch (_) {}
+
+    // Only report success when append/move succeeded for drafts; for new messages SMTP success is enough
+    return needAppend ? appended : true;
   }
 
   Future logout() async {
