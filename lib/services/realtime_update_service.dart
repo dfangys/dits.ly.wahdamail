@@ -672,6 +672,80 @@ extension IncomingEmailExtension on RealtimeUpdateService {
 
       RealtimeUpdateService._logger.i('📧 Processing ${newMessages.length} new messages');
 
+      // Determine target mailbox early for hydration fetches
+      final String targetMailboxKey = (mailbox != null && mailbox.name.isNotEmpty)
+          ? mailbox.name
+          : ((mailbox != null && mailbox.encodedName.isNotEmpty) ? mailbox.encodedName : 'INBOX');
+      final Mailbox targetMailbox = mailbox ?? (Mailbox(
+        encodedName: targetMailboxKey,
+        encodedPath: targetMailboxKey,
+        flags: [],
+        pathSeparator: '/',
+      )..name = targetMailboxKey);
+
+      // Best-effort: quickly hydrate missing envelope for sparse events before emitting
+      try {
+        final toFetch = <MimeMessage>[];
+        for (final m in newMessages) {
+          bool hasSender = (m.from?.isNotEmpty ?? false) || (m.envelope?.from?.isNotEmpty ?? false);
+          bool hasSubject = false;
+          try {
+            final s1 = m.decodeSubject();
+            hasSubject = (s1 != null && s1.trim().isNotEmpty) || ((m.envelope?.subject ?? '').trim().isNotEmpty);
+          } catch (_) {
+            hasSubject = (m.envelope?.subject ?? '').trim().isNotEmpty;
+          }
+          if (!(hasSender && hasSubject)) {
+            // Only attempt fetch if we have an identifier
+            if (m.uid != null || m.sequenceId != null) {
+              toFetch.add(m);
+            }
+          }
+        }
+        if (toFetch.isNotEmpty) {
+          final mailService = _mailService;
+          if (mailService != null) {
+            try {
+              if (!mailService.client.isConnected) {
+                await mailService.connect().timeout(const Duration(seconds: 6));
+              }
+            } catch (_) {}
+            try {
+              if (mailService.client.selectedMailbox?.encodedPath != targetMailbox.encodedPath) {
+                await ImapCommandQueue.instance.run('selectMailbox(rt:env:${targetMailbox.name})', () async {
+                  await mailService.client.selectMailbox(targetMailbox).timeout(const Duration(seconds: 6));
+                });
+              }
+            } catch (_) {}
+
+            // Limit to a few quick fetches to reduce latency
+            final fetchList = toFetch.take(4).toList();
+            for (final base in fetchList) {
+              try {
+                final seq = MessageSequence.fromMessage(base);
+                final fetched = await ImapCommandQueue.instance.run('fetchMessageSequence(rt:env)', () async {
+                  return await mailService.client
+                      .fetchMessageSequence(
+                        seq,
+                        fetchPreference: FetchPreference.envelope,
+                      )
+                      .timeout(const Duration(seconds: 4), onTimeout: () => <MimeMessage>[]);
+                });
+                if (fetched.isNotEmpty) {
+                  final env = fetched.first.envelope;
+                  if (env != null) {
+                    base.envelope = env;
+                    if ((base.from == null || base.from!.isEmpty) && (env.from?.isNotEmpty ?? false)) {
+                      base.from = env.from;
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (_) {}
+
       // Ensure tiles can render immediately and hydrate minimal sender/subject
       for (final m in newMessages) {
         try {
@@ -679,10 +753,43 @@ extension IncomingEmailExtension on RealtimeUpdateService {
           if ((m.from == null || m.from!.isEmpty) && (m.envelope?.from?.isNotEmpty ?? false)) {
             m.from = m.envelope!.from;
           }
-          // Normalize subject
-          final subj = m.decodeSubject() ?? m.envelope?.subject;
+          // Normalize subject using decode/envelope, then raw header fallback
+          String? subj = m.decodeSubject();
+          subj ??= m.envelope?.subject;
           if (subj == null || subj.trim().isEmpty) {
-            try { m.setHeader('subject', 'No Subject'); } catch (_) {}
+            final hdr = m.getHeaderValue('subject');
+            if (hdr != null && hdr.trim().isNotEmpty) {
+              subj = hdr.trim();
+              try { m.setHeader('subject', subj); } catch (_) {}
+              if (kDebugMode) {
+                print('📧 RT fallback: subject via raw header: $subj');
+              }
+            }
+          }
+          // Sender fallback: raw From header when envelope/from missing
+          if (m.from == null || m.from!.isEmpty) {
+            final rawFrom = m.getHeaderValue('from');
+            if (rawFrom != null && rawFrom.trim().isNotEmpty) {
+              // Minimal parse: keep raw text as address; avoid using APIs that may be unavailable
+              try { m.setHeader('from', rawFrom.trim()); } catch (_) {}
+              m.from = [MailAddress('', rawFrom.trim())];
+              if (kDebugMode) {
+                print('📧 RT fallback: sender via raw header');
+              }
+            }
+          }
+          // If still no envelope but we have any sender/subject, synthesize a minimal envelope
+          if (m.envelope == null && ((m.from?.isNotEmpty ?? false) || (subj != null && subj.trim().isNotEmpty))) {
+            try {
+              m.envelope = Envelope(
+                date: m.decodeDate() ?? DateTime.now(),
+                subject: subj,
+                from: m.from,
+              );
+              if (kDebugMode) {
+                print('📧 RT fallback: synthesized minimal envelope for immediate tile hydration');
+              }
+            } catch (_) {}
           }
           // Mark ready so tiles avoid shimmer when metadata is present
           if ((m.getHeaderValue('x-ready') ?? '') != '1') {
@@ -695,16 +802,6 @@ extension IncomingEmailExtension on RealtimeUpdateService {
       final Map<String, List<MimeMessage>> messagesByMailbox = {};
       final Map<String, int> unreadCountChanges = {};
       
-      final String targetMailboxKey = (mailbox != null && mailbox.name.isNotEmpty)
-          ? mailbox.name
-          : ((mailbox != null && mailbox.encodedName.isNotEmpty) ? mailbox.encodedName : 'INBOX');
-      final Mailbox targetMailbox = mailbox ?? (Mailbox(
-        encodedName: targetMailboxKey,
-        encodedPath: targetMailboxKey,
-        flags: [],
-        pathSeparator: '/',
-      )..name = targetMailboxKey);
-
       for (final message in newMessages) {
         // Determine target mailbox (usually INBOX for new messages)
         final mailboxKey = targetMailboxKey;

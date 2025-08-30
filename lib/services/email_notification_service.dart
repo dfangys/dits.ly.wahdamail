@@ -11,6 +11,7 @@ import 'package:get/get_core/src/get_main.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:wahda_bank/models/sqlite_database_helper.dart';
+import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/notifications_service.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
@@ -445,6 +446,25 @@ class EmailNotificationService {
         print('Error saving message to SQLite: $e');
       }
     }
+
+    // If the app is running and storage is available, refresh storage-backed views to reflect the change
+    try {
+      if (Get.isRegistered<MailBoxController>()) {
+        final ctrl = Get.find<MailBoxController>();
+        // Find matching storage by encodedPath/name to avoid instance identity issues
+        SQLiteMailboxMimeStorage? storage;
+        for (final entry in ctrl.mailboxStorage.entries) {
+          final mb = entry.key;
+          final samePath = mb.encodedPath.toLowerCase() == mailbox.path.toLowerCase() || mb.path.toLowerCase() == mailbox.path.toLowerCase();
+          final sameName = mb.name.toLowerCase() == mailbox.name.toLowerCase();
+          if (samePath || sameName || (mb.isInbox && mailbox.isInbox)) {
+            storage = entry.value;
+            break;
+          }
+        }
+        await storage?.refreshFromDatabase();
+      }
+    } catch (_) {}
 
     // Note: notification display is debounced above; do not show here immediately
     // Also, do not re-publish to realtime service here to avoid duplicate UI insertions.

@@ -374,6 +374,11 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
     }
   }
 
+  /// Public: reload from DB and notify listeners (when external writes occurred)
+  Future<void> refreshFromDatabase() async {
+    _notifyDataChanged();
+  }
+
   /// Delete message envelopes from database
   Future<void> deleteMessageEnvelopes(MessageSequence sequence) async {
     try {
@@ -685,11 +690,16 @@ final isUid = sequence.isUidSequence;
         message.setHeader('x-has-attachments', (hasAtt is int ? hasAtt : int.tryParse(hasAtt.toString()) ?? 0) == 1 ? '1' : '0');
       } catch (_) {}
     }
-    // Mark message as "ready" if preview/attachment metadata were computed/persisted
+    // Mark message as "ready" when we have enough metadata for a stable tile
+    // Relaxed gating: envelope with sender or subject OR any preview/attachment hint
     try {
-      final previewKnown = preview != null;
+      final previewKnown = preview != null && preview.toString().isNotEmpty;
       final hasAttKnown = hasAtt != null;
-      if (previewKnown && hasAttKnown) {
+      final env = message.envelope;
+      final hasFrom = env?.from?.isNotEmpty == true;
+      final subj = (message.decodeSubject() ?? env?.subject ?? '').toString().trim();
+      final hasSubject = subj.isNotEmpty;
+      if ((hasFrom || hasSubject) || previewKnown || hasAttKnown) {
         message.setHeader('x-ready', '1');
       }
     } catch (_) {}

@@ -59,6 +59,11 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     super.initState();
     _computeCachedValues();
 
+    // If sender/subject are still missing, attempt fast hydration from storage (and log source)
+    if (_senderName == 'Unknown Sender' || _subject == 'No Subject') {
+      _hydrateSenderSubjectIfMissing();
+    }
+
     // Listen for per-message meta updates (e.g., preview backfill)
     try {
       if (FeatureFlags.instance.perTileNotifiersEnabled) {
@@ -153,8 +158,34 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
           _senderEmail = sender.email;
         }
       } else {
-        _senderName = "Unknown Sender";
-        _senderEmail = "unknown@unknown.com";
+        // Final fallback: try to parse raw headers for sender
+        try {
+          final rawFrom = widget.message.getHeaderValue('from');
+          if (rawFrom != null && rawFrom.trim().isNotEmpty) {
+            try {
+              final parsed = MailAddress.parse(rawFrom);
+              _senderName = parsed.personalName?.isNotEmpty == true
+                  ? parsed.personalName!
+                  : (parsed.email.isNotEmpty ? parsed.email.split('@').first : 'Unknown Sender');
+              _senderEmail = parsed.email;
+              if (kDebugMode) {
+                debugPrint('📧 Tile sender fallback via raw headers: $_senderName <$_senderEmail>');
+              }
+            } catch (_) {
+              _senderName = rawFrom.trim();
+              _senderEmail = rawFrom.trim();
+              if (kDebugMode) {
+                debugPrint('📧 Tile sender fallback (raw string): $_senderName');
+              }
+            }
+          } else {
+            _senderName = "Unknown Sender";
+            _senderEmail = "unknown@unknown.com";
+          }
+        } catch (_) {
+          _senderName = "Unknown Sender";
+          _senderEmail = "unknown@unknown.com";
+        }
       }
     }
 
@@ -235,11 +266,17 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     final decodedSubject = widget.message.decodeSubject();
     if (decodedSubject?.isNotEmpty == true) {
       _subject = decodedSubject!;
+      if (kDebugMode) {
+        debugPrint('📧 Tile subject via decodeSubject: $_subject');
+      }
     } else {
       // Fallback to envelope subject
       String? subject = widget.message.envelope?.subject;
       if (subject == null || subject.isEmpty) {
         subject = widget.message.getHeaderValue('subject');
+        if (subject != null && subject.isNotEmpty && kDebugMode) {
+          debugPrint('📧 Tile subject via raw header: $subject');
+        }
       }
       _subject = subject?.isNotEmpty == true ? subject! : 'No Subject';
     }
@@ -637,7 +674,62 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       // Refresh full cached values when meta changes; this also recalculates
       // sender/subject/date if the envelope became available.
       _computeCachedValues();
+      if ((_senderName == 'Unknown Sender' || _subject == 'No Subject')) {
+        // Attempt a late hydration from storage if still missing
+        _hydrateSenderSubjectIfMissing();
+      }
     });
+  }
+
+  // Hydrate sender/subject quickly from SQLite if envelope is not yet set
+  Future<void> _hydrateSenderSubjectIfMissing() async {
+    try {
+      final storage = mailboxController.mailboxStorage[widget.mailBox];
+      if (storage == null) return;
+      final seq = MessageSequence.fromMessage(widget.message);
+      final fromDb = await storage.loadMessageEnvelopes(seq);
+      if (fromDb.isNotEmpty) {
+        final mm = fromDb.first;
+        bool changed = false;
+        if (widget.message.envelope == null && mm.envelope != null) {
+          widget.message.envelope = mm.envelope;
+          changed = true;
+          if (kDebugMode) {
+            debugPrint('📧 Tile hydration: envelope loaded from DB');
+          }
+        }
+        if ((widget.message.from == null || widget.message.from!.isEmpty) && (mm.from?.isNotEmpty ?? false)) {
+          widget.message.from = mm.from;
+          changed = true;
+          if (kDebugMode) {
+            debugPrint('📧 Tile hydration: from loaded from DB');
+          }
+        }
+        final subj = mm.decodeSubject() ?? mm.envelope?.subject;
+        if ((widget.message.decodeSubject() == null || (widget.message.decodeSubject()?.isEmpty ?? true)) && (subj != null && subj.isNotEmpty)) {
+          try { widget.message.setHeader('subject', subj); } catch (_) {}
+          changed = true;
+          if (kDebugMode) {
+            debugPrint('📧 Tile hydration: subject loaded from DB');
+          }
+        }
+        if (changed) {
+          try { widget.message.setHeader('x-ready', '1'); } catch (_) {}
+          if (mounted) {
+            setState(() => _computeCachedValues());
+          }
+          try { mailboxController.bumpMessageMeta(widget.mailBox, widget.message); } catch (_) {}
+        }
+      } else {
+        if (kDebugMode) {
+          debugPrint('📧 Tile hydration: DB had no envelope row yet for this message');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('📧 Tile hydration error: $e');
+      }
+    }
   }
 }
 

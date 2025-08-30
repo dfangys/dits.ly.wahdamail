@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get_storage/get_storage.dart';
 // import 'package:hive_flutter/hive_flutter.dart';
@@ -8,9 +9,31 @@ import 'package:wahda_bank/services/notifications_service.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wahda_bank/models/sqlite_database_helper.dart';
 import 'package:wahda_bank/services/offline_http_server.dart';
+import 'package:enough_mail/enough_mail.dart';
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Swallow transient MailException from IMAP event handlers to avoid app crashes
+  // when servers respond with BAD for an intermediate FETCH range.
+  // We still log the error for diagnostics.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    try {
+      if (details.exception is MailException) {
+        debugPrint('Ignored MailException (global): ${details.exception}');
+        return; // handled
+      }
+    } catch (_) {}
+    FlutterError.dumpErrorToConsole(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    if (error is MailException) {
+      debugPrint('Ignored MailException (dispatcher): $error');
+      return true; // handled
+    }
+    return false;
+  };
+
   await GetStorage.init();
 
   await NotificationService.instance.setup();

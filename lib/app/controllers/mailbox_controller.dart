@@ -441,7 +441,7 @@ class MailBoxController extends GetxController {
   }
 
   /// Handle new messages added to mailbox
-  void _handleNewMessagesInMailbox(Mailbox mailbox, List<MimeMessage> newMessages) {
+  Future<void> _handleNewMessagesInMailbox(Mailbox mailbox, List<MimeMessage> newMessages) async {
     try {
       // Robust mailbox matching: by encodedPath (preferred), name (case-insensitive), or inbox flag
       bool isSameMailbox = false;
@@ -462,6 +462,8 @@ class MailBoxController extends GetxController {
       if (isSameMailbox) {
         final currentMessages = emails[current];
         if (currentMessages != null) {
+          // Collect truly new messages to persist and for fast-path hydration
+          final List<MimeMessage> persistBatch = [];
           for (final message in newMessages) {
             // Check if message already exists
             final exists = currentMessages.any((m) => 
@@ -471,6 +473,7 @@ class MailBoxController extends GetxController {
             
             if (!exists) {
               currentMessages.insert(0, message); // Add to beginning
+              persistBatch.add(message);
               try { bumpMessageMeta(current!, message); } catch (_) {}
             }
           }
@@ -478,13 +481,20 @@ class MailBoxController extends GetxController {
           emails.refresh();
           update();
 
+          // Persist new envelopes immediately so storage-backed views update instantly
+          final storage = mailboxStorage[current];
+          if (storage != null && persistBatch.isNotEmpty) {
+            try {
+              await storage.saveMessageEnvelopes(persistBatch);
+            } catch (_) {}
+          }
+
           // Kick off a very fast preview/backfill for the top few new messages
           unawaited(_fastPreviewForNewMessages(current!, newMessages.take(3).toList()));
           // Warm up envelopes for all new messages so tiles don't show Unknown/No Subject
           unawaited(_ensureEnvelopesForNewMessages(current!, newMessages));
 
           // Also queue background backfill for the whole batch
-          final storage = mailboxStorage[current];
           if (storage != null && newMessages.isNotEmpty) {
             try {
               previewService.queueBackfillForMessages(

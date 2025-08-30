@@ -7,6 +7,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/services/email_notification_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
+import 'package:wahda_bank/services/optimized_idle_service.dart';
 
 
 class MailService {
@@ -128,11 +129,20 @@ class MailService {
         return;
       }
 
-      // Start email notification service for IDLE mode
-      await EmailNotificationService.instance.startListening();
+      // Prefer the optimized IDLE service as the single owner of the IDLE lifecycle
+      final idle = OptimizedIdleService.instance;
+      if (idle.isRunning || idle.isIdleActive) {
+        if (kDebugMode) {
+          print('Skipping legacy IDLE: optimized IDLE is already active');
+        }
+        _isIdleActive = true;
+        return;
+      }
+
+      await idle.startOptimizedIdle();
       _isIdleActive = true;
       if (kDebugMode) {
-print('IDLE mode started for mailbox: ${client.selectedMailbox?.name}');
+        print('IDLE mode started via OptimizedIdleService for mailbox: ${client.selectedMailbox?.name}');
       }
     } catch (e) {
       if (kDebugMode) {
