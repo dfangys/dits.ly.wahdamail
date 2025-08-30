@@ -59,6 +59,16 @@ class _ThreadViewerState extends State<ThreadViewer> {
     setState(() {}); // reflect preview/x-ready updates without flicker
   }
 
+  Future<void> _ensureSelectedMailbox() async {
+    try {
+      final mail = MailService.instance;
+      if (!mail.client.isConnected) {
+        try { await mail.connect().timeout(const Duration(seconds: 8)); } catch (_) {}
+      }
+      try { await mail.client.selectMailbox(widget.mailbox).timeout(const Duration(seconds: 8)); } catch (_) {}
+    } catch (_) {}
+  }
+
   Future<void> _loadThread() async {
     try {
       setState(() { _loading = true; _error = null; });
@@ -91,7 +101,20 @@ class _ThreadViewerState extends State<ThreadViewer> {
         convIds.addAll(_ids(widget.message.getHeaderValue('in-reply-to')));
         convIds.addAll(_ids(widget.message.getHeaderValue('references')));
 
-        // If no IDs at all, we cannot build a header-based conversation; return empty.
+        // If no IDs at all, try to fetch headers for the current message to seed IDs
+        if (convIds.isEmpty) {
+          try {
+            await _ensureSelectedMailbox();
+            var fetched = await MailService.instance.client
+                .fetchMessageContents(widget.message)
+                .timeout(const Duration(seconds: 12));
+            convIds.addAll(_ids(fetched.getHeaderValue('message-id')));
+            convIds.addAll(_ids(fetched.getHeaderValue('in-reply-to')));
+            convIds.addAll(_ids(fetched.getHeaderValue('references')));
+          } catch (_) {}
+        }
+
+        // Still no IDs: we cannot build a header-based conversation locally.
         if (convIds.isEmpty) {
           setState(() { _thread = const <MimeMessage>[]; _loading = false; });
           _attachMetaNotifiers();
@@ -140,6 +163,27 @@ class _ThreadViewerState extends State<ThreadViewer> {
           }
         }
 
+        // If we still didn't find any local matches, perform a bounded server-side search
+        if (result.isEmpty && convIds.isNotEmpty) {
+          try {
+            await _ensureSelectedMailbox();
+            // Prefer the earliest ID (likely the root) to search headers
+            final rootId = convIds.first;
+            final searchRes = await MailService.instance.client
+                .searchMessages(
+                  MailSearch(rootId, SearchQueryType.allTextHeaders, messageType: SearchMessageType.all),
+                )
+                .timeout(const Duration(seconds: 12));
+            final found = searchRes?.messages ?? const <MimeMessage>[];
+            for (final m in found) {
+              if ((widget.message.uid != null && m.uid == widget.message.uid) || (widget.message.sequenceId != null && m.sequenceId == widget.message.sequenceId)) {
+                continue;
+              }
+              result.add(m);
+            }
+          } catch (_) {}
+        }
+
         _sort(result);
         setState(() { _thread = result; _loading = false; });
         _attachMetaNotifiers();
@@ -147,12 +191,7 @@ class _ThreadViewerState extends State<ThreadViewer> {
       }
 
       final mail = MailService.instance;
-      if (!mail.client.isConnected) {
-        try { await mail.connect().timeout(const Duration(seconds: 8)); } catch (_) {}
-      }
-      if (mail.client.selectedMailbox?.encodedPath != widget.mailbox.encodedPath) {
-        try { await mail.client.selectMailbox(widget.mailbox).timeout(const Duration(seconds: 8)); } catch (_) {}
-      }
+      await _ensureSelectedMailbox();
 
       final msgs = await mail.client.fetchMessageSequence(
         seq,

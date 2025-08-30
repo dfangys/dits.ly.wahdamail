@@ -254,46 +254,18 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      // Calm, non-distracting loader: header + thin progress + static skeleton cards
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (widget.showHeader)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  const Icon(Icons.attach_file, size: 18),
-                  const SizedBox(width: 6),
-                  Text('Attachments', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  const SizedBox(
-                    width: 96,
-                    child: LinearProgressIndicator(minHeight: 2),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 120,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              scrollDirection: Axis.horizontal,
-              itemCount: 4,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) => const _SkeletonAttachment(width: 112, height: 112, radius: 12),
-            ),
-          ),
-        ],
-      );
-    }
+    // Hide loader entirely; only reveal when attachments are available
+    if (_isLoading) return const SizedBox.shrink();
     if (_items.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      switchInCurve: Curves.easeOut,
+      switchOutCurve: Curves.easeIn,
+      child: Column(
+        key: ValueKey('atts-${_items.length}') ,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
         if (widget.showHeader)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -332,7 +304,8 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
             },
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 

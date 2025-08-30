@@ -69,6 +69,18 @@ class _ShowMessageState extends State<ShowMessage> {
     _loadCachedContent();
   }
 
+  Future<void> _ensureSelectedMailbox() async {
+    try {
+      final mailService = MailService.instance;
+      if (!mailService.client.isConnected) {
+        try { await mailService.connect().timeout(const Duration(seconds: 10)); } catch (_) {}
+      }
+      try {
+        await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 8));
+      } catch (_) {}
+    } catch (_) {}
+  }
+
   void _loadCachedContent() async {
     if (_loadingContent) return;
     _loadingContent = true;
@@ -155,20 +167,23 @@ class _ShowMessageState extends State<ShowMessage> {
         // On-demand fetch fallback: if still empty, fetch this message body immediately
         if (html == null || html.trim().isEmpty) {
           try {
+            await _ensureSelectedMailbox();
             final mailService = MailService.instance;
-            if (!mailService.client.isConnected) {
-              try { await mailService.connect().timeout(const Duration(seconds: 10)); } catch (_) {}
-            }
-            // Ensure mailbox is selected
-            try {
-              if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
-                await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 8));
-              }
-            } catch (_) {}
             final seq = MessageSequence.fromMessage(message);
-            final fetched = await mailService.client
-                .fetchMessageSequence(seq, fetchPreference: FetchPreference.fullWhenWithinSize)
-                .timeout(const Duration(seconds: 15), onTimeout: () => <MimeMessage>[]);
+            List<MimeMessage> fetched = const <MimeMessage>[];
+            try {
+              fetched = await mailService.client
+                  .fetchMessageSequence(seq, fetchPreference: FetchPreference.fullWhenWithinSize)
+                  .timeout(const Duration(seconds: 15), onTimeout: () => <MimeMessage>[]);
+            } catch (_) {
+              // Retry once after re-select
+              try { await _ensureSelectedMailbox(); } catch (_) {}
+              try {
+                fetched = await mailService.client
+                    .fetchMessageSequence(seq, fetchPreference: FetchPreference.fullWhenWithinSize)
+                    .timeout(const Duration(seconds: 12), onTimeout: () => <MimeMessage>[]);
+              } catch (_) {}
+            }
             if (fetched.isNotEmpty) {
               final full = fetched.first;
               effectiveMsg = full; // prefer the freshly fetched full message
