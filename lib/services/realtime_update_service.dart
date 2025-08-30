@@ -708,20 +708,57 @@ extension IncomingEmailExtension on RealtimeUpdateService {
       for (final message in newMessages) {
         // Determine target mailbox (usually INBOX for new messages)
         final mailboxKey = targetMailboxKey;
-        
-        // Group messages by mailbox for batch processing
+
+        // Ensure storage slot
+        _mailboxMessages.putIfAbsent(mailboxKey, () => <MimeMessage>[]);
+        final listRef = _mailboxMessages[mailboxKey]!;
+
+        // Dedupe by UID or sequenceId and merge if exists
+        int existingIndex = -1;
+        try {
+          existingIndex = listRef.indexWhere((m) =>
+              (message.uid != null && m.uid == message.uid) ||
+              (message.sequenceId != null && m.sequenceId == message.sequenceId));
+        } catch (_) {}
+
+        if (existingIndex >= 0) {
+          // Merge minimal fields to update tile immediately without flicker
+          final existing = listRef[existingIndex];
+          try {
+            if (message.envelope != null) existing.envelope = message.envelope;
+            if ((existing.from == null || existing.from!.isEmpty) && (message.from?.isNotEmpty ?? false)) {
+              existing.from = message.from;
+            }
+            // Carry over ready/preview/attachments hints
+            final pv = message.getHeaderValue('x-preview');
+            if (pv != null && pv.trim().isNotEmpty) existing.setHeader('x-preview', pv);
+            if ((message.getHeaderValue('x-ready') ?? '') == '1') existing.setHeader('x-ready', '1');
+            final att = message.getHeaderValue('x-has-attachments');
+            if (att != null) existing.setHeader('x-has-attachments', att);
+            // Flags consistency
+            existing.isSeen = existing.isSeen || message.isSeen;
+            existing.isFlagged = existing.isFlagged || message.isFlagged;
+          } catch (_) {}
+
+          // Emit a statusChanged to refresh UI bindings
+          _messageUpdateStream.add(MessageUpdate(
+            message: existing,
+            type: MessageUpdateType.statusChanged,
+            metadata: {'mailboxName': mailboxKey},
+          ));
+          continue; // Do not add as a new message
+        }
+
+        // Group truly new messages by mailbox for batch processing
         messagesByMailbox.putIfAbsent(mailboxKey, () => []).add(message);
-        
+
         // Track unread count changes
         if (!message.isSeen) {
           unreadCountChanges[mailboxKey] = (unreadCountChanges[mailboxKey] ?? 0) + 1;
         }
-        
-        // Update internal state
-        if (_mailboxMessages[mailboxKey] == null) {
-          _mailboxMessages[mailboxKey] = [];
-        }
-        _mailboxMessages[mailboxKey]!.insert(0, message); // Add to beginning
+
+        // Insert new message at top
+        listRef.insert(0, message);
       }
       
       // Batch update unread counts

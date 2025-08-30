@@ -280,6 +280,23 @@ class EmailNotificationService {
       await _storage.write(lastSeenUidKey, uid);
     }
 
+    // Before showing OS notification, immediately reflect the new mail in the UI tile list.
+    // Mark ready and best-effort attachment hint, then notify realtime service.
+    try {
+      message.setHeader('x-ready', '1');
+      try {
+        final hasAtt = message.hasAttachments();
+        message.setHeader('x-has-attachments', hasAtt ? '1' : '0');
+      } catch (_) {}
+      await RealtimeUpdateService.instance.notifyNewMessages([message], mailbox: mailbox);
+      // Nudge tiles to re-render quickly
+      try {
+        if (Get.isRegistered<MailBoxController>()) {
+          Get.find<MailBoxController>().bumpMessageMeta(mailbox, message);
+        }
+      } catch (_) {}
+    } catch (_) {}
+
     // Prepare a pending notif payload; we will debounce to coalesce quick successive events
     // Capture the best-known values immediately
     String bestPreview = '';
