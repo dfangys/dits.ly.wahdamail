@@ -21,6 +21,7 @@ class _ThreadViewerState extends State<ThreadViewer> {
   String? _error;
   List<MimeMessage> _thread = [];
   bool _oldestFirst = true;
+  int _loadGen = 0; // generation token to avoid setState after dispose or outdated async
 
   // Track expanded state and meta notifiers for live updates
   final Set<String> _expanded = <String>{};
@@ -70,7 +71,9 @@ class _ThreadViewerState extends State<ThreadViewer> {
   }
 
   Future<void> _loadThread() async {
+    final int gen = ++_loadGen;
     try {
+      if (!mounted || gen != _loadGen) return;
       setState(() { _loading = true; _error = null; });
       final seq = widget.message.threadSequence;
       if (seq == null || seq.isEmpty) {
@@ -113,6 +116,7 @@ class _ThreadViewerState extends State<ThreadViewer> {
             convIds.addAll(_ids(fetched.getHeaderValue('references')));
           } catch (_) {}
         }
+        if (!mounted || gen != _loadGen) return;
 
         // Still no IDs: we cannot build a header-based conversation locally.
         if (convIds.isEmpty) {
@@ -174,18 +178,18 @@ class _ThreadViewerState extends State<ThreadViewer> {
                   MailSearch(rootId, SearchQueryType.allTextHeaders, messageType: SearchMessageType.all),
                 )
                 .timeout(const Duration(seconds: 12));
+            if (!mounted || gen != _loadGen) return;
             final found = searchRes?.messages ?? const <MimeMessage>[];
             for (final m in found) {
               if ((widget.message.uid != null && m.uid == widget.message.uid) || (widget.message.sequenceId != null && m.sequenceId == widget.message.sequenceId)) {
                 continue;
               }
-              result.add(m);
-            }
-          } catch (_) {}
-        }
-
-        _sort(result);
+              result.add(m        _sort(result);
+        if (!mounted || gen != _loadGen) return;
         setState(() { _thread = result; _loading = false; });
+        _attachMetaNotifiers();
+        return;
+setState(() { _thread = result; _loading = false; });
         _attachMetaNotifiers();
         return;
       }
@@ -197,6 +201,7 @@ class _ThreadViewerState extends State<ThreadViewer> {
         seq,
         fetchPreference: FetchPreference.envelope,
       ).timeout(const Duration(seconds: 20), onTimeout: () => <MimeMessage>[]);
+      if (!mounted || gen != _loadGen) return;
 
       // Remove the current message and sort
       final currentUid = widget.message.uid;
@@ -204,9 +209,11 @@ class _ThreadViewerState extends State<ThreadViewer> {
       final filtered = msgs.where((m) => (currentUid != null && m.uid != currentUid) || (currentSeq != null && m.sequenceId != currentSeq)).toList();
       _sort(filtered);
 
+      if (!mounted || gen != _loadGen) return;
       setState(() { _thread = filtered; _loading = false; });
       _attachMetaNotifiers();
     } catch (e) {
+      if (!mounted || gen != _loadGen) return;
       setState(() { _error = 'Failed to load thread: $e'; _loading = false; });
     }
   }
@@ -351,6 +358,7 @@ class _ConversationItemState extends State<_ConversationItem> {
 
   Future<void> _ensureBody() async {
     if (_loadingBody) return;
+    if (!mounted) return;
     setState(() => _loadingBody = true);
     try {
       final msg = widget.message;
@@ -394,6 +402,7 @@ class _ConversationItemState extends State<_ConversationItem> {
         } catch (_) {}
       }
 
+      if (!mounted) return;
       setState(() {
         _initialHtml = html;
         _initialHtmlPath = htmlPath;
