@@ -984,23 +984,34 @@ final isUid = sequence.isUidSequence;
       final normalizedSubject = _normalizeSubject(subj);
       final dayBucket = dateMillis ~/ 86400000;
 
+      final Map<String, Object?> data = {
+        SQLiteDatabaseHelper.columnEnvelope: envJson,
+        // Always keep server date and flags up-to-date
+        SQLiteDatabaseHelper.columnDate: dateMillis,
+        SQLiteDatabaseHelper.columnEmailFlags: message.flags?.map((f) => f.toString()).join(',') ?? '',
+        SQLiteDatabaseHelper.columnIsSeen: message.isSeen ? 1 : 0,
+        SQLiteDatabaseHelper.columnIsFlagged: message.isFlagged ? 1 : 0,
+        SQLiteDatabaseHelper.columnIsDeleted: message.isDeleted ? 1 : 0,
+        SQLiteDatabaseHelper.columnIsAnswered: message.isAnswered ? 1 : 0,
+      };
+      // Do not overwrite good values with empty/unknown placeholders
+      if (subj.trim().isNotEmpty) {
+        data[SQLiteDatabaseHelper.columnSubject] = subj;
+        data[SQLiteDatabaseHelper.columnNormalizedSubject] = normalizedSubject;
+      }
+      if (fromEmail.trim().isNotEmpty) {
+        data[SQLiteDatabaseHelper.columnFrom] = fromEmail;
+        data[SQLiteDatabaseHelper.columnSenderName] = senderName;
+      }
+      if (toEmails.trim().isNotEmpty) {
+        data[SQLiteDatabaseHelper.columnTo] = toEmails;
+      }
+      // Maintain day bucket with the updated date
+      data[SQLiteDatabaseHelper.columnDayBucket] = dayBucket;
+
       await db.update(
         SQLiteDatabaseHelper.tableEmails,
-        {
-          SQLiteDatabaseHelper.columnEnvelope: envJson,
-          SQLiteDatabaseHelper.columnSubject: subj,
-          SQLiteDatabaseHelper.columnFrom: fromEmail,
-          SQLiteDatabaseHelper.columnTo: toEmails,
-          SQLiteDatabaseHelper.columnDate: dateMillis,
-          SQLiteDatabaseHelper.columnSenderName: senderName,
-          SQLiteDatabaseHelper.columnNormalizedSubject: normalizedSubject,
-          SQLiteDatabaseHelper.columnDayBucket: dayBucket,
-          SQLiteDatabaseHelper.columnEmailFlags: message.flags?.map((f) => f.toString()).join(',') ?? '',
-          SQLiteDatabaseHelper.columnIsSeen: message.isSeen ? 1 : 0,
-          SQLiteDatabaseHelper.columnIsFlagged: message.isFlagged ? 1 : 0,
-          SQLiteDatabaseHelper.columnIsDeleted: message.isDeleted ? 1 : 0,
-          SQLiteDatabaseHelper.columnIsAnswered: message.isAnswered ? 1 : 0,
-        },
+        data,
         where: whereBuffer.toString(),
         whereArgs: args,
       );
