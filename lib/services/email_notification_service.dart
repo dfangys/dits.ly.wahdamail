@@ -129,6 +129,22 @@ class EmailNotificationService {
       await mailService.connect();
     }
 
+    // Prime lastSeenUid to the current UIDNEXT - 1 so we don't notify for historical unread
+    try {
+      final selected = mailService.client.selectedMailbox ?? await mailService.client.selectInbox();
+      final inbox = selected.isInbox ? selected : (await mailService.client.listMailboxes()).firstWhereOrNull((mb) => mb.isInbox) ?? selected;
+      if (inbox.uidNext != null) {
+        final target = inbox.uidNext! - 1;
+        final current = _storage.read<int>(lastSeenUidKey) ?? 0;
+        if (current < target) {
+          await _storage.write(lastSeenUidKey, target);
+          if (kDebugMode) {
+            print('🔔 Primed lastSeenUid to $target (uidNext=${inbox.uidNext}) to avoid notifying historical unread');
+          }
+        }
+      }
+    } catch (_) {}
+
     // Polling/IDLE is centrally managed to avoid conflicts; do not toggle here.
     // Just ensure we are connected and subscribed to events for notifications.
 
@@ -216,10 +232,24 @@ class EmailNotificationService {
     final mailbox = MailService.instance.client.selectedMailbox;
     if (mailbox == null || !mailbox.isInbox) return;
 
+    // Newness guard 1: UID fence
+    try {
+      final uid = message.uid;
+      if (uid != null) {
+        final lastSeen = _storage.read<int>(lastSeenUidKey) ?? 0;
+        if (uid <= lastSeen) {
+          if (kDebugMode) {
+            print('🔔 Skipping notif for uid=$uid (<= lastSeen=$lastSeen)');
+          }
+          return; // historical or already processed
+        }
+      }
+    } catch (_) {}
+
     // Build stable key and pick/update a deterministic notification id
     final key = _stableKeyForMessage(message, mailbox);
 
-    // If we've already notified for this key, skip duplicate updates within a short TTL
+    // Newness guard 2: already notified
     if (_notifiedKeys.contains(key)) {
       return;
     }
@@ -275,12 +305,6 @@ class EmailNotificationService {
     if (sender.isEmpty) sender = 'Unknown Sender';
     if (subject.isEmpty) subject = 'No Subject';
 
-    // Store the message UID as last seen (prevents duplicate notifications in background checks)
-    final uid = message.uid;
-    if (uid != null) {
-      await _storage.write(lastSeenUidKey, uid);
-    }
-
     // Before showing OS notification, immediately reflect the new mail in the UI tile list.
     // Mark ready and best-effort attachment hint, then notify realtime service.
     try {
@@ -297,6 +321,12 @@ class EmailNotificationService {
         }
       } catch (_) {}
     } catch (_) {}
+
+    // Store the message UID as last seen (prevents duplicate notifications next time)
+    final uid = message.uid;
+    if (uid != null) {
+      await _storage.write(lastSeenUidKey, uid);
+    }
 
     // Prepare a pending notif payload; we will debounce to coalesce quick successive events
     // Capture the best-known values immediately
@@ -561,18 +591,19 @@ class EmailNotificationService {
         if (preview.length > 150) preview = '${preview.substring(0, 147)}...';
       } catch (_) {}
 
-      // Persist preview to DB if available and stamp header
+      // Persist preview to DB if non-empty and stamp header
       try {
-        final db = await SQLiteDatabaseHelper.instance.database;
-        // Update preview_text if column exists
-        await db.update(
-          SQLiteDatabaseHelper.tableEmails,
-          { SQLiteDatabaseHelper.columnPreviewText: preview },
-          where: '${SQLiteDatabaseHelper.columnUid} = ?',
-          whereArgs: [full.uid],
-        );
+        if (preview.isNotEmpty) {
+          final db = await SQLiteDatabaseHelper.instance.database;
+          await db.update(
+            SQLiteDatabaseHelper.tableEmails,
+            { SQLiteDatabaseHelper.columnPreviewText: preview },
+            where: '${SQLiteDatabaseHelper.columnUid} = ?',
+            whereArgs: [full.uid],
+          );
+          try { message.setHeader('x-preview', preview); } catch (_) {}
+        }
       } catch (_) {}
-      try { message.setHeader('x-preview', preview); } catch (_) {}
 
       // Notify UI live if possible
       try {

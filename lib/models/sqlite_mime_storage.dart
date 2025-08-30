@@ -918,12 +918,17 @@ final isUid = sequence.isUidSequence;
         return;
       }
 
+      final Map<String, Object?> updateFields = {
+        SQLiteDatabaseHelper.columnHasAttachments: hasAttachments ? 1 : 0,
+      };
+      // Do NOT clobber existing preview with empty string
+      if (previewText.trim().isNotEmpty) {
+        updateFields[SQLiteDatabaseHelper.columnPreviewText] = previewText;
+      }
+
       await db.update(
         SQLiteDatabaseHelper.tableEmails,
-        {
-          SQLiteDatabaseHelper.columnPreviewText: previewText,
-          SQLiteDatabaseHelper.columnHasAttachments: hasAttachments ? 1 : 0,
-        },
+        updateFields,
         where: whereBuffer.toString(),
         whereArgs: args,
       );
