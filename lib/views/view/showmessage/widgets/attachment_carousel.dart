@@ -255,6 +255,7 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
+      // Calm, non-distracting loader: header + thin progress + static skeleton cards
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -267,23 +268,22 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
                   const SizedBox(width: 6),
                   Text('Attachments', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
                   const Spacer(),
-                  TextButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.download_outlined, size: 18, color: Colors.grey),
-                    label: const Text('Download all', style: TextStyle(color: Colors.grey)),
+                  const SizedBox(
+                    width: 96,
+                    child: LinearProgressIndicator(minHeight: 2),
                   ),
                 ],
               ),
             ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           SizedBox(
             height: 120,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               scrollDirection: Axis.horizontal,
-              itemCount: 3,
+              itemCount: 4,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) => const _Pulse(width: 112, height: 112, radius: 12),
+              itemBuilder: (context, index) => const _SkeletonAttachment(width: 112, height: 112, radius: 12),
             ),
           ),
         ],
@@ -784,37 +784,62 @@ class _AttachmentItem {
   );
 }
 
-class _Pulse extends StatefulWidget {
-  const _Pulse({required this.width, required this.height, this.radius = 8});
+class _SkeletonAttachment extends StatelessWidget {
+  const _SkeletonAttachment({required this.width, required this.height, this.radius = 8});
   final double width;
   final double height;
   final double radius;
   @override
-  State<_Pulse> createState() => _PulseState();
-}
-
-class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
-  late final AnimationController _c;
-  late final Animation<double> _a;
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
-    _a = Tween<double>(begin: 0.55, end: 1.0).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut));
-  }
-  @override
-  void dispose() { _c.dispose(); super.dispose(); }
-  @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _a,
-      child: Container(
-        width: widget.width,
-        height: widget.height,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(widget.radius),
-        ),
+    final theme = Theme.of(context);
+    return Container(
+      width: width,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
+        color: theme.colorScheme.surface,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(radius - 2),
+                  topRight: Radius.circular(radius - 2),
+                ),
+              ),
+              child: Icon(Icons.insert_drive_file, color: Colors.grey.shade500, size: 24),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                )
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

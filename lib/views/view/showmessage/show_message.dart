@@ -713,13 +713,41 @@ class _ShowMessageState extends State<ShowMessage> {
                       // Enhanced subject with proper fallback handling
                       Text(
                         subject,
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: isSeen ? FontWeight.w600 : FontWeight.bold,
-                          color: isSeen ? null : Theme.of(context).colorScheme.onSurface,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: isSeen ? FontWeight.w600 : FontWeight.w700,
+                          height: 1.2,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      // Lightweight meta chips for a modern look
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: -6,
+                        children: [
+                          if (threadLength > 0)
+                            Chip(
+                              label: Text('${threadLength + 1} in thread'),
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              labelStyle: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          if (hasAttachments)
+                            const Chip(
+                              label: Text('Attachments'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          if (isFlagged)
+                            const Chip(
+                              label: Text('Flagged'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                        ],
+                      ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
 
                       // Sender info with avatar
                       InkWell(
