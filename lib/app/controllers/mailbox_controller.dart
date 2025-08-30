@@ -22,6 +22,7 @@ import 'package:wahda_bank/utils/perf/perf_tracer.dart';
 import 'package:wahda_bank/services/optimized_idle_service.dart';
 import 'package:wahda_bank/services/connection_manager.dart' as conn;
 import 'package:wahda_bank/services/background_service.dart';
+import 'package:wahda_bank/services/email_notification_service.dart';
 import 'package:rxdart/rxdart.dart' hide Rx;
 import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
@@ -2128,6 +2129,11 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       if (kDebugMode) {
         print('📧 🚀 Starting optimized IDLE service (mailbox selected)');
       }
+      
+      // Ensure the notification listener is active (it only subscribes; it does NOT start IDLE)
+      try {
+        EmailNotificationService.instance.startListening();
+      } catch (_) {}
       
       // Get the optimized IDLE service instance
       final idleService = OptimizedIdleService.instance;
