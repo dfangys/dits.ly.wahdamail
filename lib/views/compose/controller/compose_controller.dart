@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
@@ -15,6 +16,14 @@ import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/models/sqlite_draft_repository.dart';
 import 'package:wahda_bank/models/sqlite_mime_storage.dart';
+import 'package:wahda_bank/services/imap_fetch_pool.dart';
+import 'package:wahda_bank/services/attachment_fetcher.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import 'package:open_app_file/open_app_file.dart';
+import 'package:wahda_bank/services/draft_sync_service.dart';
+import 'package:wahda_bank/services/message_content_store.dart';
+import 'package:wahda_bank/services/html_enhancer.dart';
 
 
 extension EmailValidator on String {
@@ -24,6 +33,8 @@ extension EmailValidator on String {
         .hasMatch(this);
   }
 }
+
+enum DraftSyncState { idle, syncing, synced, failed }
 
 class ComposeController extends GetxController {
   // Email client and account
@@ -80,6 +91,10 @@ class ComposeController extends GetxController {
   // Message builder and content
   late MessageBuilder messageBuilder;
   final RxList<File> attachments = <File>[].obs;
+  
+  // Pending draft attachments from server (metadata only until user confirms)
+  final RxList<DraftAttachmentMeta> pendingDraftAttachments = <DraftAttachmentMeta>[].obs;
+  
   String bodyPart = '';
   String signature = '';
 
@@ -91,6 +106,13 @@ class ComposeController extends GetxController {
   final RxBool isSending = false.obs;
   final RxInt priority = 0.obs;
   int? currentDraftId;
+  
+  // Draft sync state for UX
+  final Rx<DraftSyncState> syncState = DraftSyncState.idle.obs;
+  final RxString syncHint = ''.obs;
+  
+  // Attachment hydration policy
+  static const int _attachmentAutoHydrationLimitBytes = 10 * 1024 * 1024; // 10MB
 
   // Draft state
   final RxBool _hasUnsavedChanges = false.obs;
@@ -117,6 +139,7 @@ class ComposeController extends GetxController {
   // Original message data
   MimeMessage? msg;
   String? type;
+  Mailbox? sourceMailbox; // mailbox where the draft message resides
 
   // Contact suggestions
   List<MailAddress> get mailAddresses =>
@@ -164,6 +187,7 @@ class ComposeController extends GetxController {
     if (args != null) {
       type = args['type'];
       msg = args['message'];
+      sourceMailbox = args['mailbox'];
       String? toMails = args['to'];
       String? support = args['support'];
 
@@ -211,17 +235,15 @@ class ComposeController extends GetxController {
               : '';
           messageBuilder = MessageBuilder.prepareForwardMessage(msg!);
         } else if (type == 'draft') {
-          toList.addAll(msg!.to ?? []);
-          cclist.addAll(msg!.cc ?? []);
-          bcclist.addAll(msg!.bcc ?? []);
-          subjectController.text = msg!.decodeSubject() ?? '';
+          // Quick envelope population
+          _loadDraftEnvelopeQuick(msg!);
           signature = settingController.signatureNewMessage.value
               ? settingController.signature.value
               : '';
           messageBuilder = MessageBuilder.prepareFromDraft(msg!);
-
-          // Load draft from storage
-          await _loadDraftFromMessage(msg!);
+          
+          // Schedule background hydration (body + attachment metadata)
+          unawaited(_hydrateDraftInBackground(msg!));
         }
       } else {
         final settingController = Get.find<SettingController>();
@@ -556,24 +578,48 @@ class ComposeController extends GetxController {
       // Build message
       final draftMessage = messageBuilder.buildMimeMessage();
 
-      // Save to server
-      await client.selectMailboxByFlag(MailboxFlag.drafts);
-      final response = await client.saveDraftMessage(draftMessage);
-
-      // Update draft with server info if successful
-      if (response != null && _currentDraft != null) {
-        // enough_mail 2.1.7: the appended draft UID is in response.targetSequence (UID-based)
-        final ids = response.targetSequence.toList();
-        final int? appendedUid = ids.isNotEmpty ? ids.last : null;
-        if (appendedUid != null) {
-          await storage.markDraftSynced(_currentDraft!.id!, appendedUid);
+      // Queue background server sync with backoff; do not block UI
+      syncState.value = DraftSyncState.syncing;
+      syncHint.value = 'syncing_with_server'.tr;
+      // Notify DraftSyncService for UI badges (existing draft key while syncing)
+      try {
+        if (type == 'draft' && msg != null) {
+          final mbc = Get.find<MailBoxController>();
+          final mailboxHint = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+          if (mailboxHint != null) {
+            DraftSyncService.instance.setStateFor(mailboxHint, msg!, DraftSyncBadgeState.syncing);
+          }
         }
-      }
+      } catch (_) {}
 
-      // Delete old draft if editing
-      if (msg != null && type == 'draft') {
-        await client.deleteMessage(msg!);
-      }
+      unawaited(_saveDraftToServerWithBackoff(draftMessage, afterSuccess: (appendedUid) async {
+        try {
+          if (_currentDraft != null && appendedUid != null) {
+            await storage.markDraftSynced(_currentDraft!.id!, appendedUid);
+          }
+          // Delete old server draft if editing an existing
+          if (msg != null && type == 'draft') {
+            try { await client.deleteMessage(msg!); } catch (_) {}
+          }
+          // Update DraftSyncService: mark new appended UID as synced (for list badge)
+          try {
+            final mbc = Get.find<MailBoxController>();
+            final drafts = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+            if (drafts != null && appendedUid != null) {
+              final key = '${drafts.encodedPath}:$appendedUid';
+              DraftSyncService.instance.setStateForKey(key, DraftSyncBadgeState.synced);
+              // Clear badge after a short delay to avoid noisy UI
+              Future.delayed(const Duration(seconds: 5), () => DraftSyncService.instance.clearKey(key));
+            }
+          } catch (_) {}
+
+          syncState.value = DraftSyncState.synced;
+          syncHint.value = 'draft_synced'.tr;
+        } catch (_) {
+          // keep UI happy
+          syncState.value = DraftSyncState.synced;
+        }
+      }));
 
       // Update state
       _hasUnsavedChanges.value = false;
@@ -1066,83 +1112,112 @@ class ComposeController extends GetxController {
     }
   }
 
-  // Load draft from MimeMessage directly (server-based drafts)
-  Future<void> _loadDraftFromMessage(MimeMessage message) async {
+  // Quick envelope population for instant-open UX
+  void _loadDraftEnvelopeQuick(MimeMessage message) {
     try {
-      debugPrint('Loading draft: ${message.decodeSubject()}');
-      
-      // Load all draft data from MimeMessage
-      
-      // 1. Load recipients
+      // Set recipients and subject from envelope only
       toList.clear();
       cclist.clear();
       bcclist.clear();
-      
-      // Load To recipients
-      if (message.to != null) {
-        for (final address in message.to!) {
-          toList.add(address);
+      if (message.to != null) toList.addAll(message.to!);
+      if (message.cc != null) cclist.addAll(message.cc!);
+      if (message.bcc != null) bcclist.addAll(message.bcc!);
+      subjectController.text = message.decodeSubject() ?? '';
+      // Show placeholder status
+      _draftStatus.value = 'loading_draft_content'.tr;
+      update();
+    } catch (e) {
+      debugPrint('Error in quick envelope load: $e');
+    }
+  }
+
+  // Background hydration for body and attachments metadata (non-blocking)
+  Future<void> _hydrateDraftInBackground(MimeMessage message) async {
+    try {
+      debugPrint('Loading draft: ${message.decodeSubject()}');
+
+      // First try offline cache to populate content immediately if available
+      try {
+        final mbc = Get.find<MailBoxController>();
+        final mailboxHint = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+        if (mailboxHint != null && (message.uid != null)) {
+          final cached = await MessageContentStore.instance.getContent(
+            accountEmail: account.email,
+            mailboxPath: mailboxHint.encodedPath.isNotEmpty ? mailboxHint.encodedPath : (mailboxHint.path),
+            uidValidity: mailboxHint.uidValidity ?? 0,
+            uid: message.uid!,
+          );
+          if (cached != null) {
+            final html = cached.htmlSanitizedBlocked;
+            final plain = cached.plainText;
+            if (html != null && html.trim().isNotEmpty) {
+              isHtml.value = true;
+              bodyPart = html;
+              await _safeSetHtmlText(html);
+            } else if (plain != null && plain.trim().isNotEmpty) {
+              isHtml.value = false;
+              plainTextController.text = plain;
+            }
+          }
         }
-      }
-      
-      // Load CC recipients
-      if (message.cc != null) {
-        for (final address in message.cc!) {
-          cclist.add(address);
+      } catch (_) {}
+
+      // Prefer fetching the full draft from server via the pooled client to avoid IDLE interference
+      MimeMessage base = message;
+      MimeMessage? full;
+      try {
+        final mbc = Get.find<MailBoxController>();
+        final mailboxHint = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox ?? Mailbox(encodedName: 'INBOX', encodedPath: 'INBOX', flags: [], pathSeparator: '/');
+        final fetched = await ImapFetchPool.instance.fetchForMessage(
+          base: message,
+          mailboxHint: mailboxHint,
+          fetchPreference: FetchPreference.fullWhenWithinSize,
+          timeout: const Duration(seconds: 12),
+        );
+        if (fetched.isNotEmpty) {
+          full = fetched.first;
+          base = full;
         }
+      } catch (e) {
+        debugPrint('Draft full fetch skipped/failed: $e');
       }
-      
-      // Load BCC recipients
-      if (message.bcc != null) {
-        for (final address in message.bcc!) {
-          bcclist.add(address);
-        }
-      }
-      
-      // 2. Load subject
-      final subject = message.decodeSubject() ?? '';
-      subjectController.text = subject;
-      
-      // 3. Load body content
+
+      // Keep reference to the current full message for later attachment operations
+      msg = base;
+
+      // Body content
       String bodyContent = '';
       bool isHtmlContent = false;
-      
-      // Try to get HTML content first
-      final htmlContent = message.decodeTextHtmlPart();
-      
-      if (htmlContent != null && htmlContent.trim().isNotEmpty) {
-        bodyContent = htmlContent;
-        isHtmlContent = true;
-      } else {
-        final plainContent = message.decodeTextPlainPart();
-        
-        if (plainContent != null && plainContent.trim().isNotEmpty) {
-          bodyContent = plainContent;
-          isHtmlContent = false;
+
+      try {
+        final htmlContent = base.decodeTextHtmlPart();
+        if (htmlContent != null && htmlContent.trim().isNotEmpty) {
+          bodyContent = htmlContent;
+          isHtmlContent = true;
         } else {
-          // Fallback: Try to extract from message body directly
-          try {
-            final bodyText = message.decodeContentText();
+          final plainContent = base.decodeTextPlainPart();
+          if (plainContent != null && plainContent.trim().isNotEmpty) {
+            bodyContent = plainContent;
+            isHtmlContent = false;
+          } else {
+            final bodyText = base.decodeContentText();
             if (bodyText != null && bodyText.trim().isNotEmpty) {
               bodyContent = bodyText;
               isHtmlContent = false;
             }
-          } catch (e) {
-            debugPrint('Fallback body extraction failed: $e');
           }
         }
+      } catch (e) {
+        debugPrint('Error extracting draft body: $e');
       }
-      
-      // Set the content in the appropriate editor
+
       if (isHtmlContent && bodyContent.isNotEmpty) {
         isHtml.value = true;
         bodyPart = bodyContent;
-        
         try {
           await _safeSetHtmlText(bodyContent);
         } catch (e) {
           debugPrint('Failed to set HTML content: $e');
-          // Fallback to plain text if HTML setting fails
           isHtml.value = false;
           plainTextController.text = bodyContent;
         }
@@ -1150,49 +1225,178 @@ class ComposeController extends GetxController {
         isHtml.value = false;
         plainTextController.text = bodyContent;
       } else {
-        // Set empty content
         isHtml.value = false;
         plainTextController.text = '';
       }
-      
-      // 4. Load attachments from the MimeMessage
-      attachments.clear();
-      if (message.hasAttachments()) {
-        final attachmentInfos = message.findContentInfo(disposition: ContentDisposition.attachment);
-        
-        for (final info in attachmentInfos) {
+
+      // 4) Populate pending draft attachments (metadata only). Do NOT download yet.
+      try {
+        pendingDraftAttachments.clear();
+        final infos = base.findContentInfo(disposition: ContentDisposition.attachment);
+        for (final info in infos) {
           try {
-            // Extract attachment info from the content info
-            final filename = info.fileName ?? 'attachment';
-            final contentType = info.contentType?.toString() ?? 'application/octet-stream';
-            
-            debugPrint('Draft has attachment: $filename ($contentType)');
-            
-            // TODO: Download attachment data and create local file if needed for editing
-            // This would require implementing attachment download from the MimeMessage
-            
+            pendingDraftAttachments.add(DraftAttachmentMeta(
+              fetchId: info.fetchId,
+              fileName: info.fileName ?? 'attachment',
+              size: info.size,
+              mimeType: info.contentType?.mediaType.toString(),
+            ));
           } catch (e) {
-            debugPrint('Error processing attachment: $e');
+            debugPrint('Error adding pending draft attachment: $e');
           }
         }
+      } catch (e) {
+        debugPrint('Attachment metadata collection failed: $e');
       }
-      
-      // 5. Set draft metadata
+
+      // Persist sanitized content to offline store for fast re-open
+      try {
+        final mbc = Get.find<MailBoxController>();
+        final mailboxHint = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+        if (mailboxHint != null && (base.uid != null)) {
+          String? rawHtml = base.decodeTextHtmlPart();
+          String? plain = base.decodeTextPlainPart();
+          String? sanitizedHtml;
+          if (rawHtml != null && rawHtml.trim().isNotEmpty) {
+            // Pre-sanitize large HTML off main thread
+            String preprocessed = rawHtml;
+            if (rawHtml.length > 100 * 1024) {
+              try { preprocessed = await MessageContentStore.sanitizeHtmlInIsolate(rawHtml); } catch (_) {}
+            }
+            final enhanced = HtmlEnhancer.enhanceEmailHtml(
+              message: base,
+              rawHtml: preprocessed,
+              darkMode: false,
+              blockRemoteImages: true,
+              deviceWidthPx: 1024.0,
+            );
+            sanitizedHtml = enhanced.html;
+          }
+          if ((sanitizedHtml != null && sanitizedHtml.isNotEmpty) || (plain != null && plain.isNotEmpty)) {
+            await MessageContentStore.instance.upsertContent(
+              accountEmail: account.email,
+              mailboxPath: mailboxHint.encodedPath.isNotEmpty ? mailboxHint.encodedPath : (mailboxHint.path),
+              uidValidity: mailboxHint.uidValidity ?? 0,
+              uid: base.uid ?? -1,
+              plainText: plain,
+              htmlSanitizedBlocked: sanitizedHtml,
+              sanitizedVersion: 2,
+              forceMaterialize: false,
+            );
+          }
+        }
+      } catch (_) {}
+
+      // 5) Set draft metadata/status and update UI
       _showDraftOptions.value = true;
       _lastSavedTime.value = _formatSaveTime(DateTime.now());
       _hasUnsavedChanges.value = false;
       _draftStatus.value = 'draft_loaded'.tr;
-      
-      // Force UI update
       update();
-      
-      debugPrint('Successfully loaded draft from server: ${message.decodeSubject()}');
-      
+      debugPrint('Successfully hydrated draft from server: ${base.decodeSubject()}');
     } catch (e) {
       debugPrint('Error loading draft from message: $e');
     }
   }
 
+  // Find ContentInfo for a pending attachment by fetchId on the current message
+  ContentInfo? _resolveContentInfo(String fetchId) {
+    try {
+      final m = msg;
+      if (m == null) return null;
+      final infos = m.findContentInfo(disposition: ContentDisposition.attachment);
+      return infos.firstWhereOrNull((ci) => ci.fetchId == fetchId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Re-attach a pending draft attachment: download bytes and convert to File
+  Future<void> reattachPendingAttachment(DraftAttachmentMeta meta) async {
+    try {
+      final info = _resolveContentInfo(meta.fetchId);
+      if (info == null) return;
+      final mbc = Get.find<MailBoxController>();
+      final Mailbox? mailboxHint = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+      if (mailboxHint == null) {
+        debugPrint('Reattach failed: no mailbox available');
+        return;
+      }
+      if ((meta.size ?? 0) > _attachmentAutoHydrationLimitBytes) {
+        // Require explicit user action; already explicitly re-attaching, continue
+      }
+      final data = await AttachmentFetcher.fetchBytes(
+        message: msg!,
+        content: info,
+        mailbox: mailboxHint,
+      );
+      if (data == null) return;
+      final tmpDir = await getTemporaryDirectory();
+      final safeName = meta.fileName.replaceAll(RegExp(r'[\/\\]'), '_');
+      final filePath = p.join(tmpDir.path, 'draft_${DateTime.now().millisecondsSinceEpoch}_$safeName');
+      final f = File(filePath);
+      await f.writeAsBytes(data, flush: true);
+      attachments.add(f);
+      pendingDraftAttachments.removeWhere((x) => x.fetchId == meta.fetchId);
+      _markAsChanged();
+    } catch (e) {
+      debugPrint('Reattach failed: $e');
+    }
+  }
+
+  // View a pending draft attachment without attaching (temporary open)
+  Future<void> viewPendingAttachment(DraftAttachmentMeta meta) async {
+    try {
+      final info = _resolveContentInfo(meta.fetchId);
+      if (info == null) return;
+      final mbc = Get.find<MailBoxController>();
+      final Mailbox? mailboxHint = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+      if (mailboxHint == null) {
+        debugPrint('Preview failed: no mailbox available');
+        return;
+      }
+      if ((meta.size ?? 0) > _attachmentAutoHydrationLimitBytes) {
+        EasyLoading.showInfo('attachment_large_tap_to_download'.tr);
+      }
+      final data = await AttachmentFetcher.fetchBytes(
+        message: msg!,
+        content: info,
+        mailbox: mailboxHint,
+      );
+      if (data == null) return;
+      final tmpDir = await getTemporaryDirectory();
+      final safeName = meta.fileName.replaceAll(RegExp(r'[\/\\]'), '_');
+      final filePath = p.join(tmpDir.path, 'preview_${DateTime.now().millisecondsSinceEpoch}_$safeName');
+      final f = File(filePath);
+      await f.writeAsBytes(data, flush: true);
+      try { OpenAppFile.open(f.path); } catch (_) {}
+    } catch (e) {
+      debugPrint('Preview pending attachment failed: $e');
+    }
+  }
+
+  Future<void> reattachAllPendingAttachments() async {
+    final metas = List<DraftAttachmentMeta>.from(pendingDraftAttachments);
+    for (final m in metas) {
+      await reattachPendingAttachment(m);
+    }
+  }
+
+  // Discard the current draft from server (delete) and local storage
+  Future<void> discardCurrentDraft() async {
+    try {
+      if (type == 'draft' && msg != null) {
+        await client.deleteMessage(msg!);
+      }
+      if (_currentDraft?.id != null) {
+        try { await Get.find<SQLiteDraftRepository>().deleteDraft(_currentDraft!.id!); } catch (_) {}
+      }
+      canPop.value = true;
+      Get.back();
+    } catch (e) {
+      _showErrorDialog('Failed to discard draft: $e');
+    }
+  }
 
   // Insert link in HTML editor
   Future<void> insertLink() async {
@@ -1272,6 +1476,45 @@ class ComposeController extends GetxController {
         .replaceAll('\n', '<br>');
   }
 
+  // Server sync with exponential backoff
+  Future<void> _saveDraftToServerWithBackoff(MimeMessage draftMessage, {Future<void> Function(int? appendedUid)? afterSuccess}) async {
+    const attempts = 3;
+    int delayMs = 1200;
+    for (int i = 0; i < attempts; i++) {
+      try {
+        await client.selectMailboxByFlag(MailboxFlag.drafts);
+        final response = await client.saveDraftMessage(draftMessage);
+        final ids = response?.targetSequence.toList() ?? const <int>[];
+        final appendedUid = ids.isNotEmpty ? ids.last : null;
+        if (afterSuccess != null) {
+          await afterSuccess(appendedUid);
+        }
+        return;
+      } catch (e) {
+        if (i == attempts - 1) {
+          syncState.value = DraftSyncState.failed;
+          syncHint.value = 'sync_failed_retry_later'.tr;
+          // Update DraftSyncService for existing draft key
+          try {
+            if (type == 'draft' && msg != null) {
+              final mbc = Get.find<MailBoxController>();
+              final mailboxHint = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+              if (mailboxHint != null) {
+                DraftSyncService.instance.setStateFor(mailboxHint, msg!, DraftSyncBadgeState.failed);
+              }
+            }
+          } catch (_) {}
+          if (kDebugMode) {
+            debugPrint('Draft server sync failed: $e');
+          }
+          return;
+        }
+        await Future.delayed(Duration(milliseconds: delayMs));
+        delayMs *= 2;
+      }
+    }
+  }
+
   // Show error dialog
   void _showErrorDialog(String message) {
     AwesomeDialog(
@@ -1299,5 +1542,19 @@ class ComposeController extends GetxController {
     plainTextController.dispose();
     super.dispose();
   }
+}
+
+// Lightweight metadata model for pending draft attachments (server-side until reattached)
+class DraftAttachmentMeta {
+  final String fetchId;
+  final String fileName;
+  final int? size;
+  final String? mimeType;
+  DraftAttachmentMeta({
+    required this.fetchId,
+    required this.fileName,
+    this.size,
+    this.mimeType,
+  });
 }
 

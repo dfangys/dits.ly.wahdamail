@@ -492,9 +492,11 @@ class AttachmentValidator {
   
   /// Validate PDF content
   Future<ValidationResult> _validatePdfContent(Uint8List bytes, Map<String, dynamic> metadata) async {
-    // Check PDF structure
-    final content = String.fromCharCodes(bytes.take(100));
-    if (!content.startsWith('%PDF-')) {
+    // Search for %PDF- allowing for small BOM/preamble within the first KB
+    final int maxScan = bytes.length < 1024 ? bytes.length : 1024;
+    String head = String.fromCharCodes(bytes.take(maxScan));
+    final idx = head.indexOf('%PDF-');
+    if (idx < 0) {
       return ValidationResult(
         isValid: false,
         error: 'Invalid PDF header',
@@ -505,7 +507,7 @@ class AttachmentValidator {
     }
     
     // Extract PDF version
-    final versionMatch = RegExp(r'%PDF-(\d+\.\d+)').firstMatch(content);
+    final versionMatch = RegExp(r'%PDF-(\d+\.\d+)').firstMatch(head);
     if (versionMatch != null) {
       metadata['pdf_version'] = versionMatch.group(1);
     }

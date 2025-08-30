@@ -15,21 +15,24 @@ class ModernDraftOptionsSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: theme.shadowColor.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: theme.shadowColor.withValues(alpha: 0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           // Handle bar
           Container(
             width: 40,
@@ -92,6 +95,36 @@ class ModernDraftOptionsSheet extends StatelessWidget {
                 
                 const SizedBox(height: 8),
                 
+                // Discard draft (delete from server if applicable)
+                _buildOptionTile(
+                  context,
+                  icon: Icons.delete_outline,
+                  iconColor: Colors.red,
+                  title: 'discard_draft'.tr,
+                  subtitle: 'discard_draft_from_server'.tr,
+                  onTap: () {
+                    Get.back();
+                    controller.discardCurrentDraft();
+                  },
+                ),
+                
+                const SizedBox(height: 8),
+                
+                // Manage pending draft attachments
+                _buildOptionTile(
+                  context,
+                  icon: Icons.cloud_download_outlined,
+                  iconColor: Colors.blueGrey,
+                  title: 'manage_draft_attachments'.tr,
+                  subtitle: 'reattach_or_view_draft_attachments'.tr,
+                  onTap: () {
+                    Get.back();
+                    // Scroll to attachments section can be implemented if needed
+                  },
+                ),
+                
+                const SizedBox(height: 8),
+                
                 // Schedule send
                 _buildOptionTile(
                   context,
@@ -129,7 +162,7 @@ class ModernDraftOptionsSheet extends StatelessWidget {
                   iconColor: Colors.purple,
                   title: 'request_read_receipt'.tr,
                   subtitle: 'know_when_email_is_read'.tr,
-                  value: settingsController.readReceipts.value,
+                  rxValue: settingsController.readReceipts,
                   onChanged: (value) {
                     settingsController.readReceipts.value = value;
                   },
@@ -195,7 +228,9 @@ class ModernDraftOptionsSheet extends StatelessWidget {
               ),
             ),
           ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -277,7 +312,7 @@ class ModernDraftOptionsSheet extends StatelessWidget {
     required Color iconColor,
     required String title,
     required String subtitle,
-    required bool value,
+    required RxBool rxValue,
     required ValueChanged<bool> onChanged,
   }) {
     final theme = Theme.of(context);
@@ -327,7 +362,7 @@ class ModernDraftOptionsSheet extends StatelessWidget {
             ),
           ),
           Obx(() => Switch(
-            value: value,
+            value: rxValue.value,
             onChanged: onChanged,
             activeTrackColor: theme.colorScheme.primary,
           )),

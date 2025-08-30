@@ -7,6 +7,7 @@ import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/enhanced_text_field.dart';
 import 'package:wahda_bank/views/compose/widgets/attachment_section.dart';
 import 'package:wahda_bank/views/compose/widgets/compose_toolbar.dart';
+import 'package:wahda_bank/views/compose/widgets/pending_draft_attachment_tile.dart';
 
 /// Redesigned compose view with enhanced UX and modern design
 class RedesignedComposeView extends StatelessWidget {
@@ -421,62 +422,111 @@ class RedesignedComposeView extends StatelessWidget {
   }
 
   Widget _buildAttachmentsSection(ThemeData theme) {
-    return Obx(() => controller.attachments.isNotEmpty
-        ? Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme.colorScheme.outline.withValues(alpha: 0.2),
+    return Obx(() {
+      final hasSelected = controller.attachments.isNotEmpty;
+      final hasPending = controller.pendingDraftAttachments.isNotEmpty;
+      if (!hasSelected && !hasPending) return const SizedBox();
+
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.outline.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Pending draft attachments (metadata only)
+            if (hasPending) ...[
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      Icons.cloud_download_outlined,
+                      color: theme.colorScheme.secondary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'draft_attachments'.trParams({'count': '${controller.pendingDraftAttachments.length}'}),
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: controller.reattachAllPendingAttachments,
+                    icon: const Icon(Icons.playlist_add),
+                    label: Text('attach_all'.tr),
+                  ),
+                ],
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.tertiary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.attach_file_outlined,
-                        color: theme.colorScheme.tertiary,
-                        size: 20,
-                      ),
+              const SizedBox(height: 12),
+              ...controller.pendingDraftAttachments.map((m) => PendingDraftAttachmentTile(
+                    meta: m,
+                    onReattach: () => controller.reattachPendingAttachment(m),
+                    onView: () => controller.viewPendingAttachment(m),
+                  )),
+              if (hasSelected) const SizedBox(height: 16),
+              if (hasSelected) const Divider(height: 1),
+              if (hasSelected) const SizedBox(height: 12),
+            ],
+
+            // Selected attachments (files chosen or reattached)
+            if (hasSelected) ...[
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.tertiary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'attachments'.tr,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Icon(
+                      Icons.attach_file_outlined,
+                      color: theme.colorScheme.tertiary,
+                      size: 20,
                     ),
-                    const Spacer(),
-                    Text(
-                      '${controller.attachments.length}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'attachments'.tr,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                ...controller.attachments.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final file = entry.value;
-                  return AttachmentTile(
-                    file: file,
-                    onRemove: () => controller.attachments.removeAt(index),
-                  );
-                }),
-              ],
-            ),
-          )
-        : const SizedBox());
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${controller.attachments.length}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...controller.attachments.asMap().entries.map((entry) {
+                final index = entry.key;
+                final file = entry.value;
+                return AttachmentTile(
+                  file: file,
+                  onRemove: () => controller.attachments.removeAt(index),
+                );
+              }),
+            ],
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildMessageComposer(ThemeData theme) {

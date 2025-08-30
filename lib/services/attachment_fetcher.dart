@@ -220,7 +220,7 @@ class AttachmentFetcher {
     
     switch (mimeType) {
       case 'application/pdf':
-        return data[0] == 0x25 && data[1] == 0x50 && data[2] == 0x44 && data[3] == 0x46; // %PDF
+        return _looksLikePdf(data);
       case 'image/jpeg':
         return data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF;
       case 'image/png':
@@ -236,6 +236,21 @@ class AttachmentFetcher {
       default:
         return true; // Don't validate unknown types
     }
+  }
+  
+  /// Heuristic to accept PDFs with BOM/preamble or whitespace before %PDF-
+  static bool _looksLikePdf(Uint8List data) {
+    // Search for "%PDF" within the first 1024 bytes allowing up to 64 bytes of preamble
+    final int maxScan = data.length < 1024 ? data.length : 1024;
+    for (int i = 0; i <= maxScan - 4; i++) {
+      if (data[i] == 0x25 && data[i + 1] == 0x50 && data[i + 2] == 0x44 && data[i + 3] == 0x46) {
+        // Found %PDF signature; accept if it's not too deep (some scanners add a small preamble)
+        return true;
+      }
+      // If the very first bytes are printable ASCII and not whitespace, and no signature found at 64 bytes, likely not a PDF
+      if (i == 64) break;
+    }
+    return false;
   }
   
   /// Check if string looks like base64

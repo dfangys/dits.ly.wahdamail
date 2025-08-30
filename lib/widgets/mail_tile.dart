@@ -11,6 +11,7 @@ import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
 import '../services/cache_manager.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
+import 'package:wahda_bank/services/draft_sync_service.dart';
 
 class MailTile extends StatefulWidget {
   const MailTile({
@@ -905,6 +906,11 @@ class OptimizedMailTileContent extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            // Draft sync badge (only in Drafts mailbox)
+                            if (mailBox.isDrafts) ...[
+                              const SizedBox(width: 4),
+                              _DraftSyncBadge(message: message, mailbox: mailBox, theme: theme),
+                            ],
                             // Thread count pill (if part of a conversation)
                             _ThreadCountPill(
                               key: ValueKey(message.uid ?? message.sequenceId ?? 0),
@@ -1147,6 +1153,53 @@ class OptimizedMailTileContent extends StatelessWidget {
     }
   }
 
+}
+
+class _DraftSyncBadge extends StatelessWidget {
+  const _DraftSyncBadge({super.key, required this.message, required this.mailbox, required this.theme});
+  final MimeMessage message;
+  final Mailbox mailbox;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    // Listen to DraftSyncService RxMap via Obx for live updates
+    return Obx(() {
+      // Observe the RxMap directly so Obx rebuilds when it changes
+      final stateMap = DraftSyncService.instance.states;
+      final key = DraftSyncService.instance.keyFor(mailbox, message);
+      final state = stateMap[key] ?? DraftSyncBadgeState.idle;
+      switch (state) {
+        case DraftSyncBadgeState.syncing:
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.28), width: 0.5),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.primary),
+                ),
+                const SizedBox(width: 4),
+                Text('Syncing', style: TextStyle(color: theme.colorScheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          );
+        case DraftSyncBadgeState.synced:
+          return Icon(Icons.check_circle, size: 16, color: Colors.green.shade600);
+        case DraftSyncBadgeState.failed:
+          return Icon(Icons.error_outline, size: 16, color: Colors.red.shade600);
+        case DraftSyncBadgeState.idle:
+        default:
+          return const SizedBox.shrink();
+      }
+    });
+  }
 }
 
 class _ThreadCountPill extends StatelessWidget {

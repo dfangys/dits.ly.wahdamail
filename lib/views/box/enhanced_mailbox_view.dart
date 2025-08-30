@@ -687,18 +687,16 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
           selectionController.toggle(message);
         } else {
           try {
+            // Use safe navigation that routes drafts to Compose and others to ShowMessage
             final mbc = Get.find<MailBoxController>();
-            final listRef = mbc.emails[widget.mailbox] ?? const <MimeMessage>[];
-            int index = 0;
-            if (listRef.isNotEmpty) {
-              index = listRef.indexWhere((m) =>
-                  (message.uid != null && m.uid == message.uid) ||
-                  (message.sequenceId != null && m.sequenceId == message.sequenceId));
-              if (index < 0) index = 0;
-            }
-            Get.to(() => ShowMessagePager(mailbox: widget.mailbox, initialMessage: message));
+            mbc.safeNavigateToMessage(message, widget.mailbox);
           } catch (_) {
-            Get.to(() => ShowMessage(message: message, mailbox: widget.mailbox));
+            // Fallbacks in case controller lookup or navigation fails
+            try {
+              Get.to(() => ShowMessagePager(mailbox: widget.mailbox, initialMessage: message));
+            } catch (_) {
+              Get.to(() => ShowMessage(message: message, mailbox: widget.mailbox));
+            }
           }
         }
       },

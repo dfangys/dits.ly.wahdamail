@@ -1981,65 +1981,75 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
   // CRITICAL FIX: Add method to safely navigate to message view with validation
   Future<void> safeNavigateToMessage(MimeMessage message, Mailbox mailbox) async {
     try {
-      logger.i("Safe navigation to message: ${message.decodeSubject()} in mailbox: ${mailbox.name}");
-      
-      // Validate message-mailbox consistency
-      if (!validateMessageMailboxConsistency(message, mailbox)) {
-        logger.e("Message-mailbox consistency check failed");
-        Get.snackbar(
-          'Error',
-          'The selected email is not available in the current mailbox. Please refresh and try again.',
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 3),
-        );
-        return;
-      }
-      
-      // Ensure current mailbox is set correctly
-      currentMailbox = mailbox;
-      
-      // Navigate based on message type
+      final subject = message.decodeSubject() ?? '(no subject)';
+      logger.i("Safe navigation to message: $subject in mailbox: ${mailbox.name}");
+
+      // Determine draft-like status early and short-circuit validation for drafts
       final isDraft = message.flags?.contains(MessageFlags.draft) ?? false;
       final isInDraftsMailbox = mailbox.isDrafts;
       final isDraftsMailboxByName = mailbox.name.toLowerCase().contains('draft');
-      
-      logger.i("Message navigation decision - isDraft: $isDraft, isInDraftsMailbox: $isInDraftsMailbox, isDraftsMailboxByName: $isDraftsMailboxByName");
-      
+
       if (isDraft || isInDraftsMailbox || isDraftsMailboxByName) {
-        logger.i("Navigating to compose screen for draft message");
+        logger.i("Draft-like message detected; skipping consistency validation and opening composer");
+        // Ensure current mailbox context
+        currentMailbox = mailbox;
         Get.to(() => const RedesignedComposeScreen(), arguments: {
           'type': 'draft',
           'message': message,
+          'mailbox': mailbox,
         });
-      } else {
-        logger.i("Navigating to paged show message screen for regular email");
+        return;
+      }
+
+      // Validate message-mailbox consistency for non-drafts
+      if (!validateMessageMailboxConsistency(message, mailbox)) {
+        logger.w("Message-mailbox consistency check failed; attempting fallback navigation to message view");
+        // Try best-effort navigation rather than blocking the user
         try {
-          final listRef = emails[mailbox] ?? const <MimeMessage>[];
-          int index = 0;
-          if (listRef.isNotEmpty) {
-            index = listRef.indexWhere((m) =>
-                (message.uid != null && m.uid == message.uid) ||
-                (message.sequenceId != null && m.sequenceId == message.sequenceId));
-            if (index < 0) {
-              // Fallback: try by subject+date
-              index = listRef.indexWhere((m) =>
-                  m.decodeSubject() == message.decodeSubject() &&
-                  m.decodeDate()?.millisecondsSinceEpoch == message.decodeDate()?.millisecondsSinceEpoch);
-            }
-            if (index < 0) index = 0;
-          }
+          currentMailbox = mailbox;
           Get.to(() => ShowMessagePager(
                 mailbox: mailbox,
                 initialMessage: message,
               ));
         } catch (_) {
-          // Fallback to single message view
           Get.to(() => ShowMessage(
                 message: message,
                 mailbox: mailbox,
               ));
         }
+        return;
+      }
+
+      // Ensure current mailbox is set correctly
+      currentMailbox = mailbox;
+
+      // Navigate to paged show message screen for regular email
+      logger.i("Navigating to paged show message screen for regular email");
+      try {
+        final listRef = emails[mailbox] ?? const <MimeMessage>[];
+        int index = 0;
+        if (listRef.isNotEmpty) {
+          index = listRef.indexWhere((m) =>
+              (message.uid != null && m.uid == message.uid) ||
+              (message.sequenceId != null && m.sequenceId == message.sequenceId));
+          if (index < 0) {
+            // Fallback: try by subject+date
+            index = listRef.indexWhere((m) =>
+                m.decodeSubject() == message.decodeSubject() &&
+                m.decodeDate()?.millisecondsSinceEpoch == message.decodeDate()?.millisecondsSinceEpoch);
+          }
+          if (index < 0) index = 0;
+        }
+        Get.to(() => ShowMessagePager(
+              mailbox: mailbox,
+              initialMessage: message,
+            ));
+      } catch (_) {
+        // Fallback to single message view
+        Get.to(() => ShowMessage(
+              message: message,
+              mailbox: mailbox,
+            ));
       }
     } catch (e) {
       logger.e("Error in safeNavigateToMessage: $e");
