@@ -366,6 +366,11 @@ class EmailNotificationService {
       } catch (_) {}
     } catch (_) {}
 
+    // Schedule a robust envelope backfill within 1–4 seconds to guarantee subject/from
+    try {
+      unawaited(_ensureEnvelopeWithShortDelay(message, mailbox, timeout: const Duration(seconds: 4)));
+    } catch (_) {}
+
     // Store the message UID as last seen (prevents duplicate notifications next time)
     final uid = message.uid;
     if (uid != null) {
@@ -660,6 +665,73 @@ class EmailNotificationService {
     } catch (_) {
       return '';
     }
+  }
+
+  /// Ensure envelope is available; fetch and persist within a short deadline.
+  Future<void> _ensureEnvelopeWithShortDelay(MimeMessage message, Mailbox mailbox, {Duration timeout = const Duration(seconds: 4)}) async {
+    try {
+      // If we already have both subject and from, nothing to do
+      final hasFrom = (message.from?.isNotEmpty ?? false) || (message.envelope?.from?.isNotEmpty ?? false);
+      final hasSubject = (() {
+        try { final s = message.decodeSubject(); return s != null && s.trim().isNotEmpty; } catch (_) { return (message.envelope?.subject ?? '').trim().isNotEmpty; }
+      })();
+      if (hasFrom && hasSubject) return;
+
+      final mailService = MailService.instance;
+      if (!mailService.client.isConnected) {
+        try { await mailService.connect().timeout(const Duration(seconds: 5)); } catch (_) {}
+      }
+      // Ensure correct mailbox is selected to avoid bad FETCH
+      try {
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await ImapCommandQueue.instance.run('selectMailbox(notif:ensureEnv)', () async {
+            await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 5));
+          });
+        }
+      } catch (_) {}
+
+      // Fetch ENVELOPE with a strict timeout
+      List<MimeMessage> fetched = [];
+      try {
+        fetched = await ImapCommandQueue.instance.run('fetchMessageSequence(notif:ensureEnv)', () async {
+          return await mailService.client
+              .fetchMessageSequence(
+                MessageSequence.fromMessage(message),
+                fetchPreference: FetchPreference.envelope,
+              )
+              .timeout(timeout, onTimeout: () => <MimeMessage>[]);
+        });
+      } catch (_) {}
+      if (fetched.isEmpty) return;
+      final envMsg = fetched.first;
+      if (envMsg.envelope == null) return;
+
+      // Merge into in-memory message
+      try {
+        message.envelope = envMsg.envelope;
+        if ((message.from == null || message.from!.isEmpty) && (envMsg.envelope?.from?.isNotEmpty ?? false)) {
+          message.from = envMsg.envelope!.from;
+        }
+      } catch (_) {}
+
+      // Persist non-destructively to DB
+      try {
+        if (Get.isRegistered<MailBoxController>()) {
+          final ctrl = Get.find<MailBoxController>();
+          SQLiteMailboxMimeStorage? storage;
+          for (final entry in ctrl.mailboxStorage.entries) {
+            final mb = entry.key;
+            final samePath = mb.encodedPath.toLowerCase() == mailbox.encodedPath.toLowerCase() || mb.path.toLowerCase() == mailbox.path.toLowerCase();
+            final sameName = mb.name.toLowerCase() == mailbox.name.toLowerCase();
+            if (samePath || sameName || (mb.isInbox && mailbox.isInbox)) { storage = entry.value; break; }
+          }
+          await storage?.updateEnvelopeFromMessage(message);
+          await storage?.refreshFromDatabase();
+          // Bump meta to force rebuild of any visible tiles
+          try { ctrl.bumpMessageMeta(mailbox, message); } catch (_) {}
+        }
+      } catch (_) {}
+    } catch (_) {}
   }
 
   /// Schedule periodic background checks for new emails
