@@ -34,7 +34,7 @@ class RedesignedComposeView extends StatelessWidget {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-final isWide = false;
+                final isWide = constraints.maxWidth >= 900;
 
                 Widget lastSaved = Obx(() => controller.lastSavedTime.isNotEmpty
                     ? Container(
@@ -581,6 +581,10 @@ final isWide = false;
             // Editor is initialized and ready
             debugPrint('HTML Editor initialized successfully');
             controller.markHtmlEditorReady();
+            // Apply any preloaded HTML body once the editor is ready
+            if (controller.bodyPart.isNotEmpty) {
+              try { controller.htmlController.setText(controller.bodyPart); } catch (_) {}
+            }
           },
           onChangeContent: (String? changed) {
             // Handle content changes safely

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 
 class PendingDraftAttachmentTile extends StatelessWidget {
@@ -103,12 +104,12 @@ class PendingDraftAttachmentTile extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: onView,
                     icon: const Icon(Icons.visibility_outlined, size: 16),
-                    label: const Text('View'),
+                    label: Text('view'.tr),
                   ),
                   FilledButton.icon(
                     onPressed: onReattach,
                     icon: const Icon(Icons.attach_file_rounded, size: 16),
-                    label: const Text('Re-attach'),
+                    label: Text('reattach'.tr),
                   ),
                 ],
               ),

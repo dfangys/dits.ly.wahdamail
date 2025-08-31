@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
+import 'package:wahda_bank/views/compose/widgets/compose_modal.dart';
 
 class InbocAppBar extends StatefulWidget {
   const InbocAppBar({
@@ -89,7 +90,7 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
         IconButton(
           icon: const Icon(Icons.reply_rounded),
           onPressed: () {
-            Get.toNamed('/compose', arguments: {
+            ComposeModal.show(context, arguments: {
               'message': widget.message,
               'type': 'reply',
             });
@@ -136,7 +137,7 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
           ),
           onTap: () {
             Future.delayed(const Duration(milliseconds: 100), () {
-              Get.toNamed('/compose', arguments: {
+              ComposeModal.show(context, arguments: {
                 'message': widget.message,
                 'type': 'forward',
               });

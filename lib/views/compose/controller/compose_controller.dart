@@ -24,6 +24,7 @@ import 'package:open_app_file/open_app_file.dart';
 import 'package:wahda_bank/services/draft_sync_service.dart';
 import 'package:wahda_bank/services/message_content_store.dart';
 import 'package:wahda_bank/services/html_enhancer.dart';
+import 'package:wahda_bank/services/realtime_update_service.dart';
 
 
 extension EmailValidator on String {
@@ -147,10 +148,22 @@ class ComposeController extends GetxController {
   DraftModel? _currentDraft;
   int _changeCounter = 0;
 
+  // Realtime projection debounce
+  Timer? _rtProjectionDebounce;
+
   // Original message data
   MimeMessage? msg;
   String? type;
   Mailbox? sourceMailbox; // mailbox where the draft message resides
+
+  // When editing an existing server draft via different entry points (args or redesigned compose)
+  int? editingServerDraftUid; // UID of the original server draft
+  Mailbox? editingServerDraftMailbox; // Drafts mailbox context for the original draft
+
+  void setEditingDraftContext({int? uid, Mailbox? mailbox}) {
+    editingServerDraftUid = uid;
+    editingServerDraftMailbox = mailbox;
+  }
 
   // Contact suggestions
   List<MailAddress> get mailAddresses =>
@@ -248,6 +261,8 @@ class ComposeController extends GetxController {
         } else if (type == 'draft') {
           // Quick envelope population
           _loadDraftEnvelopeQuick(msg!);
+          // Record server draft context for downstream save/replace logic
+          try { setEditingDraftContext(uid: msg!.uid, mailbox: sourceMailbox); } catch (_) {}
           signature = settingController.signatureNewMessage.value
               ? settingController.signature.value
               : '';
@@ -277,6 +292,15 @@ class ComposeController extends GetxController {
     } else {
       fromController.text = email;
     }
+
+    // Bind storage for Drafts mailbox for realtime projection
+    try {
+      final mbc = Get.find<MailBoxController>();
+      final draftsMb = sourceMailbox ?? editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+      if (draftsMb != null) {
+        storage.value = mbc.mailboxStorage[draftsMb];
+      }
+    } catch (_) {}
 
     // Initialize HTML editor with content
     if (bodyPart.isNotEmpty) {
@@ -595,41 +619,112 @@ class ComposeController extends GetxController {
       syncState.value = DraftSyncState.syncing;
       syncHint.value = 'syncing_with_server'.tr;
       // Notify DraftSyncService for UI badges (existing draft key while syncing)
+      Mailbox? editingMb;
+      MimeMessage? oldMsg;
+      String? oldKey;
       try {
-        if (type == 'draft' && msg != null) {
-          final mbc = Get.find<MailBoxController>();
-          final mailboxHint = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
-          if (mailboxHint != null) {
-            DraftSyncService.instance.setStateFor(mailboxHint, msg!, DraftSyncBadgeState.syncing);
+        final mbc = Get.find<MailBoxController>();
+        editingMb = sourceMailbox ?? editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+        if (editingMb != null) {
+          if (type == 'draft' && msg != null) {
+            oldMsg = msg;
+            DraftSyncService.instance.setStateFor(editingMb!, oldMsg!, DraftSyncBadgeState.syncing);
+            oldKey = DraftSyncService.instance.keyFor(editingMb!, oldMsg!);
+          } else if (editingServerDraftUid != null) {
+            // Best-effort: locate the original message in UI cache for accurate state handling
+            final listRef = mbc.emails[editingMb!];
+            final found = listRef?.firstWhereOrNull((m) => m.uid == editingServerDraftUid);
+            if (found != null) {
+              oldMsg = found;
+              DraftSyncService.instance.setStateFor(editingMb!, oldMsg!, DraftSyncBadgeState.syncing);
+              oldKey = DraftSyncService.instance.keyFor(editingMb!, oldMsg!);
+            } else {
+              // Fall back to key-by-uid when message instance not found
+              oldKey = '${editingMb!.encodedPath}:${editingServerDraftUid}';
+              DraftSyncService.instance.setStateForKey(oldKey!, DraftSyncBadgeState.syncing);
+            }
           }
         }
       } catch (_) {}
 
-      unawaited(_saveDraftToServerWithBackoff(draftMessage, afterSuccess: (appendedUid) async {
+      unawaited(_saveDraftToServerWithBackoff(draftMessage, afterSuccess: (appendedSeq) async {
         try {
-          if (_currentDraft != null && appendedUid != null) {
-            await storage.markDraftSynced(_currentDraft!.id!, appendedUid);
+          // Mark local SQLite draft as synced if present
+          if (_currentDraft != null && appendedSeq != null) {
+            await storage.markDraftSynced(_currentDraft!.id!, appendedSeq);
           }
-          // Delete old server draft if editing an existing
-          if (msg != null && type == 'draft') {
-            try { await client.deleteMessage(msg!); } catch (_) {}
-          }
-          // Update DraftSyncService: mark new appended UID as synced (for list badge)
+
+          // If we were editing an existing server draft, delete the old one (best-effort)
           try {
             final mbc = Get.find<MailBoxController>();
-            final drafts = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
-            if (drafts != null && appendedUid != null) {
-              final key = '${drafts.encodedPath}:$appendedUid';
-              DraftSyncService.instance.setStateForKey(key, DraftSyncBadgeState.synced);
-              // Clear badge after a short delay to avoid noisy UI
-              Future.delayed(const Duration(seconds: 5), () => DraftSyncService.instance.clearKey(key));
+            final drafts = editingMb ?? sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+            if (drafts != null) {
+              // Ensure correct mailbox selected
+              try {
+                if (client.selectedMailbox?.encodedPath != drafts.encodedPath) {
+                  await client.selectMailbox(drafts);
+                }
+              } catch (_) {}
+
+              MimeMessage? toDelete = oldMsg;
+              // Try to locate by UID if instance unknown
+              if (toDelete == null && editingServerDraftUid != null) {
+                final listRef = mbc.emails[drafts];
+                toDelete = listRef?.firstWhereOrNull((m) => m.uid == editingServerDraftUid);
+              }
+              if (toDelete != null) {
+                try { await client.deleteMessage(toDelete); } catch (_) {}
+                // Remove from local storage and UI
+                try {
+                  final storage = mbc.mailboxStorage[drafts];
+                  await storage?.deleteMessage(toDelete);
+                } catch (_) {}
+                try {
+                  final listRef = mbc.emails[drafts];
+                  if (listRef != null) {
+                    listRef.removeWhere((m) => (toDelete!.uid != null && m.uid == toDelete!.uid) || (toDelete!.sequenceId != null && m.sequenceId == toDelete!.sequenceId));
+                    mbc.emails.refresh();
+                    mbc.update();
+                  }
+                } catch (_) {}
+                try { await RealtimeUpdateService.instance.deleteMessage(toDelete); } catch (_) {}
+                // Clear syncing badge for old
+                try {
+                  DraftSyncService.instance.clearFor(drafts, toDelete);
+                } catch (_) {}
+              } else if (oldKey != null) {
+                // Fallback: clear stale key
+                try { DraftSyncService.instance.clearKey(oldKey!); } catch (_) {}
+              }
             }
           } catch (_) {}
 
+          // Resolve Drafts mailbox (best-effort)
+          Mailbox? drafts;
+          try {
+            final mbc = Get.find<MailBoxController>();
+            drafts = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+          } catch (_) {}
+
+          // Hydrate the appended draft into local storage and emit realtime updates for immediate UI refresh
+          if (drafts != null && appendedSeq != null) {
+            try {
+              await _postAppendDraftHydration(draftsMailbox: drafts, appendedSequenceId: appendedSeq);
+
+              // Update DraftSyncService: mark badge as synced, then auto-clear
+              final key = '${drafts.encodedPath}:$appendedSeq';
+              DraftSyncService.instance.setStateForKey(key, DraftSyncBadgeState.synced);
+              Future.delayed(const Duration(seconds: 5), () => DraftSyncService.instance.clearKey(key));
+            } catch (_) {}
+          }
+
+          // Update UI sync state
           syncState.value = DraftSyncState.synced;
           syncHint.value = 'draft_synced'.tr;
+          // Clear any lingering old-key syncing badges
+          try { if (oldKey != null) DraftSyncService.instance.clearKey(oldKey!); } catch (_) {}
         } catch (_) {
-          // keep UI happy
+          // keep UI state consistent even if post-append hydration fails
           syncState.value = DraftSyncState.synced;
         }
       }));
@@ -856,6 +951,8 @@ class ComposeController extends GetxController {
 
   // Mark content as changed and needing save
   void _markAsChanged() {
+    // Schedule realtime projection into Drafts list so tiles update instantly
+    _scheduleRealtimeProjection();
     _hasUnsavedChanges.value = true;
     _changeCounter++;
 
@@ -1259,6 +1356,14 @@ class ComposeController extends GetxController {
       // Keep reference to the current full message for later attachment operations
       msg = base;
 
+      // Update subject from the hydrated message as well (best-effort)
+      try {
+        final subj = base.decodeSubject();
+        if (subj != null && subj.trim().isNotEmpty) {
+          subjectController.text = subj;
+        }
+      } catch (_) {}
+
       // Body content
       String bodyContent = '';
       bool isHtmlContent = false;
@@ -1590,6 +1695,89 @@ class ComposeController extends GetxController {
         .replaceAll('\n', '<br>');
   }
 
+  // Realtime projection of compose changes into Drafts tile (subject/preview/attachment flags)
+  void _scheduleRealtimeProjection() {
+    _rtProjectionDebounce?.cancel();
+    _rtProjectionDebounce = Timer(const Duration(milliseconds: 400), () {
+      unawaited(_projectToDraftsListRealtime());
+    });
+  }
+
+  Future<void> _projectToDraftsListRealtime() async {
+    try {
+      // Resolve drafts mailbox and message id
+      final mbc = Get.find<MailBoxController>();
+      final drafts = editingServerDraftMailbox ?? sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+      if (drafts == null) return;
+
+      final uid = msg?.uid ?? editingServerDraftUid;
+      if (uid == null || uid <= 0) return;
+
+      // Compute preview from current editor content
+      String preview;
+      if (isHtml.value) {
+        // Use bodyPart to avoid awaiting HTML editor for snappy updates
+        preview = _removeHtmlTags(bodyPart);
+      } else {
+        preview = plainTextController.text;
+      }
+      preview = preview.replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (preview.length > 140) preview = preview.substring(0, 140);
+
+      final hasAtt = attachments.isNotEmpty || pendingDraftAttachments.isNotEmpty;
+
+      // Update in-memory headers to improve instantaneous tile rendering
+      try {
+        msg?.setHeader('x-preview', preview);
+        msg?.setHeader('x-has-attachments', hasAtt ? '1' : '0');
+        msg?.setHeader('x-ready', '1');
+        // Also update subject header for immediate UI reflect
+        if (subjectController.text.trim().isNotEmpty) {
+          msg?.setHeader('subject', subjectController.text.trim());
+        }
+      } catch (_) {}
+
+      // Persist to SQLite for Drafts mailbox
+      try {
+        // Ensure storage is bound
+        if (storage.value == null) {
+          storage.value = mbc.mailboxStorage[drafts];
+        }
+        final st = storage.value;
+        if (st != null) {
+          await st.updatePreviewAndAttachments(
+            uid: uid,
+            sequenceId: msg?.sequenceId,
+            previewText: preview,
+            hasAttachments: hasAtt,
+          );
+
+          // Persist subject via envelope/meta update
+          final shadow = MimeMessage();
+          shadow.uid = uid;
+          shadow.sequenceId = msg?.sequenceId;
+          try { shadow.setHeader('subject', subjectController.text.trim()); } catch (_) {}
+          // Synthesize minimal envelope to ensure DB update
+          try {
+            shadow.envelope = Envelope(
+              subject: subjectController.text.trim(),
+              from: [MailAddress(name, email)],
+              to: toList.toList(),
+            );
+          } catch (_) {}
+          await st.updateEnvelopeFromMessage(shadow);
+        }
+      } catch (_) {}
+
+      // Bump per-tile notifier so subject/preview refresh immediately
+      try {
+        // Use msg if available; otherwise a stub with same UID
+        final keyMsg = msg ?? (MimeMessage()..uid = uid);
+        mbc.bumpMessageMeta(drafts, keyMsg);
+      } catch (_) {}
+    } catch (_) {}
+  }
+
   // Server sync with exponential backoff
   Future<void> _saveDraftToServerWithBackoff(MimeMessage draftMessage, {Future<void> Function(int? appendedUid)? afterSuccess}) async {
     const attempts = 3;
@@ -1608,13 +1796,18 @@ class ComposeController extends GetxController {
         if (i == attempts - 1) {
           syncState.value = DraftSyncState.failed;
           syncHint.value = 'sync_failed_retry_later'.tr;
-          // Update DraftSyncService for existing draft key
+          // Update DraftSyncService for existing draft key, then auto-clear to avoid stuck UI
           try {
-            if (type == 'draft' && msg != null) {
-              final mbc = Get.find<MailBoxController>();
-              final mailboxHint = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
-              if (mailboxHint != null) {
+            final mbc = Get.find<MailBoxController>();
+            final mailboxHint = sourceMailbox ?? editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+            if (mailboxHint != null) {
+              if (type == 'draft' && msg != null) {
                 DraftSyncService.instance.setStateFor(mailboxHint, msg!, DraftSyncBadgeState.failed);
+                Future.delayed(const Duration(seconds: 8), () => DraftSyncService.instance.clearFor(mailboxHint, msg!));
+              } else if (editingServerDraftUid != null) {
+                final key = '${mailboxHint.encodedPath}:${editingServerDraftUid}';
+                DraftSyncService.instance.setStateForKey(key, DraftSyncBadgeState.failed);
+                Future.delayed(const Duration(seconds: 8), () => DraftSyncService.instance.clearKey(key));
               }
             }
           } catch (_) {}
@@ -1626,6 +1819,57 @@ class ComposeController extends GetxController {
         await Future.delayed(Duration(milliseconds: delayMs));
         delayMs *= 2;
       }
+    }
+  }
+
+  // After a successful APPEND to the Drafts mailbox, fetch the new message envelope
+  // and persist it to SQLite + emit realtime updates, so the Drafts list updates instantly.
+  Future<void> _postAppendDraftHydration({
+    required Mailbox draftsMailbox,
+    required int appendedSequenceId,
+  }) async {
+    try {
+      // Fetch just the appended message using the dedicated fetch pool to avoid interfering with polling/IDLE
+      final fetched = await ImapFetchPool.instance.fetchBySequence(
+        sequence: MessageSequence.fromId(appendedSequenceId),
+        mailboxHint: draftsMailbox,
+        fetchPreference: FetchPreference.envelope,
+        timeout: const Duration(seconds: 8),
+      );
+
+      if (fetched.isEmpty) return;
+      final appended = fetched.first;
+
+      // Persist to SQLite storage for Drafts mailbox if available
+      try {
+        final mbc = Get.find<MailBoxController>();
+        final storage = mbc.mailboxStorage[draftsMailbox];
+        if (storage != null) {
+          await storage.saveMessageEnvelopes([appended]);
+        }
+      } catch (_) {}
+
+      // Emit realtime updates to update any observers
+      try {
+        await RealtimeUpdateService.instance.notifyNewMessages([appended], mailbox: draftsMailbox);
+      } catch (_) {}
+
+      // If the user is currently viewing Drafts, also update the in-memory list immediately (best-effort)
+      try {
+        final mbc = Get.find<MailBoxController>();
+        if (mbc.currentMailbox?.encodedPath.toLowerCase() == draftsMailbox.encodedPath.toLowerCase()) {
+          final listRef = mbc.emails[draftsMailbox] ?? <MimeMessage>[];
+          final exists = listRef.any((m) => (m.uid != null && m.uid == appended.uid) || (m.sequenceId != null && m.sequenceId == appended.sequenceId));
+          if (!exists) {
+            listRef.insert(0, appended);
+            mbc.emails[draftsMailbox] = listRef;
+            mbc.emails.refresh();
+            mbc.update();
+          }
+        }
+      } catch (_) {}
+    } catch (_) {
+      // Non-fatal; UI has already been marked as synced
     }
   }
 

@@ -7,6 +7,7 @@ import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/redesigned_compose_view.dart';
 import 'package:wahda_bank/views/compose/widgets/modern_draft_options_sheet.dart';
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 
 /// Redesigned compose screen with enhanced UX and modern design
 class RedesignedComposeScreen extends StatefulWidget {
@@ -38,8 +39,12 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
   void initState() {
     super.initState();
     
-    // Initialize controller
-    controller = Get.put(ComposeController());
+    // Initialize controller (use existing if already registered to allow test injection)
+    if (Get.isRegistered<ComposeController>()) {
+      controller = Get.find<ComposeController>();
+    } else {
+      controller = Get.put(ComposeController());
+    }
     
     // Initialize animations
     _fabAnimationController = AnimationController(
@@ -97,25 +102,27 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
   void _loadDraft(DraftModel draft) {
     // Load draft data into controller
     controller.subjectController.text = draft.subject;
-    
+
+    // Body: for HTML, prefer setting bodyPart so HtmlEditor initialText can use it;
+    // onInit will also apply it safely once the editor is ready.
     if (draft.isHtml) {
       controller.isHtml.value = true;
-      controller.htmlController.setText(draft.body);
+      controller.bodyPart = draft.body;
     } else {
       controller.isHtml.value = false;
       controller.plainTextController.text = draft.body;
     }
-    
-    // Load recipients
+
+    // Load recipients (parse "Name <email>" correctly)
     controller.toList.clear();
-    controller.toList.addAll(draft.to.map((email) => MailAddress('', email)));
-    
+    controller.toList.addAll(draft.to.map((value) => MailAddress.parse(value)));
+
     controller.cclist.clear();
-    controller.cclist.addAll(draft.cc.map((email) => MailAddress('', email)));
-    
+    controller.cclist.addAll(draft.cc.map((value) => MailAddress.parse(value)));
+
     controller.bcclist.clear();
-    controller.bcclist.addAll(draft.bcc.map((email) => MailAddress('', email)));
-    
+    controller.bcclist.addAll(draft.bcc.map((value) => MailAddress.parse(value)));
+
     // Load attachments
     controller.attachments.clear();
     for (final path in draft.attachmentPaths) {
@@ -128,11 +135,18 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
         debugPrint('Error loading attachment: $e');
       }
     }
-    
+
     // Show CC/BCC if they have content
     if (draft.cc.isNotEmpty || draft.bcc.isNotEmpty) {
       controller.isCcAndBccVisible.value = true;
     }
+
+    // Record server draft context (UID + mailbox) for replace-on-save flow
+    try {
+      final mbc = Get.find<MailBoxController>();
+      final draftsMb = mbc.draftsMailbox ?? mbc.currentMailbox ?? mbc.mailService.client.selectedMailbox;
+      controller.setEditingDraftContext(uid: draft.serverUid, mailbox: draftsMb);
+    } catch (_) {}
     
     // Mark as loaded from draft
     controller.currentDraftId = draft.id;

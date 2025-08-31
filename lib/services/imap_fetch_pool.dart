@@ -146,6 +146,30 @@ class ImapFetchPool {
     });
   }
 
+  Future<List<MimeMessage>> fetchByUid({
+    required int uid,
+    required Mailbox mailboxHint,
+    FetchPreference fetchPreference = FetchPreference.envelope,
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    return _runSerial((cli) async {
+      try {
+        await _resolveAndSelectMailbox(mailboxHint);
+        final fut = cli.fetchMessageSequence(
+          MessageSequence.fromRange(uid, uid, isUidSequence: true),
+          fetchPreference: fetchPreference,
+        );
+        final msgs = await fut.timeout(timeout, onTimeout: () => <MimeMessage>[]);
+        return msgs;
+      } catch (e) {
+        if (kDebugMode) {
+          print('📬 FetchPool fetchByUid error: $e');
+        }
+        return <MimeMessage>[];
+      }
+    });
+  }
+
   Future<void> dispose() async {
     try { _client?.disconnect(); } catch (_) {}
     _client = null;
