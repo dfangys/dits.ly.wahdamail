@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/foundation.dart';
@@ -31,16 +32,24 @@ class _VerifyResetPasswordOtpScreenState
   final formKey = GlobalKey<FormState>();
   String otpPin = '';
 
+  bool _isSubmitting = false;
+  bool _isResending = false;
+  int _resendSeconds = 0;
+  Timer? _resendTimer;
+
   @override
-  void initState() {
-    super.initState();
+  void dispose() {
+    _resendTimer?.cancel();
+    super.dispose();
   }
 
   final appApi = Get.find<AppApi>();
 
   Future verifyOtp() async {
+    if (_isSubmitting) return;
     if (formKey.currentState!.validate() && otpPin.length == 5) {
       try {
+        _isSubmitting = true;
         controller.start();
         var data = await appApi.resetPassword(
           widget.email,
@@ -124,8 +133,23 @@ class _VerifyResetPasswordOtpScreenState
     }
   }
 
+  void _startCountdown(int seconds) {
+    _resendTimer?.cancel();
+    setState(() => _resendSeconds = seconds);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_resendSeconds <= 1) {
+        t.cancel();
+        setState(() => _resendSeconds = 0);
+      } else {
+        setState(() => _resendSeconds -= 1);
+      }
+    });
+  }
+
   Future resendSms() async {
+    if (_isResending || _resendSeconds > 0) return;
     try {
+      setState(() => _isResending = true);
       String email = widget.email;
       final messenger = ScaffoldMessenger.of(context);
       var res = await appApi.sendResetPasswordOtp(email);
@@ -141,6 +165,8 @@ class _VerifyResetPasswordOtpScreenState
               ),
             ),
           );
+          // Start 60s cooldown only on successful resend
+          _startCountdown(60);
         }
       }
     } on AppApiException catch (e) {
@@ -153,6 +179,8 @@ class _VerifyResetPasswordOtpScreenState
           btnOkOnPress: () {},
         ).show();
       }
+    } finally {
+      setState(() => _isResending = false);
     }
   }
 
@@ -364,14 +392,14 @@ class _VerifyResetPasswordOtpScreenState
                           child: Row(
                             children: [
                               TextButton.icon(
-                                onPressed: resendSms,
+                                onPressed: (_resendSeconds == 0 && !_isResending) ? resendSms : null,
                                 icon: Icon(
                                   Icons.refresh_rounded,
                                   size: 18,
                                   color: Theme.of(context).primaryColor,
                                 ),
                                 label: Text(
-                                  'resend_otp'.tr,
+'resend_otp'.tr + (_resendSeconds > 0 ? ' ('+_resendSeconds.toString()+'s)' : ''),
                                   style: TextStyle(
                                     fontSize: isTablet ? 16 : 14,
                                     fontWeight: FontWeight.w500,

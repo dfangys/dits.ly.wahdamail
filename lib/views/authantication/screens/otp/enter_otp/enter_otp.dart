@@ -192,24 +192,34 @@ class EnterOtpScreen extends GetView<OtpController> {
                                 child: child,
                               );
                             },
-                            child: TextButton.icon(
-                              onPressed: () {
-                                controller.requestOtp();
-                              },
-                              icon: Icon(
-                                Icons.refresh_rounded,
-                                size: 18,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                              label: Text(
-                                'resend_otp'.tr,
-                                style: TextStyle(
-                                  fontSize: isTablet ? 18 : 16,
-                                  fontWeight: FontWeight.w500,
+                            child: Obx(() {
+                              final secs = controller.resendSeconds.value;
+                              final busy = controller.isRequestingOtp.value;
+                              final canResend = secs == 0 && !busy;
+                              final label = secs == 0
+                                  ? 'resend_otp'.tr
+                                  : 'resend_otp'.tr + ' (${secs}s)';
+                              return TextButton.icon(
+                                onPressed: canResend
+                                    ? () async {
+                                        await controller.resendOtp();
+                                      }
+                                    : null,
+                                icon: Icon(
+                                  Icons.refresh_rounded,
+                                  size: 18,
                                   color: Theme.of(context).primaryColor,
                                 ),
-                              ),
-                            ),
+                                label: Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: isTablet ? 18 : 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              );
+                            }),
                           ),
                           SizedBox(height: isTablet ? WSizes.defaultSpace * 1.5 : WSizes.defaultSpace),
                           // Continue button with animation

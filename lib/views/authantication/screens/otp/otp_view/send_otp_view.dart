@@ -88,17 +88,23 @@ class _SendOtpViewState extends State<SendOtpView> {
                       SizedBox(
                         height: 50,
                         width: MediaQuery.of(context).size.width - 50,
-                        child: OutlinedButton(
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                        child: Obx(() {
+                          final secs = controller.resendSeconds.value;
+                          final busy = controller.isRequestingOtp.value;
+                          final canResend = secs == 0 && !busy;
+                          final label = secs == 0
+                              ? 'resend'.tr
+                              : 'resend'.tr + ' (${secs}s)';
+                          return OutlinedButton(
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
-                          ),
-                          onPressed: () {
-                            controller.requestOtp();
-                          },
-                          child: Text('resend'.tr),
-                        ),
+                            onPressed: canResend ? controller.resendOtp : null,
+                            child: Text(label),
+                          );
+                        }),
                       ),
                     if (isError || isSuccess)
                       Container(

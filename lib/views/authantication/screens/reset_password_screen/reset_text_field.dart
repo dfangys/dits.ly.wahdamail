@@ -19,6 +19,7 @@ class ResetPasswordTextField extends StatefulWidget {
 
 class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with SingleTickerProviderStateMixin {
   final bool isBusy = false;
+  bool _isSubmitting = false;
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
   final appApi = Get.find<AppApi>();
@@ -374,12 +375,14 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
   }
 
   Future submitForm() async {
+    if (_isSubmitting) return;
     setState(() {
       isError = false;
     });
 
     if (formKey.currentState!.validate()) {
       try {
+        _isSubmitting = true;
         btnController.start();
         String email = emailController.text.trim() + WText.emailSuffix;
         var res = await appApi.sendResetPasswordOtp(email);
@@ -422,6 +425,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
             btnController.reset();
           });
         }
+        _isSubmitting = false;
       }
     } else {
       btnController.reset();

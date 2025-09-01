@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/foundation.dart';
@@ -24,6 +25,11 @@ class OtpController extends GetxController {
   OtpFieldController fieldController = OtpFieldController();
   RxBool isError = false.obs;
   RxBool isSuccess = false.obs;
+
+  // Prevent multiple submissions and control resend cooldown
+  final RxBool isRequestingOtp = false.obs;
+  final RxInt resendSeconds = 0.obs;
+  Timer? _resendTimer;
   // Future requestOtp() async {
   //   try {
   //     // 🔥 Skip all OTP logic and go straight to Home
@@ -41,7 +47,9 @@ class OtpController extends GetxController {
   //   }
   // }
   Future requestOtp() async {
+    if (isRequestingOtp.value) return;
     try {
+      isRequestingOtp.value = true;
       isError(false);
       final email = _storage.read('email');
       final password = _storage.read('password');
@@ -55,6 +63,8 @@ class OtpController extends GetxController {
 
       if (requiresOtp) {
         isSuccess(true);
+        // start 60s cooldown for resend
+        startResendCountdown(60);
         if (Platform.isAndroid) {
           listenForSms();
         } else if (Platform.isIOS) {
@@ -88,6 +98,8 @@ class OtpController extends GetxController {
         desc: e.toString(),
       ).show();
       isError(true);
+    } finally {
+      isRequestingOtp.value = false;
     }
   }
   Future<void> handleIosClipboardPaste() async {
@@ -151,6 +163,26 @@ class OtpController extends GetxController {
     if (kDebugMode) {
       print('Your app signature: $appSignature');
     }
+  }
+  
+  void startResendCountdown(int seconds) {
+    // Cancel any existing timer
+    _resendTimer?.cancel();
+    resendSeconds.value = seconds;
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (resendSeconds.value <= 1) {
+        t.cancel();
+        resendSeconds.value = 0;
+      } else {
+        resendSeconds.value = resendSeconds.value - 1;
+      }
+    });
+  }
+
+  Future resendOtp() async {
+    // Only allow when cooldown ended and not already requesting
+    if (resendSeconds.value > 0 || isRequestingOtp.value) return;
+    await requestOtp();
   }
 
   void onSmsReceived(String? message) {
@@ -218,6 +250,12 @@ class OtpController extends GetxController {
     } finally {
       isVerifying = false;
     }
+  }
+
+  @override
+  void onClose() {
+    _resendTimer?.cancel();
+    super.onClose();
   }
 
   Future logout() async {

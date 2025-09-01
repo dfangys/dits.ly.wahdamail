@@ -39,6 +39,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   bool _obscurePassword = true;
   bool _isEmailValid = true;
+  bool _isSubmitting = false;
   final FocusNode _emailFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
 
@@ -310,11 +311,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             child: WRoundedButton(
                               controller: controller!,
                               onPress: () async {
+                                if (_isSubmitting) return;
                                 if (!loginFormKey.currentState!.validate()) {
                                   controller!.stop();
                                   return;
                                 }
                                 try {
+                                  _isSubmitting = true;
                                   controller!.start();
                                   final fullEmail = '${emailCtrl.text.trim()}${WText.emailSuffix}';
                                   // Persist credentials for IMAP usage later
@@ -327,7 +330,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   final token = data?['token'] as String?;
 
                                   if (requiresOtp) {
-                                    // OTP was sent; go to OTP entry screen
+                                    // OTP was sent; start countdown and go to OTP entry screen
+                                    try {
+                                      Get.find<OtpController>().startResendCountdown(60);
+                                    } catch (_) {}
                                     Get.to(() => EnterOtpScreen());
                                   } else if (token != null && token.isNotEmpty) {
                                     // Authenticated without OTP; continue
@@ -360,6 +366,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                   ).show();
                                 } finally {
                                   controller!.stop();
+                                  _isSubmitting = false;
                                 }
                               },
                               text: 'login'.tr,
