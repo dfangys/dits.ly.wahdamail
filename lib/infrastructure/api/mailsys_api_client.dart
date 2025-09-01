@@ -12,35 +12,62 @@ import 'package:get_storage/get_storage.dart';
 /// await api.configure(baseUrl: 'https://chase.com.ly', token: null);
 /// final login = await api.login(email, password);
 /// if (login.requiresOtp) { await api.verifyOtp(email, otp); }
+import 'package:wahda_bank/config/api_config.dart';
+
 class MailsysApiClient extends GetConnect {
   static const _storageKeyBaseUrl = 'mailsys_base_url';
   static const _storageKeyToken = 'mailsys_token';
+  static const _storageKeyAppToken = 'mailsys_app_token';
 
   final GetStorage _storage = GetStorage();
+  String? _appToken; // in-memory cache of the app-level bearer
 
   @override
   void onInit() {
     final savedBaseUrl = _storage.read<String>(_storageKeyBaseUrl);
-    httpClient.baseUrl = savedBaseUrl ?? '';
+    httpClient.baseUrl = (savedBaseUrl?.isNotEmpty == true)
+        ? savedBaseUrl!
+        : ApiConfig.baseUrl;
     httpClient.timeout = const Duration(seconds: 60);
+
+    // Load app token from storage or from dart-define for pre-auth usage
+    _appToken = _storage.read<String>(_storageKeyAppToken);
+    if (_appToken == null || _appToken!.isEmpty) {
+      if (ApiConfig.appToken.isNotEmpty) {
+        _appToken = ApiConfig.appToken;
+        _storage.write(_storageKeyAppToken, _appToken);
+      }
+    }
 
     httpClient.addRequestModifier<Object?>((request) {
       request.headers['Accept'] = 'application/json';
       request.headers['Content-Type'] = 'application/json';
-      final token = _storage.read<String>(_storageKeyToken);
-      if (token != null && token.isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer $token';
+      final userToken = _storage.read<String>(_storageKeyToken);
+      // Prefer user token when present; otherwise fall back to app token for pre-auth endpoints
+      final authToken = (userToken != null && userToken.isNotEmpty)
+          ? userToken
+          : (_appToken ?? '');
+      if (authToken.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $authToken';
       }
       return request;
     });
     super.onInit();
   }
 
-  /// Configure baseUrl and optional token at runtime.
-  Future<void> configure({required String baseUrl, String? token}) async {
+  /// Configure baseUrl and optional tokens at runtime.
+  Future<void> configure({
+    required String baseUrl,
+    String? appToken,
+    String? token,
+  }) async {
     httpClient.baseUrl = baseUrl;
     await _storage.write(_storageKeyBaseUrl, baseUrl);
-    if (token != null) {
+    if (appToken != null && appToken.isNotEmpty) {
+      _appToken = appToken;
+      await _storage.write(_storageKeyAppToken, appToken);
+    }
+    if (token != null && token.isNotEmpty) {
       await _storage.write(_storageKeyToken, token);
     }
   }
@@ -67,7 +94,7 @@ class MailsysApiClient extends GetConnect {
     if (token != null && token.isNotEmpty) {
       await _storage.write(_storageKeyToken, token);
     }
-    return body;
+    return body as Map<String, dynamic>;
   }
 
   /// POST /api/verify-otp
@@ -82,7 +109,7 @@ class MailsysApiClient extends GetConnect {
     if (token != null && token.isNotEmpty) {
       await _storage.write(_storageKeyToken, token);
     }
-    return body;
+    return body as Map<String, dynamic>;
   }
 
   /// POST /api/logout

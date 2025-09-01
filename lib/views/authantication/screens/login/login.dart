@@ -1,13 +1,10 @@
-import 'dart:io';
-
 import 'package:awesome_dialog/awesome_dialog.dart';
-import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/widgets/custom_loading_button.dart';
-import 'package:wahda_bank/app/apis/app_api.dart';
 import 'package:wahda_bank/views/authantication/screens/reset_password_screen/reset_password_screen.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
@@ -15,7 +12,9 @@ import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import '../../../../app/controllers/otp_controller.dart';
-import '../otp/otp_view/send_otp_view.dart';
+import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
+import 'package:wahda_bank/views/authantication/screens/otp/enter_otp/enter_otp.dart';
+import 'package:wahda_bank/views/view/screens/first_loading_view.dart';
 
 // ignore: must_be_immutable
 class LoginScreen extends StatefulWidget {
@@ -32,7 +31,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   TextEditingController(text: kDebugMode ? "Aa12152010.@" : "");
   CustomLoadingButtonController? controller = CustomLoadingButtonController();
   final loginFormKey = GlobalKey<FormState>();
-  final api = Get.put(AppApi());
   final otpController = Get.put(OtpController());
 
   late AnimationController _animationController;
@@ -312,48 +310,55 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             child: WRoundedButton(
                               controller: controller!,
                               onPress: () async {
-                                if (loginFormKey.currentState!.validate()) {
-                                  try {
-                                    controller!.start();
-                                    await MailService.instance.init(
-                                      mail: '${emailCtrl.text.trim()}${WText.emailSuffix}',
-                                      pass: passwordCtrl.text,
-                                    );
-                                    await MailService.instance.connect();
-                                    Get.to(() => const SendOtpView());
-                                  } on MailException catch (e) {
-                                    String message =
-                                        e.message ?? 'msg_some_thing_went_wrong'.tr;
-                                    if (message.startsWith('null')) {
-                                      message = "msg_auth_failed".tr;
-                                    }
+                                if (!loginFormKey.currentState!.validate()) {
+                                  controller!.stop();
+                                  return;
+                                }
+                                try {
+                                  controller!.start();
+                                  final fullEmail = '${emailCtrl.text.trim()}${WText.emailSuffix}';
+                                  // Persist credentials for IMAP usage later
+                                  await MailService.instance.setAccount(fullEmail, passwordCtrl.text);
+
+                                  final api = Get.find<MailsysApiClient>();
+                                  final res = await api.login(fullEmail, passwordCtrl.text);
+                                  final data = res['data'] as Map<String, dynamic>?;
+                                  final requiresOtp = data?['requires_otp'] == true;
+                                  final token = data?['token'] as String?;
+
+                                  if (requiresOtp) {
+                                    // OTP was sent; go to OTP entry screen
+                                    Get.to(() => EnterOtpScreen());
+                                  } else if (token != null && token.isNotEmpty) {
+                                    // Authenticated without OTP; continue
+                                    // Maintain legacy gate for navigation during migration
+                                    // (Splash checks 'otp')
+                                    final storage = GetStorage();
+                                    await storage.write('otp', true);
+                                    Get.offAll(() => const LoadingFirstView());
+                                  } else {
                                     AwesomeDialog(
                                       context: Get.context!,
                                       dialogType: DialogType.error,
                                       title: 'error'.tr,
-                                      desc: message,
-                                      btnOkOnPress: () {
-                                        Get.back();
-                                      },
+                                      desc: res['message']?.toString() ?? 'msg_some_thing_went_wrong'.tr,
                                     ).show();
-                                  } on SocketException catch (e) {
-                                    String message = e.toString();
-                                    if (e.toString().startsWith('null')) {
-                                      message = "msg_server_error".tr;
-                                    }
-                                    AwesomeDialog(
-                                      context: Get.context!,
-                                      dialogType: DialogType.error,
-                                      title: 'error'.tr,
-                                      desc: message,
-                                      btnOkOnPress: () {
-                                        Get.back();
-                                      },
-                                    ).show();
-                                  } finally {
-                                    controller!.stop();
                                   }
-                                } else {
+                                } on MailsysApiException catch (e) {
+                                  AwesomeDialog(
+                                    context: Get.context!,
+                                    dialogType: DialogType.error,
+                                    title: 'error'.tr,
+                                    desc: e.message,
+                                  ).show();
+                                } catch (e) {
+                                  AwesomeDialog(
+                                    context: Get.context!,
+                                    dialogType: DialogType.error,
+                                    title: 'error'.tr,
+                                    desc: e.toString(),
+                                  ).show();
+                                } finally {
                                   controller!.stop();
                                 }
                               },

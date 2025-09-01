@@ -10,6 +10,9 @@ import 'package:workmanager/workmanager.dart';
 import 'package:wahda_bank/models/sqlite_database_helper.dart';
 import 'package:wahda_bank/services/offline_http_server.dart';
 import 'package:enough_mail/enough_mail.dart';
+import 'package:get/get.dart';
+import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
+import 'package:wahda_bank/config/api_config.dart';
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +40,17 @@ Future main() async {
   await GetStorage.init();
 
   await NotificationService.instance.setup();
+
+  // Configure MailSys API client early (pre-auth token & base URL)
+  try {
+    final api = Get.put(MailsysApiClient(), permanent: true);
+    await api.configure(
+      baseUrl: ApiConfig.baseUrl,
+      appToken: ApiConfig.appToken,
+    );
+  } catch (e) {
+    debugPrint('MailsysApiClient configure error: $e');
+  }
 
   // Initialize SQLite database
   await SQLiteDatabaseHelper.instance.database;
