@@ -3347,6 +3347,8 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       // Force an incremental sync even if optimized IDLE is active, pausing IDLE briefly to avoid contention
       await _withIdlePause(() async {
         await _pollOnce(m, force: true);
+        // After polling, reconcile against server for recent window to capture deletions (esp. Drafts)
+        await reconcileRecentWithServer(m, window: m.isDrafts ? 500 : 300);
       });
 
       // Ensure newest first and trigger UI
@@ -3365,6 +3367,79 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       } catch (_) {}
       emails.refresh();
       update();
+    } catch (_) {}
+  }
+
+  /// Reconcile the top [window] messages in the mailbox against the server to remove locally deleted items.
+  /// This is crucial when messages are deleted server-side (e.g., via webmail) so the app reflects the change.
+  Future<void> reconcileRecentWithServer(Mailbox mailbox, {int window = 300}) async {
+    try {
+      final listRef = emails[mailbox] ?? <MimeMessage>[];
+      if (listRef.isEmpty) return;
+
+      // Ensure connection and selection
+      try {
+        if (!mailService.client.isConnected) {
+          await mailService.connect().timeout(const Duration(seconds: 8));
+        }
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 8));
+        }
+      } catch (_) {}
+
+      final exists = mailbox.messagesExists;
+      if (exists <= 0) {
+        // Mailbox empty on server -> clear local list and storage
+        try { emails[mailbox]?.clear(); } catch (_) {}
+        try { await mailboxStorage[mailbox]?.deleteAllMessages(); } catch (_) {}
+        emails.refresh();
+        update();
+        return;
+      }
+
+      // Compute recent window by sequence range
+      final take = window.clamp(1, 2000); // hard cap
+      int start = exists - take + 1;
+      if (start < 1) start = 1;
+      final seq = MessageSequence.fromRange(start, exists);
+
+      // Fetch envelope-only for speed; we only need UIDs
+      final recent = await mailService.client.fetchMessageSequence(
+        seq,
+        fetchPreference: FetchPreference.envelope,
+      ).timeout(const Duration(seconds: 20), onTimeout: () => <MimeMessage>[]);
+
+      if (recent.isEmpty) return;
+      final serverUids = recent.map((m) => m.uid).whereType<int>().toSet();
+
+      // Determine local candidates within top window
+      final localTop = List<MimeMessage>.from(listRef.take(take));
+      final toRemove = <int>{};
+      for (final m in localTop) {
+        final uid = m.uid;
+        if (uid != null && !serverUids.contains(uid)) {
+          toRemove.add(uid);
+        }
+      }
+      if (toRemove.isEmpty) return;
+
+      // Remove from UI list
+      listRef.removeWhere((m) => m.uid != null && toRemove.contains(m.uid));
+      emails[mailbox] = listRef;
+      emails.refresh();
+      update();
+
+      // Remove from local storage (best-effort)
+      final st = mailboxStorage[mailbox];
+      if (st != null) {
+        for (final uid in toRemove) {
+          try {
+            await st.deleteMessageEnvelopes(
+              MessageSequence.fromRange(uid, uid, isUidSequence: true),
+            );
+          } catch (_) {}
+        }
+      }
     } catch (_) {}
   }
 

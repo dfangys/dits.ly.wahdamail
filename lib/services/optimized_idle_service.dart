@@ -434,6 +434,16 @@ class OptimizedIdleService extends GetxService {
 
       // Trigger a refresh to update the message list
       await _triggerMailboxRefresh();
+
+      // Also reconcile recent window against server to ensure deletions are reflected without manual refresh
+      try {
+        final mailService = _mailService;
+        if (mailService?.client.selectedMailbox != null) {
+          final mb = mailService!.client.selectedMailbox!;
+          final c = Get.find<MailBoxController>();
+          await c.reconcileRecentWithServer(mb, window: mb.isDrafts ? 1000 : 300);
+        }
+      } catch (_) {}
       
     } catch (e) {
       if (kDebugMode) {
