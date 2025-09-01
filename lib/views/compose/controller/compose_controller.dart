@@ -1812,10 +1812,21 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
     try {
       if (type == 'draft' && msg != null) {
         try {
-          await client.deleteMessages(
-            MessageSequence.fromMessage(msg!),
-            expunge: true,
-          );
+          // Ensure we are operating on the correct Drafts mailbox
+          final mbc = Get.find<MailBoxController>();
+          final drafts = _canonicalMailbox(editingServerDraftMailbox ?? sourceMailbox) ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+          if (drafts != null) {
+            try {
+              if (client.selectedMailbox?.encodedPath != drafts.encodedPath) {
+                await client.selectMailbox(drafts);
+              }
+            } catch (_) {}
+            // Prefer UID-based deletion when possible
+            final seq = (msg!.uid != null && msg!.uid! > 0)
+                ? MessageSequence.fromRange(msg!.uid!, msg!.uid!, isUidSequence: true)
+                : MessageSequence.fromMessage(msg!);
+            await client.deleteMessages(seq, expunge: true);
+          }
         } catch (_) {}
       }
       if (_currentDraft?.id != null) {
@@ -2127,9 +2138,15 @@ try { await st?.deleteMessageEnvelopes(MessageSequence.fromRange(uid, uid, isUid
           } catch (_) {}
         }
         debugPrint('[DraftFlow] saveDraft: calling saveDraftMessage…');
-        final response = await client.saveDraftMessage(
-          draftMessage,
-        );
+        // Use mailbox-aware API when we have a resolved Drafts mailbox for maximum correctness
+        final response = (drafts != null)
+            ? await client.saveDraftMessage(
+                draftMessage,
+                draftsMailbox: drafts!,
+              )
+            : await client.saveDraftMessage(
+                draftMessage,
+              );
         debugPrint('[DraftFlow] saveDraft: saveDraftMessage response received: ${response.runtimeType}');
         // Prefer UIDPLUS UID when available; fallback to target sequence id
         int? appended;
