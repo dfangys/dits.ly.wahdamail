@@ -1,6 +1,11 @@
 import UIKit
 import Flutter
+#if canImport(workmanager_apple)
+import workmanager_apple
+#endif
+#if canImport(workmanager)
 import workmanager
+#endif
 import UserNotifications   // ⚠︎ keep the import
 
 @main
@@ -11,10 +16,7 @@ import UserNotifications   // ⚠︎ keep the import
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
 
-    // 1. Register Workmanager background task
-    WorkmanagerPlugin.registerTask(withIdentifier: "fetch-new-mails-identifier")
-
-    // 2. Ask for notification permission ➜ APNs registration
+    // iOS notifications permission ➜ APNs registration
     UNUserNotificationCenter.current().delegate = self
     UNUserNotificationCenter.current().requestAuthorization(
       options: [.alert, .badge, .sound]

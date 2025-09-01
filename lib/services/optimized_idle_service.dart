@@ -231,7 +231,7 @@ class OptimizedIdleService extends GetxService {
     } catch (e) {
       _isIdleActive = false;
       if (kDebugMode) {
-        print('📧 ❌ Polling session error: $e');
+        print('📧 ❌ IDLE session error: $e');
       }
       rethrow;
     } finally {

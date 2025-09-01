@@ -20,6 +20,7 @@ import 'package:wahda_bank/services/ui_context_service.dart';
 import 'package:workmanager/workmanager.dart';
 import 'imap_command_queue.dart';
 import 'imap_fetch_pool.dart';
+import 'connection_lease.dart';
 
 /// Service responsible for handling email notifications using IMAP IDLE with SQLite support
 ///
@@ -752,7 +753,7 @@ class EmailNotificationService {
         constraints: Constraints(
           networkType: NetworkType.connected,
         ),
-        existingWorkPolicy: ExistingWorkPolicy.replace,
+        existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
         backoffPolicy: BackoffPolicy.linear,
         backoffPolicyDelay: const Duration(minutes: 5),
       );
@@ -942,6 +943,16 @@ void backgroundTaskCallback() {
 /// Check for new emails in background
 Future<void> _backgroundCheckForNewEmails() async {
   try {
+    // If a recent heartbeat exists, the foreground app is connected; skip to avoid extra IMAP sessions
+    try {
+      if (ConnectionLease.shouldSkipBackgroundConnect()) {
+        if (kDebugMode) {
+          print('Background check: skipping connect due to active foreground heartbeat');
+        }
+        return;
+      }
+    } catch (_) {}
+
     final storage = GetStorage();
 
     // Get last seen UID
@@ -1092,5 +1103,8 @@ Future<void> _backgroundCheckForNewEmails() async {
     if (kDebugMode) {
       print('Error in background email check: $e');
     }
+  } finally {
+    // Always disconnect background IMAP session promptly to free server slots
+    try { MailService.instance.client.disconnect(); } catch (_) {}
   }
 }

@@ -591,6 +591,8 @@ class RedesignedComposeView extends StatelessWidget {
             if (changed != null) {
               controller.bodyPart = changed;
               controller.hasUnsavedChanges = true;
+              // Trigger projection and autosave scheduling
+              controller.onContentChanged();
             }
           },
           onFocus: () {

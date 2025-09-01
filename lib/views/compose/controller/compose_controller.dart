@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -25,6 +26,7 @@ import 'package:wahda_bank/services/draft_sync_service.dart';
 import 'package:wahda_bank/services/message_content_store.dart';
 import 'package:wahda_bank/services/html_enhancer.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
+import 'package:wahda_bank/services/imap_command_queue.dart';
 
 
 extension EmailValidator on String {
@@ -38,6 +40,15 @@ extension EmailValidator on String {
 enum DraftSyncState { idle, syncing, synced, failed }
 
 class ComposeController extends GetxController {
+  // Compose session identifier to correlate all server-side draft versions for this editor lifecycle
+  // Used to reliably purge superseded drafts and avoid duplicates
+  String? _composeSessionId;
+  String get composeSessionId => _composeSessionId ??= _generateComposeSessionId();
+  String _generateComposeSessionId() {
+    final rnd = math.Random();
+    return 'cmp-${DateTime.now().microsecondsSinceEpoch}-${rnd.nextInt(0x7fffffff)}';
+  }
+
   // Normalize top-level transfer-encoding for multipart messages
   void _normalizeTopLevelTransferEncoding(MimeMessage msg) {
     try {
@@ -48,6 +59,24 @@ class ComposeController extends GetxController {
         msg.setHeader('Content-Transfer-Encoding', '7bit');
       }
     } catch (_) {}
+  }
+
+  // Heuristic: detect raw MIME boundary/header text mistakenly treated as body
+  bool _looksLikeMimeContainerText(String s) {
+    try {
+      if (s.isEmpty) return false;
+      final lower = s.toLowerCase();
+      // Obvious MIME headers and boundary markers
+      if (lower.contains('content-type: multipart/')) return true;
+      if (lower.contains('mime-version: 1.0') && lower.contains('content-transfer-encoding:')) return true;
+      // Multiple boundary lines like "--abc" on separate lines
+final boundaryLine = RegExp(r'^--[-A-Za-z0-9()+,./:=?_ ]{6,}\r?$|^--[-A-Za-z0-9()+,./:=?_ ]{6,}--\r?$', multiLine: true);
+      final matches = boundaryLine.allMatches(s);
+      if (matches.length >= 2) return true;
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
   // Email client and account
   final MailAccount account = MailService.instance.account;
@@ -156,6 +185,7 @@ class ComposeController extends GetxController {
   String? type;
   Mailbox? sourceMailbox; // mailbox where the draft message resides
 
+
   // When editing an existing server draft via different entry points (args or redesigned compose)
   int? editingServerDraftUid; // UID of the original server draft
   Mailbox? editingServerDraftMailbox; // Drafts mailbox context for the original draft
@@ -261,12 +291,25 @@ class ComposeController extends GetxController {
         } else if (type == 'draft') {
           // Quick envelope population
           _loadDraftEnvelopeQuick(msg!);
+          // Carry over compose session id from server draft if present to keep continuity
+          try {
+            final sid = msg!.getHeaderValue('x-compose-session') ?? msg!.getHeaderValue('X-Compose-Session');
+            if (sid != null && sid.trim().isNotEmpty) {
+              _composeSessionId = sid.trim();
+              debugPrint('[DraftFlow] Compose session restored from header: $_composeSessionId');
+            }
+          } catch (_) {}
           // Record server draft context for downstream save/replace logic
           try { setEditingDraftContext(uid: msg!.uid, mailbox: sourceMailbox); } catch (_) {}
           signature = settingController.signatureNewMessage.value
               ? settingController.signature.value
               : '';
           messageBuilder = MessageBuilder.prepareFromDraft(msg!);
+
+          // Proactively prime missing compose-session header from server headers if not yet known
+          if (_composeSessionId == null && msg!.uid != null) {
+            unawaited(_primeComposeSessionFromServer(message: msg!, mailboxHint: sourceMailbox));
+          }
           
           // Schedule background hydration (body + attachment metadata)
           unawaited(_hydrateDraftInBackground(msg!));
@@ -559,6 +602,9 @@ class ComposeController extends GetxController {
         body = plainTextController.text;
       }
 
+      // Update in-memory bodyPart for fast projection and preview
+      try { bodyPart = isHtml.value ? body : _convertPlainToHtml(body); } catch (_) {}
+
       // Check if there's enough content to save
       if (!_hasSaveableContent(body)) {
         EasyLoading.dismiss();
@@ -572,6 +618,19 @@ class ComposeController extends GetxController {
 
       // Create draft model
       final draft = _createDraftModel(body);
+
+      // If we are editing an existing server draft but the compose-session is not yet known, try to prime it quickly
+      if (type == 'draft' && _composeSessionId == null && msg != null && msg!.uid != null) {
+        try {
+          await _primeComposeSessionFromServer(message: msg!, mailboxHint: sourceMailbox, timeout: const Duration(seconds: 4));
+        } catch (_) {}
+      }
+
+      // Optimistically project updated preview and mark draft as read
+      try { await _projectToDraftsListRealtime(); } catch (_) {}
+
+      // Persist offline content for immediate reopen
+      unawaited(_persistOfflineContentForCurrentDraft(body: body, html: isHtml.value));
 
       // Save to local storage
       final storage = Get.find<SQLiteDraftRepository>();
@@ -588,11 +647,21 @@ class ComposeController extends GetxController {
         );
       }
 
-      // Set message content
-      messageBuilder.addMultipartAlternative(
-        htmlText: isHtml.value ? body : null,
-        plainText: isHtml.value ? _removeHtmlTags(body) : body,
-      );
+      // Set message content (avoid empty multipart/alternative)
+      final String htmlCandidate = isHtml.value ? body.trim() : '';
+      final String plainCandidate = isHtml.value ? _removeHtmlTags(body).trim() : body.trim();
+      if (htmlCandidate.isEmpty && plainCandidate.isEmpty) {
+        // Minimal placeholder to avoid empty multipart container
+        messageBuilder.addMultipartAlternative(
+          htmlText: null,
+          plainText: ' ',
+        );
+      } else {
+        messageBuilder.addMultipartAlternative(
+          htmlText: htmlCandidate.isNotEmpty ? htmlCandidate : null,
+          plainText: plainCandidate.isNotEmpty ? plainCandidate : null,
+        );
+      }
 
       // Set message metadata
       messageBuilder.to = toList.toList();
@@ -602,18 +671,11 @@ class ComposeController extends GetxController {
       messageBuilder.from = [MailAddress(name, email)];
       messageBuilder.date = DateTime.now();
 
-      // Add custom headers for enhanced draft features
-      messageBuilder.addHeader('X-Category', draft.category);
-      messageBuilder.addHeader('X-Priority', draft.priority.toString());
-      if (draft.tags.isNotEmpty) {
-        messageBuilder.addHeader('X-Tags', draft.tags.join(','));
-      }
-      messageBuilder.addHeader('X-Draft-Version', draft.version.toString());
 
       // Build message
       final draftMessage = messageBuilder.buildMimeMessage();
-      // Ensure top-level transfer-encoding is safe for multipart containers
-      _normalizeTopLevelTransferEncoding(draftMessage);
+      // Tag with compose session id for robust duplicate cleanup across saves
+      try { draftMessage.setHeader('X-Compose-Session', composeSessionId); } catch (_) {}
 
       // Queue background server sync with backoff; do not block UI
       syncState.value = DraftSyncState.syncing;
@@ -634,7 +696,8 @@ class ComposeController extends GetxController {
             // Best-effort: locate the original message in UI cache for accurate state handling
             final listRef = mbc.emails[editingMb!];
             final found = listRef?.firstWhereOrNull((m) => m.uid == editingServerDraftUid);
-            if (found != null) {
+if (found != null) {
+              debugPrint('[DraftFlow] Found original draft in UI cache by UID=${editingServerDraftUid}');
               oldMsg = found;
               DraftSyncService.instance.setStateFor(editingMb!, oldMsg!, DraftSyncBadgeState.syncing);
               oldKey = DraftSyncService.instance.keyFor(editingMb!, oldMsg!);
@@ -647,74 +710,129 @@ class ComposeController extends GetxController {
         }
       } catch (_) {}
 
-      unawaited(_saveDraftToServerWithBackoff(draftMessage, afterSuccess: (appendedSeq) async {
+      debugPrint('[DraftFlow] saveAsDraft begin: session=${composeSessionId}, editingUid=${editingServerDraftUid}, mailbox=${editingMb?.encodedPath ?? editingMb?.path}');
+      final serverOk = await _saveDraftToServerWithBackoff(draftMessage, afterSuccess: (appendedSeq) async {
+        debugPrint('[DraftFlow] saveAsDraft afterSuccess: appendedId=$appendedSeq (uid or seq depending on server)');
         try {
           // Mark local SQLite draft as synced if present
           if (_currentDraft != null && appendedSeq != null) {
             await storage.markDraftSynced(_currentDraft!.id!, appendedSeq);
           }
 
-          // If we were editing an existing server draft, delete the old one (best-effort)
-          try {
-            final mbc = Get.find<MailBoxController>();
-            final drafts = editingMb ?? sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
-            if (drafts != null) {
-              // Ensure correct mailbox selected
-              try {
-                if (client.selectedMailbox?.encodedPath != drafts.encodedPath) {
-                  await client.selectMailbox(drafts);
-                }
-              } catch (_) {}
-
-              MimeMessage? toDelete = oldMsg;
-              // Try to locate by UID if instance unknown
-              if (toDelete == null && editingServerDraftUid != null) {
-                final listRef = mbc.emails[drafts];
-                toDelete = listRef?.firstWhereOrNull((m) => m.uid == editingServerDraftUid);
-              }
-              if (toDelete != null) {
-                try { await client.deleteMessage(toDelete); } catch (_) {}
-                // Remove from local storage and UI
-                try {
-                  final storage = mbc.mailboxStorage[drafts];
-                  await storage?.deleteMessage(toDelete);
-                } catch (_) {}
-                try {
-                  final listRef = mbc.emails[drafts];
-                  if (listRef != null) {
-                    listRef.removeWhere((m) => (toDelete!.uid != null && m.uid == toDelete!.uid) || (toDelete!.sequenceId != null && m.sequenceId == toDelete!.sequenceId));
-                    mbc.emails.refresh();
-                    mbc.update();
-                  }
-                } catch (_) {}
-                try { await RealtimeUpdateService.instance.deleteMessage(toDelete); } catch (_) {}
-                // Clear syncing badge for old
-                try {
-                  DraftSyncService.instance.clearFor(drafts, toDelete);
-                } catch (_) {}
-              } else if (oldKey != null) {
-                // Fallback: clear stale key
-                try { DraftSyncService.instance.clearKey(oldKey!); } catch (_) {}
-              }
-            }
-          } catch (_) {}
 
           // Resolve Drafts mailbox (best-effort)
           Mailbox? drafts;
           try {
             final mbc = Get.find<MailBoxController>();
-            drafts = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+            drafts = editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+            drafts = _canonicalMailbox(drafts);
           } catch (_) {}
 
+          MimeMessage? appended;
           // Hydrate the appended draft into local storage and emit realtime updates for immediate UI refresh
-          if (drafts != null && appendedSeq != null) {
+          if (drafts != null) {
             try {
-              await _postAppendDraftHydration(draftsMailbox: drafts, appendedSequenceId: appendedSeq);
+              debugPrint('[DraftFlow] Hydration: attempting for appendedId=$appendedSeq in mailbox=${drafts!.encodedPath}');
+              appended = await _postAppendDraftHydration(
+                draftsMailbox: drafts!,
+                appendedSequenceId: appendedSeq,
+                composedBody: body,
+                composedIsHtml: isHtml.value,
+              );
 
               // Update DraftSyncService: mark badge as synced, then auto-clear
-              final key = '${drafts.encodedPath}:$appendedSeq';
-              DraftSyncService.instance.setStateForKey(key, DraftSyncBadgeState.synced);
-              Future.delayed(const Duration(seconds: 5), () => DraftSyncService.instance.clearKey(key));
+              if (appended != null) {
+                final key = DraftSyncService.instance.keyFor(drafts!, appended!);
+                DraftSyncService.instance.setStateForKey(key, DraftSyncBadgeState.synced);
+                Future.delayed(const Duration(seconds: 5), () => DraftSyncService.instance.clearKey(key));
+              } else if (appendedSeq != null) {
+                final key = '${drafts!.encodedPath}:$appendedSeq';
+                DraftSyncService.instance.setStateForKey(key, DraftSyncBadgeState.synced);
+                Future.delayed(const Duration(seconds: 5), () => DraftSyncService.instance.clearKey(key));
+              }
+
+              // After successful append, ensure we do not leave duplicates: delete the original server draft by UID (best-effort)
+              if (type == 'draft' || editingServerDraftUid != null) {
+                try {
+                  final mbc = Get.find<MailBoxController>();
+                  // Determine original mailbox of the draft we are replacing
+                  final originalMailbox = _canonicalMailbox(editingServerDraftMailbox) ?? drafts;
+                  // Ensure correct ORIGINAL mailbox selected for deletion
+                  try {
+                    if (client.selectedMailbox?.encodedPath != originalMailbox.encodedPath) {
+                      await client.selectMailbox(originalMailbox);
+                      debugPrint('[DraftFlow] Selected original mailbox for purge: ${originalMailbox.encodedPath}');
+                    } else {
+                      debugPrint('[DraftFlow] Original mailbox already selected: ${originalMailbox.encodedPath}');
+                    }
+                  } catch (e) { debugPrint('[DraftFlow][WARN] Selecting original mailbox failed: $e'); }
+
+                  MimeMessage? original = oldMsg;
+                  if (original == null && editingServerDraftUid != null) {
+                    final listRef = mbc.emails[originalMailbox];
+original = listRef?.firstWhereOrNull((m) => m.uid == editingServerDraftUid);
+                  debugPrint('[DraftFlow] UI cache original lookup by UID=${editingServerDraftUid}: ${original != null}');
+                  }
+
+                  // Update UI list to replace in place when possible (use original mailbox list)
+                  if (appended != null) {
+                    try {
+                      final listRef = mbc.emails[originalMailbox] ?? <MimeMessage>[];
+                      int idx = -1;
+                      if (original != null) {
+                        idx = listRef.indexWhere((m) =>
+                          (original!.uid != null && m.uid == original!.uid) ||
+                          (original!.sequenceId != null && m.sequenceId == original!.sequenceId));
+                      }
+if (idx >= 0) {
+                        debugPrint('[DraftFlow] UI replace in-place at index=$idx for original draft with new appended uid=${appended!.uid}');
+                        listRef[idx] = appended!;
+                      } else {
+                        // fallback to inserting at the top
+                        debugPrint('[DraftFlow] UI insert at top for appended uid=${appended!.uid} (original index not found)');
+                        listRef.insert(0, appended!);
+                      }
+                      mbc.emails[originalMailbox] = listRef;
+                      mbc.emails.refresh();
+                      mbc.update();
+                    } catch (_) {}
+                  }
+
+                  // Resolve the original UID if missing via Message-ID search (best-effort)
+                  int? originalUid = editingServerDraftUid;
+if ((originalUid == null || originalUid <= 0) && msg != null) {
+                    debugPrint('[DraftFlow] Resolving original UID via Message-Id header search');
+                    try {
+                      final mid = (msg!.getHeaderValue('message-id') ?? msg!.getHeaderValue('Message-Id'))?.trim();
+                      if (mid != null && mid.isNotEmpty) {
+                        final res = await client.searchMessages(
+                          MailSearch(mid, SearchQueryType.allTextHeaders, messageType: SearchMessageType.all),
+                        );
+                        final candidates = res.messages ?? const <MimeMessage>[];
+                        for (final m in candidates) {
+                          final mid2 = (m.getHeaderValue('message-id') ?? m.getHeaderValue('Message-Id'))?.trim();
+                          if (mid2 != null && mid2 == mid && (m.uid != null)) {
+                            originalUid = m.uid;
+                            break;
+                          }
+                        }
+                      }
+                    } catch (_) {}
+                  }
+
+                  // Purge any draft versions associated with this compose session except the freshly appended one
+                  try {
+                    final keepUid = appended?.uid; // may be null if hydration by seq only
+debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOriginalUid=$originalUid, mailbox=${originalMailbox.encodedPath}');
+                    await _purgeSessionDrafts(draftsMailbox: originalMailbox, keepUid: keepUid, alsoDeleteOriginalUid: originalUid);
+                  } catch (_) {}
+
+                  // Clear any lingering sync badge for old key
+                  if (oldKey != null) {
+                    try { DraftSyncService.instance.clearKey(oldKey!); } catch (_) {}
+                  }
+                } catch (_) {}
+              }
             } catch (_) {}
           }
 
@@ -727,9 +845,19 @@ class ComposeController extends GetxController {
           // keep UI state consistent even if post-append hydration fails
           syncState.value = DraftSyncState.synced;
         }
-      }));
+      });
 
-      // Update state
+      debugPrint('[DraftFlow] saveAsDraft finished: serverOk=$serverOk');
+      if (!serverOk) {
+        // Server save failed after retries; keep local draft but inform user
+        EasyLoading.dismiss();
+        EasyLoading.showError('save_error'.tr);
+        _draftStatus.value = 'save_error'.tr;
+        update();
+        return;
+      }
+
+      // Update state after confirmed server save
       _hasUnsavedChanges.value = false;
       _draftStatus.value = 'draft_saved'.tr;
       _lastSavedTime.value = _formatSaveTime(DateTime.now());
@@ -885,11 +1013,20 @@ class ComposeController extends GetxController {
         );
       }
 
-      // Set message content
-      messageBuilder.addMultipartAlternative(
-        htmlText: isHtml.value ? body : null,
-        plainText: isHtml.value ? _removeHtmlTags(body) : body,
-      );
+      // Set message content (avoid empty multipart/alternative)
+      final String htmlCandidate = isHtml.value ? body.trim() : '';
+      final String plainCandidate = isHtml.value ? _removeHtmlTags(body).trim() : body.trim();
+      if (htmlCandidate.isEmpty && plainCandidate.isEmpty) {
+        messageBuilder.addMultipartAlternative(
+          htmlText: null,
+          plainText: ' ',
+        );
+      } else {
+        messageBuilder.addMultipartAlternative(
+          htmlText: htmlCandidate.isNotEmpty ? htmlCandidate : null,
+          plainText: plainCandidate.isNotEmpty ? plainCandidate : null,
+        );
+      }
 
       // Set message metadata
       messageBuilder.to = toList.toList();
@@ -908,6 +1045,9 @@ class ComposeController extends GetxController {
       final message = messageBuilder.buildMimeMessage();
       // Ensure top-level transfer-encoding is safe for multipart containers
       _normalizeTopLevelTransferEncoding(message);
+
+      // Mark current draft message as read in UI immediately
+      try { msg?.isSeen = true; } catch (_) {}
 
       // Send message with optimistic UI and append-to-Sent flow
       final boxController = Get.find<MailBoxController>();
@@ -934,6 +1074,15 @@ class ComposeController extends GetxController {
       EasyLoading.dismiss();
       EasyLoading.showSuccess('message_sent'.tr);
 
+      // After sending, purge all remaining drafts belonging to this compose session from Drafts mailbox (best-effort)
+      try {
+        final mbc = Get.find<MailBoxController>();
+        final drafts = _canonicalMailbox(editingServerDraftMailbox ?? sourceMailbox) ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+        if (drafts != null) {
+          await _purgeSessionDrafts(draftsMailbox: drafts, keepUid: null, alsoDeleteOriginalUid: editingServerDraftUid);
+        }
+      } catch (_) {}
+
       // Close compose screen
       Get.back();
 
@@ -948,6 +1097,39 @@ class ComposeController extends GetxController {
   }
 
   // HELPER METHODS (CONSOLIDATED - REMOVED DUPLICATES)
+
+  // Persist the latest edited content to offline store for the current draft message (if identifiable)
+  Future<void> _persistOfflineContentForCurrentDraft({required String body, required bool html}) async {
+    try {
+      // Resolve mailbox and uid for the current draft message
+      final mbc = Get.find<MailBoxController>();
+      final mailboxHint = sourceMailbox ?? editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+      final int? uid = msg?.uid ?? editingServerDraftUid;
+      if (mailboxHint == null || uid == null || uid <= 0) return;
+
+      String? plain;
+      String? safeHtml;
+      if (html) {
+        // Optionally sanitize or simply store as-is for quick reopen
+        safeHtml = body;
+        plain = _removeHtmlTags(body);
+      } else {
+        plain = body;
+        safeHtml = null;
+      }
+
+      await MessageContentStore.instance.upsertContent(
+        accountEmail: account.email,
+        mailboxPath: mailboxHint.encodedPath.isNotEmpty ? mailboxHint.encodedPath : (mailboxHint.path),
+        uidValidity: mailboxHint.uidValidity ?? 0,
+        uid: uid,
+        plainText: plain,
+        htmlSanitizedBlocked: safeHtml,
+        sanitizedVersion: 2,
+        forceMaterialize: false,
+      );
+    } catch (_) {}
+  }
 
   // Mark content as changed and needing save
   void _markAsChanged() {
@@ -995,6 +1177,9 @@ class ComposeController extends GetxController {
         body = plainTextController.text;
       }
 
+      // Keep bodyPart in sync for fast previews
+      try { bodyPart = isHtml.value ? body : _convertPlainToHtml(body); } catch (_) {}
+
       // Check if there's enough content to save
       if (!_hasSaveableContent(body)) {
         _draftStatus.value = '';
@@ -1003,6 +1188,9 @@ class ComposeController extends GetxController {
 
       // Create draft model
       final draft = _createDraftModel(body);
+
+      // Persist offline content to reflect the latest edit on quick reopen
+      unawaited(_persistOfflineContentForCurrentDraft(body: body, html: isHtml.value));
 
       // Save to storage
       final storage = Get.find<SQLiteDraftRepository>();
@@ -1243,7 +1431,20 @@ class ComposeController extends GetxController {
       if (message.to != null) toList.addAll(message.to!);
       if (message.cc != null) cclist.addAll(message.cc!);
       if (message.bcc != null) bcclist.addAll(message.bcc!);
-      subjectController.text = message.decodeSubject() ?? '';
+          // Populate subject with robust fallbacks
+          final _subj = message.decodeSubject() ?? message.envelope?.subject ?? message.getHeaderValue('subject') ?? '';
+          subjectController.text = _subj;
+      // Mark draft as read immediately for UI consistency
+      try { message.isSeen = true; } catch (_) {}
+      try {
+        final mbc = Get.find<MailBoxController>();
+        final draftsRaw = editingServerDraftMailbox ?? sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+        final drafts = _canonicalMailbox(draftsRaw);
+        final st = drafts != null ? mbc.mailboxStorage[drafts] : null;
+        if (st != null) {
+          unawaited(st.updateEnvelopeFromMessage(message));
+        }
+      } catch (_) {}
       // Show placeholder status
       _draftStatus.value = 'loading_draft_content'.tr;
       update();
@@ -1289,8 +1490,11 @@ class ComposeController extends GetxController {
         try {
           final part = await client.fetchMessagePart(message, info.fetchId);
           final text = part.decodeContentText();
-          if (text != null && text.trim().isNotEmpty) {
-            return text.trim();
+          if (text != null) {
+            final trimmed = text.trim();
+            if (trimmed.isNotEmpty && !_looksLikeMimeContainerText(trimmed)) {
+              return trimmed;
+            }
           }
         } catch (_) {
           // Try next candidate
@@ -1368,42 +1572,44 @@ class ComposeController extends GetxController {
       String bodyContent = '';
       bool isHtmlContent = false;
 
-      // If top-level is a multipart with base64 CTE, skip direct decoding and fetch parts directly
-      bool skipDirectDecode = false;
+      // Determine if top-level is multipart; if so, never use decodeContentText()
+      bool isMultipartTop = false;
       try {
-        final topCte = (base.getHeaderValue('content-transfer-encoding') ?? '').toLowerCase();
         final topCt = (base.getHeaderValue('content-type') ?? '').toLowerCase();
-        if (topCt.contains('multipart/') && topCte.contains('base64')) {
-          skipDirectDecode = true;
-        }
+        isMultipartTop = topCt.contains('multipart/');
       } catch (_) {}
 
-      if (!skipDirectDecode) {
-        try {
-          final htmlContent = base.decodeTextHtmlPart();
-          if (htmlContent != null && htmlContent.trim().isNotEmpty) {
-            bodyContent = htmlContent;
-            isHtmlContent = true;
-          } else {
-            final plainContent = base.decodeTextPlainPart();
-            if (plainContent != null && plainContent.trim().isNotEmpty) {
-              bodyContent = plainContent;
-              isHtmlContent = false;
-            } else {
-              final bodyText = base.decodeContentText();
-              if (bodyText != null && bodyText.trim().isNotEmpty) {
-                bodyContent = bodyText;
-                isHtmlContent = false;
-              }
-            }
-          }
-        } catch (_) {
-          // Will fallback below
+      // Always try dedicated text decoders first
+      try {
+        final htmlContent = base.decodeTextHtmlPart();
+        if (htmlContent != null && htmlContent.trim().isNotEmpty) {
+          bodyContent = htmlContent;
+          isHtmlContent = true;
         }
+      } catch (_) {}
+      if (bodyContent.trim().isEmpty) {
+        try {
+          final plainContent = base.decodeTextPlainPart();
+          if (plainContent != null && plainContent.trim().isNotEmpty) {
+            bodyContent = plainContent;
+            isHtmlContent = false;
+          }
+        } catch (_) {}
+      }
+
+      // As a last resort only for non-multipart messages, try decodeContentText()
+      if (bodyContent.trim().isEmpty && !isMultipartTop) {
+        try {
+          final bodyText = base.decodeContentText();
+          if (bodyText != null && bodyText.trim().isNotEmpty && !_looksLikeMimeContainerText(bodyText)) {
+            bodyContent = bodyText;
+            isHtmlContent = false;
+          }
+        } catch (_) {}
       }
 
       // Fallback: fetch text/html or text/plain part directly, ignoring broken top-level CTE
-      if (bodyContent.trim().isEmpty) {
+      if (bodyContent.trim().isEmpty || _looksLikeMimeContainerText(bodyContent)) {
         try {
           final mbc = Get.find<MailBoxController>();
           final mailboxHint = sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
@@ -1601,11 +1807,16 @@ class ComposeController extends GetxController {
     }
   }
 
-  // Discard the current draft from server (delete) and local storage
+      // Discard the current draft from server (delete) and local storage
   Future<void> discardCurrentDraft() async {
     try {
       if (type == 'draft' && msg != null) {
-        await client.deleteMessage(msg!);
+        try {
+          await client.deleteMessages(
+            MessageSequence.fromMessage(msg!),
+            expunge: true,
+          );
+        } catch (_) {}
       }
       if (_currentDraft?.id != null) {
         try { await Get.find<SQLiteDraftRepository>().deleteDraft(_currentDraft!.id!); } catch (_) {}
@@ -1695,6 +1906,26 @@ class ComposeController extends GetxController {
         .replaceAll('\n', '<br>');
   }
 
+  // Resolve a canonical mailbox instance for stable map lookups
+  Mailbox? _canonicalMailbox(Mailbox? maybe) {
+    try {
+      final mbc = Get.find<MailBoxController>();
+      if (maybe == null) return mbc.draftsMailbox ?? mbc.currentMailbox;
+      // Match by encodedPath if possible
+      final list = mbc.mailboxes;
+      final enc = (maybe.encodedPath.isNotEmpty ? maybe.encodedPath : maybe.path).toLowerCase();
+      final byPath = list.firstWhereOrNull((m) => (m.encodedPath.isNotEmpty ? m.encodedPath : m.path).toLowerCase() == enc);
+      if (byPath != null) return byPath;
+      // Fallback: by name or drafts flag
+      final byName = list.firstWhereOrNull((m) => m.name.toLowerCase() == maybe.name.toLowerCase());
+      if (byName != null) return byName;
+      if (maybe.isDrafts) return mbc.draftsMailbox ?? byName;
+      return byName ?? maybe;
+    } catch (_) {
+      return maybe;
+    }
+  }
+
   // Realtime projection of compose changes into Drafts tile (subject/preview/attachment flags)
   void _scheduleRealtimeProjection() {
     _rtProjectionDebounce?.cancel();
@@ -1707,7 +1938,8 @@ class ComposeController extends GetxController {
     try {
       // Resolve drafts mailbox and message id
       final mbc = Get.find<MailBoxController>();
-      final drafts = editingServerDraftMailbox ?? sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+      final draftsRaw = editingServerDraftMailbox ?? sourceMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+      final drafts = _canonicalMailbox(draftsRaw);
       if (drafts == null) return;
 
       final uid = msg?.uid ?? editingServerDraftUid;
@@ -1726,16 +1958,8 @@ class ComposeController extends GetxController {
 
       final hasAtt = attachments.isNotEmpty || pendingDraftAttachments.isNotEmpty;
 
-      // Update in-memory headers to improve instantaneous tile rendering
-      try {
-        msg?.setHeader('x-preview', preview);
-        msg?.setHeader('x-has-attachments', hasAtt ? '1' : '0');
-        msg?.setHeader('x-ready', '1');
-        // Also update subject header for immediate UI reflect
-        if (subjectController.text.trim().isNotEmpty) {
-          msg?.setHeader('subject', subjectController.text.trim());
-        }
-      } catch (_) {}
+      // Update in-memory meta via DB persistence and bump UI, without touching MIME headers
+      try {} catch (_) {}
 
       // Persist to SQLite for Drafts mailbox
       try {
@@ -1752,12 +1976,12 @@ class ComposeController extends GetxController {
             hasAttachments: hasAtt,
           );
 
-          // Persist subject via envelope/meta update
+          // Persist subject and mark as seen via envelope/meta update
           final shadow = MimeMessage();
           shadow.uid = uid;
           shadow.sequenceId = msg?.sequenceId;
-          try { shadow.setHeader('subject', subjectController.text.trim()); } catch (_) {}
-          // Synthesize minimal envelope to ensure DB update
+          shadow.isSeen = true; // Drafts should always be read
+          // Synthesize minimal envelope to ensure DB update without modifying MIME headers
           try {
             shadow.envelope = Envelope(
               subject: subjectController.text.trim(),
@@ -1778,20 +2002,147 @@ class ComposeController extends GetxController {
     } catch (_) {}
   }
 
+  /// Prime compose-session header from server headers quickly if missing (keeps continuity across lifecycles)
+  Future<void> _primeComposeSessionFromServer({required MimeMessage message, Mailbox? mailboxHint, Duration timeout = const Duration(seconds: 6)}) async {
+    try {
+      final mbc = Get.find<MailBoxController>();
+      final mb = mailboxHint ?? sourceMailbox ?? editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+      if (mb == null || message.uid == null) return;
+      final fetched = await ImapFetchPool.instance.fetchByUid(
+        uid: message.uid!,
+        mailboxHint: mb,
+        fetchPreference: FetchPreference.fullWhenWithinSize,
+        timeout: timeout,
+      );
+      if (fetched.isNotEmpty) {
+        final m = fetched.first;
+        final sid = m.getHeaderValue('x-compose-session') ?? m.getHeaderValue('X-Compose-Session');
+        if (sid != null && sid.trim().isNotEmpty) {
+          _composeSessionId = sid.trim();
+          debugPrint('[DraftFlow] Compose session primed from server headers: $_composeSessionId');
+        }
+      }
+    } catch (e) {
+      debugPrint('[DraftFlow] Compose session prime failed: $e');
+    }
+  }
+
+  // Delete all server-side drafts that belong to this compose session, except the one specified by keepUid (if provided).
+  // Optionally also deletes a specific original UID if provided (for servers lacking the session header on older copies).
+  Future<void> _purgeSessionDrafts({
+    required Mailbox draftsMailbox,
+    int? keepUid,
+    int? alsoDeleteOriginalUid,
+  }) async {
+    try {
+      // Ensure mailbox selection
+      try {
+        if (client.selectedMailbox?.encodedPath != draftsMailbox.encodedPath) {
+          await client.selectMailbox(draftsMailbox);
+        }
+      } catch (_) {}
+
+      // Search for all messages with our compose session header
+      List<MimeMessage> sessionDrafts = const <MimeMessage>[];
+      try {
+        debugPrint('[DraftFlow] Purge: searching by X-Compose-Session=${composeSessionId} in mailbox ${draftsMailbox.encodedPath}');
+        final res = await client.searchMessages(
+          MailSearch(composeSessionId, SearchQueryType.allTextHeaders, messageType: SearchMessageType.all),
+        ).timeout(const Duration(seconds: 10));
+sessionDrafts = res.messages ?? const <MimeMessage>[];
+      debugPrint('[DraftFlow] Purge: session matches=${sessionDrafts.length} (uids=${sessionDrafts.map((m)=>m.uid).toList()})');
+      } catch (_) {}
+
+      // Collect UIDs to delete (exclude keepUid)
+      final toDeleteUids = <int>{};
+      for (final m in sessionDrafts) {
+        final uid = m.uid;
+        if (uid != null && (keepUid == null || uid != keepUid)) {
+          toDeleteUids.add(uid);
+        }
+      }
+if (alsoDeleteOriginalUid != null && alsoDeleteOriginalUid > 0) {
+        debugPrint('[DraftFlow] Purge: also including originalUid=$alsoDeleteOriginalUid');
+        if (keepUid == null || alsoDeleteOriginalUid != keepUid) {
+          toDeleteUids.add(alsoDeleteOriginalUid);
+        }
+      }
+
+      if (toDeleteUids.isEmpty) { debugPrint('[DraftFlow] Purge: nothing to delete'); return; }
+
+      // Delete on server (UID EXPUNGE)
+      for (final uid in toDeleteUids) {
+        try {
+await client.deleteMessages(
+            MessageSequence.fromRange(uid, uid, isUidSequence: true),
+            expunge: true,
+          );
+        debugPrint('[DraftFlow] Purge: server deleted uid=$uid (expunge=true)');
+        } catch (_) {}
+      }
+
+      // Purge from local storage/UI
+      try {
+        final mbc = Get.find<MailBoxController>();
+        final st = mbc.mailboxStorage[draftsMailbox];
+debugPrint('[DraftFlow] Purge: removing from local storage and UI uids=$toDeleteUids');
+        for (final uid in toDeleteUids) {
+try { await st?.deleteMessageEnvelopes(MessageSequence.fromRange(uid, uid, isUidSequence: true)); debugPrint('[DraftFlow] Purge: local DB deleted uid=$uid'); } catch (_) {}
+        }
+        // Remove from in-memory list
+        final listRef = mbc.emails[draftsMailbox] ?? <MimeMessage>[];
+        listRef.removeWhere((m) => m.uid != null && toDeleteUids.contains(m.uid));
+        mbc.emails[draftsMailbox] = listRef;
+        mbc.emails.refresh();
+        mbc.update();
+      } catch (_) {}
+    } catch (_) {}
+  }
+
   // Server sync with exponential backoff
-  Future<void> _saveDraftToServerWithBackoff(MimeMessage draftMessage, {Future<void> Function(int? appendedUid)? afterSuccess}) async {
+  Future<bool> _saveDraftToServerWithBackoff(MimeMessage draftMessage, {Future<void> Function(int? appendedUid)? afterSuccess}) async {
     const attempts = 3;
     int delayMs = 1200;
     for (int i = 0; i < attempts; i++) {
       try {
-        await client.selectMailboxByFlag(MailboxFlag.drafts);
-        final response = await client.saveDraftMessage(draftMessage);
-        final ids = response?.targetSequence.toList() ?? const <int>[];
-        final appendedUid = ids.isNotEmpty ? ids.last : null;
-        if (afterSuccess != null) {
-          await afterSuccess(appendedUid);
+        // Resolve Drafts mailbox explicitly and use mailbox-aware API to avoid mis-targeted appends
+        Mailbox? drafts;
+        try {
+          final mbc = Get.find<MailBoxController>();
+          // For editing an existing draft, always use its original Drafts mailbox
+          drafts = editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+          drafts = _canonicalMailbox(drafts);
+        } catch (_) {}
+        if (drafts == null) {
+          await client.selectMailboxByFlag(MailboxFlag.drafts);
+          debugPrint('[DraftFlow] saveDraft: selected Drafts by flag');
+        } else {
+          try {
+            if (client.selectedMailbox?.encodedPath != drafts!.encodedPath) {
+              await client.selectMailbox(drafts!);
+              debugPrint('[DraftFlow] saveDraft: selected Drafts mailbox=${drafts!.encodedPath}');
+            } else {
+              debugPrint('[DraftFlow] saveDraft: Drafts mailbox already selected=${drafts!.encodedPath}');
+            }
+          } catch (_) {}
         }
-        return;
+        debugPrint('[DraftFlow] saveDraft: calling saveDraftMessage…');
+        final response = await client.saveDraftMessage(
+          draftMessage,
+        );
+        debugPrint('[DraftFlow] saveDraft: saveDraftMessage response received: ${response.runtimeType}');
+        // Prefer UIDPLUS UID when available; fallback to target sequence id
+        int? appended;
+        try { appended = (response as dynamic).targetUid as int?; } catch (_) {}
+        if (appended == null) {
+          final ids = response?.targetSequence.toList() ?? const <int>[];
+          appended = ids.isNotEmpty ? ids.last : null;
+        }
+        debugPrint('[DraftFlow] saveDraft: interpreted appended id=${appended ?? '(null)'}');
+        if (afterSuccess != null) {
+          await afterSuccess(appended);
+        }
+        return true;
       } catch (e) {
         if (i == attempts - 1) {
           syncState.value = DraftSyncState.failed;
@@ -1814,31 +2165,104 @@ class ComposeController extends GetxController {
           if (kDebugMode) {
             debugPrint('Draft server sync failed: $e');
           }
-          return;
+          return false;
         }
         await Future.delayed(Duration(milliseconds: delayMs));
         delayMs *= 2;
       }
     }
+    // Should not reach here, but return false defensively
+    return false;
   }
 
   // After a successful APPEND to the Drafts mailbox, fetch the new message envelope
   // and persist it to SQLite + emit realtime updates, so the Drafts list updates instantly.
-  Future<void> _postAppendDraftHydration({
+  Future<MimeMessage?> _postAppendDraftHydration({
     required Mailbox draftsMailbox,
-    required int appendedSequenceId,
+    int? appendedSequenceId,
+    String? composedBody,
+    bool composedIsHtml = true,
   }) async {
+    MimeMessage? appended;
     try {
-      // Fetch just the appended message using the dedicated fetch pool to avoid interfering with polling/IDLE
-      final fetched = await ImapFetchPool.instance.fetchBySequence(
-        sequence: MessageSequence.fromId(appendedSequenceId),
-        mailboxHint: draftsMailbox,
-        fetchPreference: FetchPreference.envelope,
-        timeout: const Duration(seconds: 8),
-      );
+      List<MimeMessage> fetched = const <MimeMessage>[];
 
-      if (fetched.isEmpty) return;
-      final appended = fetched.first;
+      // Prefer UID-based hydration when we have an appended id
+      if (appendedSequenceId != null) {
+        // First, try treating the id as UID (UIDPLUS)
+        debugPrint('[DraftFlow] Hydration attempt as UID: $appendedSequenceId');
+        fetched = await ImapFetchPool.instance.fetchByUid(
+          uid: appendedSequenceId,
+          mailboxHint: draftsMailbox,
+          fetchPreference: FetchPreference.envelope,
+          timeout: const Duration(seconds: 8),
+        );
+        if (fetched.isNotEmpty) {
+          appended = fetched.first;
+          debugPrint('[DraftFlow] Hydration by UID succeeded: uid=${appended!.uid}, seq=${appended!.sequenceId}');
+        } else {
+          // Fallback: try as server sequence id
+          debugPrint('[DraftFlow] Hydration fallback as SEQ: $appendedSequenceId');
+          fetched = await ImapFetchPool.instance.fetchBySequence(
+            sequence: MessageSequence.fromId(appendedSequenceId),
+            mailboxHint: draftsMailbox,
+            fetchPreference: FetchPreference.envelope,
+            timeout: const Duration(seconds: 8),
+          );
+          if (fetched.isNotEmpty) {
+            appended = fetched.first;
+            debugPrint('[DraftFlow] Hydration by SEQ succeeded: uid=${appended!.uid}, seq=${appended!.sequenceId}');
+          }
+        }
+      }
+
+      // Fallback: prefer searching by compose session header to precisely identify the latest version
+if (appended == null) {
+        debugPrint('[DraftFlow] Hydration fallback: searching by X-Compose-Session=${composeSessionId}');
+        try {
+          final res = await client.searchMessages(
+            MailSearch(composeSessionId, SearchQueryType.allTextHeaders, messageType: SearchMessageType.all),
+          ).timeout(const Duration(seconds: 8));
+          final found = res.messages ?? const <MimeMessage>[];
+if (found.isNotEmpty) {
+            debugPrint('[DraftFlow] Session search matched ${found.length} drafts; taking newest');
+            // Choose the newest by decodeDate where available
+            found.sort((a, b) => (b.decodeDate() ?? DateTime.fromMillisecondsSinceEpoch(0)).compareTo(a.decodeDate() ?? DateTime.fromMillisecondsSinceEpoch(0)));
+            appended = found.first;
+          }
+        } catch (_) {}
+      }
+
+      // Fallback: scan most recent messages and match by subject + recency
+if (appended == null) {
+        debugPrint('[DraftFlow] Hydration final fallback: scanning recents for subject match');
+        try {
+          final recent = await ImapFetchPool.instance.fetchRecent(
+            mailboxHint: draftsMailbox,
+            count: 25,
+            timeout: const Duration(seconds: 10),
+          );
+          if (recent.isNotEmpty) {
+            final subj = subjectController.text.trim();
+            for (final m in recent) {
+              String? ms = m.decodeSubject() ?? m.envelope?.subject ?? m.getHeaderValue('subject');
+              if ((ms ?? '').trim() == subj) {
+                final d = m.decodeDate();
+                if (d != null && DateTime.now().difference(d).inMinutes <= 5) {
+                  appended = m; break;
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (appended == null) return null;
+      // Capture non-null for closure usage
+      final app = appended!;
+
+      // Ensure the composed session header is present on the in-memory message for downstream logic
+      try { appended.setHeader('X-Compose-Session', composeSessionId); } catch (_) {}
 
       // Persist to SQLite storage for Drafts mailbox if available
       try {
@@ -1846,6 +2270,48 @@ class ComposeController extends GetxController {
         final storage = mbc.mailboxStorage[draftsMailbox];
         if (storage != null) {
           await storage.saveMessageEnvelopes([appended]);
+          // Immediately mark as seen in local DB as drafts should be read
+          try {
+            appended.isSeen = true;
+            await storage.updateEnvelopeFromMessage(appended);
+          } catch (_) {}
+        }
+      } catch (_) {}
+
+      // Persist composed body to offline content store under the new appended UID for immediate reopen
+      try {
+        if (appended.uid != null && appended.uid! > 0 && composedBody != null && composedBody.trim().isNotEmpty) {
+          String? htmlSan;
+          String? plain;
+          if (composedIsHtml) {
+            // Sanitize HTML for safe offline rendering
+            String pre = composedBody;
+            if (pre.length > 100 * 1024) {
+              try { pre = await MessageContentStore.sanitizeHtmlInIsolate(pre); } catch (_) {}
+            }
+            final enhanced = HtmlEnhancer.enhanceEmailHtml(
+              message: appended,
+              rawHtml: pre,
+              darkMode: false,
+              blockRemoteImages: true,
+              deviceWidthPx: 1024.0,
+            );
+            htmlSan = enhanced.html;
+            plain = _removeHtmlTags(composedBody);
+          } else {
+            plain = composedBody;
+            htmlSan = null;
+          }
+          await MessageContentStore.instance.upsertContent(
+            accountEmail: account.email,
+            mailboxPath: draftsMailbox.encodedPath.isNotEmpty ? draftsMailbox.encodedPath : (draftsMailbox.path),
+            uidValidity: draftsMailbox.uidValidity ?? 0,
+            uid: appended.uid!,
+            plainText: plain,
+            htmlSanitizedBlocked: htmlSan,
+            sanitizedVersion: 2,
+            forceMaterialize: false,
+          );
         }
       } catch (_) {}
 
@@ -1854,23 +2320,45 @@ class ComposeController extends GetxController {
         await RealtimeUpdateService.instance.notifyNewMessages([appended], mailbox: draftsMailbox);
       } catch (_) {}
 
-      // If the user is currently viewing Drafts, also update the in-memory list immediately (best-effort)
+      // Best-effort: mark the appended draft as seen on server
+      try {
+        await ImapCommandQueue.instance.run('markSeen(draft after append)', () async {
+          if (client.selectedMailbox?.encodedPath != draftsMailbox.encodedPath) {
+            await client.selectMailbox(draftsMailbox);
+            debugPrint('[DraftFlow] Marking appended draft as seen on server in mailbox ${draftsMailbox.encodedPath}');
+          }
+          await client.markSeen(MessageSequence.fromMessage(app));
+        });
+      } catch (_) {}
+
+      // Update the in-memory list for the Drafts mailbox to keep a single item updated in place
       try {
         final mbc = Get.find<MailBoxController>();
-        if (mbc.currentMailbox?.encodedPath.toLowerCase() == draftsMailbox.encodedPath.toLowerCase()) {
-          final listRef = mbc.emails[draftsMailbox] ?? <MimeMessage>[];
-          final exists = listRef.any((m) => (m.uid != null && m.uid == appended.uid) || (m.sequenceId != null && m.sequenceId == appended.sequenceId));
-          if (!exists) {
-            listRef.insert(0, appended);
-            mbc.emails[draftsMailbox] = listRef;
-            mbc.emails.refresh();
-            mbc.update();
-          }
+        final listRef = mbc.emails[draftsMailbox] ?? <MimeMessage>[];
+        // Try to find an existing draft by the original editing UID if available
+        int idx = -1;
+        if (editingServerDraftUid != null) {
+          idx = listRef.indexWhere((m) => m.uid == editingServerDraftUid);
         }
+        if (idx < 0) {
+          idx = listRef.indexWhere((m) => (m.uid != null && m.uid == app.uid) || (m.sequenceId != null && m.sequenceId == app.sequenceId));
+        }
+if (idx >= 0) {
+          debugPrint('[DraftFlow] Drafts list updated in place for appended uid=${app.uid}');
+          listRef[idx] = app;
+        } else {
+debugPrint('[DraftFlow] Drafts list inserted new appended uid=${app.uid} at top');
+        listRef.insert(0, app);
+        }
+        mbc.emails[draftsMailbox] = listRef;
+        mbc.emails.refresh();
+        mbc.update();
       } catch (_) {}
     } catch (_) {
       // Non-fatal; UI has already been marked as synced
+      return null;
     }
+    return appended;
   }
 
   // Show error dialog

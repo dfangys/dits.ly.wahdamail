@@ -170,8 +170,32 @@ class ImapFetchPool {
     });
   }
 
+  /// Fetch the most recent [count] messages (envelope-only) from [mailboxHint].
+  Future<List<MimeMessage>> fetchRecent({
+    required Mailbox mailboxHint,
+    int count = 20,
+    Duration timeout = const Duration(seconds: 8),
+  }) async {
+    return _runSerial((cli) async {
+      try {
+        final mb = await _resolveAndSelectMailbox(mailboxHint) ?? mailboxHint;
+        final msgs = await cli
+            .fetchMessages(mailbox: mb, count: count, page: 1)
+            .timeout(timeout, onTimeout: () => <MimeMessage>[]);
+        return msgs;
+      } catch (e) {
+        if (kDebugMode) {
+          print('📬 FetchPool fetchRecent error: $e');
+        }
+        return <MimeMessage>[];
+      }
+    });
+  }
+
   Future<void> dispose() async {
     try { _client?.disconnect(); } catch (_) {}
     _client = null;
   }
 }
+
+

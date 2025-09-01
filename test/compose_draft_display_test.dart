@@ -4,10 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
-import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
 import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
+
+// ignore_for_file: must_call_super
 
 class TestSettingController extends SettingController {
   @override

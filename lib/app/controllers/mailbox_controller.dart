@@ -2208,12 +2208,14 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     if (sent != null) {
       try {
         // Ensure Sent is selected
+        logger.i('SendFlow: verifying message in Sent by Message-Id; mailbox=${sent.encodedPath}');
         if (!mailService.client.isConnected) {
           try { await mailService.connect(); } catch (_) {}
         }
         try { await mailService.client.selectMailbox(sent); } catch (_) {}
         // Fetch recent messages and look for matching Message-Id
         final msgId = (message.getHeaderValue('message-id') ?? message.getHeaderValue('Message-Id'))?.trim();
+        logger.i('SendFlow: Message-Id used for Sent detection: ${msgId ?? '(none)'}');
         int max = sent.messagesExists;
         if (max > 0) {
           final start = math.max(1, max - 20 + 1);
@@ -2224,6 +2226,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
             fetchPreference: FetchPreference.fullWhenWithinSize,
           ).timeout(const Duration(seconds: 20), onTimeout: () => <MimeMessage>[]);
           if (msgId != null) {
+            logger.i('SendFlow: fetched recent ${recents.length} items in Sent; scanning for Message-Id match');
             appended = recents.any((m) {
               final mid = (m.getHeaderValue('message-id') ?? m.getHeaderValue('Message-Id'))?.trim();
               return mid != null && mid == msgId;
@@ -2232,8 +2235,10 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
         }
         if (!appended) {
           try {
+            logger.i('SendFlow: APPEND to Sent required; attempting append');
             await mailService.client.appendMessage(message, sent);
             appended = true;
+            logger.i('SendFlow: APPEND to Sent succeeded');
           } catch (e) {
             logger.w('APPEND to Sent failed: $e');
           }
@@ -2245,6 +2250,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       if (!appended && needAppend) {
         // Fallback: if editing a draft, move it to Sent as a server-side record
         try {
+          logger.w('SendFlow: APPEND not confirmed; moving draft to Sent as fallback');
           await moveMails([draftMessage!], draftMailbox!, sent);
           appended = true;
         } catch (err) {
@@ -2300,6 +2306,42 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
         }
       }
     } catch (_) {}
+
+    // If we sent from a draft, delete the original draft on the server and in local storage
+    if (needAppend && draftMailbox != null && draftMessage != null) {
+      try {
+        logger.i('SendFlow: deleting original draft after send; mailbox=${draftMailbox.encodedPath}, uid=${draftMessage.uid ?? -1}, seq=${draftMessage.sequenceId ?? -1}');
+        // Select the original Drafts mailbox
+        if (!mailService.client.isConnected) {
+          try { await mailService.connect(); } catch (_) {}
+        }
+        try { await mailService.client.selectMailbox(draftMailbox); } catch (_) {}
+        // Prefer UID-based deletion
+        MessageSequence seq;
+        if (draftMessage.uid != null) {
+          seq = MessageSequence.fromRange(draftMessage.uid!, draftMessage.uid!, isUidSequence: true);
+        } else {
+          seq = MessageSequence.fromMessage(draftMessage);
+        }
+        await mailService.client.deleteMessages(seq, expunge: true);
+        logger.i('SendFlow: server delete (expunge) request issued for original draft');
+      } catch (e) {
+        logger.w('Failed to delete draft after send: $e');
+      }
+      // Purge from local storage and UI definitively
+      try { await mailboxStorage[draftMailbox]?.deleteMessage(draftMessage); logger.i('SendFlow: local DB purge of original draft completed'); } catch (e) { logger.w('SendFlow: local DB purge failed: $e'); }
+      try {
+        final list = emails[draftMailbox];
+        final before = list?.length ?? 0;
+        list?.removeWhere((m) =>
+            (draftMessage.uid != null && m.uid == draftMessage.uid) ||
+            (draftMessage.sequenceId != null && m.sequenceId == draftMessage.sequenceId));
+        final after = list?.length ?? 0;
+        logger.i('SendFlow: in-memory Drafts list removed ${(before - after).clamp(0, before)} item(s)');
+        emails.refresh();
+        update();
+      } catch (_) {}
+    }
 
     // Only report success when append/move succeeded for drafts; for new messages SMTP success is enough
     return needAppend ? appended : true;

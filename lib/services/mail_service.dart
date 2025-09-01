@@ -8,6 +8,7 @@ import 'package:wahda_bank/services/email_notification_service.dart';
 import 'package:wahda_bank/services/internet_service.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:wahda_bank/services/optimized_idle_service.dart';
+import 'package:wahda_bank/services/connection_lease.dart';
 
 
 class MailService {
@@ -26,6 +27,11 @@ class MailService {
   bool isClientSet = false;
   bool isSubscribed = false;
   bool _isIdleActive = false;
+
+  // Foreground heartbeat and connection state
+  Completer<bool>? _connectingCompleter;
+  DateTime? _ipLimitCooldownUntil;
+  Timer? _heartbeatTimer;
 
   // Connection retry settings
   int _connectionRetries = 0;
@@ -82,6 +88,21 @@ class MailService {
   }
 
   Future<bool> connect() async {
+    // If a cooldown is active due to IP limit, avoid hammering the server
+    if (_ipLimitCooldownUntil != null && DateTime.now().isBefore(_ipLimitCooldownUntil!)) {
+      if (kDebugMode) {
+        final secs = _ipLimitCooldownUntil!.difference(DateTime.now()).inSeconds;
+        print('Connection cooldown active due to IP limit. Retrying in ~${secs}s');
+      }
+      return false;
+    }
+
+    // Coalesce concurrent connect() calls so only one connection attempt runs
+    if (_connectingCompleter != null) {
+      return _connectingCompleter!.future;
+    }
+    _connectingCompleter = Completer<bool>();
+
     try {
       if (!client.isConnected) {
         await client.connect();
@@ -97,24 +118,51 @@ class MailService {
           }
         } catch (_) {}
 
+        // Start/refresh heartbeat so background tasks can defer their own connections
+        try { ConnectionLease.instance.startHeartbeat(owner: 'foreground'); } catch (_) {}
+
         // Reset connection retries on successful connection
         _connectionRetries = 0;
       }
+      _connectingCompleter?.complete(client.isConnected);
+      return client.isConnected;
     } catch (e) {
       if (kDebugMode) {
         print('Connection error: $e');
       }
 
+      // Detect server-side IP/user limit and set a cooldown to avoid rapid retries
+      try {
+        final msg = e.toString();
+        if (msg.contains('Maximum number of connections from user+IP exceeded') || msg.contains('mail_max_userip_connections')) {
+          // Back off for 90 seconds; adjust as needed for server policy
+          _ipLimitCooldownUntil = DateTime.now().add(const Duration(seconds: 90));
+          if (kDebugMode) {
+            print('IP limit detected; cooling down until ${_ipLimitCooldownUntil!.toIso8601String()}');
+          }
+        }
+      } catch (_) {}
+
       // Implement connection retry with backoff
       if (_connectionRetries < _maxConnectionRetries) {
         _connectionRetries++;
         await Future.delayed(_retryDelay * _connectionRetries);
-        return connect(); // Retry connection
+        try {
+          final ok = await connect(); // Retry connection (respects cooldown)
+          _connectingCompleter?.complete(ok);
+          return ok;
+        } catch (err) {
+          _connectingCompleter?.completeError(err);
+          rethrow;
+        }
       }
 
+      _connectingCompleter?.completeError(e);
       rethrow;
+    } finally {
+      // Allow future connect attempts; keep cooldown if set
+      _connectingCompleter = null;
     }
-    return client.isConnected;
   }
 
   Future<void> startIdleMode() async {
@@ -267,6 +315,7 @@ class MailService {
   void dispose() {
     stopIdleMode();
     _unsubscribeEvents();
+    try { ConnectionLease.instance.stopHeartbeat(); } catch (_) {}
     client.disconnect();
   }
 }

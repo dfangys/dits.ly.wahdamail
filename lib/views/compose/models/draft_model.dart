@@ -334,11 +334,20 @@ class DraftModel {
     // Set subject
     builder.subject = subject;
 
-    // Set content
-    builder.addMultipartAlternative(
-      htmlText: isHtml ? body : null,
-      plainText: isHtml ? _stripHtml(body) : body,
-    );
+    // Set content (avoid empty multipart/alternative)
+    final String htmlCandidate = isHtml ? body.trim() : '';
+    final String plainCandidate = isHtml ? _stripHtml(body).trim() : body.trim();
+    if (htmlCandidate.isEmpty && plainCandidate.isEmpty) {
+      builder.addMultipartAlternative(
+        htmlText: null,
+        plainText: ' ',
+      );
+    } else {
+      builder.addMultipartAlternative(
+        htmlText: htmlCandidate.isNotEmpty ? htmlCandidate : null,
+        plainText: plainCandidate.isNotEmpty ? plainCandidate : null,
+      );
+    }
 
     // Set sender
     builder.from = [MailAddress(account.name, account.email)];

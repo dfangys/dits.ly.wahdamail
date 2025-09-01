@@ -401,7 +401,8 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   Widget build(BuildContext context) {
     super.build(context);
     
-    final bool isUnread = !widget.message.isSeen;
+    final bool isDraftsBox = widget.mailBox.name.toLowerCase().contains('draft');
+    final bool isUnread = isDraftsBox ? false : !widget.message.isSeen;
     final bool hasFlagged = widget.message.isFlagged;
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
