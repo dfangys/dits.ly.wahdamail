@@ -5,6 +5,7 @@ import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as do
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
 import 'package:wahda_bank/features/sync/infrastructure/jitter_backoff.dart';
 import 'package:wahda_bank/shared/error/errors.dart';
+import 'package:wahda_bank/shared/logging/telemetry.dart';
 
 /// Sync service (shadow mode): consumes ImapGateway.idleStream and triggers header fetches.
 class SyncService {
@@ -14,12 +15,16 @@ class SyncService {
 
   StreamSubscription<ImapEvent>? _sub;
   int _attempt = 0;
+  Timer? _debounce;
+  static const _window = Duration(milliseconds: 300);
+  Stopwatch? _idleLoopSw;
 
   SyncService({required this.gateway, required this.messages, JitterBackoff? backoff})
       : backoff = backoff ?? JitterBackoff();
 
   Future<void> start({required String accountId, required String folderId}) async {
     await stop();
+    _idleLoopSw = Stopwatch()..start();
     _sub = gateway
         .idleStream(accountId: accountId, folderId: folderId)
         .listen((event) async {
@@ -27,15 +32,30 @@ class SyncService {
       if (event.type == ImapEventType.exists ||
           event.type == ImapEventType.expunge ||
           event.type == ImapEventType.flagsChanged) {
-        await messages.fetchInbox(folder: dom.Folder(id: folderId, name: folderId), limit: 50, offset: 0);
+        // Coalesce burst events within a window
+        _debounce?.cancel();
+        _debounce = Timer(_window, () async {
+          await messages.fetchInbox(folder: dom.Folder(id: folderId, name: folderId), limit: 50, offset: 0);
+        });
       }
     }, onError: (e, st) {
       // Classify and schedule retry with jitter
       final appErr = e is AppError ? e : mapImapError(e);
+      final ms = _idleLoopSw?.elapsedMilliseconds ?? 0;
+      Telemetry.event('operation', props: {
+        'op': 'IdleLoop',
+        'lat_ms': ms,
+        'error_class': appErr.runtimeType.toString(),
+      });
       _attempt += 1;
       final delay = backoff.forAttempt(_attempt);
       _scheduleRestart(accountId: accountId, folderId: folderId, delay: delay);
     }, onDone: () {
+      final ms = _idleLoopSw?.elapsedMilliseconds ?? 0;
+      Telemetry.event('operation', props: {
+        'op': 'IdleLoop',
+        'lat_ms': ms,
+      });
       // Reconnect when stream closes
       _attempt += 1;
       final delay = backoff.forAttempt(_attempt);

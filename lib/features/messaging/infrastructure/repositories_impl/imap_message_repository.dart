@@ -9,27 +9,43 @@ import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gatew
 import 'package:wahda_bank/features/messaging/infrastructure/mappers/message_mapper.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/dtos/message_row.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/dtos/body_row.dart';
+import 'package:wahda_bank/shared/logging/telemetry.dart';
+import 'package:wahda_bank/shared/utils/hashing.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/cache/cache_managers.dart';
 
 class ImapMessageRepository implements MessageRepository {
   final String accountId;
   final ImapGateway gateway;
   final LocalStore store;
+  late final BodyCacheManager _bodyCache;
+  late final AttachmentCacheManager _attachmentCache;
 
   ImapMessageRepository({
     required this.accountId,
     required this.gateway,
     required this.store,
-  });
+  }) {
+    _bodyCache = BodyCacheManager(
+      store: store,
+      isProtected: (uid) async {
+        final h = await store.getHeaderById(messageUid: uid);
+        return (h?.flagged ?? false) || (h?.answered ?? false);
+      },
+    );
+    _attachmentCache = AttachmentCacheManager(store: store);
+  }
 
   @override
   Future<List<dom.Message>> fetchInbox({required dom.Folder folder, int limit = 50, int offset = 0}) async {
     // header-first
-    final headers = await gateway.fetchHeaders(
-      accountId: accountId,
-      folderId: folder.id,
-      limit: limit,
-      offset: offset,
-    );
+    final headers = await Telemetry.timeAsync('fetch_headers', () async {
+      return await gateway.fetchHeaders(
+        accountId: accountId,
+        folderId: folder.id,
+        limit: limit,
+        offset: offset,
+      );
+    }, props: {'folderId': folder.id});
     final rows = headers.map(MessageMapper.fromHeaderDTO).toList();
     await store.upsertHeaders(rows);
     final persisted = await store.getHeaders(folderId: folder.id, limit: limit, offset: offset);
@@ -39,15 +55,35 @@ class ImapMessageRepository implements MessageRepository {
   @override
   Future<dom.Message> fetchMessageBody({required dom.Folder folder, required String messageId}) async {
     // Cache-first body fetch
+    final sw = Stopwatch()..start();
     BodyRow? body = await store.getBody(messageUid: messageId);
+    if (body != null) {
+      final size = (body.html?.length ?? 0) + (body.plainText?.length ?? 0);
+      Telemetry.event('cache_hit', props: {
+        'cache': 'bodies',
+        'key_hash': Hashing.djb2(messageId).toString(),
+        'size_bytes': size,
+        'ms': sw.elapsedMilliseconds,
+      });
+      _bodyCache.touch(messageId);
+    }
     if (body == null) {
-      final dto = await gateway.fetchBody(
-        accountId: accountId,
-        folderId: folder.id,
-        messageUid: messageId,
-      );
+      Telemetry.event('cache_miss', props: {
+        'cache': 'bodies',
+        'key_hash': Hashing.djb2(messageId).toString(),
+        'ms': sw.elapsedMilliseconds,
+      });
+      final dto = await Telemetry.timeAsync('fetch_body', () async {
+        return await gateway.fetchBody(
+          accountId: accountId,
+          folderId: folder.id,
+          messageUid: messageId,
+        );
+      }, props: {'folderId': folder.id});
       body = MessageMapper.bodyRowFromDTO(dto);
       await store.upsertBody(body);
+      _bodyCache.touch(messageId);
+      await _bodyCache.enforceCaps();
     }
 
     // Merge with existing header to return full domain Message
@@ -91,11 +127,13 @@ class ImapMessageRepository implements MessageRepository {
     // Cache-miss → gateway list → store
     var rows = await store.listAttachments(messageUid: messageId);
     if (rows.isEmpty) {
-      final dtos = await gateway.listAttachments(
-        accountId: accountId,
-        folderId: folder.id,
-        messageUid: messageId,
-      );
+      final dtos = await Telemetry.timeAsync('list_attachments', () async {
+        return await gateway.listAttachments(
+          accountId: accountId,
+          folderId: folder.id,
+          messageUid: messageId,
+        );
+      }, props: {'folderId': folder.id});
       rows = dtos.map(MessageMapper.attachmentRowFromDTO).toList();
       await store.upsertAttachments(rows);
     }
@@ -105,16 +143,39 @@ class ImapMessageRepository implements MessageRepository {
   @override
   Future<List<int>> downloadAttachment({required dom.Folder folder, required String messageId, required String partId}) async {
     // Idempotent download: serve from cache if present
+    final sw = Stopwatch()..start();
     final cached = await store.getAttachmentBlobRef(messageUid: messageId, partId: partId);
-    if (cached != null) return cached;
+    if (cached != null) {
+      _attachmentCache.touch(messageId, partId);
+      Telemetry.event('cache_hit', props: {
+        'cache': 'attachments',
+        'key_hash': Hashing.djb2('$messageId:$partId').toString(),
+        'size_bytes': cached.length,
+        'ms': sw.elapsedMilliseconds,
+      });
+      return cached;
+    }
 
-    final bytes = await gateway.downloadAttachment(
-      accountId: accountId,
-      folderId: folder.id,
-      messageUid: messageId,
-      partId: partId,
-    );
-    await store.putAttachmentBlob(messageUid: messageId, partId: partId, bytes: bytes);
+    Telemetry.event('cache_miss', props: {
+      'cache': 'attachments',
+      'key_hash': Hashing.djb2('$messageId:$partId').toString(),
+      'ms': sw.elapsedMilliseconds,
+    });
+
+    final bytes = await Telemetry.timeAsync('download_attachment', () async {
+      return await gateway.downloadAttachment(
+        accountId: accountId,
+        folderId: folder.id,
+        messageUid: messageId,
+        partId: partId,
+      );
+    }, props: {'folderId': folder.id});
+    // Store only if allowed by cache manager
+    if (await _attachmentCache.canStore(messageId, partId, bytes)) {
+      await store.putAttachmentBlob(messageUid: messageId, partId: partId, bytes: bytes);
+      _attachmentCache.touch(messageId, partId);
+      await _attachmentCache.enforceCaps();
+    }
     return bytes;
   }
   @override

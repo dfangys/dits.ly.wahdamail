@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:wahda_bank/shared/error/index.dart';
+import 'package:wahda_bank/shared/logging/telemetry.dart';
 
 // Internal client interface (no HTTP types leaked above infra)
 abstract class MailsysApiClient {
@@ -127,8 +128,10 @@ class RestGateway {
   Future<T> _with429Retry<T>(Future<T> Function() run) async {
     int attempt = 0;
     while (true) {
+      final sw = Stopwatch()..start();
       try {
-        return await run();
+        final v = await run();
+        return v;
       } on RestException catch (e) {
         final err = _mapError(e);
         if (err is RateLimitError && attempt < _max429Retries) {
@@ -140,8 +143,18 @@ class RestGateway {
           }
           continue;
         }
+        Telemetry.event('operation', props: {
+          'op': 'RestCall',
+          'lat_ms': sw.elapsedMilliseconds,
+          'error_class': err.runtimeType.toString(),
+        });
         throw err;
       } catch (e) {
+        Telemetry.event('operation', props: {
+          'op': 'RestCall',
+          'lat_ms': sw.elapsedMilliseconds,
+          'error_class': e.runtimeType.toString(),
+        });
         throw TransientNetworkError('Network error', e);
       }
     }

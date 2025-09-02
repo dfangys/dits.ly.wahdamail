@@ -1,6 +1,7 @@
 import 'package:injectable/injectable.dart';
 
 import '../gateways/rest_gateway.dart';
+import 'package:wahda_bank/features/sync/infrastructure/jitter_backoff.dart';
 import '../repositories_impl/accounts_repository_impl.dart';
 import '../repositories_impl/contacts_repository_impl.dart';
 import '../repositories_impl/signatures_repository_impl.dart';
@@ -15,7 +16,19 @@ abstract class EnterpriseApiModule {
   MailsysApiClient provideApiClient() => _NoopApiClient();
 
   @LazySingleton()
-  BackoffStrategy provideBackoff() => const NoopBackoff();
+  BackoffStrategy provideBackoff() => _JitterBackoffStrategy(JitterBackoff(
+        baseSchedule: const [
+          Duration(seconds: 1),
+          Duration(seconds: 2),
+          Duration(seconds: 4),
+          Duration(seconds: 8),
+          Duration(seconds: 16),
+          Duration(seconds: 30),
+          Duration(seconds: 60),
+        ],
+        maxBackoff: const Duration(seconds: 60),
+        jitter: 0.1,
+      ));
 
   @LazySingleton()
   RestGateway provideRestGateway(MailsysApiClient client, BackoffStrategy backoff) => RestGateway(client, backoff: backoff);
@@ -34,6 +47,13 @@ abstract class EnterpriseApiModule {
   @LazySingleton()
   SignaturesRepository provideSignaturesRepository(RestGateway gateway, TokenStore tokens) =>
       SignaturesRepositoryImpl(gateway: gateway, tokens: tokens);
+}
+
+class _JitterBackoffStrategy implements BackoffStrategy {
+  final JitterBackoff j;
+  _JitterBackoffStrategy(this.j);
+  @override
+  Duration delayForAttempt(int attempt) => j.forAttempt(attempt);
 }
 
 class _NoopApiClient implements MailsysApiClient {

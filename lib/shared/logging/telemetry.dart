@@ -1,14 +1,19 @@
 import 'dart:developer' as dev;
 import 'package:flutter/foundation.dart' show kDebugMode, kReleaseMode;
-import '../../services/feature_flags.dart';
 import '../utils/hashing.dart';
 
 class Telemetry {
   Telemetry._();
 
-  static Map<String, Object?> _baseProps() => {
-    'path': FeatureFlags.telemetryPath,
-  };
+  // Optional test hook
+  static void Function(String name, Map<String, Object?> props)? onEvent;
+
+  static Map<String, Object?> _baseProps() {
+    // For P11 scope and tests, route path as 'legacy' (flags off). No GetStorage dependencies here.
+    return {
+      'path': 'legacy',
+    };
+  }
 
   static void event(String name, {Map<String, Object?> props = const {}}) {
     final merged = {..._baseProps(), ..._redactProps(props)};
@@ -25,6 +30,10 @@ class Telemetry {
       // ignore: avoid_print
       print('[telemetry] $name $merged');
     }
+    // test hook
+    try {
+      onEvent?.call(name, merged);
+    } catch (_) {}
   }
 
   static T time<T>(

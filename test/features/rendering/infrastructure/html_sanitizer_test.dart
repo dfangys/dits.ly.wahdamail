@@ -19,4 +19,13 @@ void main() {
     expect(res.html.contains('img'), true);
     expect(res.foundRemoteImages, true);
   });
+  test('Sanitizer strips data: images, srcset, style url() and formaction', () {
+    final s = HtmlSanitizer();
+    final html = '<img src="data:image/png;base64,AAAA" srcset="http://a 1x" style="background:url(http://x)" formaction="http://evil">';
+    final res = s.sanitize(html, allowRemote: true);
+    expect(res.html.contains('data:'), false);
+    expect(res.html.contains('srcset'), false);
+    expect(res.html.contains('formaction'), false);
+    expect(res.html.contains('url('), false);
+  });
 }
