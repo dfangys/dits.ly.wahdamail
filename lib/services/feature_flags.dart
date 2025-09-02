@@ -4,7 +4,8 @@ import 'package:get_storage/get_storage.dart';
 /// Defaults are enabled, can be overridden via GetStorage keys or env.
 class FeatureFlags {
   FeatureFlags._();
-  static final FeatureFlags instance = FeatureFlags._();
+  static FeatureFlags? _instance;
+  static FeatureFlags get instance => _instance ??= FeatureFlags._();
 
   static const _kPerTileNotifiers = 'ff_per_tile_notifiers_enabled';
   static const _kVirtualizationTuning = 'ff_virtualization_tuning_enabled';
@@ -34,6 +35,8 @@ class FeatureFlags {
   static const _kDddSearchEnabled = 'ddd.search.enabled';
   static const _kDddNotificationsEnabled = 'ddd.notifications.enabled';
   static const _kDddEnterpriseApiEnabled = 'ddd.enterprise_api.enabled';
+  static const _kDddKillSwitchLegacy = 'ddd.kill_switch_legacy';
+  static const _kDddKillSwitchEnabled = 'ddd.kill_switch.enabled';
 
   final GetStorage _box = GetStorage();
 
@@ -75,10 +78,13 @@ class FeatureFlags {
       _box.read(_kDddNotificationsEnabled) ?? false;
   bool get dddEnterpriseApiEnabled =>
       _box.read(_kDddEnterpriseApiEnabled) ?? false;
+  bool get dddKillSwitchLegacy => _box.read(_kDddKillSwitchLegacy) ?? false;
+  bool get dddKillSwitchEnabled => _box.read(_kDddKillSwitchEnabled) ?? false;
 
   // Telemetry path helper
   static String get telemetryPath {
     final ff = FeatureFlags.instance;
+    if (ff.dddKillSwitchEnabled) return 'legacy';
     return (ff.dddMessagingEnabled ||
             ff.dddSendEnabled ||
             ff.dddSearchEnabled ||

@@ -3,9 +3,15 @@ import 'package:get_storage/get_storage.dart';
 import 'package:enough_mail/enough_mail.dart' as em;
 
 import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart';
+import 'package:wahda_bank/features/messaging/domain/entities/message.dart';
+import 'package:wahda_bank/features/messaging/domain/entities/folder.dart';
+import 'package:wahda_bank/features/messaging/domain/entities/attachment.dart';
+import 'package:wahda_bank/features/messaging/domain/entities/search_result.dart';
+import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/datasources/local_store.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/repositories_impl/imap_message_repository.dart';
+import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/datasources/outbox_dao.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/datasources/draft_dao.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/repositories_impl/outbox_repository_impl.dart';
@@ -20,7 +26,7 @@ abstract class MessagingModule {
   MessageRepository provideMessageRepository(ImapGateway gateway, LocalStore store) {
     final box = GetStorage();
     final accountId = (box.read('email') as String?) ?? 'default-account';
-    return ImapMessageRepository(accountId: accountId, gateway: gateway, store: store);
+    return wireMessageRepository(gateway: gateway, store: store, accountId: accountId);
   }
 
   @LazySingleton()
@@ -67,4 +73,48 @@ abstract class MessagingModule {
 
   @LazySingleton()
   SmtpGateway provideSmtpGateway() => EnoughSmtpGateway();
+}
+
+/// Legacy facade used when the kill switch is enabled. It intentionally does not implement behavior.
+class LegacyMessageRepositoryFacade implements MessageRepository {
+  const LegacyMessageRepositoryFacade();
+  @override
+  Future<List<Attachment>> listAttachments({required Folder folder, required String messageId}) async =>
+      throw UnsupportedError('legacy facade');
+  @override
+  Future<Message> fetchMessageBody({required Folder folder, required String messageId}) async =>
+      throw UnsupportedError('legacy facade');
+  @override
+  Future<List<Message>> fetchInbox({required Folder folder, int limit = 50, int offset = 0}) async =>
+      throw UnsupportedError('legacy facade');
+  @override
+  Future<void> markRead({required Folder folder, required String messageId, required bool read}) async =>
+      throw UnsupportedError('legacy facade');
+  @override
+  Future<List<int>> downloadAttachment({required Folder folder, required String messageId, required String partId}) async =>
+      throw UnsupportedError('legacy facade');
+  @override
+  Future<List<SearchResult>> search({required String accountId, required SearchQuery q}) async =>
+      throw UnsupportedError('legacy facade');
+}
+
+// Internal test override to avoid GetStorage in unit tests
+bool? _killSwitchOverrideForTests;
+void setKillSwitchOverrideForTests(bool? value) {
+  _killSwitchOverrideForTests = value;
+}
+
+MessageRepository wireMessageRepository({required ImapGateway gateway, required LocalStore store, String? accountId}) {
+  if (_killSwitchOverrideForTests == true) {
+    return const LegacyMessageRepositoryFacade();
+  }
+  try {
+    if (FeatureFlags.instance.dddKillSwitchEnabled) {
+      return const LegacyMessageRepositoryFacade();
+    }
+  } catch (_) {
+    // If FeatureFlags storage is not available, default to normal binding
+  }
+  final acc = accountId ?? ((GetStorage().read('email') as String?) ?? 'default-account');
+  return ImapMessageRepository(accountId: acc, gateway: gateway, store: store);
 }

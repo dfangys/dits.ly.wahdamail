@@ -5,6 +5,7 @@ import 'package:wahda_bank/features/messaging/domain/repositories/message_reposi
 import 'package:wahda_bank/features/sync/infrastructure/sync_service.dart';
 import 'package:wahda_bank/features/sync/infrastructure/sync_scheduler.dart';
 import 'package:wahda_bank/features/sync/application/event_bus.dart';
+import 'package:wahda_bank/features/sync/infrastructure/jitter_backoff.dart';
 
 @module
 abstract class SyncModule {
@@ -13,7 +14,23 @@ abstract class SyncModule {
 
   @LazySingleton()
   SyncService provideSyncService(ImapGateway gateway, dom.MessageRepository messages) =>
-      SyncService(gateway: gateway, messages: messages);
+      SyncService(
+        gateway: gateway,
+        messages: messages,
+        backoff: JitterBackoff(
+          baseSchedule: const [
+            Duration(seconds: 2),
+            Duration(seconds: 4),
+            Duration(seconds: 8),
+            Duration(seconds: 16),
+            Duration(seconds: 32),
+            Duration(seconds: 64),
+            Duration(seconds: 120),
+          ],
+          maxBackoff: const Duration(seconds: 120),
+          jitter: 0.2,
+        ),
+      );
 
   @LazySingleton()
   SyncScheduler provideSyncScheduler(SyncService service) => SyncScheduler(service);

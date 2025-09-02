@@ -13,6 +13,7 @@ abstract class LocalStore {
   // Headers/metadata
   Future<void> upsertHeaders(List<MessageRow> rows);
   Future<List<MessageRow>> getHeaders({required String folderId, int limit = 50, int offset = 0});
+  Future<MessageRow?> getHeaderById({required String messageUid});
 
   // Search metadata (subject/from/to/flags/date) and optionally cached body
   Future<List<MessageRow>> searchMetadata({
@@ -172,5 +173,13 @@ class InMemoryLocalStore implements LocalStore {
   @override
   Future<List<int>?> getAttachmentBlobRef({required String messageUid, required String partId}) async {
     return _attachmentBlobs[_blobKey(messageUid, partId)];
+  }
+  @override
+  Future<MessageRow?> getHeaderById({required String messageUid}) async {
+    for (final list in _byFolder.values) {
+      final idx = list.indexWhere((r) => r.id == messageUid);
+      if (idx >= 0) return list[idx];
+    }
+    return null;
   }
 }

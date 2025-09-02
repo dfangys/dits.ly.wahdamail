@@ -23,6 +23,20 @@ class HtmlSanitizer {
 
     // Handle remote <img src="http/https">
     bool foundRemote = false;
+    // Block data: images by default (allow only cid:)
+    out = out.replaceAllMapped(RegExp(r'<\s*img([^>]*?)src\s*=\s*(["\"])(data:[^"\"]+)\2([^>]*)>', caseSensitive: false), (m) {
+      return ''; // block data URLs
+    });
+
+    // Remove srcset entirely to avoid remote fetches
+    out = out.replaceAll(RegExp(r'\s+srcset\s*=\s*(["\"][^"\"]*["\"]|[^\s>]+)', caseSensitive: false), '');
+
+    // Remove formaction attribute
+    out = out.replaceAll(RegExp(r'\s+formaction\s*=\s*(["\"][^"\"]*["\"]|[^\s>]+)', caseSensitive: false), '');
+
+    // Strip style attributes containing url()
+    out = out.replaceAllMapped(RegExp(r'\s+style\s*=\s*(["\"][^"\"]*[Uu][Rr][Ll]\([^\)]*\)[^"\"]*["\"])', caseSensitive: false), (m) => '');
+
     out = out.replaceAllMapped(RegExp(r'<\s*img([^>]*?)src\s*=\s*(["\"])(http[s]?://[^"\"]+)\2([^>]*)>', caseSensitive: false), (m) {
       foundRemote = true;
       if (allowRemote) {

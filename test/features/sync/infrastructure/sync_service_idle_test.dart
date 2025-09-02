@@ -38,6 +38,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(const entities.Folder(id: 'INBOX', name: 'INBOX', isInbox: true));
   });
+
   test('SyncService triggers header fetch on IDLE events', () async {
     final gw = _FakeGateway();
     final repo = _MockMessageRepo();
@@ -49,8 +50,29 @@ void main() {
     await svc.start(accountId: 'acct', folderId: 'INBOX');
 
     gw.ctrl.add(const ImapEvent(type: ImapEventType.exists, folderId: 'INBOX'));
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    await Future<void>.delayed(const Duration(milliseconds: 400));
 
+    verify(() => repo.fetchInbox(folder: const entities.Folder(id: 'INBOX', name: 'INBOX'), limit: 50, offset: 0)).called(1);
+
+    await svc.stop();
+  });
+
+  test('SyncService coalesces burst events within debounce window', () async {
+    final gw = _FakeGateway();
+    final repo = _MockMessageRepo();
+    final svc = SyncService(gateway: gw, messages: repo, backoff: JitterBackoff());
+
+    when(() => repo.fetchInbox(folder: any(named: 'folder'), limit: any(named: 'limit'), offset: any(named: 'offset')))
+        .thenAnswer((_) async => []);
+
+    await svc.start(accountId: 'acct', folderId: 'INBOX');
+
+    // Burst of events
+    gw.ctrl.add(const ImapEvent(type: ImapEventType.exists, folderId: 'INBOX'));
+    gw.ctrl.add(const ImapEvent(type: ImapEventType.flagsChanged, folderId: 'INBOX'));
+    gw.ctrl.add(const ImapEvent(type: ImapEventType.expunge, folderId: 'INBOX'));
+
+    await Future<void>.delayed(const Duration(milliseconds: 400));
     verify(() => repo.fetchInbox(folder: const entities.Folder(id: 'INBOX', name: 'INBOX'), limit: 50, offset: 0)).called(1);
 
     await svc.stop();
