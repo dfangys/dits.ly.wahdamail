@@ -5,7 +5,6 @@ import 'package:get/get.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'mail_service.dart';
-import 'notifications_service.dart';
 import 'realtime_update_service.dart';
 
 /// High-performance incoming email notification service
@@ -223,35 +222,7 @@ class IncomingEmailService extends GetxService {
     }
   }
 
-  /// Show notification for new email
-  Future<void> _showNewEmailNotification(MimeMessage message) async {
-    try {
-      final notificationService = NotificationService.instance;
-      
-      final sender = message.from?.isNotEmpty == true 
-          ? message.from!.first.personalName ?? message.from!.first.email
-          : 'Unknown Sender';
-      
-      final subject = message.decodeSubject() ?? 'No Subject';
-      
-      notificationService.showFlutterNotification(
-        'New Email from $sender',
-        subject,
-        {
-          'type': 'new_email',
-          'messageId': '${message.uid ?? message.sequenceId}',
-          'sender': sender,
-          'subject': subject,
-        },
-        DateTime.now().millisecondsSinceEpoch,
-      );
-
-    } catch (e) {
-      if (kDebugMode) {
-        print('📧 Error showing notification: $e');
-      }
-    }
-  }
+  
 
 
   /// Setup app state listener to optimize polling based on app state

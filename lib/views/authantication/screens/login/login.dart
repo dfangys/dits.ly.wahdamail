@@ -11,7 +11,7 @@ import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
-import '../../../../app/controllers/otp_controller.dart';
+import 'package:wahda_bank/app/controllers/otp_controller.dart';
 import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
 import 'package:wahda_bank/views/authantication/screens/otp/enter_otp/enter_otp.dart';
 import 'package:wahda_bank/views/view/screens/first_loading_view.dart';
@@ -331,10 +331,13 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
                                   if (requiresOtp) {
                                     // OTP was sent; start countdown and go to OTP entry screen
+                                    final maskedPhone = data?['masked_phone'] as String?;
                                     try {
-                                      Get.find<OtpController>().startResendCountdown(60);
+                                      final c = Get.find<OtpController>();
+                                      c.maskedPhone.value = maskedPhone ?? '';
+                                      c.startResendCountdown(60);
                                     } catch (_) {}
-                                    Get.to(() => EnterOtpScreen());
+                                    Get.to(() => EnterOtpScreen(maskedPhone: maskedPhone));
                                   } else if (token != null && token.isNotEmpty) {
                                     // Authenticated without OTP; continue
                                     // Maintain legacy gate for navigation during migration

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
+import 'dart:convert' as convert;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
@@ -27,6 +27,7 @@ import 'package:wahda_bank/services/message_content_store.dart';
 import 'package:wahda_bank/services/html_enhancer.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:wahda_bank/services/imap_command_queue.dart';
+import 'package:wahda_bank/services/feature_flags.dart';
 
 
 extension EmailValidator on String {
@@ -177,6 +178,11 @@ final boundaryLine = RegExp(r'^--[-A-Za-z0-9()+,./:=?_ ]{6,}\r?$|^--[-A-Za-z0-9(
   DraftModel? _currentDraft;
   int _changeCounter = 0;
 
+  // Change tracking controls
+  bool _suspendChangeTracking = false;
+  bool _isHydrating = false;
+  String? _lastSavedFingerprint; // baseline snapshot of last synced content
+
   // Realtime projection debounce
   Timer? _rtProjectionDebounce;
 
@@ -212,8 +218,9 @@ final boundaryLine = RegExp(r'^--[-A-Za-z0-9()+,./:=?_ ]{6,}\r?$|^--[-A-Za-z0-9(
 
   // Setup autosave functionality
   void _setupAutosave() {
-    // Setup periodic autosave every 30 seconds
-    _autosaveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Setup periodic autosave with configurable interval (default 30s; min 10s)
+    final secs = math.max(10, FeatureFlags.instance.draftAutosaveIntervalSecs);
+    _autosaveTimer = Timer.periodic(Duration(seconds: secs), (timer) {
       if (_hasUnsavedChanges.value && !_isAutosaving.value) {
         _autosaveDraft();
       }
@@ -222,14 +229,59 @@ final boundaryLine = RegExp(r'^--[-A-Za-z0-9()+,./:=?_ ]{6,}\r?$|^--[-A-Za-z0-9(
 
   // Setup change listeners for form fields
   void _setupChangeListeners() {
-    subjectController.addListener(_markAsChanged);
-    plainTextController.addListener(_markAsChanged);
+    subjectController.addListener(_onAnyFieldChanged);
+    plainTextController.addListener(_onAnyFieldChanged);
     
     // Listen to recipient list changes
-    toList.listen((_) => _markAsChanged());
-    cclist.listen((_) => _markAsChanged());
-    bcclist.listen((_) => _markAsChanged());
-    attachments.listen((_) => _markAsChanged());
+    toList.listen((_) => _onAnyFieldChanged());
+    cclist.listen((_) => _onAnyFieldChanged());
+    bcclist.listen((_) => _onAnyFieldChanged());
+    attachments.listen((_) => _onAnyFieldChanged());
+  }
+
+  void _onAnyFieldChanged() {
+    if (_suspendChangeTracking || _isHydrating) return;
+    _markAsChanged();
+  }
+
+  // Compute a stable fingerprint of the compose content to avoid unnecessary APPENDs
+  String _computeFingerprintFrom({required String body, required bool isHtml}) {
+    try {
+      // Normalize recipients including display names to detect any user-visible change
+      String _addr(MailAddress a) {
+        final nm = (a.personalName ?? '').trim().toLowerCase();
+        final em = (a.email).trim().toLowerCase();
+        return nm.isEmpty ? em : '$nm<$em>';
+      }
+      final to = toList.map(_addr).toList()..sort();
+      final cc = cclist.map(_addr).toList()..sort();
+      final bcc = bcclist.map(_addr).toList()..sort();
+
+      // Combine local attachments and server-pending attachments by filename for a stable view of attachment set
+      final localAtts = attachments.map((f) => p.basename(f.path)).toList();
+      final pendingAtts = pendingDraftAttachments.map((m) => m.fileName).toList();
+      final attSet = <String>{...localAtts, ...pendingAtts}..removeWhere((e) => e.trim().isEmpty);
+      final atts = attSet.toList()..sort();
+
+      final map = {
+        'subject': subjectController.text.trim(),
+        'isHtml': isHtml,
+        'body': body.trim(),
+        'to': to,
+        'cc': cc,
+        'bcc': bcc,
+        'attachments': atts,
+      };
+      return convert.jsonEncode(map);
+    } catch (_) {
+      // Fallback: minimal string (still count recipients and attachments)
+      return '${subjectController.text}|${isHtml ? 'H' : 'P'}|${body.length}|${toList.length + cclist.length + bcclist.length}|${attachments.length + pendingDraftAttachments.length}';
+    }
+  }
+
+  void _setBaselineFingerprint({required String body, required bool isHtml}) {
+    _lastSavedFingerprint = _computeFingerprintFrom(body: body, isHtml: isHtml);
+    _hasUnsavedChanges.value = false;
   }
 
   void _initializeController() async {
@@ -329,9 +381,10 @@ final boundaryLine = RegExp(r'^--[-A-Za-z0-9()+,./:=?_ ]{6,}\r?$|^--[-A-Za-z0-9(
       messageBuilder = MessageBuilder();
     }
 
-    // Set from field
+    // Set from field (UI display only, not the actual header encoding)
     if (name.isNotEmpty) {
-      fromController.text = "$name <$email>";
+      final safeName = name.replaceAll('"', '\\"');
+      fromController.text = '"' + safeName + '" <' + email + '>';
     } else {
       fromController.text = email;
     }
@@ -357,7 +410,17 @@ final boundaryLine = RegExp(r'^--[-A-Za-z0-9()+,./:=?_ ]{6,}\r?$|^--[-A-Za-z0-9(
 
   // Getters for user info
   String get email => account.email;
-  String get name => account.name;
+  String get name {
+    try {
+      if (Get.isRegistered<SettingController>()) {
+        final sc = Get.find<SettingController>();
+        final n = sc.userName.value.trim();
+        if (n.isNotEmpty) return n;
+      }
+    } catch (_) {}
+    // Fallback: no display name
+    return '';
+  }
 
   // RECIPIENT MANAGEMENT METHODS (CONSOLIDATED - REMOVED DUPLICATES)
   
@@ -602,6 +665,17 @@ final boundaryLine = RegExp(r'^--[-A-Za-z0-9()+,./:=?_ ]{6,}\r?$|^--[-A-Za-z0-9(
         body = plainTextController.text;
       }
 
+      // If unchanged vs baseline, do nothing (avoid duplicate APPEND)
+      try {
+        final fp = _computeFingerprintFrom(body: body, isHtml: isHtml.value);
+        if (_lastSavedFingerprint != null && _lastSavedFingerprint == fp) {
+          EasyLoading.dismiss();
+          _draftStatus.value = '';
+          update();
+          return;
+        }
+      } catch (_) {}
+
       // Update in-memory bodyPart for fast projection and preview
       try { bodyPart = isHtml.value ? body : _convertPlainToHtml(body); } catch (_) {}
 
@@ -613,8 +687,10 @@ final boundaryLine = RegExp(r'^--[-A-Za-z0-9()+,./:=?_ ]{6,}\r?$|^--[-A-Za-z0-9(
         return;
       }
 
-      // Add signature if needed
-      body += signature;
+      // Add signature only for brand-new compose or reply/forward, not when editing an existing server draft
+      if (type != 'draft') {
+        body += signature;
+      }
 
       // Create draft model
       final draft = _createDraftModel(body);
@@ -639,7 +715,10 @@ final boundaryLine = RegExp(r'^--[-A-Za-z0-9()+,./:=?_ ]{6,}\r?$|^--[-A-Za-z0-9(
       // Create message builder for server save
       messageBuilder = MessageBuilder();
 
-      // Add attachments
+      // Include any server-side pending attachments into the outgoing draft first (non-destructive to UI state)
+      await _attachPendingServerAttachmentsToBuilder(messageBuilder);
+
+      // Add locally selected attachments
       for (final file in attachments) {
         await messageBuilder.addFile(
           file,
@@ -668,6 +747,7 @@ final boundaryLine = RegExp(r'^--[-A-Za-z0-9()+,./:=?_ ]{6,}\r?$|^--[-A-Za-z0-9(
       messageBuilder.cc = cclist.toList();
       messageBuilder.bcc = bcclist.toList();
       messageBuilder.subject = subjectController.text;
+      // RFC-compliant From header via enough_mail's MailAddress. If name is empty, only the email will be used.
       messageBuilder.from = [MailAddress(name, email)];
       messageBuilder.date = DateTime.now();
 
@@ -694,16 +774,16 @@ final boundaryLine = RegExp(r'^--[-A-Za-z0-9()+,./:=?_ ]{6,}\r?$|^--[-A-Za-z0-9(
             oldKey = DraftSyncService.instance.keyFor(editingMb!, oldMsg!);
           } else if (editingServerDraftUid != null) {
             // Best-effort: locate the original message in UI cache for accurate state handling
-            final listRef = mbc.emails[editingMb!];
+          final listRef = mbc.emails[editingMb];
             final found = listRef?.firstWhereOrNull((m) => m.uid == editingServerDraftUid);
 if (found != null) {
               debugPrint('[DraftFlow] Found original draft in UI cache by UID=${editingServerDraftUid}');
               oldMsg = found;
-              DraftSyncService.instance.setStateFor(editingMb!, oldMsg!, DraftSyncBadgeState.syncing);
-              oldKey = DraftSyncService.instance.keyFor(editingMb!, oldMsg!);
-            } else {
+DraftSyncService.instance.setStateFor(editingMb, oldMsg, DraftSyncBadgeState.syncing);
+            oldKey = DraftSyncService.instance.keyFor(editingMb, oldMsg);
+        } else {
               // Fall back to key-by-uid when message instance not found
-              oldKey = '${editingMb!.encodedPath}:${editingServerDraftUid}';
+              oldKey = '${editingMb.encodedPath}:${editingServerDraftUid}';
               DraftSyncService.instance.setStateForKey(oldKey!, DraftSyncBadgeState.syncing);
             }
           }
@@ -711,6 +791,10 @@ if (found != null) {
       } catch (_) {}
 
       debugPrint('[DraftFlow] saveAsDraft begin: session=${composeSessionId}, editingUid=${editingServerDraftUid}, mailbox=${editingMb?.encodedPath ?? editingMb?.path}');
+
+      // Per IMAP best practices: delete old draft first via UID STORE + EXPUNGE, then append updated
+      try { await _deleteCurrentEditingDraftOnServer(); } catch (_) {}
+
       final serverOk = await _saveDraftToServerWithBackoff(draftMessage, afterSuccess: (appendedSeq) async {
         debugPrint('[DraftFlow] saveAsDraft afterSuccess: appendedId=$appendedSeq (uid or seq depending on server)');
         try {
@@ -732,9 +816,9 @@ if (found != null) {
           // Hydrate the appended draft into local storage and emit realtime updates for immediate UI refresh
           if (drafts != null) {
             try {
-              debugPrint('[DraftFlow] Hydration: attempting for appendedId=$appendedSeq in mailbox=${drafts!.encodedPath}');
+              debugPrint('[DraftFlow] Hydration: attempting for appendedId=$appendedSeq in mailbox=${drafts.encodedPath}');
               appended = await _postAppendDraftHydration(
-                draftsMailbox: drafts!,
+                draftsMailbox: drafts,
                 appendedSequenceId: appendedSeq,
                 composedBody: body,
                 composedIsHtml: isHtml.value,
@@ -742,11 +826,11 @@ if (found != null) {
 
               // Update DraftSyncService: mark badge as synced, then auto-clear
               if (appended != null) {
-                final key = DraftSyncService.instance.keyFor(drafts!, appended!);
+                final key = DraftSyncService.instance.keyFor(drafts, appended);
                 DraftSyncService.instance.setStateForKey(key, DraftSyncBadgeState.synced);
                 Future.delayed(const Duration(seconds: 5), () => DraftSyncService.instance.clearKey(key));
               } else if (appendedSeq != null) {
-                final key = '${drafts!.encodedPath}:$appendedSeq';
+                final key = '${drafts.encodedPath}:$appendedSeq';
                 DraftSyncService.instance.setStateForKey(key, DraftSyncBadgeState.synced);
                 Future.delayed(const Duration(seconds: 5), () => DraftSyncService.instance.clearKey(key));
               }
@@ -779,18 +863,21 @@ original = listRef?.firstWhereOrNull((m) => m.uid == editingServerDraftUid);
                     try {
                       final listRef = mbc.emails[originalMailbox] ?? <MimeMessage>[];
                       int idx = -1;
-                      if (original != null) {
+if (original != null) {
+                        final o = original;
                         idx = listRef.indexWhere((m) =>
-                          (original!.uid != null && m.uid == original!.uid) ||
-                          (original!.sequenceId != null && m.sequenceId == original!.sequenceId));
+                          (o.uid != null && m.uid == o.uid) ||
+                          (o.sequenceId != null && m.sequenceId == o.sequenceId));
                       }
 if (idx >= 0) {
-                        debugPrint('[DraftFlow] UI replace in-place at index=$idx for original draft with new appended uid=${appended!.uid}');
-                        listRef[idx] = appended!;
+                        final app = appended;
+                        debugPrint('[DraftFlow] UI replace in-place at index=$idx for original draft with new appended uid=${app.uid}');
+                        listRef[idx] = app;
                       } else {
                         // fallback to inserting at the top
-                        debugPrint('[DraftFlow] UI insert at top for appended uid=${appended!.uid} (original index not found)');
-                        listRef.insert(0, appended!);
+                        final app = appended;
+                        debugPrint('[DraftFlow] UI insert at top for appended uid=${app.uid} (original index not found)');
+                        listRef.insert(0, app);
                       }
                       mbc.emails[originalMailbox] = listRef;
                       mbc.emails.refresh();
@@ -808,7 +895,7 @@ if ((originalUid == null || originalUid <= 0) && msg != null) {
                         final res = await client.searchMessages(
                           MailSearch(mid, SearchQueryType.allTextHeaders, messageType: SearchMessageType.all),
                         );
-                        final candidates = res.messages ?? const <MimeMessage>[];
+          final candidates = res.messages;
                         for (final m in candidates) {
                           final mid2 = (m.getHeaderValue('message-id') ?? m.getHeaderValue('Message-Id'))?.trim();
                           if (mid2 != null && mid2 == mid && (m.uid != null)) {
@@ -823,13 +910,13 @@ if ((originalUid == null || originalUid <= 0) && msg != null) {
                   // Purge any draft versions associated with this compose session except the freshly appended one
                   try {
                     final keepUid = appended?.uid; // may be null if hydration by seq only
-debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOriginalUid=$originalUid, mailbox=${originalMailbox.encodedPath}');
-                    await _purgeSessionDrafts(draftsMailbox: originalMailbox, keepUid: keepUid, alsoDeleteOriginalUid: originalUid);
+                    debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOriginalUid=$originalUid, mailbox=${originalMailbox.encodedPath}');
+                    await _purgeSessionDraftsUnsafe(draftsMailbox: originalMailbox, keepUid: keepUid, alsoDeleteOriginalUid: originalUid);
                   } catch (_) {}
 
                   // Clear any lingering sync badge for old key
                   if (oldKey != null) {
-                    try { DraftSyncService.instance.clearKey(oldKey!); } catch (_) {}
+                    try { DraftSyncService.instance.clearKey(oldKey); } catch (_) {}
                   }
                 } catch (_) {}
               }
@@ -840,7 +927,7 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
           syncState.value = DraftSyncState.synced;
           syncHint.value = 'draft_synced'.tr;
           // Clear any lingering old-key syncing badges
-          try { if (oldKey != null) DraftSyncService.instance.clearKey(oldKey!); } catch (_) {}
+          try { if (oldKey != null) DraftSyncService.instance.clearKey(oldKey); } catch (_) {}
         } catch (_) {
           // keep UI state consistent even if post-append hydration fails
           syncState.value = DraftSyncState.synced;
@@ -863,6 +950,12 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
       _lastSavedTime.value = _formatSaveTime(DateTime.now());
       _showDraftOptions.value = true;
       canPop.value = true;
+
+      // Update baseline fingerprint so subsequent autosaves do nothing until user edits again
+      try {
+        final currentBody = isHtml.value ? await _safeGetHtmlText() : plainTextController.text;
+        _setBaselineFingerprint(body: currentBody, isHtml: isHtml.value);
+      } catch (_) {}
 
       EasyLoading.dismiss();
       EasyLoading.showSuccess('draft_saved'.tr);
@@ -1033,6 +1126,7 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
       messageBuilder.cc = cclist.toList();
       messageBuilder.bcc = bcclist.toList();
       messageBuilder.subject = subjectController.text;
+      // RFC-compliant From header via enough_mail's MailAddress. If name is empty, only the email will be used.
       messageBuilder.from = [MailAddress(name, email)];
       messageBuilder.date = DateTime.now();
 
@@ -1079,7 +1173,7 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
         final mbc = Get.find<MailBoxController>();
         final drafts = _canonicalMailbox(editingServerDraftMailbox ?? sourceMailbox) ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
         if (drafts != null) {
-          await _purgeSessionDrafts(draftsMailbox: drafts, keepUid: null, alsoDeleteOriginalUid: editingServerDraftUid);
+          await _purgeSessionDrafts(draftsMailbox: drafts, keepUid: null, alsoDeleteOriginalUid: editingServerDraftUid, keepMostRecentCount: 0);
         }
       } catch (_) {}
 
@@ -1097,6 +1191,54 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
   }
 
   // HELPER METHODS (CONSOLIDATED - REMOVED DUPLICATES)
+
+  // Ensure server-pending attachments are included in the next APPEND by hydrating and adding them to the MessageBuilder.
+  // This does NOT modify the UI attachments list to avoid side-effects during save/autosave; it only augments the outgoing message.
+  Future<void> _attachPendingServerAttachmentsToBuilder(MessageBuilder builder, {int maxBytes = _attachmentAutoHydrationLimitBytes}) async {
+    try {
+      if (pendingDraftAttachments.isEmpty || msg == null) return;
+
+      // Build a set of current local attachment file names to avoid duplicates
+      final localNames = attachments.map((f) => p.basename(f.path).toLowerCase()).toSet();
+      final mbc = Get.find<MailBoxController>();
+      final Mailbox? mailboxHint = _canonicalMailbox(editingServerDraftMailbox ?? sourceMailbox) ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+      if (mailboxHint == null) return;
+
+      for (final meta in pendingDraftAttachments) {
+        final fname = (meta.fileName).trim();
+        if (fname.isEmpty) continue;
+        if (localNames.contains(fname.toLowerCase())) continue; // already attached locally
+        final size = meta.size ?? 0;
+        if (size > 0 && size > maxBytes) {
+          // Skip very large attachments during autosave/manual save add-on to avoid heavy fetches
+          // User can explicitly reattach via UI when desired
+          continue;
+        }
+        final info = _resolveContentInfo(meta.fetchId);
+        if (info == null) continue;
+        try {
+          final bytes = await AttachmentFetcher.fetchBytes(
+            message: msg!,
+            content: info,
+            mailbox: mailboxHint,
+          );
+          if (bytes == null || bytes.isEmpty) continue;
+          // Write to a temporary file so we can reuse addFile API
+          final tmpDir = await getTemporaryDirectory();
+          final safeName = fname.replaceAll(RegExp(r'[\\/\\]'), '_');
+          final filePath = p.join(tmpDir.path, 'attach_${DateTime.now().microsecondsSinceEpoch}_$safeName');
+          final f = File(filePath);
+          await f.writeAsBytes(bytes, flush: true);
+          await builder.addFile(
+            f,
+            MediaType.guessFromFileName(filePath),
+          );
+        } catch (_) {
+          // Ignore per-attachment failures; continue with others
+        }
+      }
+    } catch (_) {}
+  }
 
   // Persist the latest edited content to offline store for the current draft message (if identifiable)
   Future<void> _persistOfflineContentForCurrentDraft({required String body, required bool html}) async {
@@ -1177,6 +1319,17 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
         body = plainTextController.text;
       }
 
+      // Bail out if unchanged vs baseline
+      try {
+        final fp = _computeFingerprintFrom(body: body, isHtml: isHtml.value);
+        if (_lastSavedFingerprint != null && _lastSavedFingerprint == fp) {
+          _draftStatus.value = '';
+          _isAutosaving.value = false;
+          update();
+          return;
+        }
+      } catch (_) {}
+
       // Keep bodyPart in sync for fast previews
       try { bodyPart = isHtml.value ? body : _convertPlainToHtml(body); } catch (_) {}
 
@@ -1204,6 +1357,11 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
       _lastSavedTime.value = _formatSaveTime(DateTime.now());
       _showDraftOptions.value = true;
 
+      // Update baseline fingerprint to reflect the freshly autosaved content
+      try {
+        _setBaselineFingerprint(body: body, isHtml: isHtml.value);
+      } catch (_) {}
+
       // Reset status message after a delay
       _statusClearTimer?.cancel();
       _statusClearTimer = Timer(const Duration(seconds: 3), () {
@@ -1211,6 +1369,80 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
           _draftStatus.value = '';
         }
       });
+
+      // Background server autosave using enough_mail helpers (append new, then purge older session copies)
+      unawaited(() async {
+        try {
+          // Build draft MIME from current state
+          final builder = MessageBuilder();
+
+          // Include any server-side pending attachments to preserve original draft files
+          await _attachPendingServerAttachmentsToBuilder(builder);
+
+          // Add locally selected attachments
+          for (final file in attachments) {
+            await builder.addFile(
+              file,
+              MediaType.guessFromFileName(file.path),
+            );
+          }
+          final String htmlCandidate = isHtml.value ? body.trim() : '';
+          final String plainCandidate = isHtml.value ? _removeHtmlTags(body).trim() : body.trim();
+          if (htmlCandidate.isEmpty && plainCandidate.isEmpty) {
+            builder.addMultipartAlternative(
+              htmlText: null,
+              plainText: ' ',
+            );
+          } else {
+            builder.addMultipartAlternative(
+              htmlText: htmlCandidate.isNotEmpty ? htmlCandidate : null,
+              plainText: plainCandidate.isNotEmpty ? plainCandidate : null,
+            );
+          }
+          builder.to = toList.toList();
+          builder.cc = cclist.toList();
+          builder.bcc = bcclist.toList();
+          builder.subject = subjectController.text;
+          builder.from = [MailAddress(name, email)];
+          builder.date = DateTime.now();
+
+          final draftMsg = builder.buildMimeMessage();
+          // Tag with compose-session for replace strategy and normalize transfer encoding
+          try { draftMsg.setHeader('X-Compose-Session', composeSessionId); } catch (_) {}
+          _normalizeTopLevelTransferEncoding(draftMsg);
+
+          // Per IMAP best practices: delete old draft first via UID STORE + EXPUNGE, then append updated
+          try { await _deleteCurrentEditingDraftOnServer(); } catch (_) {}
+
+          await _saveDraftToServerWithBackoff(draftMsg, afterSuccess: (appendedSeq) async {
+            // Resolve Drafts mailbox
+            Mailbox? drafts;
+            try {
+              final mbc = Get.find<MailBoxController>();
+              drafts = editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+              drafts = _canonicalMailbox(drafts);
+            } catch (_) {}
+
+            // Hydrate appended message and update editing context
+            if (drafts != null) {
+              final appended = await _postAppendDraftHydration(
+                draftsMailbox: drafts,
+                appendedSequenceId: appendedSeq,
+                composedBody: body,
+                composedIsHtml: isHtml.value,
+              );
+              if (appended != null) {
+                // Update references so subsequent autosaves replace the latest version
+                msg = appended;
+                editingServerDraftUid = appended.uid;
+                editingServerDraftMailbox = drafts;
+                // Purge all prior session copies, keeping this one
+                try { await _purgeSessionDraftsUnsafe(draftsMailbox: drafts, keepUid: appended.uid, alsoDeleteOriginalUid: editingServerDraftUid); } catch (_) {}
+              }
+            }
+          });
+        } catch (_) {}
+      }());
 
     } catch (e) {
       debugPrint('Autosave error: $e');
@@ -1311,6 +1543,7 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
 
   // Recover a draft
   Future<void> _recoverDraft(DraftModel draft) async {
+    _suspendChangeTracking = true;
     // Update current draft reference
     _currentDraft = draft;
 
@@ -1366,6 +1599,13 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
     _draftStatus.value = 'draft_recovered'.tr;
     _lastSavedTime.value = _formatSaveTime(draft.updatedAt);
     _showDraftOptions.value = true;
+
+    // Establish baseline fingerprint from recovered content
+    try {
+      _setBaselineFingerprint(body: draft.body, isHtml: draft.isHtml);
+    } catch (_) {}
+
+    _suspendChangeTracking = false;
 
     EasyLoading.showSuccess('draft_recovered'.tr);
     update();
@@ -1433,7 +1673,10 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
       if (message.bcc != null) bcclist.addAll(message.bcc!);
           // Populate subject with robust fallbacks
           final _subj = message.decodeSubject() ?? message.envelope?.subject ?? message.getHeaderValue('subject') ?? '';
+          // Avoid marking as changed when hydrating UI
+          final __prev = _suspendChangeTracking; _suspendChangeTracking = true;
           subjectController.text = _subj;
+          _suspendChangeTracking = __prev;
       // Mark draft as read immediately for UI consistency
       try { message.isSeen = true; } catch (_) {}
       try {
@@ -1510,6 +1753,8 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
   Future<void> _hydrateDraftInBackground(MimeMessage message) async {
     try {
       debugPrint('Loading draft: ${message.decodeSubject()}');
+      _isHydrating = true;
+      _suspendChangeTracking = true;
 
       // First try offline cache to populate content immediately if available
       try {
@@ -1717,10 +1962,18 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
       _lastSavedTime.value = _formatSaveTime(DateTime.now());
       _hasUnsavedChanges.value = false;
       _draftStatus.value = 'draft_loaded'.tr;
+
+      // Establish baseline fingerprint after hydration to prevent autosave on open
+      final baselineBody = isHtmlContent ? bodyContent : plainTextController.text;
+      _setBaselineFingerprint(body: baselineBody, isHtml: isHtmlContent);
+
       update();
       debugPrint('Successfully hydrated draft from server: ${base.decodeSubject()}');
     } catch (e) {
       debugPrint('Error loading draft from message: $e');
+    } finally {
+      _isHydrating = false;
+      _suspendChangeTracking = false;
     }
   }
 
@@ -1807,28 +2060,30 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
     }
   }
 
-      // Discard the current draft from server (delete) and local storage
+  // Delete the current draft from server (delete) and local storage
   Future<void> discardCurrentDraft() async {
     try {
-      if (type == 'draft' && msg != null) {
-        try {
-          // Ensure we are operating on the correct Drafts mailbox
-          final mbc = Get.find<MailBoxController>();
-          final drafts = _canonicalMailbox(editingServerDraftMailbox ?? sourceMailbox) ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
-          if (drafts != null) {
-            try {
-              if (client.selectedMailbox?.encodedPath != drafts.encodedPath) {
-                await client.selectMailbox(drafts);
-              }
-            } catch (_) {}
-            // Prefer UID-based deletion when possible
-            final seq = (msg!.uid != null && msg!.uid! > 0)
-                ? MessageSequence.fromRange(msg!.uid!, msg!.uid!, isUidSequence: true)
-                : MessageSequence.fromMessage(msg!);
-            await client.deleteMessages(seq, expunge: true);
-          }
-        } catch (_) {}
-      }
+      await ImapCommandQueue.instance.run('discardCurrentDraft', () async {
+        if (type == 'draft' && msg != null) {
+          try {
+            // Ensure we are operating on the correct Drafts mailbox
+            final mbc = Get.find<MailBoxController>();
+            final drafts = _canonicalMailbox(editingServerDraftMailbox ?? sourceMailbox) ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+            if (drafts != null) {
+              try {
+                if (client.selectedMailbox?.encodedPath != drafts.encodedPath) {
+                  await client.selectMailbox(drafts);
+                }
+              } catch (_) {}
+              // Prefer UID-based deletion when possible
+              final seq = (msg!.uid != null && msg!.uid! > 0)
+                  ? MessageSequence.fromRange(msg!.uid!, msg!.uid!, isUidSequence: true)
+                  : MessageSequence.fromMessage(msg!);
+              await client.deleteMessages(seq, expunge: true);
+            }
+          } catch (_) {}
+        }
+      });
       if (_currentDraft?.id != null) {
         try { await Get.find<SQLiteDraftRepository>().deleteDraft(_currentDraft!.id!); } catch (_) {}
       }
@@ -2044,6 +2299,24 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
     required Mailbox draftsMailbox,
     int? keepUid,
     int? alsoDeleteOriginalUid,
+    int keepMostRecentCount = 1,
+  }) async {
+    await ImapCommandQueue.instance.run('purgeSessionDrafts', () async {
+      await _purgeSessionDraftsUnsafe(
+        draftsMailbox: draftsMailbox,
+        keepUid: keepUid,
+        alsoDeleteOriginalUid: alsoDeleteOriginalUid,
+        keepMostRecentCount: keepMostRecentCount,
+      );
+    });
+  }
+
+  // Unsafe variant used within an existing ImapCommandQueue.run action to avoid deadlocks from nested queue usage.
+  Future<void> _purgeSessionDraftsUnsafe({
+    required Mailbox draftsMailbox,
+    int? keepUid,
+    int? alsoDeleteOriginalUid,
+    int keepMostRecentCount = 1,
   }) async {
     try {
       // Ensure mailbox selection
@@ -2060,23 +2333,47 @@ debugPrint('[DraftFlow] Purging session drafts: keepUid=$keepUid, alsoDeleteOrig
         final res = await client.searchMessages(
           MailSearch(composeSessionId, SearchQueryType.allTextHeaders, messageType: SearchMessageType.all),
         ).timeout(const Duration(seconds: 10));
-sessionDrafts = res.messages ?? const <MimeMessage>[];
-      debugPrint('[DraftFlow] Purge: session matches=${sessionDrafts.length} (uids=${sessionDrafts.map((m)=>m.uid).toList()})');
+        sessionDrafts = res.messages;
+        debugPrint('[DraftFlow] Purge: session matches=${sessionDrafts.length} (uids=${sessionDrafts.map((m)=>m.uid).toList()})');
       } catch (_) {}
 
-      // Collect UIDs to delete (exclude keepUid)
+      // Determine which UIDs to keep
+      final toKeepUids = <int>{};
+      if (keepUid != null && keepUid > 0) {
+        toKeepUids.add(keepUid);
+      } else {
+        final k = keepMostRecentCount < 0 ? 0 : keepMostRecentCount;
+        if (k > 0 && sessionDrafts.isNotEmpty) {
+          try {
+            final withUids = sessionDrafts.where((m) => m.uid != null).toList();
+            if (withUids.isNotEmpty) {
+              withUids.sort((a, b) => (b.uid!).compareTo(a.uid!));
+              for (final m in withUids.take(k)) {
+                if (m.uid != null) toKeepUids.add(m.uid!);
+              }
+            } else {
+              sessionDrafts.sort((a, b) => (b.decodeDate() ?? DateTime.fromMillisecondsSinceEpoch(0))
+                  .compareTo(a.decodeDate() ?? DateTime.fromMillisecondsSinceEpoch(0)));
+              for (final m in sessionDrafts.take(k)) {
+                if (m.uid != null) toKeepUids.add(m.uid!);
+              }
+            }
+            debugPrint('[DraftFlow] Purge: keeping UIDs=${toKeepUids.toList()}');
+          } catch (_) {}
+        }
+      }
+
+      // Collect UIDs to delete (exclude the ones to keep)
       final toDeleteUids = <int>{};
       for (final m in sessionDrafts) {
         final uid = m.uid;
-        if (uid != null && (keepUid == null || uid != keepUid)) {
+        if (uid != null && !toKeepUids.contains(uid)) {
           toDeleteUids.add(uid);
         }
       }
-if (alsoDeleteOriginalUid != null && alsoDeleteOriginalUid > 0) {
+      if (alsoDeleteOriginalUid != null && alsoDeleteOriginalUid > 0 && !toKeepUids.contains(alsoDeleteOriginalUid)) {
         debugPrint('[DraftFlow] Purge: also including originalUid=$alsoDeleteOriginalUid');
-        if (keepUid == null || alsoDeleteOriginalUid != keepUid) {
-          toDeleteUids.add(alsoDeleteOriginalUid);
-        }
+        toDeleteUids.add(alsoDeleteOriginalUid);
       }
 
       if (toDeleteUids.isEmpty) { debugPrint('[DraftFlow] Purge: nothing to delete'); return; }
@@ -2084,11 +2381,11 @@ if (alsoDeleteOriginalUid != null && alsoDeleteOriginalUid > 0) {
       // Delete on server (UID EXPUNGE)
       for (final uid in toDeleteUids) {
         try {
-await client.deleteMessages(
+          await client.deleteMessages(
             MessageSequence.fromRange(uid, uid, isUidSequence: true),
             expunge: true,
           );
-        debugPrint('[DraftFlow] Purge: server deleted uid=$uid (expunge=true)');
+          debugPrint('[DraftFlow] Purge: server deleted uid=$uid (expunge=true)');
         } catch (_) {}
       }
 
@@ -2096,9 +2393,12 @@ await client.deleteMessages(
       try {
         final mbc = Get.find<MailBoxController>();
         final st = mbc.mailboxStorage[draftsMailbox];
-debugPrint('[DraftFlow] Purge: removing from local storage and UI uids=$toDeleteUids');
+        debugPrint('[DraftFlow] Purge: removing from local storage and UI uids=$toDeleteUids');
         for (final uid in toDeleteUids) {
-try { await st?.deleteMessageEnvelopes(MessageSequence.fromRange(uid, uid, isUidSequence: true)); debugPrint('[DraftFlow] Purge: local DB deleted uid=$uid'); } catch (_) {}
+          try {
+            await st?.deleteMessageEnvelopes(MessageSequence.fromRange(uid, uid, isUidSequence: true));
+            debugPrint('[DraftFlow] Purge: local DB deleted uid=$uid');
+          } catch (_) {}
         }
         // Remove from in-memory list
         final listRef = mbc.emails[draftsMailbox] ?? <MimeMessage>[];
@@ -2112,84 +2412,122 @@ try { await st?.deleteMessageEnvelopes(MessageSequence.fromRange(uid, uid, isUid
 
   // Server sync with exponential backoff
   Future<bool> _saveDraftToServerWithBackoff(MimeMessage draftMessage, {Future<void> Function(int? appendedUid)? afterSuccess}) async {
-    const attempts = 3;
-    int delayMs = 1200;
-    for (int i = 0; i < attempts; i++) {
-      try {
-        // Resolve Drafts mailbox explicitly and use mailbox-aware API to avoid mis-targeted appends
-        Mailbox? drafts;
+    return ImapCommandQueue.instance.run('saveDraftWithBackoff', () async {
+      const attempts = 3;
+      int delayMs = 1200;
+      for (int i = 0; i < attempts; i++) {
         try {
-          final mbc = Get.find<MailBoxController>();
-          // For editing an existing draft, always use its original Drafts mailbox
-          drafts = editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
-          drafts = _canonicalMailbox(drafts);
-        } catch (_) {}
-        if (drafts == null) {
-          await client.selectMailboxByFlag(MailboxFlag.drafts);
-          debugPrint('[DraftFlow] saveDraft: selected Drafts by flag');
-        } else {
-          try {
-            if (client.selectedMailbox?.encodedPath != drafts!.encodedPath) {
-              await client.selectMailbox(drafts!);
-              debugPrint('[DraftFlow] saveDraft: selected Drafts mailbox=${drafts!.encodedPath}');
-            } else {
-              debugPrint('[DraftFlow] saveDraft: Drafts mailbox already selected=${drafts!.encodedPath}');
-            }
-          } catch (_) {}
-        }
-        debugPrint('[DraftFlow] saveDraft: calling saveDraftMessage…');
-        // Use mailbox-aware API when we have a resolved Drafts mailbox for maximum correctness
-        final response = (drafts != null)
-            ? await client.saveDraftMessage(
-                draftMessage,
-                draftsMailbox: drafts!,
-              )
-            : await client.saveDraftMessage(
-                draftMessage,
-              );
-        debugPrint('[DraftFlow] saveDraft: saveDraftMessage response received: ${response.runtimeType}');
-        // Prefer UIDPLUS UID when available; fallback to target sequence id
-        int? appended;
-        try { appended = (response as dynamic).targetUid as int?; } catch (_) {}
-        if (appended == null) {
-          final ids = response?.targetSequence.toList() ?? const <int>[];
-          appended = ids.isNotEmpty ? ids.last : null;
-        }
-        debugPrint('[DraftFlow] saveDraft: interpreted appended id=${appended ?? '(null)'}');
-        if (afterSuccess != null) {
-          await afterSuccess(appended);
-        }
-        return true;
-      } catch (e) {
-        if (i == attempts - 1) {
-          syncState.value = DraftSyncState.failed;
-          syncHint.value = 'sync_failed_retry_later'.tr;
-          // Update DraftSyncService for existing draft key, then auto-clear to avoid stuck UI
+          // Resolve Drafts mailbox explicitly and use mailbox-aware API to avoid mis-targeted appends
+          Mailbox? drafts;
           try {
             final mbc = Get.find<MailBoxController>();
-            final mailboxHint = sourceMailbox ?? editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
-            if (mailboxHint != null) {
-              if (type == 'draft' && msg != null) {
-                DraftSyncService.instance.setStateFor(mailboxHint, msg!, DraftSyncBadgeState.failed);
-                Future.delayed(const Duration(seconds: 8), () => DraftSyncService.instance.clearFor(mailboxHint, msg!));
-              } else if (editingServerDraftUid != null) {
-                final key = '${mailboxHint.encodedPath}:${editingServerDraftUid}';
-                DraftSyncService.instance.setStateForKey(key, DraftSyncBadgeState.failed);
-                Future.delayed(const Duration(seconds: 8), () => DraftSyncService.instance.clearKey(key));
-              }
-            }
+            // For editing an existing draft, always use its original Drafts mailbox
+            drafts = editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+            drafts = _canonicalMailbox(drafts);
           } catch (_) {}
-          if (kDebugMode) {
-            debugPrint('Draft server sync failed: $e');
+          if (drafts == null) {
+            await client.selectMailboxByFlag(MailboxFlag.drafts);
+            debugPrint('[DraftFlow] saveDraft: selected Drafts by flag');
+          } else {
+            try {
+              if (client.selectedMailbox?.encodedPath != drafts.encodedPath) {
+                await client.selectMailbox(drafts);
+                debugPrint('[DraftFlow] saveDraft: selected Drafts mailbox=${drafts.encodedPath}');
+              } else {
+                debugPrint('[DraftFlow] saveDraft: Drafts mailbox already selected=${drafts.encodedPath}');
+              }
+            } catch (e, st) {
+              debugPrint('[DraftFlow][ERROR] Selecting Drafts mailbox failed: $e\n$st');
+            }
           }
-          return false;
+          debugPrint('[DraftFlow] saveDraft attempt ${i + 1}/$attempts: calling saveDraftMessage (mailbox=${drafts?.encodedPath ?? client.selectedMailbox?.encodedPath ?? '(unknown)'})');
+          // Use mailbox-aware API when we have a resolved Drafts mailbox for maximum correctness
+          final response = (drafts != null)
+              ? await client.saveDraftMessage(
+                  draftMessage,
+                  draftsMailbox: drafts!,
+                )
+              : await client.saveDraftMessage(
+                  draftMessage,
+                );
+          debugPrint('[DraftFlow] saveDraft: saveDraftMessage response received: ${response.runtimeType}');
+          // Prefer UIDPLUS UID when available; fallback to target sequence id
+          int? appended;
+          try { appended = (response as dynamic).targetUid as int?; } catch (_) {}
+          if (appended == null) {
+            final ids = response?.targetSequence.toList() ?? const <int>[];
+            appended = ids.isNotEmpty ? ids.last : null;
+          }
+          debugPrint('[DraftFlow] saveDraft: interpreted appended id=${appended ?? '(null)'}');
+          if (afterSuccess != null) {
+            await afterSuccess(appended);
+          }
+          return true;
+        } catch (e, st) {
+          debugPrint('[DraftFlow][ERROR] saveDraft attempt ${i + 1} failed: $e\n$st');
+          // Fallback: try appendMessageToFlag(..., MailboxFlag.drafts) with \\Draft flag before failing this attempt
+          try {
+            Mailbox? drafts;
+            try {
+              final mbc = Get.find<MailBoxController>();
+              drafts = editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+              drafts = _canonicalMailbox(drafts);
+            } catch (_) {}
+            if (drafts == null) {
+              await client.selectMailboxByFlag(MailboxFlag.drafts);
+            } else {
+              try {
+                if (client.selectedMailbox?.encodedPath != drafts!.encodedPath) {
+                  await client.selectMailbox(drafts!);
+                }
+              } catch (_) {}
+            }
+            // Append directly to Drafts with standard \Draft flag
+            await client.appendMessageToFlag(
+              draftMessage,
+              MailboxFlag.drafts,
+              flags: [MessageFlags.draft],
+            );
+            debugPrint('[DraftFlow] Fallback append to Drafts via flag succeeded');
+            if (afterSuccess != null) {
+              await afterSuccess(null);
+            }
+            return true;
+          } catch (e2, st2) {
+            debugPrint('[DraftFlow][ERROR] Fallback append failed on attempt ${i + 1}: $e2\n$st2');
+            // If even fallback failed, apply backoff or final failure
+          }
+
+          if (i == attempts - 1) {
+            syncState.value = DraftSyncState.failed;
+            syncHint.value = 'sync_failed_retry_later'.tr;
+            // Update DraftSyncService for existing draft key, then auto-clear to avoid stuck UI
+            try {
+              final mbc = Get.find<MailBoxController>();
+              final mailboxHint = sourceMailbox ?? editingServerDraftMailbox ?? mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+              if (mailboxHint != null) {
+                if (type == 'draft' && msg != null) {
+                  DraftSyncService.instance.setStateFor(mailboxHint, msg!, DraftSyncBadgeState.failed);
+                  Future.delayed(const Duration(seconds: 8), () => DraftSyncService.instance.clearFor(mailboxHint, msg!));
+                } else if (editingServerDraftUid != null) {
+                  final key = '${mailboxHint.encodedPath}:${editingServerDraftUid}';
+                  DraftSyncService.instance.setStateForKey(key, DraftSyncBadgeState.failed);
+                  Future.delayed(const Duration(seconds: 8), () => DraftSyncService.instance.clearKey(key));
+                }
+              }
+            } catch (e3, st3) {
+              debugPrint('[DraftFlow][WARN] Updating DraftSyncService after failure failed: $e3\n$st3');
+            }
+            debugPrint('[DraftFlow][ERROR] Draft server sync failed after $attempts attempts: $e');
+            return false;
+          }
+          await Future.delayed(Duration(milliseconds: delayMs));
+          delayMs *= 2;
         }
-        await Future.delayed(Duration(milliseconds: delayMs));
-        delayMs *= 2;
       }
-    }
-    // Should not reach here, but return false defensively
-    return false;
+      // Should not reach here, but return false defensively
+      return false;
+    });
   }
 
   // After a successful APPEND to the Drafts mailbox, fetch the new message envelope
@@ -2214,10 +2552,10 @@ try { await st?.deleteMessageEnvelopes(MessageSequence.fromRange(uid, uid, isUid
           fetchPreference: FetchPreference.envelope,
           timeout: const Duration(seconds: 8),
         );
-        if (fetched.isNotEmpty) {
-          appended = fetched.first;
-          debugPrint('[DraftFlow] Hydration by UID succeeded: uid=${appended!.uid}, seq=${appended!.sequenceId}');
-        } else {
+          if (fetched.isNotEmpty) {
+            appended = fetched.first;
+            debugPrint('[DraftFlow] Hydration by UID succeeded: uid=${appended.uid}, seq=${appended.sequenceId}');
+          } else {
           // Fallback: try as server sequence id
           debugPrint('[DraftFlow] Hydration fallback as SEQ: $appendedSequenceId');
           fetched = await ImapFetchPool.instance.fetchBySequence(
@@ -2228,7 +2566,7 @@ try { await st?.deleteMessageEnvelopes(MessageSequence.fromRange(uid, uid, isUid
           );
           if (fetched.isNotEmpty) {
             appended = fetched.first;
-            debugPrint('[DraftFlow] Hydration by SEQ succeeded: uid=${appended!.uid}, seq=${appended!.sequenceId}');
+            debugPrint('[DraftFlow] Hydration by SEQ succeeded: uid=${appended.uid}, seq=${appended.sequenceId}');
           }
         }
       }
@@ -2240,7 +2578,7 @@ if (appended == null) {
           final res = await client.searchMessages(
             MailSearch(composeSessionId, SearchQueryType.allTextHeaders, messageType: SearchMessageType.all),
           ).timeout(const Duration(seconds: 8));
-          final found = res.messages ?? const <MimeMessage>[];
+          final found = res.messages;
 if (found.isNotEmpty) {
             debugPrint('[DraftFlow] Session search matched ${found.length} drafts; taking newest');
             // Choose the newest by decodeDate where available
@@ -2276,7 +2614,7 @@ if (appended == null) {
 
       if (appended == null) return null;
       // Capture non-null for closure usage
-      final app = appended!;
+      final app = appended;
 
       // Ensure the composed session header is present on the in-memory message for downstream logic
       try { appended.setHeader('X-Compose-Session', composeSessionId); } catch (_) {}
@@ -2339,13 +2677,12 @@ if (appended == null) {
 
       // Best-effort: mark the appended draft as seen on server
       try {
-        await ImapCommandQueue.instance.run('markSeen(draft after append)', () async {
-          if (client.selectedMailbox?.encodedPath != draftsMailbox.encodedPath) {
-            await client.selectMailbox(draftsMailbox);
-            debugPrint('[DraftFlow] Marking appended draft as seen on server in mailbox ${draftsMailbox.encodedPath}');
-          }
-          await client.markSeen(MessageSequence.fromMessage(app));
-        });
+        // Avoid nested queue.run deadlock by executing directly within current queue action
+        if (client.selectedMailbox?.encodedPath != draftsMailbox.encodedPath) {
+          await client.selectMailbox(draftsMailbox);
+          debugPrint('[DraftFlow] Marking appended draft as seen on server in mailbox ${draftsMailbox.encodedPath}');
+        }
+        await client.markSeen(MessageSequence.fromMessage(app));
       } catch (_) {}
 
       // Update the in-memory list for the Drafts mailbox to keep a single item updated in place
@@ -2376,6 +2713,95 @@ debugPrint('[DraftFlow] Drafts list inserted new appended uid=${app.uid} at top'
       return null;
     }
     return appended;
+  }
+
+  // Delete the currently-editing server draft by UID using UID STORE + EXPUNGE semantics
+  Future<void> _deleteCurrentEditingDraftOnServer() async {
+    return ImapCommandQueue.instance.run('deleteCurrentEditingDraft', () async {
+      try {
+        final mbc = Get.find<MailBoxController>();
+        final drafts = _canonicalMailbox(editingServerDraftMailbox ?? sourceMailbox) ??
+            mbc.draftsMailbox ?? client.selectedMailbox ?? mbc.currentMailbox;
+        final uid = editingServerDraftUid ?? msg?.uid;
+
+        if (drafts == null || uid == null || uid <= 0) {
+          debugPrint('[DraftFlow][Delete] Skip: drafts=${drafts?.encodedPath ?? '(null)'} uid=${uid ?? -1}');
+          return;
+        }
+
+        // Ensure the correct mailbox is selected for deletion
+        if (client.selectedMailbox?.encodedPath != drafts.encodedPath) {
+          try {
+            await client.selectMailbox(drafts);
+            debugPrint('[DraftFlow][Delete] Selected mailbox: ${drafts.encodedPath}');
+          } catch (e, st) {
+            debugPrint('[DraftFlow][Delete][ERROR] Selecting mailbox failed: $e\n$st');
+          }
+        } else {
+          debugPrint('[DraftFlow][Delete] Mailbox already selected: ${drafts.encodedPath}');
+        }
+
+        // UID STORE + EXPUNGE via deleteMessages(expunge: true)
+        final seq = MessageSequence.fromRange(uid, uid, isUidSequence: true);
+        try {
+          await client.deleteMessages(seq, expunge: true);
+          debugPrint('[DraftFlow][Delete] Server delete+expunge OK for uid=$uid in ${drafts.encodedPath}');
+        } catch (e, st) {
+          debugPrint('[DraftFlow][Delete][ERROR] Server UID delete failed for uid=$uid: $e\n$st');
+          // Fallback: map UID -> sequence number and delete by sequence if the server doesn't accept UID STORE
+          try {
+            // Ensure correct mailbox still selected before fallback fetch
+            try {
+              if (client.selectedMailbox?.encodedPath != drafts.encodedPath) {
+                await client.selectMailbox(drafts);
+              }
+            } catch (_) {}
+            final fetched = await client.fetchMessageSequence(
+              MessageSequence.fromRange(uid, uid, isUidSequence: true),
+              fetchPreference: FetchPreference.envelope,
+            );
+            if (fetched.isNotEmpty) {
+              final seqId = fetched.first.sequenceId;
+              if (seqId != null && seqId > 0) {
+                try {
+                  await client.deleteMessages(
+                    MessageSequence.fromRange(seqId, seqId),
+                    expunge: true,
+                  );
+                  debugPrint('[DraftFlow][Delete] Fallback delete+expunge by sequence OK for uid=$uid (seq=$seqId)');
+                } catch (e2, st2) {
+                  debugPrint('[DraftFlow][Delete][ERROR] Fallback delete by sequence failed (uid=$uid, seq=$seqId): $e2\n$st2');
+                }
+              } else {
+                debugPrint('[DraftFlow][Delete][WARN] Could not resolve sequenceId for uid=$uid in ${drafts.encodedPath}');
+              }
+            } else {
+              debugPrint('[DraftFlow][Delete][WARN] Fetch by UID returned no message for uid=$uid in ${drafts.encodedPath}');
+            }
+          } catch (e3, st3) {
+            debugPrint('[DraftFlow][Delete][ERROR] UID->SEQ resolution failed for uid=$uid: $e3\n$st3');
+          }
+        }
+
+        // Local UI and storage cleanup (best-effort)
+        try {
+          final stg = mbc.mailboxStorage[drafts];
+          await stg?.deleteMessageEnvelopes(MessageSequence.fromRange(uid, uid, isUidSequence: true));
+          final listRef = mbc.emails[drafts] ?? <MimeMessage>[];
+          final before = listRef.length;
+          listRef.removeWhere((m) => m.uid == uid);
+          final after = listRef.length;
+          mbc.emails[drafts] = listRef;
+          mbc.emails.refresh();
+          mbc.update();
+          debugPrint('[DraftFlow][Delete] Local purge removed ${(before - after).clamp(0, before)} item(s) for uid=$uid');
+        } catch (e, st) {
+          debugPrint('[DraftFlow][Delete][WARN] Local purge failed for uid=$uid: $e\n$st');
+        }
+      } catch (e, st) {
+        debugPrint('[DraftFlow][Delete][ERROR] Unexpected error: $e\n$st');
+      }
+    });
   }
 
   // Show error dialog

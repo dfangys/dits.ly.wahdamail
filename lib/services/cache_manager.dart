@@ -87,8 +87,6 @@ class CacheManager extends GetxService {
   final LRUMap<String, CachedMessage> _messageCache = LRUMap<String, CachedMessage>(_maxMessageCacheSize);
   final LRUMap<String, CachedMailbox> _mailboxCache = LRUMap<String, CachedMailbox>(_maxMailboxCacheSize);
   final LRUMap<String, CachedAttachment> _attachmentCache = LRUMap<String, CachedAttachment>(_maxAttachmentCacheSize);
-  final LRUMap<String, CachedContent> _contentCache = LRUMap<String, CachedContent>(_maxContentCacheSize);
-  final LRUMap<String, CachedThumbnail> _thumbnailCache = LRUMap<String, CachedThumbnail>(_maxThumbnailCacheSize);
   
   // Legacy LRU maps for backward compatibility
   final LRUMap<String, MimeMessage> _legacyMessageCache = LRUMap<String, MimeMessage>(_maxMessageCacheSize);
@@ -97,10 +95,6 @@ class CacheManager extends GetxService {
   final LRUMap<String, String> _messageContentCache = LRUMap<String, String>(_maxContentCacheSize);
   final LRUMap<String, List<MimePart>> _attachmentListCache = LRUMap<String, List<MimePart>>(_maxAttachmentCacheSize * 2);
   
-  // Pending operations to avoid duplicate work
-  final Set<String> _pendingOperations = <String>{};
-  final Map<String, Completer<dynamic>> _operationCompleters = <String, Completer<dynamic>>{};
-
   // Cache statistics with additional metrics
   final RxMap<String, int> _cacheStats = <String, int>{
     'message_hits': 0,
@@ -122,11 +116,7 @@ class CacheManager extends GetxService {
   static const int _maxMailboxCacheSize = 25;
   static const int _maxAttachmentCacheSize = 75;
   static const int _maxContentCacheSize = 300;
-  static const int _maxThumbnailCacheSize = 200;
   static const int _maxAttachmentDataSize = 10 * 1024 * 1024; // 10MB per attachment
-  static const Duration _defaultCacheExpiry = Duration(hours: 2);
-  static const Duration _contentCacheExpiry = Duration(hours: 6);
-  static const Duration _thumbnailCacheExpiry = Duration(days: 1);
 
   // Preloading queues
   final Queue<String> _preloadQueue = Queue<String>();

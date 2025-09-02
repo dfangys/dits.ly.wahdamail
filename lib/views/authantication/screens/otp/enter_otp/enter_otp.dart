@@ -10,7 +10,8 @@ import 'package:wahda_bank/utills/constants/sizes.dart';
 import '../../login/widgets/rounded_button.dart';
 
 class EnterOtpScreen extends GetView<OtpController> {
-  EnterOtpScreen({super.key});
+  EnterOtpScreen({super.key, this.maskedPhone});
+  final String? maskedPhone;
 
   final CustomLoadingButtonController btnController =
       CustomLoadingButtonController();
@@ -153,14 +154,23 @@ class EnterOtpScreen extends GetView<OtpController> {
                             },
                             child: Padding(
                               padding: EdgeInsets.symmetric(horizontal: isTablet ? 40 : 20),
-                              child: Text(
-                                "msg_otp_sent_to_your_email_and_phone".tr,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: const Color(0xFF37373F),
-                                  fontSize: isTablet ? 16 : 14,
-                                ),
-                              ),
+                              child: Obx(() {
+                                // Always touch the Rx so Obx has a dependency,
+                                // even if a non-reactive maskedPhone was passed in.
+                                final rxMasked = controller.maskedPhone.value;
+                                final mp = maskedPhone ?? rxMasked;
+                                final text = (mp.isNotEmpty)
+                                    ? 'An OTP has been sent to ' + mp
+                                    : "msg_otp_sent_to_your_email_and_phone".tr;
+                                return Text(
+                                  text,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: const Color(0xFF37373F),
+                                    fontSize: isTablet ? 16 : 14,
+                                  ),
+                                );
+                              }),
                             ),
                           ),
                           SizedBox(height: isTablet ? 30 : 20),

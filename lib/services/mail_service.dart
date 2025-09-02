@@ -31,7 +31,6 @@ class MailService {
   // Foreground heartbeat and connection state
   Completer<bool>? _connectingCompleter;
   DateTime? _ipLimitCooldownUntil;
-  Timer? _heartbeatTimer;
 
   // Connection retry settings
   int _connectionRetries = 0;

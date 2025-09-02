@@ -20,6 +20,9 @@ class FeatureFlags {
   static const _kHtmlMaterializationEnabled = 'ff_html_materialization_enabled';
   static const _kHtmlMaterializationThresholdBytes = 'ff_html_materialization_threshold_bytes';
   static const _kHtmlMaterializeInitialWindow = 'ff_html_materialize_initial_window';
+  // Draft compose settings
+  static const _kDraftAutosaveIntervalSecs = 'ff_draft_autosave_interval_secs';
+  static const _kDraftKeepRecentCount = 'ff_draft_keep_recent_count';
 
   final GetStorage _box = GetStorage();
 
@@ -39,6 +42,10 @@ class FeatureFlags {
   int get htmlMaterializationThresholdBytes => (_box.read(_kHtmlMaterializationThresholdBytes) as int?) ?? (64 * 1024);
   bool get htmlMaterializeInitialWindow => _box.read(_kHtmlMaterializeInitialWindow) ?? true;
 
+  // Draft compose getters
+  int get draftAutosaveIntervalSecs => (_box.read(_kDraftAutosaveIntervalSecs) as int?) ?? 30;
+  int get draftKeepRecentCount => (_box.read(_kDraftKeepRecentCount) as int?) ?? 1;
+
   Future<void> setPerTileNotifiers(bool enabled) => _box.write(_kPerTileNotifiers, enabled);
   Future<void> setVirtualizationTuning(bool enabled) => _box.write(_kVirtualizationTuning, enabled);
   Future<void> setPreviewWorker(bool enabled) => _box.write(_kPreviewWorker, enabled);
@@ -49,6 +56,10 @@ class FeatureFlags {
   Future<void> setForegroundPollingEnabled(bool enabled) => _box.write(_kForegroundPollingEnabled, enabled);
   Future<void> setForegroundPollingIntervalSecs(int seconds) => _box.write(_kForegroundPollingIntervalSecs, seconds);
   Future<void> setAttachmentPrefetchEnabled(bool enabled) => _box.write(_kAttachmentPrefetchEnabled, enabled);
+
+  // Draft compose setters
+  Future<void> setDraftAutosaveIntervalSecs(int seconds) => _box.write(_kDraftAutosaveIntervalSecs, seconds);
+  Future<void> setDraftKeepRecentCount(int count) => _box.write(_kDraftKeepRecentCount, count);
 
   // Offline HTML materialization setters
   Future<void> setHtmlMaterializationEnabled(bool enabled) => _box.write(_kHtmlMaterializationEnabled, enabled);

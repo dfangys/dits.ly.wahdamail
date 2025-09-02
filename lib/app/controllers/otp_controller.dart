@@ -25,6 +25,8 @@ class OtpController extends GetxController {
   OtpFieldController fieldController = OtpFieldController();
   RxBool isError = false.obs;
   RxBool isSuccess = false.obs;
+  // Latest masked phone for OTP notifications (login flow)
+  final RxString maskedPhone = ''.obs;
 
   // Prevent multiple submissions and control resend cooldown
   final RxBool isRequestingOtp = false.obs;
@@ -63,6 +65,9 @@ class OtpController extends GetxController {
 
       if (requiresOtp) {
         isSuccess(true);
+        // capture masked phone if provided by backend
+        final mp = data?['masked_phone'];
+        if (mp is String) maskedPhone.value = mp;
         // start 60s cooldown for resend
         startResendCountdown(60);
         if (Platform.isAndroid) {

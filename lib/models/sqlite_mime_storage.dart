@@ -182,8 +182,8 @@ final envelopeMap = jsonDecode(envelopeJson);
         final List<Map<String, dynamic>> result = await txn.query(
           SQLiteDatabaseHelper.tableMailboxes,
           columns: [SQLiteDatabaseHelper.columnId],
-          where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-          whereArgs: [mailbox.name, mailAccount.email],
+          where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+          whereArgs: [mailbox.encodedPath, mailAccount.email],
         );
 
         if (result.isNotEmpty) {
@@ -230,8 +230,8 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
       final List<Map<String, dynamic>> result = await txn.query(
         SQLiteDatabaseHelper.tableMailboxes,
         columns: [SQLiteDatabaseHelper.columnId],
-        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-        whereArgs: [mailbox.name, mailAccount.email],
+        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.encodedPath, mailAccount.email],
       );
 
       if (result.isEmpty) {
@@ -583,8 +583,8 @@ final isUid = sequence.isUidSequence;
     final List<Map<String, dynamic>> result = await txn.query(
       SQLiteDatabaseHelper.tableMailboxes,
       columns: [SQLiteDatabaseHelper.columnId],
-      where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-      whereArgs: [mailbox.name, mailAccount.email],
+      where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+      whereArgs: [mailbox.encodedPath, mailAccount.email],
     );
 
     if (result.isEmpty) {
@@ -1314,8 +1314,8 @@ final isUid = sequence.isUidSequence;
           SQLiteDatabaseHelper.columnUidNext,
           SQLiteDatabaseHelper.columnUidValidity,
         ],
-        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-        whereArgs: [mailbox.name, mailAccount.email],
+        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.encodedPath, mailAccount.email],
         limit: 1,
       );
       if (rows.isEmpty) return const MailboxMeta();
@@ -1348,8 +1348,8 @@ final isUid = sequence.isUidSequence;
       await db.update(
         SQLiteDatabaseHelper.tableMailboxes,
         data,
-        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-        whereArgs: [mailbox.name, mailAccount.email],
+        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.encodedPath, mailAccount.email],
       );
     } catch (e) {
       if (kDebugMode) {
@@ -1374,8 +1374,8 @@ final isUid = sequence.isUidSequence;
           SQLiteDatabaseHelper.columnLastSyncStartedAt,
           SQLiteDatabaseHelper.columnLastSyncFinishedAt,
         ],
-        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-        whereArgs: [mailbox.name, mailAccount.email],
+        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.encodedPath, mailAccount.email],
         limit: 1,
       );
       if (rows.isEmpty) return const MailboxSyncState();
@@ -1426,8 +1426,8 @@ final isUid = sequence.isUidSequence;
       await db.update(
         SQLiteDatabaseHelper.tableMailboxes,
         data,
-        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-        whereArgs: [mailbox.name, mailAccount.email],
+        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.encodedPath, mailAccount.email],
       );
     } catch (e) {
       if (kDebugMode) {

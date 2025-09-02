@@ -263,6 +263,34 @@ class MailsysApiClient extends GetConnect {
   }
 
   // -------------------------------
+  // Password Reset
+  // -------------------------------
+
+  /// POST /api/reset-password { email }
+  /// Sends OTP to user's phone
+  Future<Map<String, dynamic>> requestPasswordReset(String email) async {
+    final res = await post('/api/reset-password', {
+      'email': email,
+    });
+    return _parse(res) as Map<String, dynamic>;
+  }
+
+  /// POST /api/reset-password/confirm { email, otp, new_password }
+  /// Confirms OTP and sets new password
+  Future<Map<String, dynamic>> confirmPasswordReset({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    final res = await post('/api/reset-password/confirm', {
+      'email': email,
+      'otp': otp,
+      'new_password': newPassword,
+    });
+    return _parse(res) as Map<String, dynamic>;
+  }
+
+  // -------------------------------
   // Contacts
   // -------------------------------
 

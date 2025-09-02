@@ -11,7 +11,7 @@ import 'package:wahda_bank/widgets/custom_loading_button.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 
-import '../../../../../app/apis/app_api.dart';
+import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
 import '../../../../../utills/constants/text_strings.dart';
 import '../../login/login.dart';
 import '../../login/widgets/rounded_button.dart';
@@ -43,7 +43,7 @@ class _VerifyResetPasswordOtpScreenState
     super.dispose();
   }
 
-  final appApi = Get.find<AppApi>();
+  final mailsys = Get.find<MailsysApiClient>();
 
   Future verifyOtp() async {
     if (_isSubmitting) return;
@@ -51,13 +51,13 @@ class _VerifyResetPasswordOtpScreenState
       try {
         _isSubmitting = true;
         controller.start();
-        var data = await appApi.resetPassword(
-          widget.email,
-          passwordController.text,
-          otpPin,
+        final data = await mailsys.confirmPasswordReset(
+          email: widget.email,
+          otp: otpPin,
+          newPassword: passwordController.text,
         );
-        if (data is Map && mounted) {
-          if (data.containsKey('verified') && data['verified']) {
+        if (mounted) {
+          if (data['status'] == 'success') {
             controller.success();
             AwesomeDialog(
               context: context,
@@ -93,7 +93,7 @@ class _VerifyResetPasswordOtpScreenState
             },
           ).show();
         }
-      } on AppApiException catch (e) {
+      } on MailsysApiException catch (e) {
         controller.error();
         if (mounted) {
           AwesomeDialog(
@@ -152,9 +152,9 @@ class _VerifyResetPasswordOtpScreenState
       setState(() => _isResending = true);
       String email = widget.email;
       final messenger = ScaffoldMessenger.of(context);
-      var res = await appApi.sendResetPasswordOtp(email);
-      if (res is Map && res.isNotEmpty) {
-        if (res.containsKey('otp_send') && res['otp_send']) {
+      final res = await mailsys.requestPasswordReset(email);
+      if (res.isNotEmpty) {
+        if (res['status'] == 'success') {
           messenger.showSnackBar(
             SnackBar(
               content: const Text('OTP code has been resent to your email'),
@@ -169,7 +169,7 @@ class _VerifyResetPasswordOtpScreenState
           _startCountdown(60);
         }
       }
-    } on AppApiException catch (e) {
+    } on MailsysApiException catch (e) {
       if (mounted) {
         AwesomeDialog(
           context: context,

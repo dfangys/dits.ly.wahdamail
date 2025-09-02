@@ -349,8 +349,13 @@ class DraftModel {
       );
     }
 
-    // Set sender
-    builder.from = [MailAddress(account.name, account.email)];
+    // Set sender: prefer a real display name; if absent or equals email, omit name to keep RFC-5322 compliant simple addr-spec
+    final displayName = (account.name).trim();
+    if (displayName.isEmpty || displayName.toLowerCase() == account.email.toLowerCase()) {
+      builder.from = [MailAddress('', account.email)];
+    } else {
+      builder.from = [MailAddress(displayName, account.email)];
+    }
 
     // Add custom headers for enhanced draft features
     builder.addHeader('X-Category', category);

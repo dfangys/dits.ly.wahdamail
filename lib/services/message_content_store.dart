@@ -634,7 +634,11 @@ class MessageContentStore {
             try { final st = await File(pth).stat(); size += st.size; } catch (_) {}
           } else {
             final sz = a['size_bytes'];
-            if (sz is int) size += sz; else size += int.tryParse(sz?.toString() ?? '0') ?? 0;
+            if (sz is int) {
+              size += sz;
+            } else {
+              size += int.tryParse(sz?.toString() ?? '0') ?? 0;
+            }
           }
         }
         entries.add(_CacheEntry(account, box, uidValidity, uid, updated, size));

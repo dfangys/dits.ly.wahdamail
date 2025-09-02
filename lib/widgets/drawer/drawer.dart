@@ -12,6 +12,7 @@ import 'package:wahda_bank/views/settings/settings_view.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/widgets/drawer/drawer_tile.dart';
 import 'package:wahda_bank/views/settings/pages/performance_flags_page.dart';
+import 'package:wahda_bank/app/controllers/settings_controller.dart';
 
 class Drawer1 extends StatelessWidget {
   const Drawer1({super.key});
@@ -20,6 +21,9 @@ class Drawer1 extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<MailBoxController>();
     final countController = Get.find<MailCountController>();
+    final settingController = Get.isRegistered<SettingController>()
+        ? Get.find<SettingController>()
+        : Get.put(SettingController(), permanent: true);
     final theme = Theme.of(context);
 
     return Drawer(
@@ -54,8 +58,8 @@ class Drawer1 extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Header with logo and close button
-            _buildDrawerHeader(context),
+            // Header with logo and close button + profile info
+            _buildDrawerHeader(context, settingController),
 
             // Main content scrollable area
             Expanded(
@@ -172,56 +176,167 @@ class Drawer1 extends StatelessWidget {
               ),
             ),
 
-            // App version at bottom
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                'v1.0.0',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha : 0.5),
-                  fontSize: 12,
-                ),
-              ),
-            ),
+            // Usage + App version at bottom
+            _buildUsageFooter(context, settingController),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildDrawerHeader(BuildContext context) {
+  Widget _buildDrawerHeader(BuildContext context, SettingController settingController) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 48, 20, 24),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      padding: const EdgeInsets.fromLTRB(14, 48, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Flexible(
-            child: SvgPicture.asset(
-              WImages.logoWhite,
-              height: 40,
-              colorFilter: const ColorFilter.mode(
-                Colors.white,
-                BlendMode.srcIn,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: SvgPicture.asset(
+                  WImages.logoWhite,
+                  height: 40,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha : 0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha : 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.close,
-                color: Colors.white,
-                size: 16,
-              ),
-            ),
-          ),
+          const SizedBox(height: 12),
+          Obx(() {
+            final name = settingController.userName().trim();
+            final email = settingController.userEmail().trim();
+            final displayName = name.isNotEmpty
+                ? name
+                : (email.isNotEmpty ? email.split('@').first : 'User');
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                if (email.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha : 0.8),
+                      fontWeight: FontWeight.w400,
+                      fontSize: 13,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ],
+            );
+          }),
         ],
+      ),
+    );
+  }
+
+  Widget _buildUsageFooter(BuildContext context, SettingController settingController) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: Obx(() {
+          final usageLabel = settingController.usageLabel().isNotEmpty
+              ? settingController.usageLabel()
+              : '';
+          final quotaLabel = settingController.quotaLabel().isNotEmpty
+              ? settingController.quotaLabel()
+              : '';
+          final percentRaw = settingController.usagePercent();
+          final percent = (percentRaw.isNaN ? 0.0 : percentRaw) / 100.0;
+          final percentClamped = percent.clamp(0.0, 1.0);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.storage_rounded, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      (usageLabel.isNotEmpty && quotaLabel.isNotEmpty)
+                          ? 'Storage: $usageLabel of $quotaLabel'
+                          : 'Storage',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha : 0.9),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (!percentClamped.isNaN)
+                    Text(
+                      '${(percentClamped * 100).toStringAsFixed(0)}%',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha : 0.85),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: percentClamped,
+                  minHeight: 6,
+                  backgroundColor: Colors.white.withValues(alpha : 0.2),
+                  valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.secondary),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'v1.0.0',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha : 0.55),
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          );
+        }),
       ),
     );
   }

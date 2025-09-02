@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -227,23 +226,6 @@ class ThumbnailService {
     }
   }
 
-  /// Render a real PDF thumbnail from local file using native renderer (not active)
-  Future<String?> _generatePdfThumbFromFile({
-    required String filePath,
-    required String outputPath,
-    required int maxWidth,
-    required int maxHeight,
-  }) async {
-    try {
-      // Not available: return null so caller falls back to placeholder
-      return null;
-    } catch (e) {
-      if (kDebugMode) {
-        print('ThumbnailService: PDF file render failed: $e');
-      }
-      return null;
-    }
-  }
 
   /// Generate thumbnail for different file types
   Future<String?> _generateThumbnail({
@@ -403,21 +385,16 @@ class ThumbnailService {
   }) async {
     try {
       Color iconColor;
-      String label;
       
       final m = mimeType.toLowerCase();
       if (m.contains('word') || m.contains('document')) {
         iconColor = const Color(0xFF2B579A); // Word blue
-        label = 'DOCX';
       } else if (m.contains('excel') || m.contains('spreadsheet')) {
         iconColor = const Color(0xFF217346); // Excel green
-        label = 'XLSX';
       } else if (m.contains('powerpoint') || m.contains('presentation')) {
         iconColor = const Color(0xFFD24726); // PowerPoint orange
-        label = 'PPTX';
       } else {
         iconColor = const Color(0xFF666666);
-        label = 'DOC';
       }
       
       // Try embedded Office thumbnail first if file exists and is reasonably small
@@ -566,9 +543,9 @@ class ThumbnailService {
       final rectX = (maxWidth - rectWidth) ~/ 2;
       final rectY = (maxHeight - rectHeight) ~/ 2;
       
-      final cr = (color.value >> 16) & 0xFF;
-      final cg = (color.value >> 8) & 0xFF;
-      final cb = (color.value) & 0xFF;
+      final cr = (color.r * 255.0).round() & 0xFF;
+      final cg = (color.g * 255.0).round() & 0xFF;
+      final cb = (color.b * 255.0).round() & 0xFF;
       img.fillRect(
         image,
         x1: rectX,
@@ -605,14 +582,6 @@ class ThumbnailService {
   }
   
   /// Fit width/height into max bounds preserving aspect
-  ({int width, int height}) _fit(int originalWidth, int originalHeight, int maxWidth, int maxHeight) {
-    return _calculateThumbnailDimensions(
-      originalWidth: originalWidth,
-      originalHeight: originalHeight,
-      maxWidth: maxWidth,
-      maxHeight: maxHeight,
-    );
-  }
 
   /// Calculate optimal thumbnail dimensions maintaining aspect ratio
   ({int width, int height}) _calculateThumbnailDimensions({

@@ -863,15 +863,6 @@ columnWidths: {
     return true;
   }
 
-  String? _tryDecodeBase64ToString(String s) {
-    try {
-      if (!_looksLikeBase64(s)) return null;
-      final bytes = base64.decode(s.replaceAll(RegExp(r'\s'), ''));
-      return utf8.decode(bytes, allowMalformed: true);
-    } catch (_) {
-      return null;
-    }
-  }
 
   Uint8List? _tryDecodeBase64ToBytes(String s) {
     try {

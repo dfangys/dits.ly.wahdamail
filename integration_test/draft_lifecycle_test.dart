@@ -18,7 +18,8 @@ import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 class _TestMailBoxController extends MailBoxController {
   @override
   void onInit() {
-    // Do not call super.onInit to avoid network and heavy init
+    super.onInit();
+    // Keep test light; super may set up observables but avoid heavy network ops in tests
   }
 }
 
@@ -140,7 +141,6 @@ void main() {
       final rows1 = await storage.loadAllMessages();
       final row1 = rows1.firstWhere((m) => m.uid == original.uid, orElse: () => MimeMessage());
       expect((row1.envelope?.subject ?? '').trim(), 'Draft Smoke 123');
-      final pv1 = row1.getHeaderValue('x-preview') ?? '';
       // Preview may be present from projection or still empty; fetch from DB via reload
       expect(true, true); // allow projection timing variability
 

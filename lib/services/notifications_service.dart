@@ -114,7 +114,7 @@ class NotificationService {
       if (payloadStr == null || payloadStr.isEmpty) return;
       final dynamic decoded = jsonDecode(payloadStr);
       if (decoded is! Map) return;
-      final Map data = decoded as Map;
+      final Map data = decoded;
       final action = data['action'] as String?;
       if (action == 'view_message') {
         final uidStr = data['message_uid']?.toString();
@@ -142,7 +142,7 @@ class NotificationService {
         target ??= await mailService.client.selectInbox();
 
         // Select mailbox
-        try { await mailService.client.selectMailbox(target!); } catch (_) {}
+        try { await mailService.client.selectMailbox(target); } catch (_) {}
 
         // Fetch the message by UID
         MimeMessage? message;
@@ -162,7 +162,9 @@ class NotificationService {
           if (Get.isRegistered<GetMaterialController>()) {
             // Ensure navigator exists
           }
-          Get.to(() => ShowMessage(message: message!, mailbox: target!));
+          final mm = message;
+          final mb = target;
+          Get.to(() => ShowMessage(message: mm, mailbox: mb));
         }
       }
     } catch (e) {
