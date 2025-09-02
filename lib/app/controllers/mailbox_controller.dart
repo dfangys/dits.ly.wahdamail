@@ -37,6 +37,7 @@ import '../../views/authantication/screens/login/login.dart';
 import 'package:wahda_bank/services/imap_command_queue.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
+import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
 
 class _LocalDbLoadResult {
   final int loaded;
@@ -1294,8 +1295,13 @@ class MailBoxController extends GetxController {
       'controller.fetchMailbox',
       args: {'mailbox': mailbox.name, 'forceRefresh': forceRefresh},
     );
+    // P12: UI wiring behind flags — optionally prime DDD store (no UI change)
+    try {
+      await DddUiWiring.maybeFetchInbox(folderId: mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : mailbox.name);
+    } catch (_) {}
     // Telemetry: time inbox open end-to-end
     final _tSw = Stopwatch()..start();
+    final _req = DddUiWiring.newRequestId();
     try {
       // Ensure we're working with the correct mailbox
       if (currentMailbox != mailbox) {
@@ -1462,7 +1468,10 @@ class MailBoxController extends GetxController {
         Telemetry.event(
           'inbox_open_ms',
           props: {
-            'ms': _tSw.elapsedMilliseconds,
+            'request_id': _req,
+            'op': 'inbox_open',
+            'folder_id': mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : mailbox.name,
+            'lat_ms': _tSw.elapsedMilliseconds,
             'mailbox_hash': Hashing.djb2(mailbox.encodedPath).toString(),
           },
         );
