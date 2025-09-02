@@ -31,6 +31,8 @@ import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
 import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
+import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 
 extension EmailValidator on String {
   bool isValidEmail() {
@@ -1307,44 +1309,12 @@ class ComposeController extends GetxController {
       // Ensure top-level transfer-encoding is safe for multipart containers
       _normalizeTopLevelTransferEncoding(message);
 
-      // P12: UI wiring behind flags — if DDD send flag is on and kill-switch off, route via DDD use case now that message is built
-      try {
-        final routed = await DddUiWiring.maybeSendFromCompose(
-          controller: this,
-          builtMessage: message,
-        );
-        if (routed) {
-          // DDD path handled UI (success/close). Skip legacy send.
-          try {
-            final acct = MailService.instance.account.email;
-            final folderId = sourceMailbox?.encodedPath ?? sourceMailbox?.name ?? 'INBOX';
-            Telemetry.event(
-              'send_success',
-              props: {
-                'request_id': _req,
-                'op': 'send_email',
-                'folder_id': folderId,
-                'lat_ms': _sw.elapsedMilliseconds,
-                'account_id_hash': Hashing.djb2(acct).toString(),
-              },
-            );
-          } catch (_) {}
-          return;
-        }
-      } catch (_) {}
-
-      // Mark current draft message as read in UI immediately
-      try {
-        msg?.isSeen = true;
-      } catch (_) {}
-
-      // Send message with optimistic UI and append-to-Sent flow
-      final boxController = Get.find<MailBoxController>();
-      final draftMailbox = sourceMailbox;
-      final sendOk = await boxController.sendMailOptimistic(
-        message: message,
-        draftMessage: msg,
-        draftMailbox: draftMailbox,
+      // P12.1: delegate orchestration to presentation ViewModel
+      final vm = getIt<ComposeViewModel>();
+      final sendOk = await vm.send(
+        controller: this,
+        builtMessage: message,
+        requestId: _req,
       );
 
       if (!sendOk) {
@@ -1366,21 +1336,6 @@ class ComposeController extends GetxController {
 
       EasyLoading.dismiss();
       EasyLoading.showSuccess('message_sent'.tr);
-      // Telemetry: send success
-      try {
-        final acct = MailService.instance.account.email;
-        final folderId = sourceMailbox?.encodedPath ?? sourceMailbox?.name ?? 'INBOX';
-        Telemetry.event(
-          'send_success',
-          props: {
-            'request_id': _req,
-            'op': 'send_email',
-            'folder_id': folderId,
-            'lat_ms': _sw.elapsedMilliseconds,
-            'account_id_hash': Hashing.djb2(acct).toString(),
-          },
-        );
-      } catch (_) {}
 
       // After sending, purge all remaining drafts belonging to this compose session from Drafts mailbox (best-effort)
       try {
@@ -1405,22 +1360,6 @@ class ComposeController extends GetxController {
     } catch (e) {
       EasyLoading.dismiss();
       _showErrorDialog(e.toString());
-      // Telemetry: send failure
-      try {
-        final acct = MailService.instance.account.email;
-        final folderId = sourceMailbox?.encodedPath ?? sourceMailbox?.name ?? 'INBOX';
-        Telemetry.event(
-          'send_failure',
-          props: {
-            'request_id': _req,
-            'op': 'send_email',
-            'folder_id': folderId,
-            'lat_ms': _sw.elapsedMilliseconds,
-            'error_class': e.runtimeType.toString(),
-            'account_id_hash': Hashing.djb2(acct).toString(),
-          },
-        );
-      } catch (_) {}
     } finally {
       isSending.value = false;
       isBusy.value = false;

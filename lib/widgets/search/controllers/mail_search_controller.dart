@@ -2,8 +2,10 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/services/mail_service.dart';
-import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
+import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
+import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
 
 class MailSearchController extends GetxController with StateMixin {
   final searchController = TextEditingController();
@@ -51,7 +53,6 @@ class MailSearchController extends GetxController with StateMixin {
 
     // Telemetry: search attempt with request id
     final _req = DddUiWiring.newRequestId();
-    final _sw = Stopwatch()..start();
     try {
       Telemetry.event('search_attempt', props: {
         'request_id': _req,
@@ -61,65 +62,10 @@ class MailSearchController extends GetxController with StateMixin {
       });
     } catch (_) {}
 
-    // P12: UI wiring behind flags — invoke DDD search when enabled
-    try {
-      final handled = await DddUiWiring.maybeSearch(controller: this);
-      if (handled) {
-        try {
-          Telemetry.event('search_success', props: {
-            'request_id': _req,
-            'op': 'search',
-            'lat_ms': _sw.elapsedMilliseconds,
-          });
-        } catch (_) {}
-        return;
-      }
-    } catch (e) {
-      try {
-        Telemetry.event('search_failure', props: {
-          'request_id': _req,
-          'op': 'search',
-          'lat_ms': _sw.elapsedMilliseconds,
-          'error_class': e.runtimeType.toString(),
-        });
-      } catch (_) {}
-    }
-
-    try {
-      searchResults = await client.searchMessages(
-      MailSearch(
-        searchController.text,
-        SearchQueryType.allTextHeaders,
-        messageType: SearchMessageType.all,
-      ),
-    );
-    searchMessages.clear();
-    if (searchResults != null) {
-      searchMessages = searchResults!.messages;
-      if (searchMessages.isEmpty) {
-        change(null, status: RxStatus.empty());
-      } else {
-        change(searchMessages, status: RxStatus.success());
-      }
-    }
-    try {
-      Telemetry.event('search_success', props: {
-        'request_id': _req,
-        'op': 'search',
-        'lat_ms': _sw.elapsedMilliseconds,
-      });
-    } catch (_) {}
-  } catch (e) {
-      try {
-        Telemetry.event('search_failure', props: {
-          'request_id': _req,
-          'op': 'search',
-          'lat_ms': _sw.elapsedMilliseconds,
-          'error_class': e.runtimeType.toString(),
-        });
-      } catch (_) {}
-      change(null, status: RxStatus.error(e.toString()));
-    }
+    // Delegate orchestration to presentation ViewModel (handles DDD/legacy + operation telemetry)
+    final vm = getIt<SearchViewModel>();
+    await vm.runSearch(this, requestId: _req);
+    return;
   }
 
   Future onMoreScroll() async {

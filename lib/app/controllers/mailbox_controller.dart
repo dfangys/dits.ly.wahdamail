@@ -35,9 +35,9 @@ import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/app/constants/app_constants.dart';
 import '../../views/authantication/screens/login/login.dart';
 import 'package:wahda_bank/services/imap_command_queue.dart';
-import 'package:wahda_bank/shared/logging/telemetry.dart';
-import 'package:wahda_bank/shared/utils/hashing.dart';
 import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
+import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
 
 class _LocalDbLoadResult {
   final int loaded;
@@ -1295,11 +1295,12 @@ class MailBoxController extends GetxController {
       'controller.fetchMailbox',
       args: {'mailbox': mailbox.name, 'forceRefresh': forceRefresh},
     );
-    // P12: UI wiring behind flags — optionally prime DDD store (no UI change)
+    // P12.1: delegate to presentation ViewModel for optional prefetch (no UI change)
     try {
-      await DddUiWiring.maybeFetchInbox(folderId: mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : mailbox.name);
+      final folderId = mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : mailbox.name;
+      await getIt<MailboxViewModel>().prefetchOnMailboxOpen(folderId: folderId);
     } catch (_) {}
-    // Telemetry: time inbox open end-to-end
+    // Telemetry: time inbox open end-to-end (controllers keep entry-point telemetry)
     final _tSw = Stopwatch()..start();
     final _req = DddUiWiring.newRequestId();
     try {
@@ -1465,16 +1466,14 @@ class MailBoxController extends GetxController {
       } catch (_) {}
       try {
         _tSw.stop();
-        Telemetry.event(
-          'inbox_open_ms',
-          props: {
-            'request_id': _req,
-            'op': 'inbox_open',
-            'folder_id': mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : mailbox.name,
-            'lat_ms': _tSw.elapsedMilliseconds,
-            'mailbox_hash': Hashing.djb2(mailbox.encodedPath).toString(),
-          },
-        );
+        try {
+          final folderId = mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : mailbox.name;
+          getIt<MailboxViewModel>().emitInboxOpenCompleted(
+            requestId: _req,
+            folderId: folderId,
+            latencyMs: _tSw.elapsedMilliseconds,
+          );
+        } catch (_) {}
       } catch (_) {}
     }
   }
@@ -2654,6 +2653,24 @@ class MailBoxController extends GetxController {
 
   // CRITICAL FIX: Add method to safely navigate to message view with validation
   Future<void> safeNavigateToMessage(
+    MimeMessage message,
+    Mailbox mailbox,
+  ) async {
+    // P12.1: delegate orchestration to presentation ViewModel
+    try {
+      await getIt<MailboxViewModel>().openMessage(
+        controller: this,
+        mailbox: mailbox,
+        message: message,
+      );
+      return;
+    } catch (_) {}
+    // Fallback to legacy behavior
+    await safeNavigateToMessageLegacy(message, mailbox);
+  }
+
+  // Legacy navigation implementation preserved during P12.1
+  Future<void> safeNavigateToMessageLegacy(
     MimeMessage message,
     Mailbox mailbox,
   ) async {
