@@ -50,6 +50,13 @@ import '../../features/notifications/infrastructure/di/notifications_module.dart
     as _i887;
 import '../../features/notifications/infrastructure/notification_adapter.dart'
     as _i252;
+import '../../features/rendering/domain/services/message_rendering_service.dart'
+    as _i762;
+import '../../features/rendering/infrastructure/cid_resolver.dart' as _i906;
+import '../../features/rendering/infrastructure/di/rendering_module.dart'
+    as _i479;
+import '../../features/rendering/infrastructure/html_sanitizer.dart' as _i105;
+import '../../features/rendering/infrastructure/preview_cache.dart' as _i992;
 import '../../features/security/domain/repositories/keyring_repository.dart'
     as _i1039;
 import '../../features/security/domain/repositories/trust_repository.dart'
@@ -81,6 +88,7 @@ _i174.GetIt init(
   final enterpriseApiModule = _$EnterpriseApiModule();
   final securityModule = _$SecurityModule();
   final notificationsModule = _$NotificationsModule();
+  final renderingModule = _$RenderingModule();
   gh.lazySingleton<_i52.SyncEventBus>(() => syncModule.provideSyncEventBus());
   gh.lazySingleton<_i802.LocalStore>(() => messagingModule.provideLocalStore());
   gh.lazySingleton<_i569.ImapGateway>(
@@ -106,6 +114,12 @@ _i174.GetIt init(
       () => notificationsModule.provideNotificationPort());
   gh.lazySingleton<_i915.SettingsRepository>(
       () => notificationsModule.provideSettingsRepository());
+  gh.lazySingleton<_i105.HtmlSanitizer>(
+      () => renderingModule.provideSanitizer());
+  gh.lazySingleton<_i906.CidResolver>(
+      () => renderingModule.provideCidResolver());
+  gh.lazySingleton<_i992.PreviewCache>(
+      () => renderingModule.providePreviewCache());
   gh.lazySingleton<_i1018.OutboxRepository>(
       () => messagingModule.provideOutboxRepository(gh<_i543.OutboxDao>()));
   gh.lazySingleton<_i898.MessageRepository>(
@@ -122,6 +136,13 @@ _i174.GetIt init(
       () => messagingModule.provideDraftRepository(gh<_i232.DraftDao>()));
   gh.lazySingleton<_i1039.DddMailServiceImpl>(
       () => _i1039.DddMailServiceImpl(gh<_i898.MessageRepository>()));
+  gh.lazySingleton<_i762.MessageRenderingService>(
+      () => renderingModule.provideMessageRenderingService(
+            gh<_i802.LocalStore>(),
+            gh<_i105.HtmlSanitizer>(),
+            gh<_i906.CidResolver>(),
+            gh<_i992.PreviewCache>(),
+          ));
   gh.lazySingleton<_i252.NotificationsCoordinator>(() =>
       notificationsModule.provideCoordinator(gh<_i1015.NotificationPort>()));
   gh.lazySingleton<_i723.AccountsRepository>(
@@ -162,3 +183,5 @@ class _$EnterpriseApiModule extends _i449.EnterpriseApiModule {}
 class _$SecurityModule extends _i246.SecurityModule {}
 
 class _$NotificationsModule extends _i887.NotificationsModule {}
+
+class _$RenderingModule extends _i479.RenderingModule {}
