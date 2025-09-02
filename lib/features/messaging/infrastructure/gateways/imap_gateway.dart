@@ -67,6 +67,16 @@ class AttachmentDTO {
   });
 }
 
+/// Infra DTO for IDLE events (no SDK types).
+enum ImapEventType { exists, expunge, flagsChanged }
+
+class ImapEvent {
+  final ImapEventType type;
+  final String folderId;
+  final String? messageUid;
+  const ImapEvent({required this.type, required this.folderId, this.messageUid});
+}
+
 abstract class ImapGateway {
   Future<List<HeaderDTO>> fetchHeaders({
     required String accountId,
@@ -92,6 +102,12 @@ abstract class ImapGateway {
     required String folderId,
     required String messageUid,
     required String partId,
+  });
+
+  /// Stream IMAP IDLE-like events for a folder in a shadow-safe way.
+  Stream<ImapEvent> idleStream({
+    required String accountId,
+    required String folderId,
   });
 }
 
@@ -220,5 +236,11 @@ class EnoughImapGateway implements ImapGateway {
     } catch (e) {
       throw mapImapError(e);
     }
+  }
+
+  @override
+  Stream<ImapEvent> idleStream({required String accountId, required String folderId}) async* {
+    // P5 placeholder: do not open real IDLE; return an empty stream.
+    yield* const Stream<ImapEvent>.empty();
   }
 }
