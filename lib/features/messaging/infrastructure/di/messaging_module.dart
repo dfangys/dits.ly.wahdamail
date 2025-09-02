@@ -6,6 +6,13 @@ import 'package:wahda_bank/features/messaging/domain/repositories/message_reposi
 import 'package:wahda_bank/features/messaging/infrastructure/datasources/local_store.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/repositories_impl/imap_message_repository.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/datasources/outbox_dao.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/datasources/draft_dao.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/repositories_impl/outbox_repository_impl.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/repositories_impl/draft_repository_impl.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/gateways/smtp_gateway.dart';
+import 'package:wahda_bank/features/messaging/domain/repositories/outbox_repository.dart';
+import 'package:wahda_bank/features/messaging/domain/repositories/draft_repository.dart';
 
 @module
 abstract class MessagingModule {
@@ -44,4 +51,20 @@ abstract class MessagingModule {
     final client = em.MailClient(account);
     return EnoughImapGateway(client);
   }
+
+  // P4: Outbox/Drafts/SMTP registrations (infra only).
+  @LazySingleton()
+  OutboxDao provideOutboxDao() => InMemoryOutboxDao();
+
+  @LazySingleton()
+  DraftDao provideDraftDao() => InMemoryDraftDao();
+
+  @LazySingleton()
+  OutboxRepository provideOutboxRepository(OutboxDao dao) => OutboxRepositoryImpl(dao);
+
+  @LazySingleton()
+  DraftRepository provideDraftRepository(DraftDao dao) => DraftRepositoryImpl(dao);
+
+  @LazySingleton()
+  SmtpGateway provideSmtpGateway() => EnoughSmtpGateway();
 }
