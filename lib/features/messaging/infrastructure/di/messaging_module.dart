@@ -2,25 +2,13 @@ import 'package:injectable/injectable.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:enough_mail/enough_mail.dart' as em;
 
-import 'package:wahda_bank/features/messaging/application/facade/messaging_facade.dart';
 import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/datasources/local_store.dart';
-import 'package:wahda_bank/features/messaging/infrastructure/facade/ddd_mail_service_impl.dart';
-import 'package:wahda_bank/features/messaging/infrastructure/facade/legacy_messaging_facade.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/repositories_impl/imap_message_repository.dart';
-import 'package:wahda_bank/services/feature_flags.dart';
 
 @module
 abstract class MessagingModule {
-  @LazySingleton(as: MessagingFacade)
-  MessagingFacade provideMessagingFacade(MessageRepository repo) {
-    if (FeatureFlags.instance.dddMessagingEnabled) {
-      return DddMailServiceImpl(repo);
-    }
-    return LegacyMessagingFacade();
-  }
-
   @LazySingleton()
   MessageRepository provideMessageRepository(ImapGateway gateway, LocalStore store) {
     final box = GetStorage();
