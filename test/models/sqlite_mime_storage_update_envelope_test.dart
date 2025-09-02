@@ -38,14 +38,20 @@ void main() {
       await storage.init();
       // Ensure table is clean for this mailbox
       final db = await SQLiteDatabaseHelper.instance.database;
-      final idRows = await db.query(SQLiteDatabaseHelper.tableMailboxes,
-          columns: [SQLiteDatabaseHelper.columnId],
-          where: '${SQLiteDatabaseHelper.columnName}=? AND ${SQLiteDatabaseHelper.columnAccountEmail}=?',
-          whereArgs: [drafts.name, account.email]);
+      final idRows = await db.query(
+        SQLiteDatabaseHelper.tableMailboxes,
+        columns: [SQLiteDatabaseHelper.columnId],
+        where:
+            '${SQLiteDatabaseHelper.columnName}=? AND ${SQLiteDatabaseHelper.columnAccountEmail}=?',
+        whereArgs: [drafts.name, account.email],
+      );
       if (idRows.isNotEmpty) {
         final mailboxId = idRows.first[SQLiteDatabaseHelper.columnId] as int;
-        await db.delete(SQLiteDatabaseHelper.tableEmails,
-            where: '${SQLiteDatabaseHelper.columnMailboxId}=?', whereArgs: [mailboxId]);
+        await db.delete(
+          SQLiteDatabaseHelper.tableEmails,
+          where: '${SQLiteDatabaseHelper.columnMailboxId}=?',
+          whereArgs: [mailboxId],
+        );
       }
     });
 
@@ -62,33 +68,41 @@ void main() {
 
       await storage.updateEnvelopeFromMessage(m);
       final all = await storage.loadAllMessages();
-      final found = all.firstWhere((x) => x.uid == 101, orElse: () => MimeMessage());
+      final found = all.firstWhere(
+        (x) => x.uid == 101,
+        orElse: () => MimeMessage(),
+      );
       expect((found.envelope?.subject ?? '').trim(), 'Hello');
       expect(found.envelope?.from?.first.email, 'alice@example.com');
       // Derived fields should exist in DB; envelope mapping hydrates sender
       // We assert sender_name is persisted indirectly by ensuring from exists
-      expect(found.from?.first.email ?? found.envelope?.from?.first.email, isNotEmpty);
+      expect(
+        found.from?.first.email ?? found.envelope?.from?.first.email,
+        isNotEmpty,
+      );
     });
 
     test('does not clobber non-empty subject/from with empty values', () async {
       // First, write non-empty values
-      final m1 = MimeMessage()
-        ..uid = 202
-        ..envelope = Envelope(
-          date: DateTime.now(),
-          subject: 'KeepMe',
-          from: [const MailAddress('Carol', 'carol@example.com')],
-        );
+      final m1 =
+          MimeMessage()
+            ..uid = 202
+            ..envelope = Envelope(
+              date: DateTime.now(),
+              subject: 'KeepMe',
+              from: [const MailAddress('Carol', 'carol@example.com')],
+            );
       await storage.updateEnvelopeFromMessage(m1);
 
       // Then, attempt to update with empty subject and missing from
-      final m2 = MimeMessage()
-        ..uid = 202
-        ..envelope = Envelope(
-          date: DateTime.now(),
-          subject: '',
-          // no from provided
-        );
+      final m2 =
+          MimeMessage()
+            ..uid = 202
+            ..envelope = Envelope(
+              date: DateTime.now(),
+              subject: '',
+              // no from provided
+            );
       await storage.updateEnvelopeFromMessage(m2);
 
       final all = await storage.loadAllMessages();
@@ -98,4 +112,3 @@ void main() {
     });
   });
 }
-

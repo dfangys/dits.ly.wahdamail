@@ -12,9 +12,9 @@ import 'package:xml/xml.dart' as xml;
 
 class AttachmentViewer extends StatefulWidget {
   const AttachmentViewer({
-    super.key, 
-    required this.title, 
-    required this.mimeType, 
+    super.key,
+    required this.title,
+    required this.mimeType,
     required this.filePath,
     this.originalBytes,
   });
@@ -44,19 +44,21 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
 
   @override
   void dispose() {
-    try { _pdfController?.dispose(); } catch (_) {}
+    try {
+      _pdfController?.dispose();
+    } catch (_) {}
     super.dispose();
   }
 
   /// Preprocess attachment to handle encoding issues
   Future<void> _preprocessAttachment() async {
     if (!mounted) return;
-    
+
     setState(() {
       _isProcessing = true;
       _errorMessage = null;
     });
-    
+
     try {
       final file = File(widget.filePath);
       if (!await file.exists()) {
@@ -66,10 +68,13 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
         });
         return;
       }
-      
+
       final fileBytes = await file.readAsBytes();
-      final mime = MimeUtils.inferMimeType(widget.title, contentType: widget.mimeType);
-      
+      final mime = MimeUtils.inferMimeType(
+        widget.title,
+        contentType: widget.mimeType,
+      );
+
       // Handle different content types with proper decoding
       if (_isTextBasedContent(mime)) {
         await _preprocessTextContent(fileBytes, mime);
@@ -79,7 +84,6 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
         // Unknown content, try to auto-detect
         await _autoDetectAndPreprocess(fileBytes);
       }
-      
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to process attachment: $e';
@@ -87,16 +91,18 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
       });
     }
   }
-  
+
   Future<void> _preprocessTextContent(Uint8List bytes, String mime) async {
     try {
       String content = utf8.decode(bytes, allowMalformed: true);
-      
+
       // Check if content is base64 encoded
       if (_isLikelyBase64Content(content)) {
         try {
-          final decodedBytes = base64.decode(content.replaceAll(RegExp(r'\s'), ''));
-          
+          final decodedBytes = base64.decode(
+            content.replaceAll(RegExp(r'\s'), ''),
+          );
+
           // Try to decode as text first
           try {
             final decodedText = utf8.decode(decodedBytes);
@@ -109,7 +115,7 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
           // Base64 decode failed, use original content
         }
       }
-      
+
       _processedContent = content;
     } catch (e) {
       _processedContent = 'Failed to decode text content: $e';
@@ -119,20 +125,22 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
       }
     }
   }
-  
+
   Future<void> _preprocessBinaryContent(Uint8List bytes, String mime) async {
     try {
       // For binary content, check if it's actually base64 text
       final asText = utf8.decode(bytes, allowMalformed: true);
-      
+
       if (_isLikelyBase64Content(asText)) {
         try {
-          final decodedBytes = base64.decode(asText.replaceAll(RegExp(r'\s'), ''));
-          
+          final decodedBytes = base64.decode(
+            asText.replaceAll(RegExp(r'\s'), ''),
+          );
+
           // Validate the decoded content matches expected MIME type
           if (_validateBinaryContent(decodedBytes, mime)) {
             _processedBytes = Uint8List.fromList(decodedBytes);
-            
+
             // Write processed bytes to a temporary file for viewing
             await _writeProcessedFile(decodedBytes);
           } else {
@@ -153,19 +161,24 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
       }
     }
   }
-  
+
   Future<void> _autoDetectAndPreprocess(Uint8List bytes) async {
     try {
       final asText = utf8.decode(bytes, allowMalformed: true);
-      
+
       if (_isLikelyBase64Content(asText)) {
         try {
-          final decodedBytes = base64.decode(asText.replaceAll(RegExp(r'\s'), ''));
+          final decodedBytes = base64.decode(
+            asText.replaceAll(RegExp(r'\s'), ''),
+          );
           final detectedMime = _detectMimeFromBytes(decodedBytes);
-          
+
           if (detectedMime != null) {
             if (_isTextBasedContent(detectedMime)) {
-              _processedContent = utf8.decode(decodedBytes, allowMalformed: true);
+              _processedContent = utf8.decode(
+                decodedBytes,
+                allowMalformed: true,
+              );
             } else {
               _processedBytes = Uint8List.fromList(decodedBytes);
               await _writeProcessedFile(decodedBytes);
@@ -187,7 +200,7 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
       }
     }
   }
-  
+
   Future<void> _writeProcessedFile(Uint8List processedBytes) async {
     try {
       final file = File(widget.filePath);
@@ -216,7 +229,7 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
         ),
       );
     }
-    
+
     if (_errorMessage != null) {
       return Scaffold(
         appBar: AppBar(
@@ -239,10 +252,16 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
         ),
       );
     }
-    
-    final mime = MimeUtils.inferMimeType(widget.title, contentType: widget.mimeType).toLowerCase();
+
+    final mime =
+        MimeUtils.inferMimeType(
+          widget.title,
+          contentType: widget.mimeType,
+        ).toLowerCase();
     final isImage = mime.startsWith('image/');
-    final isPdf = mime == 'application/pdf' || widget.filePath.toLowerCase().endsWith('.pdf');
+    final isPdf =
+        mime == 'application/pdf' ||
+        widget.filePath.toLowerCase().endsWith('.pdf');
     final isTextLike = _isTextBasedContent(mime);
 
     return Scaffold(
@@ -253,7 +272,9 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
             tooltip: 'Save',
             icon: const Icon(Icons.download_rounded),
             onPressed: () async {
-              try { await _showSaveMenu(); } catch (_) {}
+              try {
+                await _showSaveMenu();
+              } catch (_) {}
             },
           ),
           IconButton(
@@ -261,7 +282,9 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
             icon: const Icon(Icons.ios_share),
             onPressed: () async {
               try {
-                await Share.shareXFiles([XFile(widget.filePath)], text: widget.title);
+                await Share.shareXFiles([
+                  XFile(widget.filePath),
+                ], text: widget.title);
               } catch (_) {}
             },
           ),
@@ -284,7 +307,9 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
             return _buildTextView();
           } else {
             // Try webview for other formats
-            return _webFailed ? _buildGenericPlaceholder(context) : _buildWebView();
+            return _webFailed
+                ? _buildGenericPlaceholder(context)
+                : _buildWebView();
           }
         },
       ),
@@ -294,21 +319,22 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
   Widget _buildImageView() {
     return InteractiveViewer(
       child: Center(
-        child: _processedBytes != null
-            ? Image.memory(
-                _processedBytes!,
-                fit: BoxFit.contain,
-                errorBuilder: (ctx, err, st) => _buildImageError(ctx),
-              )
-            : Image.file(
-                File(widget.filePath),
-                fit: BoxFit.contain,
-                errorBuilder: (ctx, err, st) => _buildImageError(ctx),
-              ),
+        child:
+            _processedBytes != null
+                ? Image.memory(
+                  _processedBytes!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (ctx, err, st) => _buildImageError(ctx),
+                )
+                : Image.file(
+                  File(widget.filePath),
+                  fit: BoxFit.contain,
+                  errorBuilder: (ctx, err, st) => _buildImageError(ctx),
+                ),
       ),
     );
   }
-  
+
   Widget _buildImageError(BuildContext context) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -327,7 +353,7 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
 
   bool _looksLikeOffice(String path) {
     final ext = path.toLowerCase().split('.').last;
-    const office = {'doc','docx','xls','xlsx','ppt','pptx'};
+    const office = {'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'};
     return office.contains(ext);
   }
 
@@ -339,7 +365,7 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
     if (content == null) {
       return _buildTextError(context);
     }
-    
+
     return Column(
       children: [
         // Content info bar
@@ -349,7 +375,11 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           child: Row(
             children: [
-              Icon(Icons.text_snippet, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              Icon(
+                Icons.text_snippet,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
               const SizedBox(width: 8),
               Text(
                 '${content.split('\n').length} lines, ${content.length} characters',
@@ -370,7 +400,7 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
             child: SelectableText(
               content,
               style: const TextStyle(
-                fontFamily: 'monospace', 
+                fontFamily: 'monospace',
                 fontSize: 14,
                 height: 1.4,
               ),
@@ -380,7 +410,7 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
       ],
     );
   }
-  
+
   Widget _buildTextError(BuildContext context) {
     return Center(
       child: Column(
@@ -398,7 +428,7 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
       ),
     );
   }
-  
+
   String? _getFileContent() {
     try {
       return File(widget.filePath).readAsStringSync();
@@ -410,11 +440,11 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
   Widget _buildWebView() {
     final path = widget.filePath;
     final url = 'file://$path';
-    
+
     if (_webFailed) {
       return _buildGenericPlaceholder(context);
     }
-    
+
     return Stack(
       children: [
         InAppWebView(
@@ -440,7 +470,13 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
         ),
         if (!_isReady)
           const Positioned.fill(
-            child: Center(child: SizedBox(width: 32, height: 32, child: CircularProgressIndicator(strokeWidth: 3))),
+            child: Center(
+              child: SizedBox(
+                width: 32,
+                height: 32,
+                child: CircularProgressIndicator(strokeWidth: 3),
+              ),
+            ),
           ),
       ],
     );
@@ -459,61 +495,101 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
           onDocumentError: (err) {
             // Try a fallback path: load via bytes instead of file path (helps with some iOS edge-cases)
             // ignore: avoid_print
-            try { print('PDFX error for ${widget.filePath}: $err'); } catch (_) {}
+            try {
+              print('PDFX error for ${widget.filePath}: $err');
+            } catch (_) {}
             _tryOpenPdfViaData();
           },
         ),
         if (!_isReady)
           const Positioned.fill(
-            child: Center(child: SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2))),
+            child: Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
           ),
-        if (_webFailed)
-          Positioned.fill(child: _noPreviewPlaceholder(context)),
+        if (_webFailed) Positioned.fill(child: _noPreviewPlaceholder(context)),
       ],
     );
   }
 
   Future<void> _tryOpenPdfViaData() async {
     try {
-      setState(() { _isReady = false; _webFailed = false; });
+      setState(() {
+        _isReady = false;
+        _webFailed = false;
+      });
       final f = File(widget.filePath);
       if (!await f.exists()) {
-        setState(() { _webFailed = true; _isReady = true; });
+        setState(() {
+          _webFailed = true;
+          _isReady = true;
+        });
         return;
       }
       Uint8List bytes = await f.readAsBytes();
       // Basic PDF signature check: %PDF-
-      bool isPdf = bytes.length >= 5 &&
-          bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46 && bytes[4] == 0x2D;
+      bool isPdf =
+          bytes.length >= 5 &&
+          bytes[0] == 0x25 &&
+          bytes[1] == 0x50 &&
+          bytes[2] == 0x44 &&
+          bytes[3] == 0x46 &&
+          bytes[4] == 0x2D;
       if (!isPdf) {
         // Some servers send base64 text or data URIs in the file; try to decode robustly
         try {
           final asText = await f.readAsString();
           final b64 = _tryDecodeBase64ToBytes(asText);
-          if (b64 != null && b64.length >= 5 &&
-              b64[0] == 0x25 && b64[1] == 0x50 && b64[2] == 0x44 && b64[3] == 0x46 && b64[4] == 0x2D) {
+          if (b64 != null &&
+              b64.length >= 5 &&
+              b64[0] == 0x25 &&
+              b64[1] == 0x50 &&
+              b64[2] == 0x44 &&
+              b64[3] == 0x46 &&
+              b64[4] == 0x2D) {
             bytes = b64;
             isPdf = true;
             // Persist normalized PDF bytes to disk so subsequent opens succeed
-            try { await f.writeAsBytes(bytes, flush: true); } catch (_) {}
+            try {
+              await f.writeAsBytes(bytes, flush: true);
+            } catch (_) {}
           }
         } catch (_) {}
       }
       if (!isPdf) {
-        setState(() { _webFailed = true; _isReady = true; });
+        setState(() {
+          _webFailed = true;
+          _isReady = true;
+        });
         return;
       }
       // Swap controller
-      try { _pdfController?.dispose(); } catch (_) {}
-      _pdfController = PdfControllerPinch(document: PdfDocument.openData(bytes));
+      try {
+        _pdfController?.dispose();
+      } catch (_) {}
+      _pdfController = PdfControllerPinch(
+        document: PdfDocument.openData(bytes),
+      );
       if (mounted) setState(() {});
     } catch (e) {
-      if (mounted) setState(() { _webFailed = true; _isReady = true; });
+      if (mounted)
+        setState(() {
+          _webFailed = true;
+          _isReady = true;
+        });
     }
   }
 
   Future<void> _showSaveMenu() async {
-    final mime = MimeUtils.inferMimeType(widget.title, contentType: widget.mimeType).toLowerCase();
+    final mime =
+        MimeUtils.inferMimeType(
+          widget.title,
+          contentType: widget.mimeType,
+        ).toLowerCase();
     final isImage = mime.startsWith('image/');
     await showModalBottomSheet(
       context: context,
@@ -551,14 +627,19 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
     try {
       final src = File(widget.filePath);
       if (!await src.exists()) return;
-      final name = widget.title.isNotEmpty ? widget.title : src.uri.pathSegments.last;
+      final name =
+          widget.title.isNotEmpty ? widget.title : src.uri.pathSegments.last;
       // Copy to app Documents (visible in Files app under On My iPhone / app folder)
       final dir = await getApplicationDocumentsDirectory();
       final dst = File('${dir.path}/$name');
       await dst.writeAsBytes(await src.readAsBytes(), flush: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved to Files: ${dst.path.split('/').take(6).join('/')}/…/${dst.uri.pathSegments.last}')),
+        SnackBar(
+          content: Text(
+            'Saved to Files: ${dst.path.split('/').take(6).join('/')}/…/${dst.uri.pathSegments.last}',
+          ),
+        ),
       );
       // Offer native Save to Files / share sheet as well
       try {
@@ -567,9 +648,9 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
       } catch (_) {}
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Save failed: $e')));
     }
   }
 
@@ -577,7 +658,11 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
     try {
       final src = File(widget.filePath);
       if (!await src.exists()) return;
-      final mime = MimeUtils.inferMimeType(widget.title, contentType: widget.mimeType).toLowerCase();
+      final mime =
+          MimeUtils.inferMimeType(
+            widget.title,
+            contentType: widget.mimeType,
+          ).toLowerCase();
       if (!mime.startsWith('image/')) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -596,9 +681,9 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Save to Photos failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Save to Photos failed: $e')));
     }
   }
 
@@ -657,7 +742,10 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
                 children: [
                   const Icon(Icons.description, size: 16),
                   const SizedBox(width: 8),
-                  Text('DOCX preview (text-only)', style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    'DOCX preview (text-only)',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
               ),
             ),
@@ -695,7 +783,10 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
                 children: [
                   const Icon(Icons.table_chart, size: 16),
                   const SizedBox(width: 8),
-                  Text('XLSX preview (first ${rows.length} rows)', style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    'XLSX preview (first ${rows.length} rows)',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
               ),
             ),
@@ -703,14 +794,24 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width),
+                  constraints: BoxConstraints(
+                    minWidth: MediaQuery.of(context).size.width,
+                  ),
                   child: SingleChildScrollView(
                     child: Table(
-                      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-columnWidths: {
-                        for (int i = 0; i < (rows.isNotEmpty ? rows.first.length : 0); i++) i: const IntrinsicColumnWidth(),
+                      defaultVerticalAlignment:
+                          TableCellVerticalAlignment.middle,
+                      columnWidths: {
+                        for (
+                          int i = 0;
+                          i < (rows.isNotEmpty ? rows.first.length : 0);
+                          i++
+                        )
+                          i: const IntrinsicColumnWidth(),
                       },
-                      border: TableBorder.all(color: Theme.of(context).dividerColor),
+                      border: TableBorder.all(
+                        color: Theme.of(context).dividerColor,
+                      ),
                       children: [
                         for (final row in rows)
                           TableRow(
@@ -740,10 +841,16 @@ columnWidths: {
       final arch = z.ZipDecoder().decodeBytes(bytes, verify: false);
       z.ArchiveFile? entry;
       for (final f in arch.files) {
-        if (f.name == 'word/document.xml') { entry = f; break; }
+        if (f.name == 'word/document.xml') {
+          entry = f;
+          break;
+        }
       }
       if (entry == null) return '';
-      final docXml = utf8.decode(entry.content as List<int>, allowMalformed: true);
+      final docXml = utf8.decode(
+        entry.content as List<int>,
+        allowMalformed: true,
+      );
       final doc = xml.XmlDocument.parse(docXml);
       final buffer = StringBuffer();
       // Paragraphs are w:p, text nodes are w:t, line breaks w:br
@@ -759,33 +866,53 @@ columnWidths: {
     }
   }
 
-  Future<List<List<String>>> _extractXlsxTable(String path, {int maxRows = 200, int maxCols = 30}) async {
+  Future<List<List<String>>> _extractXlsxTable(
+    String path, {
+    int maxRows = 200,
+    int maxCols = 30,
+  }) async {
     try {
       final bytes = await File(path).readAsBytes();
       final arch = z.ZipDecoder().decodeBytes(bytes, verify: false);
       // Shared strings (optional)
       z.ArchiveFile? sstEntry;
       for (final f in arch.files) {
-        if (f.name == 'xl/sharedStrings.xml') { sstEntry = f; break; }
+        if (f.name == 'xl/sharedStrings.xml') {
+          sstEntry = f;
+          break;
+        }
       }
       List<String> shared = [];
       if (sstEntry != null) {
-        final sstXml = utf8.decode(sstEntry.content as List<int>, allowMalformed: true);
+        final sstXml = utf8.decode(
+          sstEntry.content as List<int>,
+          allowMalformed: true,
+        );
         final sstDoc = xml.XmlDocument.parse(sstXml);
         shared = sstDoc.findAllElements('si').map((si) => si.text).toList();
       }
       // First worksheet
       z.ArchiveFile? sheet;
       for (final f in arch.files) {
-        if (f.name == 'xl/worksheets/sheet1.xml') { sheet = f; break; }
+        if (f.name == 'xl/worksheets/sheet1.xml') {
+          sheet = f;
+          break;
+        }
       }
       if (sheet == null) {
         for (final f in arch.files) {
-          if (f.name.startsWith('xl/worksheets/sheet') && f.name.endsWith('.xml')) { sheet = f; break; }
+          if (f.name.startsWith('xl/worksheets/sheet') &&
+              f.name.endsWith('.xml')) {
+            sheet = f;
+            break;
+          }
         }
       }
       if (sheet == null) return [];
-      final wsXml = utf8.decode(sheet.content as List<int>, allowMalformed: true);
+      final wsXml = utf8.decode(
+        sheet.content as List<int>,
+        allowMalformed: true,
+      );
       final wsDoc = xml.XmlDocument.parse(wsXml);
       // Parse rows and cells
       final rows = <List<String>>[];
@@ -819,7 +946,7 @@ columnWidths: {
       return [];
     }
   }
-  
+
   Widget _buildGenericPlaceholder(BuildContext context) {
     return Center(
       child: Column(
@@ -863,12 +990,13 @@ columnWidths: {
     return true;
   }
 
-
   Uint8List? _tryDecodeBase64ToBytes(String s) {
     try {
       // 1) Direct full-string base64
       if (_looksLikeBase64(s)) {
-        return Uint8List.fromList(base64.decode(s.replaceAll(RegExp(r'\s'), '')));
+        return Uint8List.fromList(
+          base64.decode(s.replaceAll(RegExp(r'\s'), '')),
+        );
       }
       final lower = s.toLowerCase();
       // 2) data URI pattern: data:application/pdf;base64,<payload>
@@ -887,7 +1015,9 @@ columnWidths: {
         while (end < s.length && RegExp(r'[A-Za-z0-9+/=]').hasMatch(s[end])) {
           end++;
         }
-        final segment = s.substring(jvberIdx, end).replaceAll(RegExp(r'\s'), '');
+        final segment = s
+            .substring(jvberIdx, end)
+            .replaceAll(RegExp(r'\s'), '');
         if (_looksLikeBase64(segment)) {
           return Uint8List.fromList(base64.decode(segment));
         }
@@ -897,107 +1027,128 @@ columnWidths: {
       return null;
     }
   }
-  
+
   // Content type detection helpers
   bool _isTextBasedContent(String mime) {
     final m = mime.toLowerCase();
-    return m.startsWith('text/') || 
-           m == 'application/json' || 
-           m == 'application/xml' || 
-           m.contains('csv') ||
-           m.contains('javascript') ||
-           m.contains('html');
+    return m.startsWith('text/') ||
+        m == 'application/json' ||
+        m == 'application/xml' ||
+        m.contains('csv') ||
+        m.contains('javascript') ||
+        m.contains('html');
   }
-  
+
   bool _isBinaryContent(String mime) {
     final m = mime.toLowerCase();
     return m.startsWith('image/') ||
-           m.startsWith('video/') ||
-           m.startsWith('audio/') ||
-           m == 'application/pdf' ||
-           m.contains('zip') ||
-           m.contains('office') ||
-           m.contains('document') ||
-           m.contains('spreadsheet') ||
-           m.contains('presentation');
+        m.startsWith('video/') ||
+        m.startsWith('audio/') ||
+        m == 'application/pdf' ||
+        m.contains('zip') ||
+        m.contains('office') ||
+        m.contains('document') ||
+        m.contains('spreadsheet') ||
+        m.contains('presentation');
   }
-  
+
   bool _isLikelyBase64Content(String content) {
     // Check if content looks like base64
     if (content.length < 20) return false;
-    
+
     // Remove whitespace and check length
     final cleaned = content.replaceAll(RegExp(r'\s'), '');
     if (cleaned.length % 4 != 0) return false;
-    
+
     // Check character set
     if (!RegExp(r'^[A-Za-z0-9+/]*={0,2}$').hasMatch(cleaned)) return false;
-    
+
     // Additional heuristic: base64 encoded content usually has high entropy
     final uniqueChars = Set.from(cleaned.split(''));
-    return uniqueChars.length > 10; // Base64 should have good character distribution
+    return uniqueChars.length >
+        10; // Base64 should have good character distribution
   }
-  
+
   bool _validateBinaryContent(Uint8List bytes, String expectedMime) {
     if (bytes.length < 4) return false;
-    
+
     final mime = expectedMime.toLowerCase();
-    
+
     // PDF validation
     if (mime == 'application/pdf') {
-      return bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46;
+      return bytes[0] == 0x25 &&
+          bytes[1] == 0x50 &&
+          bytes[2] == 0x44 &&
+          bytes[3] == 0x46;
     }
-    
+
     // Image validations
     if (mime == 'image/jpeg') {
       return bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
     }
-    
+
     if (mime == 'image/png') {
-      return bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
+      return bytes[0] == 0x89 &&
+          bytes[1] == 0x50 &&
+          bytes[2] == 0x4E &&
+          bytes[3] == 0x47;
     }
-    
+
     if (mime == 'image/gif') {
-      return bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x38;
+      return bytes[0] == 0x47 &&
+          bytes[1] == 0x49 &&
+          bytes[2] == 0x46 &&
+          bytes[3] == 0x38;
     }
-    
+
     // ZIP-based formats (Office documents)
-    if (mime.contains('zip') || mime.contains('office') || mime.contains('document')) {
+    if (mime.contains('zip') ||
+        mime.contains('office') ||
+        mime.contains('document')) {
       return bytes[0] == 0x50 && bytes[1] == 0x4B; // PK signature
     }
-    
+
     // If we can't validate, assume it's correct
     return true;
   }
-  
+
   String? _detectMimeFromBytes(Uint8List bytes) {
     if (bytes.length < 4) return null;
-    
+
     // PDF
-    if (bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46) {
+    if (bytes[0] == 0x25 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x44 &&
+        bytes[3] == 0x46) {
       return 'application/pdf';
     }
-    
+
     // JPEG
     if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
       return 'image/jpeg';
     }
-    
+
     // PNG
-    if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+    if (bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
       return 'image/png';
     }
-    
+
     // GIF
-    if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x38) {
+    if (bytes[0] == 0x47 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x38) {
       return 'image/gif';
     }
-    
+
     // ZIP (and Office formats)
     if (bytes[0] == 0x50 && bytes[1] == 0x4B) {
       return 'application/zip';
     }
-    
+
     // Try to detect text content
     try {
       final text = utf8.decode(bytes, allowMalformed: false);
@@ -1006,12 +1157,11 @@ columnWidths: {
         return 'text/plain';
       }
     } catch (_) {}
-    
+
     return null;
   }
-  
+
   Widget _noPreviewPlaceholder(BuildContext context) {
     return _buildGenericPlaceholder(context);
   }
 }
-

@@ -1,7 +1,6 @@
 /// Domain entity: Message
 /// Immutable representation of an email message in the messaging bounded context.
 /// No Flutter or third-party SDK imports allowed in domain layer.
-
 class Message {
   final String id; // stable identity (e.g., Message-Id or composite)
   final String folderId;

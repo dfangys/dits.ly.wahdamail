@@ -15,53 +15,48 @@ class _NewEmailIndicatorState extends State<NewEmailIndicator>
   late AnimationController _slideController;
   late Animation<double> _pulseAnimation;
   late Animation<Offset> _slideAnimation;
-  
+
   int _newEmailCount = 0;
 
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize animations
     _pulseController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    
+
     _slideController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    
-    _pulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.2,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
-    
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, -1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.elasticOut,
-    ));
-    
+    ).animate(
+      CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
+    );
+
     // Listen to new email count
     _listenToNewEmails();
   }
 
   void _listenToNewEmails() {
     final incomingService = IncomingEmailService.instance;
-    
+
     incomingService.newEmailCountStream.listen((count) {
       if (mounted) {
         setState(() {
           _newEmailCount = count;
         });
-        
+
         if (count > 0) {
           _showNewEmailAnimation();
         } else {
@@ -74,7 +69,7 @@ class _NewEmailIndicatorState extends State<NewEmailIndicator>
   void _showNewEmailAnimation() {
     // Slide in
     _slideController.forward();
-    
+
     // Start pulsing
     _pulseController.repeat(reverse: true);
   }
@@ -82,7 +77,7 @@ class _NewEmailIndicatorState extends State<NewEmailIndicator>
   void _hideIndicator() {
     // Stop pulsing
     _pulseController.stop();
-    
+
     // Slide out
     _slideController.reverse();
   }
@@ -112,15 +107,12 @@ class _NewEmailIndicatorState extends State<NewEmailIndicator>
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Colors.blue.shade400,
-                    Colors.blue.shade600,
-                  ],
+                  colors: [Colors.blue.shade400, Colors.blue.shade600],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-color: Colors.blue.withValues(alpha: 0.3),
+                    color: Colors.blue.withValues(alpha: 0.3),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -129,14 +121,10 @@ color: Colors.blue.withValues(alpha: 0.3),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.email,
-                    color: Colors.white,
-                    size: 16,
-                  ),
+                  const Icon(Icons.email, color: Colors.white, size: 16),
                   const SizedBox(width: 6),
                   Text(
-                    _newEmailCount == 1 
+                    _newEmailCount == 1
                         ? '1 new email'
                         : '$_newEmailCount new emails',
                     style: const TextStyle(
@@ -170,11 +158,8 @@ color: Colors.blue.withValues(alpha: 0.3),
 /// Floating action button with new email count
 class NewEmailFAB extends StatefulWidget {
   final VoidCallback? onPressed;
-  
-  const NewEmailFAB({
-    super.key,
-    this.onPressed,
-  });
+
+  const NewEmailFAB({super.key, this.onPressed});
 
   @override
   State<NewEmailFAB> createState() => _NewEmailFABState();
@@ -184,33 +169,29 @@ class _NewEmailFABState extends State<NewEmailFAB>
     with SingleTickerProviderStateMixin {
   late AnimationController _bounceController;
   late Animation<double> _bounceAnimation;
-  
+
   int _newEmailCount = 0;
 
   @override
   void initState() {
     super.initState();
-    
+
     _bounceController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-    
-    _bounceAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _bounceController,
-      curve: Curves.elasticOut,
-    ));
-    
+
+    _bounceAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _bounceController, curve: Curves.elasticOut),
+    );
+
     // Listen to new emails
     IncomingEmailService.instance.newEmailCountStream.listen((count) {
       if (mounted) {
         setState(() {
           _newEmailCount = count;
         });
-        
+
         if (count > 0) {
           _bounceController.forward().then((_) {
             _bounceController.reverse();
@@ -271,4 +252,3 @@ class _NewEmailFABState extends State<NewEmailFAB>
     );
   }
 }
-

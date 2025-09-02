@@ -26,8 +26,10 @@ class SearchView extends StatelessWidget {
           decoration: InputDecoration(
             fillColor: WColors.fieldbackground,
             filled: true,
-            contentPadding:
-                const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 8,
+              horizontal: 10,
+            ),
             hintText: "search".tr,
             isDense: true,
             border: OutlineInputBorder(
@@ -70,20 +72,33 @@ class SearchView extends StatelessWidget {
               onTap: () {
                 try {
                   final MimeMessage message = controller.searchMessages[index];
-                  final listRef = mailboxController.emails[mailboxController.mailBoxInbox] ?? const <MimeMessage>[];
+                  final listRef =
+                      mailboxController.emails[mailboxController
+                          .mailBoxInbox] ??
+                      const <MimeMessage>[];
                   int initial = 0;
                   if (listRef.isNotEmpty) {
-                    initial = listRef.indexWhere((m) =>
-                        (message.uid != null && m.uid == message.uid) ||
-                        (message.sequenceId != null && m.sequenceId == message.sequenceId));
+                    initial = listRef.indexWhere(
+                      (m) =>
+                          (message.uid != null && m.uid == message.uid) ||
+                          (message.sequenceId != null &&
+                              m.sequenceId == message.sequenceId),
+                    );
                     if (initial < 0) initial = 0;
                   }
-                  Get.to(() => ShowMessagePager(mailbox: mailboxController.mailBoxInbox, initialMessage: message));
+                  Get.to(
+                    () => ShowMessagePager(
+                      mailbox: mailboxController.mailBoxInbox,
+                      initialMessage: message,
+                    ),
+                  );
                 } catch (_) {
-                  Get.to(() => ShowMessage(
-                        message: controller.searchMessages[index],
-                        mailbox: mailboxController.mailBoxInbox,
-                      ));
+                  Get.to(
+                    () => ShowMessage(
+                      message: controller.searchMessages[index],
+                      mailbox: mailboxController.mailBoxInbox,
+                    ),
+                  );
                 }
               },
               message: controller.searchMessages[index],
@@ -104,26 +119,26 @@ class SearchView extends StatelessWidget {
             controller.onSearch();
           },
         ),
-        onLoading: const Center(
-          child: CircularProgressIndicator(),
-        ),
-        onError: (error) => error.toString().startsWith('serach:')
-            ? TAnimationLoaderWidget(
-                text: error.toString().split('serach:')[1],
-                animation: 'assets/lottie/search.json',
-                showAction: true,
-                actionText: 'search'.tr,
-                onActionPressed: () {
-                  controller.onSearch();
-                },
-              )
-            : TAnimationLoaderWidget(
-                text: error.toString(),
-                animation: 'assets/lottie/error.json',
-                showAction: false,
-                actionText: 'try_again'.tr,
-                onActionPressed: () {},
-              ),
+        onLoading: const Center(child: CircularProgressIndicator()),
+        onError:
+            (error) =>
+                error.toString().startsWith('serach:')
+                    ? TAnimationLoaderWidget(
+                      text: error.toString().split('serach:')[1],
+                      animation: 'assets/lottie/search.json',
+                      showAction: true,
+                      actionText: 'search'.tr,
+                      onActionPressed: () {
+                        controller.onSearch();
+                      },
+                    )
+                    : TAnimationLoaderWidget(
+                      text: error.toString(),
+                      animation: 'assets/lottie/error.json',
+                      showAction: false,
+                      actionText: 'try_again'.tr,
+                      onActionPressed: () {},
+                    ),
       ),
     );
   }

@@ -7,7 +7,10 @@ import 'package:wahda_bank/views/compose/widgets/redesigned_compose_view.dart';
 class ComposeModal extends StatefulWidget {
   const ComposeModal({super.key});
 
-  static Future<void> show(BuildContext context, {Map<String, dynamic>? arguments}) async {
+  static Future<void> show(
+    BuildContext context, {
+    Map<String, dynamic>? arguments,
+  }) async {
     final width = MediaQuery.of(context).size.width;
     final isWide = width >= 900;
     if (isWide) {
@@ -23,7 +26,11 @@ class ComposeModal extends StatefulWidget {
       );
     } else {
       // Mobile: use full-screen compose
-      await Get.toNamed('/compose-full', arguments: arguments, preventDuplicates: false);
+      await Get.toNamed(
+        '/compose-full',
+        arguments: arguments,
+        preventDuplicates: false,
+      );
     }
   }
 
@@ -31,7 +38,8 @@ class ComposeModal extends StatefulWidget {
   State<ComposeModal> createState() => _ComposeModalState();
 }
 
-class _ComposeModalState extends State<ComposeModal> with TickerProviderStateMixin {
+class _ComposeModalState extends State<ComposeModal>
+    with TickerProviderStateMixin {
   late ComposeController controller;
   bool minimized = false;
 
@@ -49,7 +57,8 @@ class _ComposeModalState extends State<ComposeModal> with TickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final maxHeight = MediaQuery.of(context).size.height * (minimized ? 0.12 : 0.85);
+    final maxHeight =
+        MediaQuery.of(context).size.height * (minimized ? 0.12 : 0.85);
     final maxWidth = MediaQuery.of(context).size.width * 0.65;
 
     return AnimatedContainer(
@@ -57,17 +66,12 @@ class _ComposeModalState extends State<ComposeModal> with TickerProviderStateMix
       curve: Curves.easeInOut,
       width: maxWidth.clamp(640.0, 980.0),
       height: maxHeight.clamp(120.0, 900.0),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-      ),
+      decoration: BoxDecoration(color: theme.colorScheme.surface),
       child: Column(
         children: [
           _buildHeader(theme),
           const Divider(height: 1),
-          if (!minimized)
-            Expanded(
-              child: RedesignedComposeView(),
-            ),
+          if (!minimized) Expanded(child: RedesignedComposeView()),
         ],
       ),
     );
@@ -102,7 +106,10 @@ class _ComposeModalState extends State<ComposeModal> with TickerProviderStateMix
           // Minimize toggle
           IconButton(
             tooltip: minimized ? 'Expand' : 'Minimize',
-            icon: Icon(minimized ? Icons.open_in_full_rounded : Icons.minimize_rounded, size: 18),
+            icon: Icon(
+              minimized ? Icons.open_in_full_rounded : Icons.minimize_rounded,
+              size: 18,
+            ),
             color: theme.colorScheme.onSurfaceVariant,
             onPressed: () => setState(() => minimized = !minimized),
           ),
@@ -110,37 +117,48 @@ class _ComposeModalState extends State<ComposeModal> with TickerProviderStateMix
           Expanded(
             child: Text(
               'compose_email'.tr,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 12),
           // Save draft
           TextButton.icon(
-            onPressed: controller.isBusy.value ? null : () => controller.saveAsDraft(),
+            onPressed:
+                controller.isBusy.value ? null : () => controller.saveAsDraft(),
             icon: const Icon(Icons.save_outlined, size: 18),
             label: Text('save_draft'.tr),
           ),
           const SizedBox(width: 8),
           // Send (primary)
-          Obx(() => FilledButton.icon(
-                onPressed: controller.isSending.value ? null : () async {
-                  // Basic validations happen inside controller
-                  await controller.sendEmail();
-                  // controller will close view on success; this dialog will pop due to Get.back()
-                },
-                icon: controller.isSending.value
-                    ? SizedBox(
+          Obx(
+            () => FilledButton.icon(
+              onPressed:
+                  controller.isSending.value
+                      ? null
+                      : () async {
+                        // Basic validations happen inside controller
+                        await controller.sendEmail();
+                        // controller will close view on success; this dialog will pop due to Get.back()
+                      },
+              icon:
+                  controller.isSending.value
+                      ? SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.onPrimary),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            theme.colorScheme.onPrimary,
+                          ),
                         ),
                       )
-                    : const Icon(Icons.send_rounded, size: 18),
-                label: Text('send'.tr),
-              )),
+                      : const Icon(Icons.send_rounded, size: 18),
+              label: Text('send'.tr),
+            ),
+          ),
         ],
       ),
     );
@@ -149,19 +167,25 @@ class _ComposeModalState extends State<ComposeModal> with TickerProviderStateMix
   Future<String?> _confirmClose() async {
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('unsaved_changes'.tr),
-        content: Text('unsaved_changes_message'.tr),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('cancel'.tr)),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'discard'),
-            child: Text('discard'.tr),
+      builder:
+          (context) => AlertDialog(
+            title: Text('unsaved_changes'.tr),
+            content: Text('unsaved_changes_message'.tr),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('cancel'.tr),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, 'discard'),
+                child: Text('discard'.tr),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, 'save'),
+                child: Text('save_draft'.tr),
+              ),
+            ],
           ),
-          FilledButton(onPressed: () => Navigator.pop(context, 'save'), child: Text('save_draft'.tr)),
-        ],
-      ),
     );
   }
 }
-

@@ -8,11 +8,7 @@ import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/compose/widgets/compose_modal.dart';
 
 class InbocAppBar extends StatefulWidget {
-  const InbocAppBar({
-    super.key,
-    required this.message,
-    required this.mailbox,
-  });
+  const InbocAppBar({super.key, required this.message, required this.mailbox});
 
   final MimeMessage message;
   final Mailbox mailbox;
@@ -21,7 +17,8 @@ class InbocAppBar extends StatefulWidget {
   State<InbocAppBar> createState() => _InbocAppBarState();
 }
 
-class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStateMixin {
+class _InbocAppBarState extends State<InbocAppBar>
+    with SingleTickerProviderStateMixin {
   bool isStarred = false;
   late AnimationController _starAnimationController;
   late Animation<double> _starAnimation;
@@ -71,29 +68,32 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
       ),
       actions: [
         AnimatedBuilder(
-            animation: _starAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _starAnimation.value,
-                child: IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: Icon(
-                    isStarred ? Icons.star_rounded : Icons.star_outline_rounded,
-                    color: isStarred ? AppTheme.starColor : AppTheme.textSecondaryColor,
-                  ),
-                  tooltip: isStarred ? 'Unstar' : 'Star',
-                  onPressed: _toggleStar,
+          animation: _starAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: _starAnimation.value,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: Icon(
+                  isStarred ? Icons.star_rounded : Icons.star_outline_rounded,
+                  color:
+                      isStarred
+                          ? AppTheme.starColor
+                          : AppTheme.textSecondaryColor,
                 ),
-              );
-            }
+                tooltip: isStarred ? 'Unstar' : 'Star',
+                onPressed: _toggleStar,
+              ),
+            );
+          },
         ),
         IconButton(
           icon: const Icon(Icons.reply_rounded),
           onPressed: () {
-            ComposeModal.show(context, arguments: {
-              'message': widget.message,
-              'type': 'reply',
-            });
+            ComposeModal.show(
+              context,
+              arguments: {'message': widget.message, 'type': 'reply'},
+            );
           },
           tooltip: 'Reply',
         ),
@@ -126,128 +126,152 @@ class _InbocAppBarState extends State<InbocAppBar> with SingleTickerProviderStat
         borderRadius: BorderRadius.circular(AppTheme.borderRadius),
       ),
       position: PopupMenuPosition.under,
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          child: const Row(
-            children: [
-              Icon(Icons.forward_rounded, color: AppTheme.primaryColor, size: 20),
-              SizedBox(width: 12),
-              Text('Forward'),
-            ],
-          ),
-          onTap: () {
-            Future.delayed(const Duration(milliseconds: 100), () {
-              ComposeModal.show(context, arguments: {
-                'message': widget.message,
-                'type': 'forward',
-              });
-            });
-          },
-        ),
-        PopupMenuItem(
-          child: const Row(
-            children: [
-              Icon(Icons.print_rounded, color: AppTheme.primaryColor, size: 20),
-              SizedBox(width: 12),
-              Text('Print'),
-            ],
-          ),
-          onTap: () {
-            // Print functionality would go here
-          },
-        ),
-        PopupMenuItem(
-          child: const Row(
-            children: [
-              Icon(Icons.move_to_inbox_rounded, color: AppTheme.primaryColor, size: 20),
-              SizedBox(width: 12),
-              Text('Move to'),
-            ],
-          ),
-          onTap: () {
-            Future.delayed(const Duration(milliseconds: 100), () {
-              _showMoveToDialog();
-            });
-          },
-        ),
-        PopupMenuItem(
-          child: const Row(
-            children: [
-              Icon(Icons.delete_outline_rounded, color: AppTheme.errorColor, size: 20),
-              SizedBox(width: 12),
-              Text('Delete', style: TextStyle(color: AppTheme.errorColor)),
-            ],
-          ),
-          onTap: () {
-            Future.delayed(const Duration(milliseconds: 100), () {
-              _showDeleteConfirmation();
-            });
-          },
-        ),
-      ],
+      itemBuilder:
+          (context) => [
+            PopupMenuItem(
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.forward_rounded,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12),
+                  Text('Forward'),
+                ],
+              ),
+              onTap: () {
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  ComposeModal.show(
+                    context,
+                    arguments: {'message': widget.message, 'type': 'forward'},
+                  );
+                });
+              },
+            ),
+            PopupMenuItem(
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.print_rounded,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12),
+                  Text('Print'),
+                ],
+              ),
+              onTap: () {
+                // Print functionality would go here
+              },
+            ),
+            PopupMenuItem(
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.move_to_inbox_rounded,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12),
+                  Text('Move to'),
+                ],
+              ),
+              onTap: () {
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  _showMoveToDialog();
+                });
+              },
+            ),
+            PopupMenuItem(
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppTheme.errorColor,
+                    size: 20,
+                  ),
+                  SizedBox(width: 12),
+                  Text('Delete', style: TextStyle(color: AppTheme.errorColor)),
+                ],
+              ),
+              onTap: () {
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  _showDeleteConfirmation();
+                });
+              },
+            ),
+          ],
     );
   }
 
   void _showMoveToDialog() {
     showCupertinoModalPopup(
       context: context,
-      builder: (context) => CupertinoActionSheet(
-        title: const Text('Move message', style: TextStyle(color: AppTheme.textPrimaryColor)),
-        message: const Text('Select a folder to move this message to', style: TextStyle(color: AppTheme.textSecondaryColor)),
-        actions: [
-          for (var box in controller.mailboxes
-              .whereNot((e) => e == widget.mailbox)
-              .toList())
-            CupertinoActionSheetAction(
+      builder:
+          (context) => CupertinoActionSheet(
+            title: const Text(
+              'Move message',
+              style: TextStyle(color: AppTheme.textPrimaryColor),
+            ),
+            message: const Text(
+              'Select a folder to move this message to',
+              style: TextStyle(color: AppTheme.textSecondaryColor),
+            ),
+            actions: [
+              for (var box
+                  in controller.mailboxes
+                      .whereNot((e) => e == widget.mailbox)
+                      .toList())
+                CupertinoActionSheetAction(
+                  onPressed: () {
+                    controller.moveMails([widget.message], widget.mailbox, box);
+                    Get.back();
+                    Get.back();
+                  },
+                  child: Text(
+                    box.name,
+                    style: const TextStyle(color: AppTheme.primaryColor),
+                  ),
+                ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
               onPressed: () {
-                controller.moveMails(
-                  [widget.message],
-                  widget.mailbox,
-                  box,
-                );
-                Get.back();
                 Get.back();
               },
-              child: Text(
-                box.name,
-                style: const TextStyle(color: AppTheme.primaryColor),
-              ),
+              child: const Text('Cancel'),
             ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () {
-            Get.back();
-          },
-          child: const Text('Cancel'),
-        ),
-      ),
+          ),
     );
   }
 
   void _showDeleteConfirmation() {
     showCupertinoModalPopup(
       context: context,
-      builder: (context) => CupertinoActionSheet(
-        title: const Text('Delete Message'),
-        message: const Text('Are you sure you want to delete this message?'),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
-              controller.deleteMails([widget.message], widget.mailbox);
-              Get.back(); // Close dialog
-              Get.back(); // Go back to inbox
-            },
-            isDestructiveAction: true,
-            child: const Text('Delete'),
+      builder:
+          (context) => CupertinoActionSheet(
+            title: const Text('Delete Message'),
+            message: const Text(
+              'Are you sure you want to delete this message?',
+            ),
+            actions: [
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  controller.deleteMails([widget.message], widget.mailbox);
+                  Get.back(); // Close dialog
+                  Get.back(); // Go back to inbox
+                },
+                isDestructiveAction: true,
+                child: const Text('Delete'),
+              ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
+              onPressed: () {
+                Get.back();
+              },
+              child: const Text('Cancel'),
+            ),
           ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () {
-            Get.back();
-          },
-          child: const Text('Cancel'),
-        ),
-      ),
     );
   }
 }

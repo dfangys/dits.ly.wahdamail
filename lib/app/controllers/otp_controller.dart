@@ -107,6 +107,7 @@ class OtpController extends GetxController {
       isRequestingOtp.value = false;
     }
   }
+
   Future<void> handleIosClipboardPaste() async {
     final data = await Clipboard.getData('text/plain');
     if (data?.text != null && data!.text!.length == 5) {
@@ -114,6 +115,7 @@ class OtpController extends GetxController {
       verifyPhoneOtp(otp: otpPin);
     }
   }
+
   Future listenForSms() async {
     bool? permissionsGranted = await telephony.requestSmsPermissions;
     if (permissionsGranted != null && permissionsGranted) {
@@ -151,14 +153,14 @@ class OtpController extends GetxController {
         );
       },
     )..startListenUserConsent(
-        (code) {
-          final exp = RegExp(r'(\d{5})');
-          return exp.stringMatch(code ?? '') ?? '';
-        },
-        strategies: [
-          // TimeoutStrategy(),
-        ],
-      );
+      (code) {
+        final exp = RegExp(r'(\d{5})');
+        return exp.stringMatch(code ?? '') ?? '';
+      },
+      strategies: [
+        // TimeoutStrategy(),
+      ],
+    );
   }
 
   Future<void> initInteractor() async {
@@ -169,7 +171,7 @@ class OtpController extends GetxController {
       print('Your app signature: $appSignature');
     }
   }
-  
+
   void startResendCountdown(int seconds) {
     // Cancel any existing timer
     _resendTimer?.cancel();

@@ -19,7 +19,7 @@ Widget appBar() {
           color: Colors.grey.shade100,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha : 0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 2,
               offset: const Offset(0, 1),
             ),
@@ -29,11 +29,7 @@ Widget appBar() {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
             children: [
-              Icon(
-                Icons.search,
-                color: Colors.grey.shade700,
-                size: 20,
-              ),
+              Icon(Icons.search, color: Colors.grey.shade700, size: 20),
               const SizedBox(width: 12),
               Text(
                 'search'.tr,
@@ -60,8 +56,6 @@ Widget appBar() {
         ),
       ),
     ),
-    actions: const [
-      HomeAppBarIcon(),
-    ],
+    actions: const [HomeAppBarIcon()],
   );
 }

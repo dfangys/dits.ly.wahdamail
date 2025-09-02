@@ -121,8 +121,8 @@ class PendingDraftAttachmentTile extends StatelessWidget {
   }
 
   String _extension(String name) {
-    final i = name.lastIndexOf('.')
-;    if (i <= 0 || i == name.length - 1) return '';
+    final i = name.lastIndexOf('.');
+    if (i <= 0 || i == name.length - 1) return '';
     return name.substring(i + 1);
   }
 
@@ -138,4 +138,3 @@ class PendingDraftAttachmentTile extends StatelessWidget {
     return '${s.toStringAsFixed(s < 10 ? 1 : 0)} ${units[idx]}';
   }
 }
-

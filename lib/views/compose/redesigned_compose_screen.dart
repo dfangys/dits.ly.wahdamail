@@ -23,7 +23,8 @@ class RedesignedComposeScreen extends StatefulWidget {
   });
 
   @override
-  State<RedesignedComposeScreen> createState() => _RedesignedComposeScreenState();
+  State<RedesignedComposeScreen> createState() =>
+      _RedesignedComposeScreenState();
 }
 
 class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
@@ -38,26 +39,25 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize controller (use existing if already registered to allow test injection)
     if (Get.isRegistered<ComposeController>()) {
       controller = Get.find<ComposeController>();
     } else {
       controller = Get.put(ComposeController());
     }
-    
+
     // Initialize animations
     _fabAnimationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _fabScaleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fabAnimationController,
-      curve: Curves.elasticOut,
-    ));
+    _fabScaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _fabAnimationController,
+        curve: Curves.elasticOut,
+      ),
+    );
 
     _slideAnimationController = AnimationController(
       duration: const Duration(milliseconds: 500),
@@ -66,10 +66,12 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideAnimationController,
-      curve: Curves.easeOutCubic,
-    ));
+    ).animate(
+      CurvedAnimation(
+        parent: _slideAnimationController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
 
     // Start animations
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -77,12 +79,12 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
       Future.delayed(const Duration(milliseconds: 200), () {
         _fabAnimationController.forward();
       });
-      
+
       // Load draft if provided
       if (widget.draft != null) {
         _loadDraft(widget.draft!);
       }
-      
+
       // Handle reply/forward
       if (widget.replyToMessageId != null) {
         _handleReply(widget.replyToMessageId!);
@@ -121,7 +123,9 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
     controller.cclist.addAll(draft.cc.map((value) => MailAddress.parse(value)));
 
     controller.bcclist.clear();
-    controller.bcclist.addAll(draft.bcc.map((value) => MailAddress.parse(value)));
+    controller.bcclist.addAll(
+      draft.bcc.map((value) => MailAddress.parse(value)),
+    );
 
     // Load attachments
     controller.attachments.clear();
@@ -144,10 +148,16 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
     // Record server draft context (UID + mailbox) for replace-on-save flow
     try {
       final mbc = Get.find<MailBoxController>();
-      final draftsMb = mbc.draftsMailbox ?? mbc.currentMailbox ?? mbc.mailService.client.selectedMailbox;
-      controller.setEditingDraftContext(uid: draft.serverUid, mailbox: draftsMb);
+      final draftsMb =
+          mbc.draftsMailbox ??
+          mbc.currentMailbox ??
+          mbc.mailService.client.selectedMailbox;
+      controller.setEditingDraftContext(
+        uid: draft.serverUid,
+        mailbox: draftsMb,
+      );
     } catch (_) {}
-    
+
     // Mark as loaded from draft
     controller.currentDraftId = draft.id;
     controller.hasUnsavedChanges = false;
@@ -177,19 +187,15 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
       child: Shortcuts(
         shortcuts: <LogicalKeySet, Intent>{
           // Cmd/Ctrl + Enter to send
-          LogicalKeySet(
-            LogicalKeyboardKey.meta, LogicalKeyboardKey.enter,
-          ): const ActivateIntent(),
-          LogicalKeySet(
-            LogicalKeyboardKey.control, LogicalKeyboardKey.enter,
-          ): const ActivateIntent(),
+          LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.enter):
+              const ActivateIntent(),
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.enter):
+              const ActivateIntent(),
           // Cmd/Ctrl + S to save draft
-          LogicalKeySet(
-            LogicalKeyboardKey.meta, LogicalKeyboardKey.keyS,
-          ): const ActivateIntent(),
-          LogicalKeySet(
-            LogicalKeyboardKey.control, LogicalKeyboardKey.keyS,
-          ): const ActivateIntent(),
+          LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyS):
+              const ActivateIntent(),
+          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS):
+              const ActivateIntent(),
         },
         child: Actions(
           actions: <Type, Action<Intent>>{
@@ -222,7 +228,8 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
                 ),
               ),
               floatingActionButton: _buildFloatingActionButton(theme),
-              floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+              floatingActionButtonLocation:
+                  FloatingActionButtonLocation.endFloat,
             ),
           ),
         ),
@@ -250,75 +257,84 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
       ),
       actions: [
         // Draft status indicator with color coding (like original)
-        Obx(() => controller.draftStatus.isNotEmpty
-            ? Container(
-                margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getDraftStatusColor().withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _getDraftStatusColor().withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (controller.draftStatus == 'saving_draft'.tr) ...[
-                      SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: _getDraftStatusColor(),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                    ] else ...[
-                      Icon(
-                        _getDraftStatusIcon(),
-                        size: 12,
-                        color: _getDraftStatusColor(),
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    Text(
-                      controller.draftStatus,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: _getDraftStatusColor(),
+        Obx(
+          () =>
+              controller.draftStatus.isNotEmpty
+                  ? Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getDraftStatusColor().withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _getDraftStatusColor().withValues(alpha: 0.3),
                       ),
                     ),
-                  ],
-                ),
-              )
-            : const SizedBox.shrink()),
-        
-        // Send button (with accessibility)
-        Obx(() => Semantics(
-          button: true,
-          label: 'send_email'.tr,
-          child: IconButton(
-            onPressed: controller.isSending.value ? null : _sendEmail,
-            icon: controller.isSending.value
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: theme.colorScheme.primary,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (controller.draftStatus == 'saving_draft'.tr) ...[
+                          SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: _getDraftStatusColor(),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ] else ...[
+                          Icon(
+                            _getDraftStatusIcon(),
+                            size: 12,
+                            color: _getDraftStatusColor(),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          controller.draftStatus,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _getDraftStatusColor(),
+                          ),
+                        ),
+                      ],
                     ),
                   )
-                : Icon(
-                    Icons.send_rounded,
-                    color: theme.colorScheme.primary,
-                    size: 22,
-                  ),
-            tooltip: 'send_email'.tr,
+                  : const SizedBox.shrink(),
+        ),
+
+        // Send button (with accessibility)
+        Obx(
+          () => Semantics(
+            button: true,
+            label: 'send_email'.tr,
+            child: IconButton(
+              onPressed: controller.isSending.value ? null : _sendEmail,
+              icon:
+                  controller.isSending.value
+                      ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: theme.colorScheme.primary,
+                        ),
+                      )
+                      : Icon(
+                        Icons.send_rounded,
+                        color: theme.colorScheme.primary,
+                        size: 22,
+                      ),
+              tooltip: 'send_email'.tr,
+            ),
           ),
-        )),
-        
+        ),
+
         // Attachment button
         IconButton(
           onPressed: _showAttachmentOptions,
@@ -329,7 +345,7 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
           ),
           tooltip: 'attach_file'.tr,
         ),
-        
+
         // More options button
         IconButton(
           onPressed: _showMoreOptions,
@@ -347,35 +363,38 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
   Widget _buildFloatingActionButton(ThemeData theme) {
     return ScaleTransition(
       scale: _fabScaleAnimation,
-      child: Obx(() => Semantics(
-        button: true,
-        label: controller.isSending.value ? 'sending'.tr : 'send_email'.tr,
-        child: FloatingActionButton.extended(
-          onPressed: controller.isSending.value ? null : _sendEmail,
-          backgroundColor: theme.colorScheme.primary,
-          foregroundColor: theme.colorScheme.onPrimary,
-          elevation: 8,
-          icon: controller.isSending.value
-              ? SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      theme.colorScheme.onPrimary,
-                    ),
-                  ),
-                )
-              : const Icon(Icons.send_rounded),
-          label: Text(
-            controller.isSending.value ? 'sending'.tr : 'send'.tr,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onPrimary,
+      child: Obx(
+        () => Semantics(
+          button: true,
+          label: controller.isSending.value ? 'sending'.tr : 'send_email'.tr,
+          child: FloatingActionButton.extended(
+            onPressed: controller.isSending.value ? null : _sendEmail,
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: theme.colorScheme.onPrimary,
+            elevation: 8,
+            icon:
+                controller.isSending.value
+                    ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          theme.colorScheme.onPrimary,
+                        ),
+                      ),
+                    )
+                    : const Icon(Icons.send_rounded),
+            label: Text(
+              controller.isSending.value ? 'sending'.tr : 'send'.tr,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onPrimary,
+              ),
             ),
           ),
         ),
-      )),
+      ),
     );
   }
 
@@ -396,41 +415,42 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
 
   Future<String?> _showUnsavedChangesDialog() async {
     final theme = Theme.of(context);
-    
+
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: Text(
-          'unsaved_changes'.tr,
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        content: Text(
-          'unsaved_changes_message'.tr,
-          style: theme.textTheme.bodyMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('cancel'.tr),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'discard'),
-            style: TextButton.styleFrom(
-              foregroundColor: theme.colorScheme.error,
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Text('discard'.tr),
+            title: Text(
+              'unsaved_changes'.tr,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            content: Text(
+              'unsaved_changes_message'.tr,
+              style: theme.textTheme.bodyMedium,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('cancel'.tr),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, 'discard'),
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                ),
+                child: Text('discard'.tr),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, 'save'),
+                child: Text('save_draft'.tr),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, 'save'),
-            child: Text('save_draft'.tr),
-          ),
-        ],
-      ),
     );
   }
 
@@ -476,9 +496,7 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
           content: Text('add_recipient_error'.tr),
           backgroundColor: Theme.of(context).colorScheme.error,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
       return;
@@ -514,7 +532,6 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
       }
     }
   }
-
 
   // void _showScheduleDialog() {
   //   // Implement schedule send functionality
@@ -584,75 +601,86 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
 
   void _showAttachmentOptions() {
     final theme = Theme.of(context);
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Handle bar
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 20),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
+      builder:
+          (context) => Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
               ),
             ),
-            
-            Text(
-              'attach_file'.tr,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Options
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 12, bottom: 20),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.4,
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                child: const Icon(Icons.folder_outlined, color: Colors.blue),
-              ),
-              title: Text('from_files'.tr),
-              onTap: () {
-                Get.back();
-                controller.pickFiles();
-              },
-            ),
-            
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+
+                Text(
+                  'attach_file'.tr,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                child: const Icon(Icons.photo_outlined, color: Colors.green),
-              ),
-              title: Text('from_gallery'.tr),
-              onTap: () {
-                Get.back();
-                controller.pickImage();
-              },
+
+                const SizedBox(height: 20),
+
+                // Options
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.folder_outlined,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  title: Text('from_files'.tr),
+                  onTap: () {
+                    Get.back();
+                    controller.pickFiles();
+                  },
+                ),
+
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.photo_outlined,
+                      color: Colors.green,
+                    ),
+                  ),
+                  title: Text('from_gallery'.tr),
+                  onTap: () {
+                    Get.back();
+                    controller.pickImage();
+                  },
+                ),
+
+                const SizedBox(height: 20),
+              ],
             ),
-            
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -665,4 +693,3 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
     );
   }
 }
-

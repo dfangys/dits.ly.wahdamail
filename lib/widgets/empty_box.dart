@@ -55,7 +55,10 @@ class TAnimationLoaderWidget extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         margin: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey.shade900.withValues(alpha : 0.7) : Colors.white.withValues(alpha : 0.9),
+          color:
+              isDarkMode
+                  ? Colors.grey.shade900.withValues(alpha: 0.7)
+                  : Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -105,7 +108,10 @@ class TAnimationLoaderWidget extends StatelessWidget {
                     displayDescription,
                     style: TextStyle(
                       fontSize: 14,
-                      color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                      color:
+                          isDarkMode
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade700,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -121,7 +127,10 @@ class TAnimationLoaderWidget extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -171,7 +180,10 @@ class EmptyBoxWidget extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         margin: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey.shade900.withValues(alpha : 0.7) : Colors.white.withValues(alpha : 0.9),
+          color:
+              isDarkMode
+                  ? Colors.grey.shade900.withValues(alpha: 0.7)
+                  : Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -219,13 +231,18 @@ class EmptyBoxWidget extends StatelessWidget {
                   description,
                   style: TextStyle(
                     fontSize: 14,
-                    color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                    color:
+                        isDarkMode
+                            ? Colors.grey.shade300
+                            : Colors.grey.shade700,
                   ),
                   textAlign: TextAlign.center,
                 ),
 
                 // Action button if needed
-                if (showActionButton && onAction != null && actionButtonText != null)
+                if (showActionButton &&
+                    onAction != null &&
+                    actionButtonText != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 24),
                     child: ElevatedButton(
@@ -233,7 +250,10 @@ class EmptyBoxWidget extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -276,7 +296,10 @@ class NoResultsWidget extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         margin: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey.shade900.withValues(alpha : 0.7) : Colors.white.withValues(alpha : 0.9),
+          color:
+              isDarkMode
+                  ? Colors.grey.shade900.withValues(alpha: 0.7)
+                  : Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -302,9 +325,10 @@ class NoResultsWidget extends StatelessWidget {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: isDarkMode
-                        ? theme.colorScheme.primary.withValues(alpha : 0.2)
-                        : theme.colorScheme.primary.withValues(alpha : 0.1),
+                    color:
+                        isDarkMode
+                            ? theme.colorScheme.primary.withValues(alpha: 0.2)
+                            : theme.colorScheme.primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -333,7 +357,10 @@ class NoResultsWidget extends StatelessWidget {
                   description,
                   style: TextStyle(
                     fontSize: 14,
-                    color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                    color:
+                        isDarkMode
+                            ? Colors.grey.shade300
+                            : Colors.grey.shade700,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -346,7 +373,10 @@ class NoResultsWidget extends StatelessWidget {
                       onPressed: onAction,
                       style: TextButton.styleFrom(
                         foregroundColor: theme.colorScheme.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                       ),
                       child: Text(actionText!),
                     ),
@@ -384,7 +414,10 @@ class ErrorDisplayWidget extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         margin: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey.shade900.withValues(alpha : 0.7) : Colors.white.withValues(alpha : 0.9),
+          color:
+              isDarkMode
+                  ? Colors.grey.shade900.withValues(alpha: 0.7)
+                  : Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -394,7 +427,10 @@ class ErrorDisplayWidget extends StatelessWidget {
             ),
           ],
           border: Border.all(
-            color: isDarkMode ? Colors.red.shade800.withValues(alpha : 0.3) : Colors.red.shade100,
+            color:
+                isDarkMode
+                    ? Colors.red.shade800.withValues(alpha: 0.3)
+                    : Colors.red.shade100,
             width: 1,
           ),
         ),
@@ -410,9 +446,10 @@ class ErrorDisplayWidget extends StatelessWidget {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: isDarkMode
-                        ? Colors.red.shade900.withValues(alpha : 0.2)
-                        : Colors.red.shade50,
+                    color:
+                        isDarkMode
+                            ? Colors.red.shade900.withValues(alpha: 0.2)
+                            : Colors.red.shade50,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -441,7 +478,10 @@ class ErrorDisplayWidget extends StatelessWidget {
                   description,
                   style: TextStyle(
                     fontSize: 14,
-                    color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                    color:
+                        isDarkMode
+                            ? Colors.grey.shade300
+                            : Colors.grey.shade700,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -457,7 +497,10 @@ class ErrorDisplayWidget extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade600,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),

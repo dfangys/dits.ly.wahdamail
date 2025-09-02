@@ -53,7 +53,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha : 0.3),
+                color: Colors.grey.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -69,7 +69,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.grey.withValues(alpha : 0.1),
+                      backgroundColor: Colors.grey.withValues(alpha: 0.1),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -114,29 +114,37 @@ class _SignatureSheetState extends State<SignatureSheet> {
               child: Row(
                 children: [
                   // Toggle code view
-                  Obx(() => IconButton(
-                    icon: Icon(
-                      controller.signatureCodeView()
-                          ? Icons.code_off
-                          : Icons.code,
-                      color: controller.signatureCodeView()
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurface.withValues(alpha : 0.7),
-                    ),
-                    tooltip: 'Toggle HTML Code View',
-                    onPressed: () {
-                      controller.signatureCodeView.toggle();
-                      htmlController.toggleCodeView();
-                    },
-                    style: IconButton.styleFrom(
-                      backgroundColor: controller.signatureCodeView()
-                          ? theme.colorScheme.primary.withValues(alpha : 0.1)
-                          : Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  Obx(
+                    () => IconButton(
+                      icon: Icon(
+                        controller.signatureCodeView()
+                            ? Icons.code_off
+                            : Icons.code,
+                        color:
+                            controller.signatureCodeView()
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
+                                ),
+                      ),
+                      tooltip: 'Toggle HTML Code View',
+                      onPressed: () {
+                        controller.signatureCodeView.toggle();
+                        htmlController.toggleCodeView();
+                      },
+                      style: IconButton.styleFrom(
+                        backgroundColor:
+                            controller.signatureCodeView()
+                                ? theme.colorScheme.primary.withValues(
+                                  alpha: 0.1,
+                                )
+                                : Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
-                  )),
+                  ),
 
                   // Clear signature
                   IconButton(
@@ -145,28 +153,31 @@ class _SignatureSheetState extends State<SignatureSheet> {
                     onPressed: () {
                       showDialog(
                         context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Clear Signature'),
-                          content: const Text('Are you sure you want to clear your signature?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
+                        builder:
+                            (context) => AlertDialog(
+                              title: const Text('Clear Signature'),
+                              content: const Text(
+                                'Are you sure you want to clear your signature?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    controller.signature("");
+                                    htmlController.setText("");
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text('Clear'),
+                                ),
+                              ],
                             ),
-                            TextButton(
-                              onPressed: () {
-                                controller.signature("");
-                                htmlController.setText("");
-                                Navigator.pop(context);
-                              },
-                              child: const Text('Clear'),
-                            ),
-                          ],
-                        ),
                       );
                     },
                     style: IconButton.styleFrom(
-                      backgroundColor: Colors.red.withValues(alpha : 0.1),
+                      backgroundColor: Colors.red.withValues(alpha: 0.1),
                       foregroundColor: Colors.red,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -187,7 +198,10 @@ class _SignatureSheetState extends State<SignatureSheet> {
                       backgroundColor: theme.colorScheme.primary,
                       foregroundColor: Colors.white,
                       textStyle: const TextStyle(fontWeight: FontWeight.w600),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -200,50 +214,46 @@ class _SignatureSheetState extends State<SignatureSheet> {
             // HTML Editor
             _isLoading
                 ? const Padding(
-              padding: EdgeInsets.all(20),
-              child: Center(child: CircularProgressIndicator()),
-            )
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: CircularProgressIndicator()),
+                )
                 : SizedBox(
-              height: 400,
-              child: HtmlEditor(
-                controller: htmlController,
-                htmlEditorOptions: HtmlEditorOptions(
-                  hint: "Your signature here...",
-                  initialText: controller.signature(),
-                  shouldEnsureVisible: true,
-                  autoAdjustHeight: false,
-                ),
-                htmlToolbarOptions: const HtmlToolbarOptions(
-                  defaultToolbarButtons: [
-                    StyleButtons(),
-                    // FontButtons(fontName: true, fontSize: true),
-                    FontSettingButtons(
-                      fontSizeUnit: false,
-                    ),
-                    ColorButtons(),
-                    ParagraphButtons(
-                      textDirection: true,
-                      lineHeight: false,
-                      caseConverter: false,
-                    ),
-                    ListButtons(),
-                    InsertButtons(
-                      link: true,
-                      picture: true,
-                      audio: false,
-                      video: false,
-                      table: false,
-                      hr: true,
-                    ),
-                  ],
-                  toolbarPosition: ToolbarPosition.aboveEditor,
-                  toolbarType: ToolbarType.nativeScrollable,
-                ),
-                otherOptions: const OtherOptions(
                   height: 400,
+                  child: HtmlEditor(
+                    controller: htmlController,
+                    htmlEditorOptions: HtmlEditorOptions(
+                      hint: "Your signature here...",
+                      initialText: controller.signature(),
+                      shouldEnsureVisible: true,
+                      autoAdjustHeight: false,
+                    ),
+                    htmlToolbarOptions: const HtmlToolbarOptions(
+                      defaultToolbarButtons: [
+                        StyleButtons(),
+                        // FontButtons(fontName: true, fontSize: true),
+                        FontSettingButtons(fontSizeUnit: false),
+                        ColorButtons(),
+                        ParagraphButtons(
+                          textDirection: true,
+                          lineHeight: false,
+                          caseConverter: false,
+                        ),
+                        ListButtons(),
+                        InsertButtons(
+                          link: true,
+                          picture: true,
+                          audio: false,
+                          video: false,
+                          table: false,
+                          hr: true,
+                        ),
+                      ],
+                      toolbarPosition: ToolbarPosition.aboveEditor,
+                      toolbarType: ToolbarType.nativeScrollable,
+                    ),
+                    otherOptions: const OtherOptions(height: 400),
+                  ),
                 ),
-              ),
-            ),
           ],
         ),
       ),
@@ -360,11 +370,11 @@ class _SignatureSheetState extends State<SignatureSheet> {
   }
 
   Widget _buildTemplateOption(
-      BuildContext context, {
-        required String title,
-        required String description,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required String title,
+    required String description,
+    required VoidCallback onTap,
+  }) {
     final theme = Theme.of(context);
 
     return InkWell(
@@ -378,13 +388,10 @@ class _SignatureSheetState extends State<SignatureSheet> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha : 0.1),
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                Icons.description,
-                color: theme.colorScheme.primary,
-              ),
+              child: Icon(Icons.description, color: theme.colorScheme.primary),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -403,7 +410,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
                     description,
                     style: TextStyle(
                       fontSize: 12,
-                      color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ],
@@ -412,7 +419,7 @@ class _SignatureSheetState extends State<SignatureSheet> {
             Icon(
               Icons.arrow_forward_ios,
               size: 16,
-              color: theme.colorScheme.onSurface.withValues(alpha : 0.3),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
             ),
           ],
         ),

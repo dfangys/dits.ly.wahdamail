@@ -26,7 +26,8 @@ class EnhancedEmailChipsField extends StatefulWidget {
   });
 
   @override
-  State<EnhancedEmailChipsField> createState() => _EnhancedEmailChipsFieldState();
+  State<EnhancedEmailChipsField> createState() =>
+      _EnhancedEmailChipsFieldState();
 }
 
 class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
@@ -37,7 +38,6 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
-
   @override
   void initState() {
     super.initState();
@@ -45,13 +45,9 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.02,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
 
     focusNode.addListener(() {
       if (focusNode.hasFocus) {
@@ -103,25 +99,26 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
                   if (widget.trailingWidget != null) widget.trailingWidget!,
                 ],
               ),
-              
+
               const SizedBox(height: 12),
-              
+
               // Email chips
               if (widget.emails.isNotEmpty) ...[
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: widget.emails.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final email = entry.value;
-                    return _buildEmailChip(email, index, theme, isDarkMode);
-                  }).toList(),
+                  children:
+                      widget.emails.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final email = entry.value;
+                        return _buildEmailChip(email, index, theme, isDarkMode);
+                      }).toList(),
                 ),
                 const SizedBox(height: 12),
               ],
-              
-      // TypeAhead input field
-      if (!widget.readOnly) _buildTypeAheadField(theme, isDarkMode),
+
+              // TypeAhead input field
+              if (!widget.readOnly) _buildTypeAheadField(theme, isDarkMode),
             ],
           ),
         );
@@ -129,11 +126,17 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
     );
   }
 
-  Widget _buildEmailChip(MailAddress email, int index, ThemeData theme, bool isDarkMode) {
+  Widget _buildEmailChip(
+    MailAddress email,
+    int index,
+    ThemeData theme,
+    bool isDarkMode,
+  ) {
     final personal = email.personalName ?? '';
-    final displayLetter = personal.isNotEmpty
-        ? personal[0].toUpperCase()
-        : email.email[0].toUpperCase();
+    final displayLetter =
+        personal.isNotEmpty
+            ? personal[0].toUpperCase()
+            : email.email[0].toUpperCase();
 
     return TweenAnimationBuilder<double>(
       duration: Duration(milliseconds: 300 + (index * 50)),
@@ -171,9 +174,9 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(width: 8),
-                  
+
                   // Email text
                   Flexible(
                     child: Text(
@@ -181,20 +184,22 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
                       style: theme.textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.w500,
                         color: theme.colorScheme.onSurface,
-             ),
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  
+
                   const SizedBox(width: 8),
-                  
+
                   // Delete button
                   GestureDetector(
                     onTap: () => widget.onDelete(index),
                     child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.2,
+                        ),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
@@ -226,11 +231,13 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
         final all = composeController.mailAddresses;
 
         // Filter by name or email
-        final matches = all.where((element) {
-          final email = element.email.toLowerCase();
-          final name = (element.personalName ?? '').toLowerCase();
-          return email.contains(searchPattern) || name.contains(searchPattern);
-        }).toList();
+        final matches =
+            all.where((element) {
+              final email = element.email.toLowerCase();
+              final name = (element.personalName ?? '').toLowerCase();
+              return email.contains(searchPattern) ||
+                  name.contains(searchPattern);
+            }).toList();
 
         // Sort by relevance: exact > startsWith > contains, then email ASC
         matches.sort((a, b) {
@@ -238,9 +245,11 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
             final e = x.email.toLowerCase();
             final n = (x.personalName ?? '').toLowerCase();
             if (e == searchPattern || n == searchPattern) return 0;
-            if (e.startsWith(searchPattern) || n.startsWith(searchPattern)) return 1;
+            if (e.startsWith(searchPattern) || n.startsWith(searchPattern))
+              return 1;
             return 2;
           }
+
           final ra = rank(a);
           final rb = rank(b);
           if (ra != rb) return ra.compareTo(rb);
@@ -251,9 +260,10 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
       },
       itemBuilder: (context, suggestion) {
         final personal = suggestion.personalName ?? '';
-        final avatarText = personal.isNotEmpty
-            ? personal[0].toUpperCase()
-            : suggestion.email[0].toUpperCase();
+        final avatarText =
+            personal.isNotEmpty
+                ? personal[0].toUpperCase()
+                : suggestion.email[0].toUpperCase();
 
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -285,9 +295,9 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
                   ),
                 ),
               ),
-              
+
               const SizedBox(width: 12),
-              
+
               // Contact info
               Expanded(
                 child: Column(
@@ -313,7 +323,7 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
                   ],
                 ),
               ),
-              
+
               // Add icon
               Icon(
                 Icons.add_circle_outline,
@@ -332,12 +342,15 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
       builder: (context, controller, focusNode) {
         return Container(
           decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.3,
+            ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: focusNode.hasFocus
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.outline.withValues(alpha: 0.3),
+              color:
+                  focusNode.hasFocus
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline.withValues(alpha: 0.3),
               width: focusNode.hasFocus ? 2 : 1,
             ),
           ),
@@ -368,7 +381,7 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
             textInputAction: TextInputAction.done,
             onChanged: (value) {
               // Auto-insert on space or comma (like original implementation)
-              if ((value.trim().endsWith(' ') || value.trim().endsWith(',')) && 
+              if ((value.trim().endsWith(' ') || value.trim().endsWith(',')) &&
                   value.trim().length > 1) {
                 final email = value.trim().replaceAll(RegExp(r'[, ]+$'), '');
                 if (email.isNotEmpty && email.contains('@')) {
@@ -402,4 +415,3 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
     );
   }
 }
-

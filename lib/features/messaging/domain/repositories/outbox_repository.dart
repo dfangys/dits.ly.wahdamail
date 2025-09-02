@@ -1,18 +1,12 @@
-import '../value_objects/email_address.dart';
+import '../entities/outbox_item.dart';
 
-/// Domain repository interface for outbox/queue semantics.
+/// Outbox repository interface.
 abstract class OutboxRepository {
-  /// Enqueue a message for sending; returns a queue id or message id.
-  Future<String> enqueue({
-    required EmailAddress from,
-    required List<EmailAddress> to,
-    List<EmailAddress> cc = const [],
-    List<EmailAddress> bcc = const [],
-    required String subject,
-    String? htmlBody,
-    String? textBody,
-  });
-
-  Future<void> markAsSent(String queueId);
+  Future<OutboxItem> enqueue(OutboxItem item);
+  Future<OutboxItem?> nextForSend(DateTime now);
+  Future<void> markSending(String id);
+  Future<void> markSent(String id);
+  Future<void> markFailed({required String id, required String errorClass, required DateTime retryAt});
+  Future<List<OutboxItem>> listByStatus(OutboxStatus status);
 }
 

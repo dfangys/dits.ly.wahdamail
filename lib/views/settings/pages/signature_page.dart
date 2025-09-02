@@ -25,7 +25,10 @@ class SignaturePage extends GetView<SettingController> {
         ),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: isDarkMode ? Colors.black.withValues(alpha : 0.7) : Colors.white.withValues(alpha : 0.9),
+        backgroundColor:
+            isDarkMode
+                ? Colors.black.withValues(alpha: 0.7)
+                : Colors.white.withValues(alpha: 0.9),
         foregroundColor: theme.colorScheme.primary,
         flexibleSpace: ClipRect(
           child: BackdropFilter(
@@ -71,7 +74,12 @@ class SignaturePage extends GetView<SettingController> {
 
             // Signature content section
             Padding(
-              padding: const EdgeInsets.only(left: 16, top: 16, bottom: 8, right: 16),
+              padding: const EdgeInsets.only(
+                left: 16,
+                top: 16,
+                bottom: 8,
+                right: 16,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -90,11 +98,11 @@ class SignaturePage extends GetView<SettingController> {
   }
 
   Widget _buildInfoCard(
-      BuildContext context, {
-        required IconData icon,
-        required String text,
-        required bool isDarkMode,
-      }) {
+    BuildContext context, {
+    required IconData icon,
+    required String text,
+    required bool isDarkMode,
+  }) {
     final theme = Theme.of(context);
 
     return Container(
@@ -104,22 +112,30 @@ class SignaturePage extends GetView<SettingController> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: isDarkMode
-              ? [Colors.indigo.shade800.withValues(alpha : 0.8), Colors.purple.shade900.withValues(alpha : 0.8)]
-              : [
-                theme.colorScheme.primary.withValues(alpha : 0.8),
-                theme.colorScheme.primary.withValues(
-                  blue: (theme.colorScheme.primary.b + (40 / 255.0)).clamp(0.0, 1.0),
-                  alpha: 0.8,
-                )
-              ],
+          colors:
+              isDarkMode
+                  ? [
+                    Colors.indigo.shade800.withValues(alpha: 0.8),
+                    Colors.purple.shade900.withValues(alpha: 0.8),
+                  ]
+                  : [
+                    theme.colorScheme.primary.withValues(alpha: 0.8),
+                    theme.colorScheme.primary.withValues(
+                      blue: (theme.colorScheme.primary.b + (40 / 255.0)).clamp(
+                        0.0,
+                        1.0,
+                      ),
+                      alpha: 0.8,
+                    ),
+                  ],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: isDarkMode
-                ? Colors.black.withValues(alpha : 0.2)
-                : theme.colorScheme.primary.withValues(alpha : 0.2),
+            color:
+                isDarkMode
+                    ? Colors.black.withValues(alpha: 0.2)
+                    : theme.colorScheme.primary.withValues(alpha: 0.2),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -130,14 +146,10 @@ class SignaturePage extends GetView<SettingController> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha : 0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 28,
-            ),
+            child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -156,11 +168,11 @@ class SignaturePage extends GetView<SettingController> {
   }
 
   Widget _buildSectionHeader(
-      BuildContext context, {
-        required String title,
-        required IconData icon,
-        required bool isDarkMode,
-      }) {
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required bool isDarkMode,
+  }) {
     final theme = Theme.of(context);
 
     return Padding(
@@ -170,14 +182,10 @@ class SignaturePage extends GetView<SettingController> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha : 0.1),
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(
-              icon,
-              size: 18,
-              color: theme.colorScheme.primary,
-            ),
+            child: Icon(icon, size: 18, color: theme.colorScheme.primary),
           ),
           const SizedBox(width: 12),
           Text(
@@ -193,7 +201,11 @@ class SignaturePage extends GetView<SettingController> {
     );
   }
 
-  Widget _buildSectionTitle(BuildContext context, String title, bool isDarkMode) {
+  Widget _buildSectionTitle(
+    BuildContext context,
+    String title,
+    bool isDarkMode,
+  ) {
     final theme = Theme.of(context);
 
     return Text(
@@ -207,16 +219,16 @@ class SignaturePage extends GetView<SettingController> {
   }
 
   Widget _buildOptionsCard(BuildContext context, bool isDarkMode) {
-
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isDarkMode
-              ? Colors.grey.shade800.withValues(alpha : 0.5)
-              : Colors.grey.shade200,
+          color:
+              isDarkMode
+                  ? Colors.grey.shade800.withValues(alpha: 0.5)
+                  : Colors.grey.shade200,
           width: 1,
         ),
       ),
@@ -273,9 +285,10 @@ class SignaturePage extends GetView<SettingController> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isDarkMode
-              ? Colors.grey.shade800.withValues(alpha : 0.5)
-              : Colors.grey.shade200,
+          color:
+              isDarkMode
+                  ? Colors.grey.shade800.withValues(alpha: 0.5)
+                  : Colors.grey.shade200,
           width: 1,
         ),
       ),
@@ -304,10 +317,14 @@ class SignaturePage extends GetView<SettingController> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha : 0.1),
+                  color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.person_rounded, color: Colors.orange, size: 22),
+                child: const Icon(
+                  Icons.person_rounded,
+                  color: Colors.orange,
+                  size: 22,
+                ),
               ),
 
               const SizedBox(width: 16),
@@ -324,13 +341,17 @@ class SignaturePage extends GetView<SettingController> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Obx(() => Text(
-                      controller.accountName(),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
+                    Obx(
+                      () => Text(
+                        controller.accountName(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
+                        ),
                       ),
-                    )),
+                    ),
                   ],
                 ),
               ),
@@ -338,7 +359,7 @@ class SignaturePage extends GetView<SettingController> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha : 0.1),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -365,9 +386,7 @@ class SignaturePage extends GetView<SettingController> {
         foregroundColor: Colors.white,
         textStyle: const TextStyle(fontWeight: FontWeight.w600),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         elevation: 0,
       ),
       onPressed: () {
@@ -399,59 +418,65 @@ class SignaturePage extends GetView<SettingController> {
         color: isDarkMode ? Colors.grey.shade800 : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDarkMode
-              ? Colors.grey.shade700
-              : Colors.grey.shade300,
+          color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha : 0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
         ],
       ),
-      child: Obx(() => controller.signature().isEmpty
-          ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.edit_note,
-              size: 48,
-              color: theme.colorScheme.onSurface.withValues(alpha : 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No signature set',
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha : 0.5),
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap the edit button to create your signature',
-              style: TextStyle(
-                color: theme.colorScheme.onSurface.withValues(alpha : 0.4),
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      )
-          : SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: HtmlWidget(
-          controller.signature(),
-          textStyle: TextStyle(
-            fontSize: 14,
-            color: isDarkMode ? Colors.white : Colors.black87,
-          ),
-        ),
-      ),
+      child: Obx(
+        () =>
+            controller.signature().isEmpty
+                ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.edit_note,
+                        size: 48,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No signature set',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.5,
+                          ),
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tap the edit button to create your signature',
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.4,
+                          ),
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                )
+                : SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: HtmlWidget(
+                    controller.signature(),
+                    textStyle: TextStyle(
+                      fontSize: 14,
+                      color: isDarkMode ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ),
       ),
     );
   }
@@ -467,58 +492,66 @@ class SignaturePage extends GetView<SettingController> {
   }) {
     final theme = Theme.of(context);
 
-    return Obx(() => InkWell(
-      onTap: () => value.toggle(),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha : 0.1),
-                borderRadius: BorderRadius.circular(12),
+    return Obx(
+      () => InkWell(
+        onTap: () => value.toggle(),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
               ),
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
 
-            const SizedBox(width: 16),
+              const SizedBox(width: 16),
 
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: isDarkMode ? Colors.white : Colors.black87,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: isDarkMode ? Colors.white : Colors.black87,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            Switch.adaptive(
-              value: value(),
-              activeTrackColor: theme.colorScheme.primary.withValues(alpha : 0.3),
-              inactiveThumbColor: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade50,
-              inactiveTrackColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
-              onChanged: (val) => value.toggle(),
-            ),
-          ],
+              Switch.adaptive(
+                value: value(),
+                activeTrackColor: theme.colorScheme.primary.withValues(
+                  alpha: 0.3,
+                ),
+                inactiveThumbColor:
+                    isDarkMode ? Colors.grey.shade400 : Colors.grey.shade50,
+                inactiveTrackColor:
+                    isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
+                onChanged: (val) => value.toggle(),
+              ),
+            ],
+          ),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildDivider(BuildContext context) {
@@ -527,7 +560,7 @@ class SignaturePage extends GetView<SettingController> {
     return Divider(
       height: 1,
       indent: 70,
-      color: theme.dividerColor.withValues(alpha : 0.1),
+      color: theme.dividerColor.withValues(alpha: 0.1),
     );
   }
 }

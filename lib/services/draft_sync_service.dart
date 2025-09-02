@@ -8,7 +8,8 @@ class DraftSyncService {
   static final DraftSyncService instance = DraftSyncService._();
 
   // Map of message key -> state
-  final RxMap<String, DraftSyncBadgeState> _states = <String, DraftSyncBadgeState>{}.obs;
+  final RxMap<String, DraftSyncBadgeState> _states =
+      <String, DraftSyncBadgeState>{}.obs;
 
   String keyFor(Mailbox mailbox, MimeMessage message) {
     final id = message.uid ?? message.sequenceId ?? 0;
@@ -19,7 +20,11 @@ class DraftSyncService {
     return _states[keyFor(mailbox, message)] ?? DraftSyncBadgeState.idle;
   }
 
-  void setStateFor(Mailbox mailbox, MimeMessage message, DraftSyncBadgeState state) {
+  void setStateFor(
+    Mailbox mailbox,
+    MimeMessage message,
+    DraftSyncBadgeState state,
+  ) {
     _states[keyFor(mailbox, message)] = state;
     _states.refresh();
   }
@@ -41,4 +46,3 @@ class DraftSyncService {
 
   RxMap<String, DraftSyncBadgeState> get states => _states;
 }
-

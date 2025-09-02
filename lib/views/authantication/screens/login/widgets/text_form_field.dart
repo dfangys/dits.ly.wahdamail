@@ -9,7 +9,10 @@ import 'package:wahda_bank/utills/constants/text_strings.dart';
 class _UsernameOnlyFormatter extends TextInputFormatter {
   final RegExp _allowed = RegExp(r'[^a-zA-Z0-9\.]');
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     String text = newValue.text;
     // Keep only the substring before '@'
     final atIdx = text.indexOf('@');
@@ -55,9 +58,7 @@ class WTextFormField extends StatelessWidget {
         validator: validator,
         autofocus: true,
         obscureText: obscureText,
-        inputFormatters: [
-          if (domainFix) _UsernameOnlyFormatter(),
-        ],
+        inputFormatters: [if (domainFix) _UsernameOnlyFormatter()],
         decoration: InputDecoration(
           fillColor: Colors.white,
           filled: true,
@@ -65,7 +66,7 @@ class WTextFormField extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 12),
             height: 2,
             width: 2,
-            child: image != ''?Image.asset(image):icon,
+            child: image != '' ? Image.asset(image) : icon,
           ),
           suffixText: domainFix ? WText.emailSuffix : '',
           contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -84,10 +85,7 @@ class WTextFormField extends StatelessWidget {
             ),
           ),
         ),
-        style: const TextStyle(
-          fontSize: 16,
-          color: WColors.fieldBlackFont,
-        ),
+        style: const TextStyle(fontSize: 16, color: WColors.fieldBlackFont),
       ),
     );
   }

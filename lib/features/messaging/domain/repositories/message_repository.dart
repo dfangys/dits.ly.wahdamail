@@ -1,5 +1,8 @@
 import '../entities/message.dart';
 import '../entities/folder.dart';
+import '../entities/attachment.dart';
+import '../entities/search_result.dart';
+import '../value_objects/search_query.dart';
 
 /// Domain repository interface for message operations.
 /// No SDK/infra types should appear here.
@@ -12,9 +15,23 @@ abstract class MessageRepository {
   });
 
   /// Fetch the message body (plain/html) for a given message id in a folder.
+  /// Returns the updated domain Message with body populated and/or a BodyContent value if needed.
   Future<Message> fetchMessageBody({
     required Folder folder,
     required String messageId,
+  });
+
+  /// List attachments for a message.
+  Future<List<Attachment>> listAttachments({
+    required Folder folder,
+    required String messageId,
+  });
+
+  /// Download attachment content. Idempotent: returns cached bytes if already downloaded.
+  Future<List<int>> downloadAttachment({
+    required Folder folder,
+    required String messageId,
+    required String partId,
   });
 
   /// Mark a message read/unread.
@@ -22,6 +39,12 @@ abstract class MessageRepository {
     required Folder folder,
     required String messageId,
     required bool read,
+  });
+
+  /// Search messages (local-first, optional remote merge)
+  Future<List<SearchResult>> search({
+    required String accountId,
+    required SearchQuery q,
   });
 }
 

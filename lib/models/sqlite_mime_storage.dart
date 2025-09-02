@@ -8,23 +8,21 @@ import '../utils/perf/perf_tracer.dart';
 import 'sqlite_database_helper.dart';
 
 /// SQLite implementation for email storage
-/// 
+///
 /// Replaces the HiveMailboxMimeStorage class with SQLite-based storage
 class SQLiteMailboxMimeStorage {
   final MailAccount mailAccount;
   final Mailbox mailbox;
-  
+
   // Stream controller for notifying listeners of changes
   final _dataStreamController = StreamController<List<MimeMessage>>.broadcast();
   Stream<List<MimeMessage>> get dataStream => _dataStreamController.stream;
 
   // Value notifier for UI updates
-  final ValueNotifier<List<MimeMessage>> dataNotifier = ValueNotifier<List<MimeMessage>>([]);
+  final ValueNotifier<List<MimeMessage>> dataNotifier =
+      ValueNotifier<List<MimeMessage>>([]);
 
-  SQLiteMailboxMimeStorage({
-    required this.mailAccount,
-    required this.mailbox,
-  });
+  SQLiteMailboxMimeStorage({required this.mailAccount, required this.mailbox});
 
   /// Initialize the storage
   Future<void> init() async {
@@ -47,11 +45,13 @@ class SQLiteMailboxMimeStorage {
       // Best-effort; failures are logged in debug mode.
       // ignore: unawaited_futures
       Future(() => backfillDerivedFields(maxRows: 800));
-      
+
       // If migration occurred and we have no messages, we need to trigger a refresh
       if (migrationOccurred && messages.isEmpty) {
         if (kDebugMode) {
-          print('📧 Migration completed but no messages found - refresh needed');
+          print(
+            '📧 Migration completed but no messages found - refresh needed',
+          );
         }
       }
     } catch (e) {
@@ -66,50 +66,60 @@ class SQLiteMailboxMimeStorage {
   Future<bool> _migrateAddressFormatIfNeeded() async {
     try {
       final db = await SQLiteDatabaseHelper.instance.database;
-      
+
       if (kDebugMode) {
-        print('📧 Starting address format migration check for mailbox: ${mailbox.name}');
+        print(
+          '📧 Starting address format migration check for mailbox: ${mailbox.name}',
+        );
       }
-      
+
       // Check if we have any messages with old address format
       final result = await db.query(
         SQLiteDatabaseHelper.tableEmails,
         columns: [SQLiteDatabaseHelper.columnEnvelope],
         limit: 1,
       );
-      
+
       if (kDebugMode) {
-        print('📧 Found ${result.length} messages in database for migration check');
+        print(
+          '📧 Found ${result.length} messages in database for migration check',
+        );
       }
-      
+
       if (result.isNotEmpty) {
         final envelopeJson = result.first[SQLiteDatabaseHelper.columnEnvelope];
-        if (envelopeJson != null && envelopeJson is String && envelopeJson.isNotEmpty) {
+        if (envelopeJson != null &&
+            envelopeJson is String &&
+            envelopeJson.isNotEmpty) {
           try {
-final envelopeMap = jsonDecode(envelopeJson);
-            
+            final envelopeMap = jsonDecode(envelopeJson);
+
             if (kDebugMode) {
               print('📧 Checking envelope format: ${envelopeMap.toString()}');
             }
-            
+
             // Check if addresses are in old string format
             if (envelopeMap['from'] != null && envelopeMap['from'] is List) {
               final fromList = envelopeMap['from'] as List;
               if (fromList.isNotEmpty && fromList.first is String) {
                 // Old format detected - clear all messages to force re-fetch
                 if (kDebugMode) {
-                  print('📧 Old address format detected - clearing database for migration');
+                  print(
+                    '📧 Old address format detected - clearing database for migration',
+                  );
                 }
-                
+
                 final mailboxId = await _getMailboxId();
                 await db.delete(
                   SQLiteDatabaseHelper.tableEmails,
                   where: '${SQLiteDatabaseHelper.columnMailboxId} = ?',
                   whereArgs: [mailboxId],
                 );
-                
+
                 if (kDebugMode) {
-                  print('📧 Database cleared - messages will be re-fetched with new address format');
+                  print(
+                    '📧 Database cleared - messages will be re-fetched with new address format',
+                  );
                 }
                 return true; // Migration occurred
               } else {
@@ -120,7 +130,9 @@ final envelopeMap = jsonDecode(envelopeJson);
               }
             } else {
               if (kDebugMode) {
-                print('📧 No from addresses found in envelope - clearing database to be safe');
+                print(
+                  '📧 No from addresses found in envelope - clearing database to be safe',
+                );
               }
               // Clear database if envelope structure is unexpected
               final mailboxId = await _getMailboxId();
@@ -182,7 +194,8 @@ final envelopeMap = jsonDecode(envelopeJson);
         final List<Map<String, dynamic>> result = await txn.query(
           SQLiteDatabaseHelper.tableMailboxes,
           columns: [SQLiteDatabaseHelper.columnId],
-          where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+          where:
+              '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
           whereArgs: [mailbox.encodedPath, mailAccount.email],
         );
 
@@ -197,18 +210,22 @@ final envelopeMap = jsonDecode(envelopeJson);
             SQLiteDatabaseHelper.columnName: mailbox.name,
             SQLiteDatabaseHelper.columnAccountEmail: mailAccount.email,
             SQLiteDatabaseHelper.columnPath: mailbox.encodedPath,
-            SQLiteDatabaseHelper.columnFlags: mailbox.flags.map((f) => f.name).join(','),
-SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
-              SQLiteDatabaseHelper.columnUidValidity: mailbox.uidValidity,
-              SQLiteDatabaseHelper.columnMessagesExists: mailbox.messagesExists,
-              SQLiteDatabaseHelper.columnMessagesUnseen: mailbox.messagesUnseen,
-              SQLiteDatabaseHelper.columnMessagesRecent: mailbox.messagesRecent,
+            SQLiteDatabaseHelper.columnFlags: mailbox.flags
+                .map((f) => f.name)
+                .join(','),
+            SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
+            SQLiteDatabaseHelper.columnUidValidity: mailbox.uidValidity,
+            SQLiteDatabaseHelper.columnMessagesExists: mailbox.messagesExists,
+            SQLiteDatabaseHelper.columnMessagesUnseen: mailbox.messagesUnseen,
+            SQLiteDatabaseHelper.columnMessagesRecent: mailbox.messagesRecent,
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
 
         if (kDebugMode) {
-          print('📧 Created mailbox in database: ${mailbox.name} with ID: $mailboxId');
+          print(
+            '📧 Created mailbox in database: ${mailbox.name} with ID: $mailboxId',
+          );
         }
 
         return mailboxId;
@@ -230,7 +247,8 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
       final List<Map<String, dynamic>> result = await txn.query(
         SQLiteDatabaseHelper.tableMailboxes,
         columns: [SQLiteDatabaseHelper.columnId],
-        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        where:
+            '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
         whereArgs: [mailbox.encodedPath, mailAccount.email],
       );
 
@@ -246,10 +264,13 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
   Future<void> saveMessageEnvelopes(List<MimeMessage> messages) async {
     if (messages.isEmpty) return;
 
-    final endTrace = PerfTracer.begin('storage.saveMessageEnvelopes', args: {'count': messages.length});
+    final endTrace = PerfTracer.begin(
+      'storage.saveMessageEnvelopes',
+      args: {'count': messages.length},
+    );
     try {
       final db = await SQLiteDatabaseHelper.instance.database;
-      
+
       // Get mailbox ID outside of the main transaction to reduce lock time
       int? cachedMailboxId;
       try {
@@ -264,29 +285,40 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
       // Use a single optimized transaction for all messages
       await db.transaction((txn) async {
         final batch = txn.batch();
-        
+
         for (final message in messages) {
           try {
             // Derive lightweight preview and attachment flag (best-effort)
             final String previewText = _derivePreviewText(message);
             final bool hasAttachments = _deriveHasAttachments(message);
 
-            final int dateMillis = message.decodeDate()?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch;
+            final int dateMillis =
+                message.decodeDate()?.millisecondsSinceEpoch ??
+                DateTime.now().millisecondsSinceEpoch;
             final String senderName = _deriveSenderName(message);
-            final String normalizedSubject = _normalizeSubject(message.decodeSubject() ?? '');
+            final String normalizedSubject = _normalizeSubject(
+              message.decodeSubject() ?? '',
+            );
             final int dayBucket = dateMillis ~/ 86400000; // UTC day bucket
 
             final Map<String, dynamic> messageMap = {
               SQLiteDatabaseHelper.columnMailboxId: cachedMailboxId,
               SQLiteDatabaseHelper.columnUid: message.uid,
               SQLiteDatabaseHelper.columnSequenceId: message.sequenceId,
-              SQLiteDatabaseHelper.columnEmailFlags: message.flags?.map((f) => f.toString()).join(',') ?? '',
-              SQLiteDatabaseHelper.columnEnvelope: jsonEncode(_envelopeToMap(message.envelope)),
+              SQLiteDatabaseHelper.columnEmailFlags:
+                  message.flags?.map((f) => f.toString()).join(',') ?? '',
+              SQLiteDatabaseHelper.columnEnvelope: jsonEncode(
+                _envelopeToMap(message.envelope),
+              ),
               SQLiteDatabaseHelper.columnSize: message.size ?? 0,
               SQLiteDatabaseHelper.columnDate: dateMillis,
               SQLiteDatabaseHelper.columnSubject: message.decodeSubject() ?? '',
-              SQLiteDatabaseHelper.columnFrom: message.from?.isNotEmpty == true ? message.from!.first.email : '',
-              SQLiteDatabaseHelper.columnTo: message.to?.map((addr) => addr.email).join(',') ?? '',
+              SQLiteDatabaseHelper.columnFrom:
+                  message.from?.isNotEmpty == true
+                      ? message.from!.first.email
+                      : '',
+              SQLiteDatabaseHelper.columnTo:
+                  message.to?.map((addr) => addr.email).join(',') ?? '',
               SQLiteDatabaseHelper.columnIsSeen: message.isSeen ? 1 : 0,
               SQLiteDatabaseHelper.columnIsFlagged: message.isFlagged ? 1 : 0,
               SQLiteDatabaseHelper.columnIsDeleted: message.isDeleted ? 1 : 0,
@@ -311,51 +343,74 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
             // Continue with other messages even if one fails
           }
         }
-        
+
         // Execute all operations in a single batch
         await batch.commit(noResult: true);
-        
+
         if (kDebugMode) {
-          print('📧 Successfully saved ${messages.length} messages to database');
+          print(
+            '📧 Successfully saved ${messages.length} messages to database',
+          );
         }
       });
 
       // Notify listeners after successful save
       _notifyDataChanged();
-      
     } catch (e) {
       if (kDebugMode) {
         print('📧 Database transaction error in saveMessageEnvelopes: $e');
       }
       // Don't rethrow - just log the error to prevent crashes
     } finally {
-      try { endTrace(); } catch (_) {}
+      try {
+        endTrace();
+      } catch (_) {}
     }
   }
 
   /// Helper method to convert envelope to map
   Map<String, dynamic> _envelopeToMap(Envelope? envelope) {
     if (envelope == null) return {};
-    
+
     return {
       'date': envelope.date?.millisecondsSinceEpoch,
       'subject': envelope.subject,
-      'from': envelope.from?.map((addr) => {
-        'email': addr.email,
-        'personalName': addr.personalName,
-      }).toList(),
-      'to': envelope.to?.map((addr) => {
-        'email': addr.email,
-        'personalName': addr.personalName,
-      }).toList(),
-      'cc': envelope.cc?.map((addr) => {
-        'email': addr.email,
-        'personalName': addr.personalName,
-      }).toList(),
-      'bcc': envelope.bcc?.map((addr) => {
-        'email': addr.email,
-        'personalName': addr.personalName,
-      }).toList(),
+      'from':
+          envelope.from
+              ?.map(
+                (addr) => {
+                  'email': addr.email,
+                  'personalName': addr.personalName,
+                },
+              )
+              .toList(),
+      'to':
+          envelope.to
+              ?.map(
+                (addr) => {
+                  'email': addr.email,
+                  'personalName': addr.personalName,
+                },
+              )
+              .toList(),
+      'cc':
+          envelope.cc
+              ?.map(
+                (addr) => {
+                  'email': addr.email,
+                  'personalName': addr.personalName,
+                },
+              )
+              .toList(),
+      'bcc':
+          envelope.bcc
+              ?.map(
+                (addr) => {
+                  'email': addr.email,
+                  'personalName': addr.personalName,
+                },
+              )
+              .toList(),
       'messageId': envelope.messageId,
       'inReplyTo': envelope.inReplyTo,
     };
@@ -393,7 +448,8 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
             requested++;
             await txn.delete(
               SQLiteDatabaseHelper.tableEmails,
-              where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
+              where:
+                  '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
               whereArgs: [mailboxId, uid],
             );
           }
@@ -403,7 +459,8 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
             requested++;
             await txn.delete(
               SQLiteDatabaseHelper.tableEmails,
-              where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnSequenceId} = ?',
+              where:
+                  '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnSequenceId} = ?',
               whereArgs: [mailboxId, seqId],
             );
           }
@@ -412,7 +469,9 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
 
       if (kDebugMode) {
         final mode = sequence.isUidSequence ? 'UID' : 'SEQ';
-        print('📧 DB deleteMessageEnvelopes: requested=$requested mode=$mode mailbox=${mailbox.name}');
+        print(
+          '📧 DB deleteMessageEnvelopes: requested=$requested mode=$mode mailbox=${mailbox.name}',
+        );
       }
 
       _notifyDataChanged();
@@ -427,7 +486,7 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
   Future<List<MimeMessage>> loadAllMessages() async {
     try {
       final db = await SQLiteDatabaseHelper.instance.database;
-      
+
       // CRITICAL FIX: Use transaction for consistent read operations
       final results = await db.transaction((txn) async {
         final mailboxId = await _getMailboxIdFromTransaction(txn);
@@ -453,7 +512,9 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
   /// This remains for compatibility when a specific MessageSequence is required.
   /// If the sequence represents a recent contiguous range, callers should switch
   /// to page-based APIs for better index utilization.
-  Future<List<MimeMessage>> loadMessageEnvelopes(MessageSequence sequence) async {
+  Future<List<MimeMessage>> loadMessageEnvelopes(
+    MessageSequence sequence,
+  ) async {
     try {
       final db = await SQLiteDatabaseHelper.instance.database;
       final mailboxId = await _getMailboxId();
@@ -464,7 +525,7 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
       if (ids.isEmpty) return [];
 
       // Determine whether we're dealing with UID-based sequence or sequence-id
-final isUid = sequence.isUidSequence;
+      final isUid = sequence.isUidSequence;
 
       // Prefer BETWEEN for contiguous ranges to keep the SQL simple and fast.
       // If the list is not contiguous, BETWEEN(min, max) may over-fetch a small superset,
@@ -473,29 +534,33 @@ final isUid = sequence.isUidSequence;
       final int maxId = ids.reduce((a, b) => a > b ? a : b);
 
       // Build where clause
-      final whereColumn = isUid
-          ? SQLiteDatabaseHelper.columnUid
-          : SQLiteDatabaseHelper.columnSequenceId;
+      final whereColumn =
+          isUid
+              ? SQLiteDatabaseHelper.columnUid
+              : SQLiteDatabaseHelper.columnSequenceId;
 
       // Query a bounded range first for performance
       final results = await db.query(
         SQLiteDatabaseHelper.tableEmails,
-        where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND $whereColumn BETWEEN ? AND ?',
+        where:
+            '${SQLiteDatabaseHelper.columnMailboxId} = ? AND $whereColumn BETWEEN ? AND ?',
         whereArgs: [mailboxId, minId, maxId],
-        orderBy: isUid
-            ? '${SQLiteDatabaseHelper.columnUid} DESC'
-            : '${SQLiteDatabaseHelper.columnSequenceId} DESC',
+        orderBy:
+            isUid
+                ? '${SQLiteDatabaseHelper.columnUid} DESC'
+                : '${SQLiteDatabaseHelper.columnSequenceId} DESC',
       );
 
       // If the range was non-contiguous, filter precisely to requested IDs
       final idSet = ids.toSet();
-      final filtered = results.where((row) {
-        final value = row[whereColumn];
-        if (value == null) return false;
-        if (value is int) return idSet.contains(value);
-        final parsed = int.tryParse(value.toString());
-        return parsed != null && idSet.contains(parsed);
-      }).toList();
+      final filtered =
+          results.where((row) {
+            final value = row[whereColumn];
+            if (value == null) return false;
+            if (value is int) return idSet.contains(value);
+            final parsed = int.tryParse(value.toString());
+            return parsed != null && idSet.contains(parsed);
+          }).toList();
 
       // Map to messages and return
       return filtered.map((row) => _mapToMessage(row)).toList();
@@ -509,8 +574,14 @@ final isUid = sequence.isUidSequence;
   }
 
   /// Page-based loading by date (DESC) for mailbox virtualization
-  Future<List<MimeMessage>> loadMessagePage({required int limit, required int offset}) async {
-    final endTrace = PerfTracer.begin('storage.loadMessagePage', args: {'limit': limit, 'offset': offset});
+  Future<List<MimeMessage>> loadMessagePage({
+    required int limit,
+    required int offset,
+  }) async {
+    final endTrace = PerfTracer.begin(
+      'storage.loadMessagePage',
+      args: {'limit': limit, 'offset': offset},
+    );
     try {
       final db = await SQLiteDatabaseHelper.instance.database;
       final mailboxId = await _getMailboxId();
@@ -531,16 +602,22 @@ final isUid = sequence.isUidSequence;
       }
       return [];
     } finally {
-      try { endTrace(); } catch (_) {}
+      try {
+        endTrace();
+      } catch (_) {}
     }
   }
 
   /// Validate index usage via EXPLAIN QUERY PLAN for the page query (debug only)
-  Future<List<Map<String, Object?>>> explainQueryPlanForPage({int limit = 50, int offset = 0}) async {
+  Future<List<Map<String, Object?>>> explainQueryPlanForPage({
+    int limit = 50,
+    int offset = 0,
+  }) async {
     try {
       final db = await SQLiteDatabaseHelper.instance.database;
       final mailboxId = await _getMailboxId();
-      const sql = 'EXPLAIN QUERY PLAN SELECT ${SQLiteDatabaseHelper.columnId} FROM ${SQLiteDatabaseHelper.tableEmails} '
+      const sql =
+          'EXPLAIN QUERY PLAN SELECT ${SQLiteDatabaseHelper.columnId} FROM ${SQLiteDatabaseHelper.tableEmails} '
           'WHERE ${SQLiteDatabaseHelper.columnMailboxId} = ? '
           'ORDER BY ${SQLiteDatabaseHelper.columnDate} DESC LIMIT ? OFFSET ?';
       final res = await db.rawQuery(sql, [mailboxId, limit, offset]);
@@ -574,7 +651,9 @@ final isUid = sequence.isUidSequence;
       }
       return 0;
     } finally {
-      try { endTrace(); } catch (_) {}
+      try {
+        endTrace();
+      } catch (_) {}
     }
   }
 
@@ -583,7 +662,8 @@ final isUid = sequence.isUidSequence;
     final List<Map<String, dynamic>> result = await txn.query(
       SQLiteDatabaseHelper.tableMailboxes,
       columns: [SQLiteDatabaseHelper.columnId],
-      where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+      where:
+          '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
       whereArgs: [mailbox.encodedPath, mailAccount.email],
     );
 
@@ -611,13 +691,15 @@ final isUid = sequence.isUidSequence;
         if (message.uid != null) {
           await txn.delete(
             SQLiteDatabaseHelper.tableEmails,
-            where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
+            where:
+                '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
             whereArgs: [mailboxId, message.uid],
           );
         } else if (message.sequenceId != null) {
           await txn.delete(
             SQLiteDatabaseHelper.tableEmails,
-            where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnSequenceId} = ?',
+            where:
+                '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnSequenceId} = ?',
             whereArgs: [mailboxId, message.sequenceId],
           );
         }
@@ -670,7 +752,7 @@ final isUid = sequence.isUidSequence;
   /// Helper method to convert database row to MimeMessage
   MimeMessage _mapToMessage(Map<String, dynamic> row) {
     final message = MimeMessage();
-    
+
     // Set basic properties
     message.uid = row[SQLiteDatabaseHelper.columnUid];
     message.sequenceId = row[SQLiteDatabaseHelper.columnSequenceId];
@@ -678,13 +760,16 @@ final isUid = sequence.isUidSequence;
     message.isFlagged = (row[SQLiteDatabaseHelper.columnIsFlagged] ?? 0) == 1;
     message.isDeleted = (row[SQLiteDatabaseHelper.columnIsDeleted] ?? 0) == 1;
     message.isAnswered = (row[SQLiteDatabaseHelper.columnIsAnswered] ?? 0) == 1;
-    
+
     // Set size
     final sizeValue = row[SQLiteDatabaseHelper.columnSize];
     if (sizeValue != null) {
-      message.size = sizeValue is int ? sizeValue : int.tryParse(sizeValue.toString()) ?? 0;
+      message.size =
+          sizeValue is int
+              ? sizeValue
+              : int.tryParse(sizeValue.toString()) ?? 0;
     }
-    
+
     // Persisted preview and attachment metadata to speed up UI
     final preview = row[SQLiteDatabaseHelper.columnPreviewText];
     if (preview != null && preview.toString().isNotEmpty) {
@@ -695,7 +780,12 @@ final isUid = sequence.isUidSequence;
     final hasAtt = row[SQLiteDatabaseHelper.columnHasAttachments];
     if (hasAtt != null) {
       try {
-        message.setHeader('x-has-attachments', (hasAtt is int ? hasAtt : int.tryParse(hasAtt.toString()) ?? 0) == 1 ? '1' : '0');
+        message.setHeader(
+          'x-has-attachments',
+          (hasAtt is int ? hasAtt : int.tryParse(hasAtt.toString()) ?? 0) == 1
+              ? '1'
+              : '0',
+        );
       } catch (_) {}
     }
     // Mark message as "ready" when we have enough metadata for a stable tile
@@ -705,54 +795,76 @@ final isUid = sequence.isUidSequence;
       final hasAttKnown = hasAtt != null;
       final env = message.envelope;
       final hasFrom = env?.from?.isNotEmpty == true;
-      final subj = (message.decodeSubject() ?? env?.subject ?? '').toString().trim();
+      final subj =
+          (message.decodeSubject() ?? env?.subject ?? '').toString().trim();
       final hasSubject = subj.isNotEmpty;
       if ((hasFrom || hasSubject) || previewKnown || hasAttKnown) {
         message.setHeader('x-ready', '1');
       }
     } catch (_) {}
-    
+
     // Set envelope if available
     final envelopeJson = row[SQLiteDatabaseHelper.columnEnvelope];
     if (envelopeJson != null && envelopeJson.isNotEmpty) {
       try {
         final envelopeMap = jsonDecode(envelopeJson);
         message.envelope = _mapToEnvelope(envelopeMap);
-        
+
         // Fill missing subject/from from denormalized columns to avoid Unknown tiles
         try {
           final subjRow = row[SQLiteDatabaseHelper.columnSubject];
-          if ((message.envelope?.subject == null || message.envelope!.subject!.isEmpty) && subjRow != null) {
+          if ((message.envelope?.subject == null ||
+                  message.envelope!.subject!.isEmpty) &&
+              subjRow != null) {
             message.envelope!.subject = subjRow.toString();
           }
           final fromRow = row[SQLiteDatabaseHelper.columnFrom];
-          if (message.envelope?.from == null || (message.envelope!.from?.isEmpty ?? true)) {
+          if (message.envelope?.from == null ||
+              (message.envelope!.from?.isEmpty ?? true)) {
             if (fromRow != null && fromRow.toString().isNotEmpty) {
-              final senderName = row[SQLiteDatabaseHelper.columnSenderName]?.toString();
-              message.envelope!.from = [MailAddress(senderName ?? '', fromRow.toString())];
+              final senderName =
+                  row[SQLiteDatabaseHelper.columnSenderName]?.toString();
+              message.envelope!.from = [
+                MailAddress(senderName ?? '', fromRow.toString()),
+              ];
             }
           }
           // Hydrate envelope.to from denormalized column if missing
           final toRow = row[SQLiteDatabaseHelper.columnTo];
-          if ((message.envelope?.to == null || (message.envelope!.to?.isEmpty ?? true)) && toRow != null) {
+          if ((message.envelope?.to == null ||
+                  (message.envelope!.to?.isEmpty ?? true)) &&
+              toRow != null) {
             final toString = toRow.toString();
             if (toString.isNotEmpty) {
-              final parts = toString.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
-              message.envelope!.to = parts.map((email) => MailAddress('', email)).toList();
+              final parts =
+                  toString
+                      .split(',')
+                      .map((s) => s.trim())
+                      .where((s) => s.isNotEmpty)
+                      .toList();
+              message.envelope!.to =
+                  parts.map((email) => MailAddress('', email)).toList();
             }
           }
         } catch (_) {}
-        
+
         // CRITICAL FIX: Ensure envelope date is properly set from database if missing
         if (message.envelope?.date == null) {
           final dateValue = row[SQLiteDatabaseHelper.columnDate];
           if (dateValue != null) {
             try {
-              final dateMillis = dateValue is int ? dateValue : int.tryParse(dateValue.toString());
+              final dateMillis =
+                  dateValue is int
+                      ? dateValue
+                      : int.tryParse(dateValue.toString());
               if (dateMillis != null) {
-                message.envelope!.date = DateTime.fromMillisecondsSinceEpoch(dateMillis);
+                message.envelope!.date = DateTime.fromMillisecondsSinceEpoch(
+                  dateMillis,
+                );
                 if (kDebugMode) {
-                  print('📧 Set envelope date from database: ${message.envelope!.date}');
+                  print(
+                    '📧 Set envelope date from database: ${message.envelope!.date}',
+                  );
                 }
               }
             } catch (e) {
@@ -765,10 +877,12 @@ final isUid = sequence.isUidSequence;
 
         // Also hydrate top-level from if missing so detail views work consistently
         try {
-          if ((message.from == null || message.from!.isEmpty) && (message.envelope?.from?.isNotEmpty ?? false)) {
+          if ((message.from == null || message.from!.isEmpty) &&
+              (message.envelope?.from?.isNotEmpty ?? false)) {
             message.from = message.envelope!.from;
           }
-          if ((message.to == null || message.to!.isEmpty) && (message.envelope?.to?.isNotEmpty ?? false)) {
+          if ((message.to == null || message.to!.isEmpty) &&
+              (message.envelope?.to?.isNotEmpty ?? false)) {
             message.to = message.envelope!.to;
           }
         } catch (_) {}
@@ -783,19 +897,25 @@ final isUid = sequence.isUidSequence;
         final dateValue = row[SQLiteDatabaseHelper.columnDate];
         DateTime? date;
         if (dateValue != null) {
-          final dateMillis = dateValue is int ? dateValue : int.tryParse(dateValue.toString());
+          final dateMillis =
+              dateValue is int ? dateValue : int.tryParse(dateValue.toString());
           if (dateMillis != null) {
             date = DateTime.fromMillisecondsSinceEpoch(dateMillis);
           }
         }
-        final subjRow = row[SQLiteDatabaseHelper.columnSubject]?.toString() ?? '';
+        final subjRow =
+            row[SQLiteDatabaseHelper.columnSubject]?.toString() ?? '';
         final fromRow = row[SQLiteDatabaseHelper.columnFrom]?.toString() ?? '';
-        final senderName = row[SQLiteDatabaseHelper.columnSenderName]?.toString();
+        final senderName =
+            row[SQLiteDatabaseHelper.columnSenderName]?.toString();
         if (subjRow.isNotEmpty || fromRow.isNotEmpty || date != null) {
           final env = Envelope(
             date: date,
             subject: subjRow.isNotEmpty ? subjRow : null,
-            from: fromRow.isNotEmpty ? [MailAddress(senderName ?? '', fromRow)] : null,
+            from:
+                fromRow.isNotEmpty
+                    ? [MailAddress(senderName ?? '', fromRow)]
+                    : null,
           );
           message.envelope = env;
           // Hydrate top-level fields and headers to aid tile rendering fallbacks
@@ -803,102 +923,110 @@ final isUid = sequence.isUidSequence;
             message.from = env.from;
           }
           if (subjRow.isNotEmpty) {
-            try { message.setHeader('subject', subjRow); } catch (_) {}
+            try {
+              message.setHeader('subject', subjRow);
+            } catch (_) {}
           }
-          try { message.setHeader('x-ready', '1'); } catch (_) {}
+          try {
+            message.setHeader('x-ready', '1');
+          } catch (_) {}
         }
       } catch (_) {}
     }
-    
+
     return message;
   }
 
   /// Helper method to convert map to Envelope
   Envelope _mapToEnvelope(Map<String, dynamic> map) {
     final envelope = Envelope();
-    
+
     if (map['date'] != null) {
       envelope.date = DateTime.fromMillisecondsSinceEpoch(map['date']);
     }
-    
+
     envelope.subject = map['subject'];
     envelope.messageId = map['messageId'];
     envelope.inReplyTo = map['inReplyTo'];
-    
+
     // Convert address lists with improved parsing
     if (map['from'] != null) {
-      envelope.from = (map['from'] as List).map((addrData) {
-        if (addrData is Map<String, dynamic>) {
-          // New format: {email: "...", personalName: "..."}
-          return MailAddress(
-            addrData['personalName'] ?? '',
-            addrData['email'] ?? '',
-          );
-        } else {
-          // Fallback for old format: string representation
-          try {
-            return MailAddress.parse(addrData.toString());
-          } catch (e) {
-            if (kDebugMode) {
-              print('📧 Error parsing address: $addrData, error: $e');
+      envelope.from =
+          (map['from'] as List).map((addrData) {
+            if (addrData is Map<String, dynamic>) {
+              // New format: {email: "...", personalName: "..."}
+              return MailAddress(
+                addrData['personalName'] ?? '',
+                addrData['email'] ?? '',
+              );
+            } else {
+              // Fallback for old format: string representation
+              try {
+                return MailAddress.parse(addrData.toString());
+              } catch (e) {
+                if (kDebugMode) {
+                  print('📧 Error parsing address: $addrData, error: $e');
+                }
+                return MailAddress('', addrData.toString());
+              }
             }
-            return MailAddress('', addrData.toString());
-          }
-        }
-      }).toList();
+          }).toList();
     }
-    
+
     if (map['to'] != null) {
-      envelope.to = (map['to'] as List).map((addrData) {
-        if (addrData is Map<String, dynamic>) {
-          return MailAddress(
-            addrData['personalName'] ?? '',
-            addrData['email'] ?? '',
-          );
-        } else {
-          try {
-            return MailAddress.parse(addrData.toString());
-          } catch (e) {
-            return MailAddress('', addrData.toString());
-          }
-        }
-      }).toList();
+      envelope.to =
+          (map['to'] as List).map((addrData) {
+            if (addrData is Map<String, dynamic>) {
+              return MailAddress(
+                addrData['personalName'] ?? '',
+                addrData['email'] ?? '',
+              );
+            } else {
+              try {
+                return MailAddress.parse(addrData.toString());
+              } catch (e) {
+                return MailAddress('', addrData.toString());
+              }
+            }
+          }).toList();
     }
-    
+
     if (map['cc'] != null) {
-      envelope.cc = (map['cc'] as List).map((addrData) {
-        if (addrData is Map<String, dynamic>) {
-          return MailAddress(
-            addrData['personalName'] ?? '',
-            addrData['email'] ?? '',
-          );
-        } else {
-          try {
-            return MailAddress.parse(addrData.toString());
-          } catch (e) {
-            return MailAddress('', addrData.toString());
-          }
-        }
-      }).toList();
+      envelope.cc =
+          (map['cc'] as List).map((addrData) {
+            if (addrData is Map<String, dynamic>) {
+              return MailAddress(
+                addrData['personalName'] ?? '',
+                addrData['email'] ?? '',
+              );
+            } else {
+              try {
+                return MailAddress.parse(addrData.toString());
+              } catch (e) {
+                return MailAddress('', addrData.toString());
+              }
+            }
+          }).toList();
     }
-    
+
     if (map['bcc'] != null) {
-      envelope.bcc = (map['bcc'] as List).map((addrData) {
-        if (addrData is Map<String, dynamic>) {
-          return MailAddress(
-            addrData['personalName'] ?? '',
-            addrData['email'] ?? '',
-          );
-        } else {
-          try {
-            return MailAddress.parse(addrData.toString());
-          } catch (e) {
-            return MailAddress('', addrData.toString());
-          }
-        }
-      }).toList();
+      envelope.bcc =
+          (map['bcc'] as List).map((addrData) {
+            if (addrData is Map<String, dynamic>) {
+              return MailAddress(
+                addrData['personalName'] ?? '',
+                addrData['email'] ?? '',
+              );
+            } else {
+              try {
+                return MailAddress.parse(addrData.toString());
+              } catch (e) {
+                return MailAddress('', addrData.toString());
+              }
+            }
+          }).toList();
     }
-    
+
     return envelope;
   }
 
@@ -944,7 +1072,9 @@ final isUid = sequence.isUidSequence;
       final db = await SQLiteDatabaseHelper.instance.database;
       final mailboxId = await _getMailboxId();
 
-      final whereBuffer = StringBuffer('${SQLiteDatabaseHelper.columnMailboxId} = ?');
+      final whereBuffer = StringBuffer(
+        '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+      );
       final args = <Object?>[mailboxId];
 
       if (uid != null) {
@@ -979,12 +1109,14 @@ final isUid = sequence.isUidSequence;
           // Only one of uid or sequenceId may be present; both columns are nullable
           SQLiteDatabaseHelper.columnUid: uid,
           SQLiteDatabaseHelper.columnSequenceId: sequenceId,
-          SQLiteDatabaseHelper.columnPreviewText: previewText.trim().isNotEmpty ? previewText : null,
+          SQLiteDatabaseHelper.columnPreviewText:
+              previewText.trim().isNotEmpty ? previewText : null,
           SQLiteDatabaseHelper.columnHasAttachments: hasAttachments ? 1 : 0,
           // Mark as seen by default for Drafts to avoid unread artifacts
           SQLiteDatabaseHelper.columnIsSeen: 1,
           // Use current time so ordering is reasonable until envelope is known
-          SQLiteDatabaseHelper.columnDate: DateTime.now().millisecondsSinceEpoch,
+          SQLiteDatabaseHelper.columnDate:
+              DateTime.now().millisecondsSinceEpoch,
           // Minimal placeholders; envelope/meta will be filled by subsequent updates
           SQLiteDatabaseHelper.columnSubject: null,
           SQLiteDatabaseHelper.columnFrom: null,
@@ -1010,7 +1142,9 @@ final isUid = sequence.isUidSequence;
       final db = await SQLiteDatabaseHelper.instance.database;
       final mailboxId = await _getMailboxId();
 
-      final whereBuffer = StringBuffer('${SQLiteDatabaseHelper.columnMailboxId} = ?');
+      final whereBuffer = StringBuffer(
+        '${SQLiteDatabaseHelper.columnMailboxId} = ?',
+      );
       final args = <Object?>[mailboxId];
 
       final uid = message.uid;
@@ -1028,7 +1162,9 @@ final isUid = sequence.isUidSequence;
 
       // Prepare envelope JSON and basic meta
       final envJson = jsonEncode(_envelopeToMap(message.envelope));
-      final subj = (message.decodeSubject() ?? message.envelope?.subject ?? '').toString();
+      final subj =
+          (message.decodeSubject() ?? message.envelope?.subject ?? '')
+              .toString();
       String fromEmail = '';
       try {
         if (message.envelope?.from?.isNotEmpty == true) {
@@ -1038,28 +1174,38 @@ final isUid = sequence.isUidSequence;
         } else {
           final hdr = message.getHeaderValue('from');
           if (hdr != null && hdr.isNotEmpty) {
-            try { fromEmail = MailAddress.parse(hdr).email; } catch (_) { fromEmail = hdr; }
+            try {
+              fromEmail = MailAddress.parse(hdr).email;
+            } catch (_) {
+              fromEmail = hdr;
+            }
           }
         }
       } catch (_) {}
-      final toEmails = (message.envelope?.to ?? message.to ?? const <MailAddress>[])
+      final toEmails = (message.envelope?.to ??
+              message.to ??
+              const <MailAddress>[])
           .map((a) => a.email)
           .where((e) => e.isNotEmpty)
           .join(',');
-      final dateMillis = (message.decodeDate() ?? message.envelope?.date ?? DateTime.now()).millisecondsSinceEpoch;
+      final dateMillis =
+          (message.decodeDate() ?? message.envelope?.date ?? DateTime.now())
+              .millisecondsSinceEpoch;
       final senderName = _deriveSenderName(message);
       final normalizedSubject = _normalizeSubject(subj);
       final dayBucket = dateMillis ~/ 86400000;
       // Preview/attachments hints from headers if provided (e.g., realtime projection)
       final pv = message.getHeaderValue('x-preview');
       final hasAttHeader = message.getHeaderValue('x-has-attachments');
-      final hasAttVal = (hasAttHeader == '1') ? 1 : (hasAttHeader == '0' ? 0 : null);
+      final hasAttVal =
+          (hasAttHeader == '1') ? 1 : (hasAttHeader == '0' ? 0 : null);
 
       final Map<String, Object?> data = {
         SQLiteDatabaseHelper.columnEnvelope: envJson,
         // Always keep server date and flags up-to-date
         SQLiteDatabaseHelper.columnDate: dateMillis,
-        SQLiteDatabaseHelper.columnEmailFlags: message.flags?.map((f) => f.toString()).join(',') ?? '',
+        SQLiteDatabaseHelper.columnEmailFlags:
+            message.flags?.map((f) => f.toString()).join(',') ?? '',
         SQLiteDatabaseHelper.columnIsSeen: message.isSeen ? 1 : 0,
         SQLiteDatabaseHelper.columnIsFlagged: message.isFlagged ? 1 : 0,
         SQLiteDatabaseHelper.columnIsDeleted: message.isDeleted ? 1 : 0,
@@ -1100,17 +1246,23 @@ final isUid = sequence.isUidSequence;
           SQLiteDatabaseHelper.columnUid: uid,
           SQLiteDatabaseHelper.columnSequenceId: seqId,
           SQLiteDatabaseHelper.columnEnvelope: envJson,
-          SQLiteDatabaseHelper.columnSubject: subj.trim().isNotEmpty ? subj : null,
-          SQLiteDatabaseHelper.columnFrom: fromEmail.trim().isNotEmpty ? fromEmail : null,
-          SQLiteDatabaseHelper.columnTo: toEmails.trim().isNotEmpty ? toEmails : null,
+          SQLiteDatabaseHelper.columnSubject:
+              subj.trim().isNotEmpty ? subj : null,
+          SQLiteDatabaseHelper.columnFrom:
+              fromEmail.trim().isNotEmpty ? fromEmail : null,
+          SQLiteDatabaseHelper.columnTo:
+              toEmails.trim().isNotEmpty ? toEmails : null,
           SQLiteDatabaseHelper.columnDate: dateMillis,
-          SQLiteDatabaseHelper.columnEmailFlags: message.flags?.map((f) => f.toString()).join(',') ?? '',
+          SQLiteDatabaseHelper.columnEmailFlags:
+              message.flags?.map((f) => f.toString()).join(',') ?? '',
           SQLiteDatabaseHelper.columnIsSeen: message.isSeen ? 1 : 0,
           SQLiteDatabaseHelper.columnIsFlagged: message.isFlagged ? 1 : 0,
           SQLiteDatabaseHelper.columnIsDeleted: message.isDeleted ? 1 : 0,
           SQLiteDatabaseHelper.columnIsAnswered: message.isAnswered ? 1 : 0,
-          SQLiteDatabaseHelper.columnSenderName: senderName.trim().isNotEmpty ? senderName : null,
-          SQLiteDatabaseHelper.columnNormalizedSubject: normalizedSubject.trim().isNotEmpty ? normalizedSubject : null,
+          SQLiteDatabaseHelper.columnSenderName:
+              senderName.trim().isNotEmpty ? senderName : null,
+          SQLiteDatabaseHelper.columnNormalizedSubject:
+              normalizedSubject.trim().isNotEmpty ? normalizedSubject : null,
           SQLiteDatabaseHelper.columnDayBucket: dayBucket,
           if ((pv ?? '').toString().trim().isNotEmpty)
             SQLiteDatabaseHelper.columnPreviewText: pv,
@@ -1133,10 +1285,10 @@ final isUid = sequence.isUidSequence;
   /// Backfill derived fields (sender_name, normalized_subject) for existing rows.
   /// Processes up to [maxRows] per call to avoid long-running transactions.
   Future<int> backfillDerivedFields({int maxRows = 500}) async {
-    final endTrace = PerfTracer.begin('storage.backfillDerivedFields', args: {
-      'mailbox': mailbox.name,
-      'maxRows': maxRows,
-    });
+    final endTrace = PerfTracer.begin(
+      'storage.backfillDerivedFields',
+      args: {'mailbox': mailbox.name, 'maxRows': maxRows},
+    );
     try {
       final db = await SQLiteDatabaseHelper.instance.database;
       final mailboxId = await _getMailboxId();
@@ -1170,17 +1322,21 @@ final isUid = sequence.isUidSequence;
         for (final row in rows) {
           try {
             final id = row[SQLiteDatabaseHelper.columnId] as int;
-            final subj = (row[SQLiteDatabaseHelper.columnSubject] ?? '').toString();
-            final from = (row[SQLiteDatabaseHelper.columnFrom] ?? '').toString();
+            final subj =
+                (row[SQLiteDatabaseHelper.columnSubject] ?? '').toString();
+            final from =
+                (row[SQLiteDatabaseHelper.columnFrom] ?? '').toString();
             String senderName = '';
             // Try derive from envelope first if present
             final envelopeJson = row[SQLiteDatabaseHelper.columnEnvelope];
             if (envelopeJson != null && envelopeJson.toString().isNotEmpty) {
               try {
                 final env = _mapToEnvelope(jsonDecode(envelopeJson as String));
-                senderName = (env.from?.isNotEmpty == true)
-                    ? (env.from!.first.personalName?.toString().trim() ?? '')
-                    : '';
+                senderName =
+                    (env.from?.isNotEmpty == true)
+                        ? (env.from!.first.personalName?.toString().trim() ??
+                            '')
+                        : '';
               } catch (_) {}
             }
             if (senderName.isEmpty) {
@@ -1215,7 +1371,9 @@ final isUid = sequence.isUidSequence;
       }
       return 0;
     } finally {
-      try { endTrace(); } catch (_) {}
+      try {
+        endTrace();
+      } catch (_) {}
     }
   }
 
@@ -1250,7 +1408,9 @@ final isUid = sequence.isUidSequence;
       if (candidate.isNotEmpty) return candidate;
     }
     // Fallback to local-part of email
-    final emailMatch = RegExp(r'<([^>]+)>').firstMatch(trimmed) ?? RegExp(r'([^\s@]+@[^\s@]+)').firstMatch(trimmed);
+    final emailMatch =
+        RegExp(r'<([^>]+)>').firstMatch(trimmed) ??
+        RegExp(r'([^\s@]+@[^\s@]+)').firstMatch(trimmed);
     if (emailMatch != null) {
       final email = emailMatch.group(1)!;
       final at = email.indexOf('@');
@@ -1284,13 +1444,11 @@ final isUid = sequence.isUidSequence;
         return const SyncBounds(count: 0, minUid: null, maxUid: null);
       }
       final row = rows.first;
-      int? asOptInt(Object? v) => v == null
-          ? null
-          : (v is int
-              ? v
-              : int.tryParse(v.toString()));
+      int? asOptInt(Object? v) =>
+          v == null ? null : (v is int ? v : int.tryParse(v.toString()));
       final countVal = row['cnt'];
-      final count = countVal is int ? countVal : int.tryParse(countVal.toString()) ?? 0;
+      final count =
+          countVal is int ? countVal : int.tryParse(countVal.toString()) ?? 0;
       return SyncBounds(
         count: count,
         minUid: asOptInt(row['min_uid']),
@@ -1314,17 +1472,15 @@ final isUid = sequence.isUidSequence;
           SQLiteDatabaseHelper.columnUidNext,
           SQLiteDatabaseHelper.columnUidValidity,
         ],
-        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        where:
+            '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
         whereArgs: [mailbox.encodedPath, mailAccount.email],
         limit: 1,
       );
       if (rows.isEmpty) return const MailboxMeta();
       final row = rows.first;
-      int? asOptInt(Object? v) => v == null
-          ? null
-          : (v is int
-              ? v
-              : int.tryParse(v.toString()));
+      int? asOptInt(Object? v) =>
+          v == null ? null : (v is int ? v : int.tryParse(v.toString()));
       return MailboxMeta(
         uidNext: asOptInt(row[SQLiteDatabaseHelper.columnUidNext]),
         uidValidity: asOptInt(row[SQLiteDatabaseHelper.columnUidValidity]),
@@ -1343,12 +1499,14 @@ final isUid = sequence.isUidSequence;
       final db = await SQLiteDatabaseHelper.instance.database;
       final data = <String, Object?>{};
       if (uidNext != null) data[SQLiteDatabaseHelper.columnUidNext] = uidNext;
-      if (uidValidity != null) data[SQLiteDatabaseHelper.columnUidValidity] = uidValidity;
+      if (uidValidity != null)
+        data[SQLiteDatabaseHelper.columnUidValidity] = uidValidity;
       if (data.isEmpty) return;
       await db.update(
         SQLiteDatabaseHelper.tableMailboxes,
         data,
-        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        where:
+            '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
         whereArgs: [mailbox.encodedPath, mailAccount.email],
       );
     } catch (e) {
@@ -1374,23 +1532,39 @@ final isUid = sequence.isUidSequence;
           SQLiteDatabaseHelper.columnLastSyncStartedAt,
           SQLiteDatabaseHelper.columnLastSyncFinishedAt,
         ],
-        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        where:
+            '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
         whereArgs: [mailbox.encodedPath, mailAccount.email],
         limit: 1,
       );
       if (rows.isEmpty) return const MailboxSyncState();
       final r = rows.first;
-      int? asOptInt(Object? v) => v == null ? null : (v is int ? v : int.tryParse(v.toString()));
-      bool? asOptBool(Object? v) => v == null ? null : SQLiteDatabaseHelper.intToBool(v is int ? v : int.tryParse(v.toString()) ?? 0);
+      int? asOptInt(Object? v) =>
+          v == null ? null : (v is int ? v : int.tryParse(v.toString()));
+      bool? asOptBool(Object? v) =>
+          v == null
+              ? null
+              : SQLiteDatabaseHelper.intToBool(
+                v is int ? v : int.tryParse(v.toString()) ?? 0,
+              );
       return MailboxSyncState(
         uidNext: asOptInt(r[SQLiteDatabaseHelper.columnUidNext]),
         uidValidity: asOptInt(r[SQLiteDatabaseHelper.columnUidValidity]),
-        lastSyncedUidHigh: asOptInt(r[SQLiteDatabaseHelper.columnLastSyncedUidHigh]),
-        lastSyncedUidLow: asOptInt(r[SQLiteDatabaseHelper.columnLastSyncedUidLow]),
-        initialSyncDone: asOptBool(r[SQLiteDatabaseHelper.columnInitialSyncDone]) ?? false,
+        lastSyncedUidHigh: asOptInt(
+          r[SQLiteDatabaseHelper.columnLastSyncedUidHigh],
+        ),
+        lastSyncedUidLow: asOptInt(
+          r[SQLiteDatabaseHelper.columnLastSyncedUidLow],
+        ),
+        initialSyncDone:
+            asOptBool(r[SQLiteDatabaseHelper.columnInitialSyncDone]) ?? false,
         highestModSeq: asOptInt(r[SQLiteDatabaseHelper.columnHighestModSeq]),
-        lastSyncStartedAt: asOptInt(r[SQLiteDatabaseHelper.columnLastSyncStartedAt]),
-        lastSyncFinishedAt: asOptInt(r[SQLiteDatabaseHelper.columnLastSyncFinishedAt]),
+        lastSyncStartedAt: asOptInt(
+          r[SQLiteDatabaseHelper.columnLastSyncStartedAt],
+        ),
+        lastSyncFinishedAt: asOptInt(
+          r[SQLiteDatabaseHelper.columnLastSyncFinishedAt],
+        ),
       );
     } catch (e) {
       if (kDebugMode) {
@@ -1415,18 +1589,28 @@ final isUid = sequence.isUidSequence;
       final db = await SQLiteDatabaseHelper.instance.database;
       final data = <String, Object?>{};
       if (uidNext != null) data[SQLiteDatabaseHelper.columnUidNext] = uidNext;
-      if (uidValidity != null) data[SQLiteDatabaseHelper.columnUidValidity] = uidValidity;
-      if (lastSyncedUidHigh != null) data[SQLiteDatabaseHelper.columnLastSyncedUidHigh] = lastSyncedUidHigh;
-      if (lastSyncedUidLow != null) data[SQLiteDatabaseHelper.columnLastSyncedUidLow] = lastSyncedUidLow;
-      if (initialSyncDone != null) data[SQLiteDatabaseHelper.columnInitialSyncDone] = SQLiteDatabaseHelper.boolToInt(initialSyncDone);
-      if (highestModSeq != null) data[SQLiteDatabaseHelper.columnHighestModSeq] = highestModSeq;
-      if (lastSyncStartedAt != null) data[SQLiteDatabaseHelper.columnLastSyncStartedAt] = lastSyncStartedAt;
-      if (lastSyncFinishedAt != null) data[SQLiteDatabaseHelper.columnLastSyncFinishedAt] = lastSyncFinishedAt;
+      if (uidValidity != null)
+        data[SQLiteDatabaseHelper.columnUidValidity] = uidValidity;
+      if (lastSyncedUidHigh != null)
+        data[SQLiteDatabaseHelper.columnLastSyncedUidHigh] = lastSyncedUidHigh;
+      if (lastSyncedUidLow != null)
+        data[SQLiteDatabaseHelper.columnLastSyncedUidLow] = lastSyncedUidLow;
+      if (initialSyncDone != null)
+        data[SQLiteDatabaseHelper.columnInitialSyncDone] =
+            SQLiteDatabaseHelper.boolToInt(initialSyncDone);
+      if (highestModSeq != null)
+        data[SQLiteDatabaseHelper.columnHighestModSeq] = highestModSeq;
+      if (lastSyncStartedAt != null)
+        data[SQLiteDatabaseHelper.columnLastSyncStartedAt] = lastSyncStartedAt;
+      if (lastSyncFinishedAt != null)
+        data[SQLiteDatabaseHelper.columnLastSyncFinishedAt] =
+            lastSyncFinishedAt;
       if (data.isEmpty) return;
       await db.update(
         SQLiteDatabaseHelper.tableMailboxes,
         data,
-        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        where:
+            '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
         whereArgs: [mailbox.encodedPath, mailAccount.email],
       );
     } catch (e) {
@@ -1461,7 +1645,11 @@ class SyncBounds {
   final int count;
   final int? minUid;
   final int? maxUid;
-  const SyncBounds({required this.count, required this.minUid, required this.maxUid});
+  const SyncBounds({
+    required this.count,
+    required this.minUid,
+    required this.maxUid,
+  });
 }
 
 /// Lightweight container for mailbox metadata
@@ -1492,4 +1680,3 @@ class MailboxSyncState {
     this.lastSyncFinishedAt,
   });
 }
-

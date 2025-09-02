@@ -58,12 +58,19 @@ class ScheduledSendService {
     final now = DateTime.now();
 
     // Filter only those due to send
-    final due = drafts.where((d) => (d.scheduledFor != null && !d.scheduledFor!.isAfter(now))).toList();
+    final due =
+        drafts
+            .where(
+              (d) => (d.scheduledFor != null && !d.scheduledFor!.isAfter(now)),
+            )
+            .toList();
     if (due.isEmpty) return;
 
     // Ensure MailBoxController exists
     if (!Get.isRegistered<MailBoxController>()) {
-      try { Get.put(MailBoxController()); } catch (_) {}
+      try {
+        Get.put(MailBoxController());
+      } catch (_) {}
     }
     final mbc = Get.find<MailBoxController>();
 
@@ -120,7 +127,8 @@ class ScheduledSendService {
             senderName = sc.userName.value.trim();
           }
         } catch (_) {}
-        if (senderName.isEmpty || senderName.toLowerCase() == acc.email.toLowerCase()) {
+        if (senderName.isEmpty ||
+            senderName.toLowerCase() == acc.email.toLowerCase()) {
           builder.from = [MailAddress('', acc.email)];
         } else {
           builder.from = [MailAddress(senderName, acc.email)];
@@ -181,11 +189,14 @@ class ScheduledSendService {
 
   void _normalizeTopLevelTransferEncoding(MimeMessage msg) {
     try {
-      final ct = (msg.getHeaderValue('Content-Type') ?? msg.getHeaderValue('content-type') ?? '').toLowerCase();
+      final ct =
+          (msg.getHeaderValue('Content-Type') ??
+                  msg.getHeaderValue('content-type') ??
+                  '')
+              .toLowerCase();
       if (ct.contains('multipart/')) {
         msg.setHeader('Content-Transfer-Encoding', '7bit');
       }
     } catch (_) {}
   }
 }
-

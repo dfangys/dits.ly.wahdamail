@@ -23,7 +23,13 @@ import '../../../../widgets/enterprise_message_viewer.dart';
 final Map<int, DateTime> _attachmentRefetchBackoff = <int, DateTime>{};
 
 class MailAttachments extends StatelessWidget {
-  const MailAttachments({super.key, required this.message, this.mailbox, this.showAttachmentsList = true, this.showBodyViewer = true});
+  const MailAttachments({
+    super.key,
+    required this.message,
+    this.mailbox,
+    this.showAttachmentsList = true,
+    this.showBodyViewer = true,
+  });
   final MimeMessage message;
   final Mailbox? mailbox;
   final bool showAttachmentsList;
@@ -37,10 +43,10 @@ class MailAttachments extends StatelessWidget {
         print('DEBUG: Message subject: ${message.decodeSubject()}');
         print('DEBUG: Message date: ${message.decodeDate()}');
       }
-      
+
       // Initialize cache services
       await EmailCacheService.instance.initialize();
-      
+
       // Get mail service instance
       final mailService = MailService.instance;
 
@@ -65,17 +71,21 @@ class MailAttachments extends StatelessWidget {
             uidValidity: uidValidity,
             uid: message.uid!,
           );
-          final hasBody = cachedPersisted != null && (
-            (cachedPersisted.htmlSanitizedBlocked?.isNotEmpty ?? false) ||
-            (cachedPersisted.htmlFilePath?.isNotEmpty ?? false) ||
-            (cachedPersisted.plainText?.isNotEmpty ?? false)
-          );
+          final hasBody =
+              cachedPersisted != null &&
+              ((cachedPersisted.htmlSanitizedBlocked?.isNotEmpty ?? false) ||
+                  (cachedPersisted.htmlFilePath?.isNotEmpty ?? false) ||
+                  (cachedPersisted.plainText?.isNotEmpty ?? false));
           if (hasBody) {
             if (kDebugMode) {
-              print('Cache-first: serving persisted cached content for UID ${message.uid} (online or offline)');
+              print(
+                'Cache-first: serving persisted cached content for UID ${message.uid} (online or offline)',
+              );
             }
             // If we have a reconstructed cached MimeMessage, prefer it; otherwise return original
-            final cachedMsg = await EmailCacheService.instance.getCachedEmail(message.uid!);
+            final cachedMsg = await EmailCacheService.instance.getCachedEmail(
+              message.uid!,
+            );
             return cachedMsg ?? message;
           }
         }
@@ -91,12 +101,18 @@ class MailAttachments extends StatelessWidget {
             uidValidity: uidValidity,
             uid: message.uid!,
           );
-          final hasBody = cachedOffline != null && ((cachedOffline.htmlSanitizedBlocked?.isNotEmpty ?? false) || (cachedOffline.plainText?.isNotEmpty ?? false));
+          final hasBody =
+              cachedOffline != null &&
+              ((cachedOffline.htmlSanitizedBlocked?.isNotEmpty ?? false) ||
+                  (cachedOffline.plainText?.isNotEmpty ?? false));
           if (hasBody) {
             if (kDebugMode) {
-              print('Offline: using persisted cached content for UID ${message.uid} without network fetch');
+              print(
+                'Offline: using persisted cached content for UID ${message.uid} without network fetch',
+              );
             }
-            final cachedMessage = await EmailCacheService.instance.getCachedEmail(message.uid!);
+            final cachedMessage = await EmailCacheService.instance
+                .getCachedEmail(message.uid!);
             return cachedMessage ?? message;
           }
         }
@@ -104,7 +120,9 @@ class MailAttachments extends StatelessWidget {
 
       // PERFORMANCE OPTIMIZATION: Check cache first, but ensure attachments are present
       if (message.uid != null) {
-        final cachedMessage = await EmailCacheService.instance.getCachedEmail(message.uid!);
+        final cachedMessage = await EmailCacheService.instance.getCachedEmail(
+          message.uid!,
+        );
         if (cachedMessage != null) {
           if (kDebugMode) {
             print('Using cached message content for UID ${message.uid}');
@@ -122,7 +140,9 @@ class MailAttachments extends StatelessWidget {
             // If offline, do not refetch; rely on offline cache and persisted attachments
             if (!InternetService.instance.connected) {
               if (kDebugMode) {
-                print('Offline: skipping refetch for UID ${message.uid}, using cached content');
+                print(
+                  'Offline: skipping refetch for UID ${message.uid}, using cached content',
+                );
               }
               return cachedMessage;
             }
@@ -131,9 +151,13 @@ class MailAttachments extends StatelessWidget {
             final uid = message.uid;
             if (uid != null) {
               final lastTried = _attachmentRefetchBackoff[uid];
-              if (lastTried != null && DateTime.now().difference(lastTried) < const Duration(minutes: 2)) {
+              if (lastTried != null &&
+                  DateTime.now().difference(lastTried) <
+                      const Duration(minutes: 2)) {
                 if (kDebugMode) {
-                  print('Skipping attachment refetch for UID $uid due to recent attempt');
+                  print(
+                    'Skipping attachment refetch for UID $uid due to recent attempt',
+                  );
                 }
                 return cachedMessage;
               }
@@ -141,13 +165,17 @@ class MailAttachments extends StatelessWidget {
             }
 
             if (kDebugMode) {
-              print('Cached message UID ${message.uid} has no attachment parts; refetching full contents (with timeout/retries)...');
+              print(
+                'Cached message UID ${message.uid} has no attachment parts; refetching full contents (with timeout/retries)...',
+              );
             }
             // Ensure we're connected
             int connectionRetries = 3;
             while (!mailService.client.isConnected && connectionRetries > 0) {
               try {
-                await mailService.connect().timeout(const Duration(seconds: 10));
+                await mailService.connect().timeout(
+                  const Duration(seconds: 10),
+                );
                 break;
               } catch (e) {
                 connectionRetries--;
@@ -159,12 +187,17 @@ class MailAttachments extends StatelessWidget {
             // Ensure correct mailbox is selected
             if (mailbox != null) {
               final currentMailbox = mailService.client.selectedMailbox;
-              if (currentMailbox == null || currentMailbox.path != mailbox!.path) {
+              if (currentMailbox == null ||
+                  currentMailbox.path != mailbox!.path) {
                 if (kDebugMode) {
-                  print('Selecting mailbox: ${mailbox!.path} (current: ${currentMailbox?.path})');
+                  print(
+                    'Selecting mailbox: ${mailbox!.path} (current: ${currentMailbox?.path})',
+                  );
                 }
                 try {
-                  await mailService.client.selectMailbox(mailbox!).timeout(const Duration(seconds: 8));
+                  await mailService.client
+                      .selectMailbox(mailbox!)
+                      .timeout(const Duration(seconds: 8));
                 } catch (e) {
                   if (kDebugMode) {
                     print('Mailbox selection failed before refetch: $e');
@@ -184,13 +217,16 @@ class MailAttachments extends StatelessWidget {
 
                 // Persist to lightweight cache
                 if (refreshed.uid != null) {
-                  try { await EmailCacheService.instance.cacheEmail(refreshed); } catch (_) {}
+                  try {
+                    await EmailCacheService.instance.cacheEmail(refreshed);
+                  } catch (_) {}
                 }
 
                 // Persist offline body + small attachments to SQLite for reliable reuse
                 try {
                   final accountEmail = mailService.account.email;
-                  final mailboxPath = mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX';
+                  final mailboxPath =
+                      mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX';
                   final uidValidity = mailbox?.uidValidity ?? 0;
 
                   String? rawHtml = refreshed.decodeTextHtmlPart();
@@ -199,12 +235,18 @@ class MailAttachments extends StatelessWidget {
                   if (rawHtml != null && rawHtml.trim().isNotEmpty) {
                     String preprocessed = rawHtml;
                     if (rawHtml.length > 100 * 1024) {
-                      try { preprocessed = await MessageContentStore.sanitizeHtmlInIsolate(rawHtml); } catch (_) {}
+                      try {
+                        preprocessed =
+                            await MessageContentStore.sanitizeHtmlInIsolate(
+                              rawHtml,
+                            );
+                      } catch (_) {}
                     }
                     final enhanced = HtmlEnhancer.enhanceEmailHtml(
                       message: refreshed,
                       rawHtml: preprocessed,
-                      darkMode: Theme.of(Get.context!).brightness == Brightness.dark,
+                      darkMode:
+                          Theme.of(Get.context!).brightness == Brightness.dark,
                       blockRemoteImages: true,
                       deviceWidthPx: 1024.0,
                     );
@@ -214,7 +256,8 @@ class MailAttachments extends StatelessWidget {
                   // Save small attachments
                   final infos = refreshed.findContentInfo();
                   final List<CachedAttachment> cachedAtts = [];
-                  const maxAttachmentBytes = 10 * 1024 * 1024; // 10MB per attachment cap
+                  const maxAttachmentBytes =
+                      10 * 1024 * 1024; // 10MB per attachment cap
                   for (final ci in infos) {
                     try {
                       final bytes = await AttachmentFetcher.fetchBytes(
@@ -224,30 +267,39 @@ class MailAttachments extends StatelessWidget {
                       );
                       if (bytes == null) continue;
                       if (bytes.length > maxAttachmentBytes) continue;
-                      final path = await MessageContentStore.instance.saveAttachmentBytes(
-                        accountEmail: accountEmail,
-                        mailboxPath: mailboxPath,
-                        uidValidity: uidValidity,
-                        uid: refreshed.uid ?? -1,
-                        fileName: ci.fileName ?? 'attachment',
-                        bytes: bytes,
-                        uniquePartId: ci.fetchId,
-                        contentId: refreshed.getPart(ci.fetchId)?.getHeaderValue('content-id'),
-                        mimeType: ci.contentType?.mediaType.toString(),
-                        size: ci.size ?? bytes.length,
+                      final path = await MessageContentStore.instance
+                          .saveAttachmentBytes(
+                            accountEmail: accountEmail,
+                            mailboxPath: mailboxPath,
+                            uidValidity: uidValidity,
+                            uid: refreshed.uid ?? -1,
+                            fileName: ci.fileName ?? 'attachment',
+                            bytes: bytes,
+                            uniquePartId: ci.fetchId,
+                            contentId: refreshed
+                                .getPart(ci.fetchId)
+                                ?.getHeaderValue('content-id'),
+                            mimeType: ci.contentType?.mediaType.toString(),
+                            size: ci.size ?? bytes.length,
+                          );
+                      cachedAtts.add(
+                        CachedAttachment(
+                          contentId: null,
+                          fileName: ci.fileName ?? 'attachment',
+                          mimeType:
+                              ci.contentType?.mediaType.toString() ??
+                              'application/octet-stream',
+                          sizeBytes: ci.size ?? bytes.length,
+                          isInline: false,
+                          filePath: path,
+                        ),
                       );
-                      cachedAtts.add(CachedAttachment(
-                        contentId: null,
-                        fileName: ci.fileName ?? 'attachment',
-                        mimeType: ci.contentType?.mediaType.toString() ?? 'application/octet-stream',
-                        sizeBytes: ci.size ?? bytes.length,
-                        isInline: false,
-                        filePath: path,
-                      ));
                     } catch (_) {}
                   }
 
-                  if ((sanitizedHtml != null && sanitizedHtml.isNotEmpty) || (plain != null && plain.isNotEmpty) || cachedAtts.isNotEmpty) {
+                  if ((sanitizedHtml != null && sanitizedHtml.isNotEmpty) ||
+                      (plain != null && plain.isNotEmpty) ||
+                      cachedAtts.isNotEmpty) {
                     await MessageContentStore.instance.upsertContent(
                       accountEmail: accountEmail,
                       mailboxPath: mailboxPath,
@@ -265,7 +317,9 @@ class MailAttachments extends StatelessWidget {
               } catch (e) {
                 fetchRetries--;
                 if (kDebugMode) {
-                  print('Attachment refetch failed for UID ${message.uid}: $e (retries left: $fetchRetries)');
+                  print(
+                    'Attachment refetch failed for UID ${message.uid}: $e (retries left: $fetchRetries)',
+                  );
                 }
                 if (fetchRetries == 0) {
                   break;
@@ -273,7 +327,11 @@ class MailAttachments extends StatelessWidget {
                 await Future.delayed(const Duration(milliseconds: 500));
                 // Re-select mailbox defensively
                 if (mailbox != null) {
-                  try { await mailService.client.selectMailbox(mailbox!).timeout(const Duration(seconds: 8)); } catch (_) {}
+                  try {
+                    await mailService.client
+                        .selectMailbox(mailbox!)
+                        .timeout(const Duration(seconds: 8));
+                  } catch (_) {}
                 }
               }
             }
@@ -285,7 +343,7 @@ class MailAttachments extends StatelessWidget {
           return cachedMessage;
         }
       }
-      
+
       // CRITICAL FIX: Validate message UID before fetching
       if (message.uid == null) {
         if (kDebugMode) {
@@ -294,11 +352,13 @@ class MailAttachments extends StatelessWidget {
         // Return the original message if UID is null
         return message;
       }
-      
+
       // If offline, avoid network fetch and return cached/original message
       if (!InternetService.instance.connected) {
         if (message.uid != null) {
-          final cachedMessage = await EmailCacheService.instance.getCachedEmail(message.uid!);
+          final cachedMessage = await EmailCacheService.instance.getCachedEmail(
+            message.uid!,
+          );
           if (cachedMessage != null) return cachedMessage;
         }
         return message;
@@ -316,61 +376,81 @@ class MailAttachments extends StatelessWidget {
           await Future.delayed(const Duration(seconds: 1));
         }
       }
-      
+
       // CRITICAL FIX: Validate and ensure correct mailbox is selected
       if (mailbox != null) {
         final currentMailbox = mailService.client.selectedMailbox;
         if (currentMailbox == null || currentMailbox.path != mailbox!.path) {
           if (kDebugMode) {
-            print('Selecting mailbox: ${mailbox!.path} (current: ${currentMailbox?.path})');
+            print(
+              'Selecting mailbox: ${mailbox!.path} (current: ${currentMailbox?.path})',
+            );
           }
-          await mailService.client.selectMailbox(mailbox!).timeout(const Duration(seconds: 8));
-          
+          await mailService.client
+              .selectMailbox(mailbox!)
+              .timeout(const Duration(seconds: 8));
+
           // Wait a moment for mailbox selection to complete
           await Future.delayed(const Duration(milliseconds: 100));
         }
       }
-      
+
       // CRITICAL FIX: Add logging for debugging UID fetch issues
       if (kDebugMode) {
-        print('Preparing to fetch message content for UID ${message.uid} in mailbox ${mailbox?.path}');
+        print(
+          'Preparing to fetch message content for UID ${message.uid} in mailbox ${mailbox?.path}',
+        );
       }
-      
+
       // CRITICAL FIX: Fetch message content with retry logic and proper error handling
       int fetchRetries = 3;
       MimeMessage? fetchedMessage;
-      
+
       while (fetchRetries > 0) {
         try {
           if (kDebugMode) {
-            print('Fetching message contents for UID ${message.uid} (attempt ${4 - fetchRetries})');
+            print(
+              'Fetching message contents for UID ${message.uid} (attempt ${4 - fetchRetries})',
+            );
           }
-          
-          fetchedMessage = await mailService.client.fetchMessageContents(message).timeout(const Duration(seconds: 20));
-          
+
+          fetchedMessage = await mailService.client
+              .fetchMessageContents(message)
+              .timeout(const Duration(seconds: 20));
+
           if (kDebugMode) {
-            print('Successfully fetched message contents for UID ${message.uid}');
+            print(
+              'Successfully fetched message contents for UID ${message.uid}',
+            );
           }
-          
+
           break; // Success, exit retry loop
         } catch (e) {
           fetchRetries--;
           if (kDebugMode) {
-            print('Fetch attempt failed for UID ${message.uid}: $e (retries left: $fetchRetries)');
+            print(
+              'Fetch attempt failed for UID ${message.uid}: $e (retries left: $fetchRetries)',
+            );
           }
-          
+
           if (fetchRetries == 0) {
             // Final attempt failed, throw with more context
-            throw Exception('Failed to fetch message content after 3 attempts. UID: ${message.uid}, Error: $e');
+            throw Exception(
+              'Failed to fetch message content after 3 attempts. UID: ${message.uid}, Error: $e',
+            );
           }
-          
+
           // Wait before retry
-          await Future.delayed(Duration(milliseconds: 500 * (4 - fetchRetries)));
-          
+          await Future.delayed(
+            Duration(milliseconds: 500 * (4 - fetchRetries)),
+          );
+
           // Re-select mailbox before retry to ensure proper context
           if (mailbox != null) {
             try {
-              await mailService.client.selectMailbox(mailbox!).timeout(const Duration(seconds: 8));
+              await mailService.client
+                  .selectMailbox(mailbox!)
+                  .timeout(const Duration(seconds: 8));
               await Future.delayed(const Duration(milliseconds: 100));
             } catch (selectError) {
               if (kDebugMode) {
@@ -380,11 +460,13 @@ class MailAttachments extends StatelessWidget {
           }
         }
       }
-      
+
       if (fetchedMessage == null) {
-        throw Exception('Unexpected error: fetchedMessage is null after retry logic');
+        throw Exception(
+          'Unexpected error: fetchedMessage is null after retry logic',
+        );
       }
-      
+
       // PERFORMANCE: After fetching, persist offline body + attachments
       try {
         final rawHtml = fetchedMessage.decodeTextHtmlPart();
@@ -396,7 +478,9 @@ class MailAttachments extends StatelessWidget {
           String preprocessed = rawHtml;
           if (rawHtml.length > 100 * 1024) {
             try {
-              preprocessed = await MessageContentStore.sanitizeHtmlInIsolate(rawHtml);
+              preprocessed = await MessageContentStore.sanitizeHtmlInIsolate(
+                rawHtml,
+              );
             } catch (_) {}
           }
           final deviceWidthPx = 1024.0; // storage-time normalization only
@@ -431,22 +515,30 @@ class MailAttachments extends StatelessWidget {
               fileName: ci.fileName ?? 'attachment',
               bytes: bytes,
               uniquePartId: ci.fetchId,
-              contentId: fetchedMessage.getPart(ci.fetchId)?.getHeaderValue('content-id'),
+              contentId: fetchedMessage
+                  .getPart(ci.fetchId)
+                  ?.getHeaderValue('content-id'),
               mimeType: ci.contentType?.mediaType.toString(),
               size: ci.size ?? bytes.length,
             );
-            cachedAtts.add(CachedAttachment(
-              contentId: null,
-              fileName: ci.fileName ?? 'attachment',
-              mimeType: ci.contentType?.mediaType.toString() ?? 'application/octet-stream',
-              sizeBytes: ci.size ?? bytes.length,
-              isInline: false,
-              filePath: path,
-            ));
+            cachedAtts.add(
+              CachedAttachment(
+                contentId: null,
+                fileName: ci.fileName ?? 'attachment',
+                mimeType:
+                    ci.contentType?.mediaType.toString() ??
+                    'application/octet-stream',
+                sizeBytes: ci.size ?? bytes.length,
+                isInline: false,
+                filePath: path,
+              ),
+            );
           } catch (_) {}
         }
 
-        if ((htmlStore != null && htmlStore.isNotEmpty) || (plainStore != null && plainStore.isNotEmpty) || cachedAtts.isNotEmpty) {
+        if ((htmlStore != null && htmlStore.isNotEmpty) ||
+            (plainStore != null && plainStore.isNotEmpty) ||
+            cachedAtts.isNotEmpty) {
           await MessageContentStore.instance.upsertContent(
             accountEmail: accountEmail,
             mailboxPath: mailboxPath,
@@ -466,14 +558,15 @@ class MailAttachments extends StatelessWidget {
           await EmailCacheService.instance.cacheEmail(fetchedMessage);
         } catch (cacheError) {
           if (kDebugMode) {
-            print('Warning: Failed to cache message UID ${fetchedMessage.uid}: $cacheError');
+            print(
+              'Warning: Failed to cache message UID ${fetchedMessage.uid}: $cacheError',
+            );
           }
           // Don't fail the entire operation if caching fails
         }
       }
-      
+
       return fetchedMessage;
-      
     } catch (e) {
       if (kDebugMode) {
         print('Error fetching message content: $e');
@@ -498,14 +591,16 @@ class MailAttachments extends StatelessWidget {
         } else if (snapshot.hasError) {
           // Fall back to offline cached content if available
           return FutureBuilder<CachedMessageContent?>(
-            future: (message.uid != null)
-                ? MessageContentStore.instance.getContent(
-                    accountEmail: MailService.instance.account.email,
-                    mailboxPath: mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX',
-                    uidValidity: mailbox?.uidValidity ?? 0,
-                    uid: message.uid!,
-                  )
-                : Future.value(null),
+            future:
+                (message.uid != null)
+                    ? MessageContentStore.instance.getContent(
+                      accountEmail: MailService.instance.account.email,
+                      mailboxPath:
+                          mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX',
+                      uidValidity: mailbox?.uidValidity ?? 0,
+                      uid: message.uid!,
+                    )
+                    : Future.value(null),
             builder: (ctx, cacheSnap) {
               final cached = cacheSnap.data;
               if (cacheSnap.connectionState == ConnectionState.waiting) {
@@ -516,51 +611,76 @@ class MailAttachments extends StatelessWidget {
                   ),
                 );
               }
-              if (cached != null && ((cached.htmlSanitizedBlocked?.isNotEmpty ?? false) || (cached.plainText?.isNotEmpty ?? false))) {
+              if (cached != null &&
+                  ((cached.htmlSanitizedBlocked?.isNotEmpty ?? false) ||
+                      (cached.plainText?.isNotEmpty ?? false))) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _offlineBanner(context),
-                  if (showBodyViewer)
-                    EnterpriseMessageViewer(
-                      mimeMessage: message,
-                      enableDarkMode: Theme.of(context).brightness == Brightness.dark,
-                      blockExternalImages: true,
-                      textScale: MediaQuery.of(context).textScaler.scale(1.0),
-                      initialHtml: cached.htmlSanitizedBlocked,
-                      initialHtmlPath: cached.htmlFilePath,
-                    ),
+                    if (showBodyViewer)
+                      EnterpriseMessageViewer(
+                        mimeMessage: message,
+                        enableDarkMode:
+                            Theme.of(context).brightness == Brightness.dark,
+                        blockExternalImages: true,
+                        textScale: MediaQuery.of(context).textScaler.scale(1.0),
+                        initialHtml: cached.htmlSanitizedBlocked,
+                        initialHtmlPath: cached.htmlFilePath,
+                      ),
                     if (cached.attachments.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.attach_file, size: 20, color: Theme.of(context).colorScheme.primary),
+                                Icon(
+                                  Icons.attach_file,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                                 const SizedBox(width: 8),
-                                Text('Offline attachments (${cached.attachments.length})',
-                                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                                Text(
+                                  'Offline attachments (${cached.attachments.length})',
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 8),
-                            ...cached.attachments.map((a) => ListTile(
-                                  leading: const Icon(Icons.insert_drive_file_rounded),
-                                  title: Text(a.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  subtitle: Text('${a.mimeType} • ${(a.sizeBytes / 1024).toStringAsFixed(1)} KB'),
-                                  onTap: () {
-                                    OpenAppFile.open(a.filePath);
+                            ...cached.attachments.map(
+                              (a) => ListTile(
+                                leading: const Icon(
+                                  Icons.insert_drive_file_rounded,
+                                ),
+                                title: Text(
+                                  a.fileName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text(
+                                  '${a.mimeType} • ${(a.sizeBytes / 1024).toStringAsFixed(1)} KB',
+                                ),
+                                onTap: () {
+                                  OpenAppFile.open(a.filePath);
+                                },
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.share_rounded),
+                                  onPressed: () async {
+                                    try {
+                                      await Share.shareXFiles([
+                                        XFile(a.filePath),
+                                      ], text: a.fileName);
+                                    } catch (_) {}
                                   },
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.share_rounded),
-                                    onPressed: () async {
-                                      try {
-                                        await Share.shareXFiles([XFile(a.filePath)], text: a.fileName);
-                                      } catch (_) {}
-                                    },
-                                  ),
-                                )),
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 8),
                           ],
                         ),
@@ -575,11 +695,17 @@ class MailAttachments extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.error_outline, color: AppTheme.errorColor, size: 48),
+                      const Icon(
+                        Icons.error_outline,
+                        color: AppTheme.errorColor,
+                        size: 48,
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         'Error loading message content: ${snapshot.error}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.errorColor),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppTheme.errorColor,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
@@ -596,14 +722,16 @@ class MailAttachments extends StatelessWidget {
         } else if (snapshot.hasData && snapshot.data != null) {
           // Enhanced email content display with proper structure
           return FutureBuilder<CachedMessageContent?>(
-            future: (message.uid != null)
-                ? MessageContentStore.instance.getContent(
-                    accountEmail: MailService.instance.account.email,
-                    mailboxPath: mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX',
-                    uidValidity: mailbox?.uidValidity ?? 0,
-                    uid: message.uid!,
-                  )
-                : Future.value(null),
+            future:
+                (message.uid != null)
+                    ? MessageContentStore.instance.getContent(
+                      accountEmail: MailService.instance.account.email,
+                      mailboxPath:
+                          mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX',
+                      uidValidity: mailbox?.uidValidity ?? 0,
+                      uid: message.uid!,
+                    )
+                    : Future.value(null),
             builder: (ctx, cacheSnap) {
               final cached = cacheSnap.data;
               final initialHtml = cached?.htmlSanitizedBlocked;
@@ -611,13 +739,21 @@ class MailAttachments extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (initialHtmlPath != null || (initialHtml != null && ((snapshot.data?.decodeTextHtmlPart()?.trim().isNotEmpty ?? false) == false)))
+                  if (initialHtmlPath != null ||
+                      (initialHtml != null &&
+                          ((snapshot.data
+                                      ?.decodeTextHtmlPart()
+                                      ?.trim()
+                                      .isNotEmpty ??
+                                  false) ==
+                              false)))
                     _offlineBanner(context),
                   // WebView-first enterprise viewer for best fidelity
                   if (showBodyViewer)
                     EnterpriseMessageViewer(
                       mimeMessage: snapshot.data!,
-                      enableDarkMode: Theme.of(context).brightness == Brightness.dark,
+                      enableDarkMode:
+                          Theme.of(context).brightness == Brightness.dark,
                       blockExternalImages: true,
                       textScale: MediaQuery.of(context).textScaler.scale(1.0),
                       initialHtml: initialHtml,
@@ -626,38 +762,67 @@ class MailAttachments extends StatelessWidget {
 
                   // Cached offline attachments (if available)
                   // Show when offline OR when MIME has no attachment parts to avoid empty state
-                  if (cached != null && cached.attachments.isNotEmpty &&
-                      (!InternetService.instance.connected || ((snapshot.data?.findContentInfo(disposition: ContentDisposition.attachment).isEmpty ?? true))))
+                  if (cached != null &&
+                      cached.attachments.isNotEmpty &&
+                      (!InternetService.instance.connected ||
+                          ((snapshot.data
+                                  ?.findContentInfo(
+                                    disposition: ContentDisposition.attachment,
+                                  )
+                                  .isEmpty ??
+                              true))))
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.attach_file, size: 20, color: Theme.of(context).colorScheme.primary),
+                              Icon(
+                                Icons.attach_file,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                               const SizedBox(width: 8),
-                              Text('Offline attachments (${cached.attachments.length})',
-                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                              Text(
+                                'Offline attachments (${cached.attachments.length})',
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          ...cached.attachments.map((a) => ListTile(
-                                leading: const Icon(Icons.insert_drive_file_rounded),
-                                title: Text(a.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
-                                subtitle: Text('${a.mimeType} • ${(a.sizeBytes / 1024).toStringAsFixed(1)} KB'),
-                                onTap: () {
-                                  OpenAppFile.open(a.filePath);
+                          ...cached.attachments.map(
+                            (a) => ListTile(
+                              leading: const Icon(
+                                Icons.insert_drive_file_rounded,
+                              ),
+                              title: Text(
+                                a.fileName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                '${a.mimeType} • ${(a.sizeBytes / 1024).toStringAsFixed(1)} KB',
+                              ),
+                              onTap: () {
+                                OpenAppFile.open(a.filePath);
+                              },
+                              trailing: IconButton(
+                                icon: const Icon(Icons.share_rounded),
+                                onPressed: () async {
+                                  try {
+                                    await Share.shareXFiles([
+                                      XFile(a.filePath),
+                                    ], text: a.fileName);
+                                  } catch (_) {}
                                 },
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.share_rounded),
-                                  onPressed: () async {
-                                    try {
-                                      await Share.shareXFiles([XFile(a.filePath)], text: a.fileName);
-                                    } catch (_) {}
-                                  },
-                                ),
-                              )),
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 8),
                         ],
                       ),
@@ -675,17 +840,14 @@ class MailAttachments extends StatelessWidget {
             },
           );
         } else {
-          return const Center(
-            child: Text('No message content available'),
-          );
+          return const Center(child: Text('No message content available'));
         }
       },
     );
   }
 
   Widget _offlineBanner(BuildContext context) {
-    return Container
-      (
+    return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -716,7 +878,7 @@ class AttachmentTile extends StatefulWidget {
   const AttachmentTile({
     super.key,
     required this.contentInfo,
-    required this.mimeMessage
+    required this.mimeMessage,
   });
 
   @override
@@ -730,9 +892,10 @@ class _AttachmentTileState extends State<AttachmentTile> {
   @override
   Widget build(BuildContext context) {
     final fileName = widget.contentInfo.fileName ?? 'Unknown file';
-    final fileSize = widget.contentInfo.size != null
-        ? _formatFileSize(widget.contentInfo.size!)
-        : '';
+    final fileSize =
+        widget.contentInfo.size != null
+            ? _formatFileSize(widget.contentInfo.size!)
+            : '';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
@@ -753,7 +916,9 @@ class _AttachmentTileState extends State<AttachmentTile> {
                 height: 48,
                 decoration: BoxDecoration(
                   color: AppTheme.backgroundColor,
-                  borderRadius: BorderRadius.circular(AppTheme.smallBorderRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.smallBorderRadius,
+                  ),
                 ),
                 child: Center(
                   child: Icon(
@@ -772,9 +937,7 @@ class _AttachmentTileState extends State<AttachmentTile> {
                       fileName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.w500),
                     ),
                     if (fileSize.isNotEmpty) ...[
                       const SizedBox(height: 4),
@@ -803,9 +966,7 @@ class _AttachmentTileState extends State<AttachmentTile> {
                 const SizedBox(
                   width: 24,
                   height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                  ),
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
                 Row(
@@ -843,7 +1004,9 @@ class _AttachmentTileState extends State<AttachmentTile> {
     });
 
     try {
-      MimePart? mimePart = widget.mimeMessage.getPart(widget.contentInfo.fetchId);
+      MimePart? mimePart = widget.mimeMessage.getPart(
+        widget.contentInfo.fetchId,
+      );
       if (mimePart != null) {
         Uint8List? uint8List = mimePart.decodeContentBinary();
         if (uint8List != null) {
@@ -891,7 +1054,9 @@ class _AttachmentTileState extends State<AttachmentTile> {
     });
 
     try {
-      MimePart? mimePart = widget.mimeMessage.getPart(widget.contentInfo.fetchId);
+      MimePart? mimePart = widget.mimeMessage.getPart(
+        widget.contentInfo.fetchId,
+      );
       if (mimePart != null) {
         Uint8List? uint8List = mimePart.decodeContentBinary();
         if (uint8List != null) {
@@ -901,10 +1066,9 @@ class _AttachmentTileState extends State<AttachmentTile> {
           );
 
           if (tempFile != null) {
-            await Share.shareXFiles(
-              [XFile(tempFile.path)],
-              text: 'Sharing ${widget.contentInfo.fileName}',
-            );
+            await Share.shareXFiles([
+              XFile(tempFile.path),
+            ], text: 'Sharing ${widget.contentInfo.fileName}');
           } else {
             setState(() {
               _error = 'Could not create temporary file';
@@ -962,7 +1126,10 @@ class _AttachmentTileState extends State<AttachmentTile> {
   }
 
   Future<bool> saveAndOpenFile(
-      BuildContext context, Uint8List uint8List, String fileName) async {
+    BuildContext context,
+    Uint8List uint8List,
+    String fileName,
+  ) async {
     try {
       // First try to save to app's cache directory (doesn't require permissions)
       final cacheDir = await getApplicationCacheDirectory();
@@ -1068,10 +1235,9 @@ class _AttachmentTileState extends State<AttachmentTile> {
           // Use share to let the user decide where to save it
           if (context.mounted) {
             // ignore: deprecated_member_use
-            await Share.shareXFiles(
-              [XFile(tempFile.path)],
-              text: 'Save or open $fileName',
-            );
+            await Share.shareXFiles([
+              XFile(tempFile.path),
+            ], text: 'Save or open $fileName');
             return true;
           }
         } else {
@@ -1089,10 +1255,9 @@ class _AttachmentTileState extends State<AttachmentTile> {
         final tempFile = File('${tempDir.path}/$fileName');
         await tempFile.writeAsBytes(uint8List);
 
-        await Share.shareXFiles(
-          [XFile(tempFile.path)],
-          text: 'Save or open $fileName',
-        );
+        await Share.shareXFiles([
+          XFile(tempFile.path),
+        ], text: 'Save or open $fileName');
         return true;
       }
 
@@ -1102,7 +1267,9 @@ class _AttachmentTileState extends State<AttachmentTile> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving file: ${e.toString().split('\n').first}'),
+            content: Text(
+              'Error saving file: ${e.toString().split('\n').first}',
+            ),
             backgroundColor: AppTheme.errorColor,
           ),
         );
@@ -1111,31 +1278,35 @@ class _AttachmentTileState extends State<AttachmentTile> {
     }
   }
 
-  void _showPermissionDeniedDialog(BuildContext context, String permissionType) {
+  void _showPermissionDeniedDialog(
+    BuildContext context,
+    String permissionType,
+  ) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Permission Required'),
-        content: Text(
-            'To save attachments, we need permission to access your ${permissionType == 'photos' ? 'photos' : 'files'}. '
-                'Please grant this permission in your device settings.'
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Cancel'),
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Permission Required'),
+            content: Text(
+              'To save attachments, we need permission to access your ${permissionType == 'photos' ? 'photos' : 'files'}. '
+              'Please grant this permission in your device settings.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  openAppSettings();
+                },
+                child: const Text('Open Settings'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              openAppSettings();
-            },
-            child: const Text('Open Settings'),
-          ),
-        ],
-      ),
     );
   }
 }

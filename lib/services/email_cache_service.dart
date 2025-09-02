@@ -7,13 +7,15 @@ import 'package:enough_mail/enough_mail.dart';
 class EmailCacheService {
   static EmailCacheService? _instance;
   static EmailCacheService get instance => _instance ??= EmailCacheService._();
-  
+
   EmailCacheService._();
 
   static const String _cachePrefix = 'email_cache_';
   static const String _metadataPrefix = 'email_metadata_';
-  static const int _maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-  static const int _maxCacheSize = 5000; // Maximum number of cached emails (increased to 5000). Note: large data should live in SQLite via MessageContentStore
+  static const int _maxCacheAge =
+      24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  static const int _maxCacheSize =
+      5000; // Maximum number of cached emails (increased to 5000). Note: large data should live in SQLite via MessageContentStore
 
   SharedPreferences? _prefs;
 
@@ -88,14 +90,14 @@ class EmailCacheService {
 
       final cacheKey = '$_cachePrefix$uid';
       final cachedData = _prefs!.getString(cacheKey);
-      
+
       if (cachedData == null) return null;
 
       final cacheEntry = jsonDecode(cachedData) as Map<String, dynamic>;
       final cachedAt = cacheEntry['cachedAt'] as int?;
-      
+
       // Check if cache is expired
-      if (cachedAt == null || 
+      if (cachedAt == null ||
           DateTime.now().millisecondsSinceEpoch - cachedAt > _maxCacheAge) {
         await _removeCachedEmail(uid);
         return null;
@@ -104,29 +106,29 @@ class EmailCacheService {
       // Reconstruct MimeMessage from cache
       final message = MimeMessage();
       message.uid = cacheEntry['uid'] as int?;
-      
+
       // Set basic properties with proper encoding for decoding
       if (cacheEntry['subject'] != null) {
         final subject = cacheEntry['subject'] as String;
         message.setHeader('subject', subject);
       }
-      
+
       if (cacheEntry['from'] != null) {
         message.from = _deserializeAddresses(cacheEntry['from'] as List);
       }
-      
+
       if (cacheEntry['to'] != null) {
         message.to = _deserializeAddresses(cacheEntry['to'] as List);
       }
-      
+
       if (cacheEntry['cc'] != null) {
         message.cc = _deserializeAddresses(cacheEntry['cc'] as List);
       }
-      
+
       if (cacheEntry['bcc'] != null) {
         message.bcc = _deserializeAddresses(cacheEntry['bcc'] as List);
       }
-      
+
       if (cacheEntry['date'] != null) {
         final dateMs = cacheEntry['date'] as int;
         final date = DateTime.fromMillisecondsSinceEpoch(dateMs);
@@ -156,7 +158,7 @@ class EmailCacheService {
         // Create a simple MIME structure for the content
         final plainText = cacheEntry['plainText'] as String?;
         final htmlText = cacheEntry['htmlText'] as String?;
-        
+
         if (htmlText != null && htmlText.isNotEmpty) {
           // Create HTML part
           final htmlPart = MimePart();
@@ -171,7 +173,7 @@ class EmailCacheService {
           message.addPart(textPart);
         }
       }
-      
+
       if (kDebugMode) {
         print('Retrieved cached email UID $uid with content reconstruction');
       }
@@ -192,12 +194,12 @@ class EmailCacheService {
 
       final metadataKey = '$_metadataPrefix$uid';
       final metadataData = _prefs!.getString(metadataKey);
-      
+
       if (metadataData == null) return false;
 
       final metadata = jsonDecode(metadataData) as Map<String, dynamic>;
       final cachedAt = metadata['cachedAt'] as int?;
-      
+
       if (cachedAt == null) return false;
 
       // Check if cache is expired
@@ -217,7 +219,7 @@ class EmailCacheService {
 
       final cacheKey = '$_cachePrefix$uid';
       final metadataKey = '$_metadataPrefix$uid';
-      
+
       await _prefs!.remove(cacheKey);
       await _prefs!.remove(metadataKey);
     } catch (e) {
@@ -234,7 +236,7 @@ class EmailCacheService {
 
       final keys = _prefs!.getKeys();
       final metadataKeys = keys.where((key) => key.startsWith(_metadataPrefix));
-      
+
       for (final metadataKey in metadataKeys) {
         final metadataData = _prefs!.getString(metadataKey);
         if (metadataData == null) continue;
@@ -242,7 +244,7 @@ class EmailCacheService {
         final metadata = jsonDecode(metadataData) as Map<String, dynamic>;
         final cachedAt = metadata['cachedAt'] as int?;
         final uid = metadata['uid'] as int?;
-        
+
         if (cachedAt == null || uid == null) continue;
 
         // Remove expired entries
@@ -263,8 +265,9 @@ class EmailCacheService {
       if (_prefs == null) return;
 
       final keys = _prefs!.getKeys();
-      final metadataKeys = keys.where((key) => key.startsWith(_metadataPrefix)).toList();
-      
+      final metadataKeys =
+          keys.where((key) => key.startsWith(_metadataPrefix)).toList();
+
       if (metadataKeys.length <= _maxCacheSize) return;
 
       // Sort by cache time (oldest first)
@@ -278,7 +281,9 @@ class EmailCacheService {
         }
       }
 
-      metadataEntries.sort((a, b) => (a['cachedAt'] as int).compareTo(b['cachedAt'] as int));
+      metadataEntries.sort(
+        (a, b) => (a['cachedAt'] as int).compareTo(b['cachedAt'] as int),
+      );
 
       // Remove oldest entries
       final entriesToRemove = metadataEntries.length - _maxCacheSize;
@@ -301,9 +306,11 @@ class EmailCacheService {
       if (_prefs == null) return;
 
       final keys = _prefs!.getKeys();
-      final cacheKeys = keys.where((key) => 
-        key.startsWith(_cachePrefix) || key.startsWith(_metadataPrefix));
-      
+      final cacheKeys = keys.where(
+        (key) =>
+            key.startsWith(_cachePrefix) || key.startsWith(_metadataPrefix),
+      );
+
       for (final key in cacheKeys) {
         await _prefs!.remove(key);
       }
@@ -325,17 +332,17 @@ class EmailCacheService {
 
       final keys = _prefs!.getKeys();
       final metadataKeys = keys.where((key) => key.startsWith(_metadataPrefix));
-      
+
       int totalSize = 0;
       int expiredCount = 0;
       final now = DateTime.now().millisecondsSinceEpoch;
-      
+
       for (final key in metadataKeys) {
         final data = _prefs!.getString(key);
         if (data != null) {
           final metadata = jsonDecode(data) as Map<String, dynamic>;
           totalSize += (metadata['size'] as int? ?? 0);
-          
+
           final cachedAt = metadata['cachedAt'] as int?;
           if (cachedAt != null && now - cachedAt > _maxCacheAge) {
             expiredCount++;
@@ -360,28 +367,38 @@ class EmailCacheService {
 
   List<Map<String, dynamic>> _serializeAddresses(List<MailAddress>? addresses) {
     if (addresses == null) return [];
-    return addresses.map((addr) => {
-      'email': addr.email,
-      'personalName': addr.personalName,
-    }).toList();
+    return addresses
+        .map((addr) => {'email': addr.email, 'personalName': addr.personalName})
+        .toList();
   }
 
   List<MailAddress> _deserializeAddresses(List<dynamic> addressData) {
-    return addressData.map((data) => MailAddress(
-      data['personalName'] as String?,
-      data['email'] as String,
-    )).toList();
+    return addressData
+        .map(
+          (data) => MailAddress(
+            data['personalName'] as String?,
+            data['email'] as String,
+          ),
+        )
+        .toList();
   }
 
   List<Map<String, dynamic>> _serializeAttachments(MimeMessage message) {
     try {
       final contentInfo = message.findContentInfo();
-      return contentInfo.map((info) => {
-        'fileName': info.fileName,
-        'size': info.size,
-'mimeType': (info.contentType != null) ? info.contentType!.mediaType.toString() : null,
-        'isInline': false, // Simplified for now
-      }).toList();
+      return contentInfo
+          .map(
+            (info) => {
+              'fileName': info.fileName,
+              'size': info.size,
+              'mimeType':
+                  (info.contentType != null)
+                      ? info.contentType!.mediaType.toString()
+                      : null,
+              'isInline': false, // Simplified for now
+            },
+          )
+          .toList();
     } catch (e) {
       if (kDebugMode) {
         print('Error serializing attachments: $e');
@@ -390,4 +407,3 @@ class EmailCacheService {
     }
   }
 }
-

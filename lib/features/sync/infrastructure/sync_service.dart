@@ -1,0 +1,59 @@
+import 'dart:async';
+
+import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as dom;
+import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
+import 'package:wahda_bank/features/sync/infrastructure/jitter_backoff.dart';
+import 'package:wahda_bank/shared/error/errors.dart';
+
+/// Sync service (shadow mode): consumes ImapGateway.idleStream and triggers header fetches.
+class SyncService {
+  final ImapGateway gateway;
+  final dom.MessageRepository messages;
+  final JitterBackoff backoff;
+
+  StreamSubscription<ImapEvent>? _sub;
+  int _attempt = 0;
+
+  SyncService({required this.gateway, required this.messages, JitterBackoff? backoff})
+      : backoff = backoff ?? JitterBackoff();
+
+  Future<void> start({required String accountId, required String folderId}) async {
+    await stop();
+    _sub = gateway
+        .idleStream(accountId: accountId, folderId: folderId)
+        .listen((event) async {
+      // On events, trigger header-first fetch for that folder; shadow mode (no UI/notifications)
+      if (event.type == ImapEventType.exists ||
+          event.type == ImapEventType.expunge ||
+          event.type == ImapEventType.flagsChanged) {
+        await messages.fetchInbox(folder: dom.Folder(id: folderId, name: folderId), limit: 50, offset: 0);
+      }
+    }, onError: (e, st) {
+      // Classify and schedule retry with jitter
+      final appErr = e is AppError ? e : mapImapError(e);
+      _attempt += 1;
+      final delay = backoff.forAttempt(_attempt);
+      _scheduleRestart(accountId: accountId, folderId: folderId, delay: delay);
+    }, onDone: () {
+      // Reconnect when stream closes
+      _attempt += 1;
+      final delay = backoff.forAttempt(_attempt);
+      _scheduleRestart(accountId: accountId, folderId: folderId, delay: delay);
+    });
+  }
+
+  void _scheduleRestart({required String accountId, required String folderId, required Duration delay}) {
+    // Use a microtask timer to delay restart without tight loops.
+    Future.delayed(delay, () {
+      start(accountId: accountId, folderId: folderId);
+    });
+  }
+
+  Future<void> stop() async {
+    await _sub?.cancel();
+    _sub = null;
+    _attempt = 0;
+  }
+}
+

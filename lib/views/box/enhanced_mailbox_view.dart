@@ -31,15 +31,14 @@ class EnhancedMailboxView extends StatefulWidget {
 
 class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
-  
   // Controllers
   late final MailBoxController controller;
   late final SelectionController selectionController;
-  
+
   // Scroll and loading management
   final ScrollController _scrollController = ScrollController();
   final Set<String> _processedUIDs = <String>{};
-  
+
   // State management
   bool _isInitializing = false;
   bool _isLoadingMore = false;
@@ -48,7 +47,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
   int _retryCount = 0;
   static const int _maxRetries = 3;
   static const Duration _retryDelay = Duration(seconds: 2);
-  
+
   // Performance optimization
   @override
   bool get wantKeepAlive => true;
@@ -59,7 +58,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
     WidgetsBinding.instance.addObserver(this);
     _initializeControllers();
     _setupScrollListener();
-    
+
     // Delayed initialization to ensure proper widget tree setup
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _performFirstTimeInitialization();
@@ -89,7 +88,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
   /// Setup scroll listener for pagination
   void _setupScrollListener() {
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels >= 
+      if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 500) {
         _loadMoreEmails();
       }
@@ -99,36 +98,41 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
   /// First-time initialization with comprehensive error handling
   Future<void> _performFirstTimeInitialization() async {
     if (_isInitializing || _hasInitialized) return;
-    
+
     setState(() {
       _isInitializing = true;
       _lastError = null;
     });
 
     try {
-      debugPrint('📫 Starting first-time mailbox initialization for: ${widget.mailbox.path}');
-      
+      debugPrint(
+        '📫 Starting first-time mailbox initialization for: ${widget.mailbox.path}',
+      );
+
       // Step 1: Ensure mailbox is properly selected
       await _ensureMailboxSelected();
-      
+
       // Step 2: Load initial emails with retry logic
       await _loadInitialEmailsWithRetry();
-      
+
       // Step 3: Mark as successfully initialized
       _hasInitialized = true;
       _retryCount = 0;
-      
-      debugPrint('📫 ✅ First-time mailbox initialization completed successfully');
-      
+
+      debugPrint(
+        '📫 ✅ First-time mailbox initialization completed successfully',
+      );
     } catch (e) {
       debugPrint('📫 ❌ First-time mailbox initialization failed: $e');
       _lastError = e.toString();
-      
+
       // Schedule retry if not exceeded max attempts
       if (_retryCount < _maxRetries) {
         _retryCount++;
-        debugPrint('📫 ⏳ Scheduling retry $_retryCount/$_maxRetries in ${_retryDelay.inSeconds}s');
-        
+        debugPrint(
+          '📫 ⏳ Scheduling retry $_retryCount/$_maxRetries in ${_retryDelay.inSeconds}s',
+        );
+
         Future.delayed(_retryDelay, () {
           if (mounted && !_hasInitialized) {
             _performFirstTimeInitialization();
@@ -152,29 +156,32 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
         debugPrint('📫 ✅ Mailbox already selected: ${widget.mailbox.path}');
         return;
       }
-      
+
       debugPrint('📫 Selecting mailbox: ${widget.mailbox.path}');
-      
+
       // If another load is in-flight, wait briefly for it to complete to avoid racing
       final stopwatch = Stopwatch()..start();
-      while (controller.isLoadingEmails.value && stopwatch.elapsed < const Duration(seconds: 10)) {
+      while (controller.isLoadingEmails.value &&
+          stopwatch.elapsed < const Duration(seconds: 10)) {
         await Future.delayed(const Duration(milliseconds: 200));
       }
-      
+
       // Select the mailbox with timeout
-      await controller.loadEmailsForBox(widget.mailbox)
+      await controller
+          .loadEmailsForBox(widget.mailbox)
           .timeout(const Duration(seconds: 20));
-      
+
       // Verify mailbox was selected, wait a tiny grace period for state to settle
       if (controller.currentMailbox?.path != widget.mailbox.path) {
         await Future.delayed(const Duration(milliseconds: 200));
       }
       if (controller.currentMailbox?.path != widget.mailbox.path) {
-        throw Exception('Mailbox selection failed - current: ${controller.currentMailbox?.path}');
+        throw Exception(
+          'Mailbox selection failed - current: ${controller.currentMailbox?.path}',
+        );
       }
-      
+
       debugPrint('📫 ✅ Mailbox selected: ${widget.mailbox.path}');
-      
     } catch (e) {
       debugPrint('📫 ❌ Mailbox selection error: $e');
       rethrow;
@@ -184,22 +191,20 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
   /// Load initial emails with retry logic and timeout handling
   Future<void> _loadInitialEmailsWithRetry() async {
     const Duration timeout = Duration(seconds: 30);
-    
+
     try {
       debugPrint('📫 Loading initial emails for: ${widget.mailbox.path}');
-      
+
       // Load emails with timeout
-      await controller.loadEmailsForBox(widget.mailbox)
-          .timeout(timeout);
-      
+      await controller.loadEmailsForBox(widget.mailbox).timeout(timeout);
+
       // Verify emails were loaded
       final emailCount = controller.emails[widget.mailbox]?.length ?? 0;
       debugPrint('📫 ✅ Loaded $emailCount emails for ${widget.mailbox.path}');
-      
+
       if (emailCount == 0) {
         debugPrint('📫 ⚠️ No emails found in ${widget.mailbox.path}');
       }
-      
     } catch (e) {
       if (e.toString().contains('TimeoutException')) {
         throw Exception('Email loading timeout - server may be slow');
@@ -214,7 +219,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
   /// Load more emails for pagination
   Future<void> _loadMoreEmails() async {
     if (_isLoadingMore || !_hasInitialized) return;
-    
+
     setState(() {
       _isLoadingMore = true;
     });
@@ -223,7 +228,6 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
       HapticFeedback.lightImpact();
       await controller.loadMoreEmails(widget.mailbox, 50);
       debugPrint('📫 ✅ Loaded more emails for ${widget.mailbox.path}');
-      
     } catch (e) {
       debugPrint('📫 ❌ Error loading more emails: $e');
     } finally {
@@ -242,7 +246,6 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
       _processedUIDs.clear();
       await controller.refreshMailbox(widget.mailbox);
       debugPrint('📫 ✅ Emails refreshed for ${widget.mailbox.path}');
-      
     } catch (e) {
       debugPrint('📫 ❌ Error refreshing emails: $e');
       if (mounted) {
@@ -280,14 +283,11 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
         } else if (_lastError != null && !_hasInitialized) {
           base = _buildInitializationError();
         } else {
-          base = _buildEmailList(controller.emails[widget.mailbox] ?? const <MimeMessage>[]);
+          base = _buildEmailList(
+            controller.emails[widget.mailbox] ?? const <MimeMessage>[],
+          );
         }
-        return Stack(
-          children: [
-            base,
-            _buildProgressOverlay(),
-          ],
-        );
+        return Stack(children: [base, _buildProgressOverlay()]);
       });
     }
 
@@ -302,12 +302,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
         } else {
           base = _buildEmailList(messages);
         }
-        return Stack(
-          children: [
-            base,
-            _buildProgressOverlay(),
-          ],
-        );
+        return Stack(children: [base, _buildProgressOverlay()]);
       },
     );
   }
@@ -315,7 +310,10 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
   Widget _buildProgressOverlay() {
     final pc = Get.find<EmailDownloadProgressController>();
     return Obx(() {
-      final shouldShow = pc.isVisible || controller.isLoadingEmails.value || controller.isPrefetching.value;
+      final shouldShow =
+          pc.isVisible ||
+          controller.isLoadingEmails.value ||
+          controller.isPrefetching.value;
       if (!shouldShow) return const SizedBox.shrink();
       return Align(
         alignment: Alignment.bottomCenter,
@@ -374,7 +372,9 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
                 width: 60,
                 child: CircularProgressIndicator(
                   strokeWidth: 4,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppTheme.primaryColor,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -383,19 +383,21 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: widget.isDarkMode ? Colors.white : Colors.grey.shade800,
+                  color:
+                      widget.isDarkMode ? Colors.white : Colors.grey.shade800,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                _retryCount > 0 
+                _retryCount > 0
                     ? 'Retry attempt $_retryCount/$_maxRetries'
                     : 'This may take a few moments',
                 style: TextStyle(
                   fontSize: 14,
-                  color: widget.isDarkMode 
-                      ? Colors.white.withValues(alpha: 0.7) 
-                      : Colors.grey.shade600,
+                  color:
+                      widget.isDarkMode
+                          ? Colors.white.withValues(alpha: 0.7)
+                          : Colors.grey.shade600,
                 ),
               ),
             ],
@@ -417,18 +419,15 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.error_outline,
-                size: 60,
-                color: Colors.red.shade400,
-              ),
+              Icon(Icons.error_outline, size: 60, color: Colors.red.shade400),
               const SizedBox(height: 24),
               Text(
                 'Loading Failed',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: widget.isDarkMode ? Colors.white : Colors.grey.shade800,
+                  color:
+                      widget.isDarkMode ? Colors.white : Colors.grey.shade800,
                 ),
               ),
               const SizedBox(height: 8),
@@ -437,9 +436,10 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: widget.isDarkMode 
-                      ? Colors.white.withValues(alpha: 0.7) 
-                      : Colors.grey.shade600,
+                  color:
+                      widget.isDarkMode
+                          ? Colors.white.withValues(alpha: 0.7)
+                          : Colors.grey.shade600,
                 ),
               ),
               const SizedBox(height: 24),
@@ -450,7 +450,10 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ],
@@ -468,26 +471,30 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
 
   Widget _buildEmailList(List<MimeMessage> emails) {
     // Filter only ready messages for display
-    final readyEmails = emails.where(_isMessageReady).toList(growable: false)
-      ..sort((a, b) {
-        // Enterprise-grade stable ordering: UID desc > sequenceId desc > date desc
-        final ua = a.uid ?? a.sequenceId ?? 0;
-        final ub = b.uid ?? b.sequenceId ?? 0;
-        if (ua != ub) return ub.compareTo(ua);
-        final da = a.decodeDate();
-        final db = b.decodeDate();
-        if (da == null && db == null) return 0;
-        if (da == null) return 1;
-        if (db == null) return -1;
-        return db.compareTo(da);
-      });
+    final readyEmails = emails
+      .where(_isMessageReady)
+      .toList(growable: false)..sort((a, b) {
+      // Enterprise-grade stable ordering: UID desc > sequenceId desc > date desc
+      final ua = a.uid ?? a.sequenceId ?? 0;
+      final ub = b.uid ?? b.sequenceId ?? 0;
+      if (ua != ub) return ub.compareTo(ua);
+      final da = a.decodeDate();
+      final db = b.decodeDate();
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return db.compareTo(da);
+    });
     if (readyEmails.isEmpty) {
       return _buildEmptyState();
     }
 
     // Disable fixed extent for very large text scales to avoid overflow.
     final textScale = MediaQuery.of(context).textScaler.scale(14.0) / 14.0;
-    bool useFixedExtent = FeatureFlags.instance.virtualizationTuningEnabled && FeatureFlags.instance.fixedExtentListEnabled && textScale <= 1.3;
+    bool useFixedExtent =
+        FeatureFlags.instance.virtualizationTuningEnabled &&
+        FeatureFlags.instance.fixedExtentListEnabled &&
+        textScale <= 1.3;
     final double? extent = useFixedExtent ? _fixedTileExtent(context) : null;
 
     return RefreshIndicator(
@@ -500,10 +507,15 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
         addAutomaticKeepAlives: false,
         addRepaintBoundaries: true,
         addSemanticIndexes: false,
-        cacheExtent: FeatureFlags.instance.virtualizationTuningEnabled ? 6 * 120.0 : null,
-        prototypeItem: (FeatureFlags.instance.virtualizationTuningEnabled && !useFixedExtent)
-            ? const SizedBox(height: 112)
-            : null,
+        cacheExtent:
+            FeatureFlags.instance.virtualizationTuningEnabled
+                ? 6 * 120.0
+                : null,
+        prototypeItem:
+            (FeatureFlags.instance.virtualizationTuningEnabled &&
+                    !useFixedExtent)
+                ? const SizedBox(height: 112)
+                : null,
         itemExtent: extent,
         itemCount: readyEmails.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
@@ -535,21 +547,28 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
                 Icon(
                   Icons.inbox,
                   size: 80,
-                  color: widget.isDarkMode 
-                      ? Colors.white.withValues(alpha: 0.3) 
-                      : Colors.grey.shade400,
+                  color:
+                      widget.isDarkMode
+                          ? Colors.white.withValues(alpha: 0.3)
+                          : Colors.grey.shade400,
                 ),
                 const SizedBox(height: 16),
                 Obx(() {
-                  final preparing = pc.isVisible || controller.isLoadingEmails.value || controller.isPrefetching.value;
+                  final preparing =
+                      pc.isVisible ||
+                      controller.isLoadingEmails.value ||
+                      controller.isPrefetching.value;
                   return Text(
-                    preparing ? 'Preparing messages…' : 'No emails in ${widget.mailbox.name}',
+                    preparing
+                        ? 'Preparing messages…'
+                        : 'No emails in ${widget.mailbox.name}',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w500,
-                      color: widget.isDarkMode 
-                          ? Colors.white.withValues(alpha: 0.7) 
-                          : Colors.grey.shade600,
+                      color:
+                          widget.isDarkMode
+                              ? Colors.white.withValues(alpha: 0.7)
+                              : Colors.grey.shade600,
                     ),
                   );
                 }),
@@ -558,9 +577,10 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
                   'Pull down to refresh',
                   style: TextStyle(
                     fontSize: 14,
-                    color: widget.isDarkMode 
-                        ? Colors.white.withValues(alpha: 0.5) 
-                        : Colors.grey.shade500,
+                    color:
+                        widget.isDarkMode
+                            ? Colors.white.withValues(alpha: 0.5)
+                            : Colors.grey.shade500,
                   ),
                 ),
               ],
@@ -597,7 +617,9 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppTheme.primaryColor,
+                  ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -610,9 +632,10 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
-                      color: widget.isDarkMode 
-                          ? Colors.white.withValues(alpha: 0.87) 
-                          : Colors.grey.shade700,
+                      color:
+                          widget.isDarkMode
+                              ? Colors.white.withValues(alpha: 0.87)
+                              : Colors.grey.shade700,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -620,9 +643,10 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
                     'Fetching from server',
                     style: TextStyle(
                       fontSize: 8,
-                      color: widget.isDarkMode 
-                            ? Colors.white60 
-                            : Colors.grey.shade600,
+                      color:
+                          widget.isDarkMode
+                              ? Colors.white60
+                              : Colors.grey.shade600,
                     ),
                   ),
                   const SizedBox(height: 1),
@@ -630,9 +654,10 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
                     '${_processedUIDs.length} emails loaded',
                     style: TextStyle(
                       fontSize: 8,
-                      color: widget.isDarkMode 
-                            ? Colors.white.withValues(alpha: 0.5) 
-                            : Colors.grey.shade500,
+                      color:
+                          widget.isDarkMode
+                              ? Colors.white.withValues(alpha: 0.5)
+                              : Colors.grey.shade500,
                     ),
                   ),
                 ],
@@ -667,10 +692,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
         final dy = (1.0 - t) * 12.0; // small upward slide
         return Opacity(
           opacity: t,
-          child: Transform.translate(
-            offset: Offset(0, dy),
-            child: child,
-          ),
+          child: Transform.translate(offset: Offset(0, dy), child: child),
         );
       },
       child: tile,
@@ -693,9 +715,16 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
           } catch (_) {
             // Fallbacks in case controller lookup or navigation fails
             try {
-              Get.to(() => ShowMessagePager(mailbox: widget.mailbox, initialMessage: message));
+              Get.to(
+                () => ShowMessagePager(
+                  mailbox: widget.mailbox,
+                  initialMessage: message,
+                ),
+              );
             } catch (_) {
-              Get.to(() => ShowMessage(message: message, mailbox: widget.mailbox));
+              Get.to(
+                () => ShowMessage(message: message, mailbox: widget.mailbox),
+              );
             }
           }
         }
@@ -706,11 +735,10 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     // Refresh when app comes to foreground
     if (state == AppLifecycleState.resumed && _hasInitialized) {
       _refreshEmails();
     }
   }
 }
-

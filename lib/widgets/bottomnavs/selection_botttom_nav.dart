@@ -20,7 +20,7 @@ class SelectionBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return Obx(() {
       final selectedCount = selectionController.selectedCount;
-      
+
       return Container(
         decoration: BoxDecoration(
           color: AppTheme.surfaceColor,
@@ -66,7 +66,7 @@ class SelectionBottomNav extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              
+
               // Actions Row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -137,9 +137,10 @@ class SelectionBottomNav extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: destructive
-                  ? Colors.red.withValues(alpha : 0.1)
-                  : AppTheme.primaryColor.withValues(alpha : 0.1),
+              color:
+                  destructive
+                      ? Colors.red.withValues(alpha: 0.1)
+                      : AppTheme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
@@ -165,62 +166,63 @@ class SelectionBottomNav extends StatelessWidget {
   void _showDeleteConfirmation(BuildContext context) {
     showCupertinoModalPopup(
       context: context,
-      builder: (context) => CupertinoActionSheet(
-        title: Text(
-          'are_you_u_wtd'.tr,
-          style: const TextStyle(color: AppTheme.textPrimaryColor),
-        ),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () async {
-              Get.back();
-              await mailController.deleteMails(
-                selectionController.selected,
-                box,
-              );
-              selectionController.clear();
-            },
-            isDestructiveAction: true,
-            child: Text('delete'.tr),
+      builder:
+          (context) => CupertinoActionSheet(
+            title: Text(
+              'are_you_u_wtd'.tr,
+              style: const TextStyle(color: AppTheme.textPrimaryColor),
+            ),
+            actions: [
+              CupertinoActionSheetAction(
+                onPressed: () async {
+                  Get.back();
+                  await mailController.deleteMails(
+                    selectionController.selected,
+                    box,
+                  );
+                  selectionController.clear();
+                },
+                isDestructiveAction: true,
+                child: Text('delete'.tr),
+              ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
+              onPressed: () => Get.back(),
+              child: Text('cancel'.tr),
+            ),
           ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Get.back(),
-          child: Text('cancel'.tr),
-        ),
-      ),
     );
   }
 
   void _showMoveActionSheet(BuildContext context) {
-    final otherBoxes = mailController.mailboxes
-        .whereNot((e) => e == box)
-        .toList();
+    final otherBoxes =
+        mailController.mailboxes.whereNot((e) => e == box).toList();
 
     showCupertinoModalPopup(
       context: context,
-      builder: (context) => CupertinoActionSheet(
-        title: Text('move_to'.tr),
-        actions: [
-          for (var item in otherBoxes)
-            CupertinoActionSheetAction(
-              onPressed: () async {
-                Get.back();
-                await mailController.moveMails(
-                  selectionController.selected,
-                  box,
-                  item,
-                );
-                selectionController.clear();
-              },
-              child: Text(item.name.ucFirst()),
+      builder:
+          (context) => CupertinoActionSheet(
+            title: Text('move_to'.tr),
+            actions: [
+              for (var item in otherBoxes)
+                CupertinoActionSheetAction(
+                  onPressed: () async {
+                    Get.back();
+                    await mailController.moveMails(
+                      selectionController.selected,
+                      box,
+                      item,
+                    );
+                    selectionController.clear();
+                  },
+                  child: Text(item.name.ucFirst()),
+                ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
+              onPressed: () => Get.back(),
+              child: Text('cancel'.tr),
             ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Get.back(),
-          child: Text('cancel'.tr),
-        ),
-      ),
+          ),
     );
   }
 }

@@ -23,7 +23,10 @@ class OfflineHttpServer {
         if (uri.path == '/ping') {
           req.response
             ..statusCode = 200
-            ..headers.set(HttpHeaders.contentTypeHeader, 'text/plain; charset=utf-8')
+            ..headers.set(
+              HttpHeaders.contentTypeHeader,
+              'text/plain; charset=utf-8',
+            )
             ..write('ok');
           await req.response.close();
           return;
@@ -65,17 +68,27 @@ class OfflineHttpServer {
           }
 
           // Find attachment by CID or filename
-          String norm(String? s) => (s ?? '').replaceAll('<', '').replaceAll('>', '').trim();
+          String norm(String? s) =>
+              (s ?? '').replaceAll('<', '').replaceAll('>', '').trim();
           final cid = norm(cidQ);
           final name = nameQ == null ? null : Uri.decodeComponent(nameQ);
 
           final resolved = cached;
           var att = resolved.attachments.firstWhere(
             (a) => cid.isNotEmpty && norm(a.contentId) == cid,
-            orElse: () => resolved.attachments.firstWhere(
-              (a) => name != null && a.fileName == name,
-              orElse: () => const CachedAttachment(contentId: null, fileName: '', mimeType: 'application/octet-stream', sizeBytes: 0, isInline: false, filePath: ''),
-            ),
+            orElse:
+                () => resolved.attachments.firstWhere(
+                  (a) => name != null && a.fileName == name,
+                  orElse:
+                      () => const CachedAttachment(
+                        contentId: null,
+                        fileName: '',
+                        mimeType: 'application/octet-stream',
+                        sizeBytes: 0,
+                        isInline: false,
+                        filePath: '',
+                      ),
+                ),
           );
           if (att.filePath.isEmpty) {
             // Serve a 1x1 transparent GIF placeholder to avoid broken image UX
@@ -89,14 +102,23 @@ class OfflineHttpServer {
             return;
           }
 
-          final mime = att.mimeType.isNotEmpty ? att.mimeType : 'application/octet-stream';
+          final mime =
+              att.mimeType.isNotEmpty
+                  ? att.mimeType
+                  : 'application/octet-stream';
           req.response.headers.set(HttpHeaders.contentTypeHeader, mime);
           final disp = download ? 'attachment' : 'inline';
           final safeName = att.fileName.isEmpty ? 'attachment' : att.fileName;
-          req.response.headers.set('content-disposition', "$disp; filename=\"$safeName\"");
+          req.response.headers.set(
+            'content-disposition',
+            "$disp; filename=\"$safeName\"",
+          );
           try {
             final stat = await file.stat();
-            req.response.headers.set(HttpHeaders.contentLengthHeader, stat.size.toString());
+            req.response.headers.set(
+              HttpHeaders.contentLengthHeader,
+              stat.size.toString(),
+            );
           } catch (_) {}
 
           await req.response.addStream(file.openRead());
@@ -105,7 +127,9 @@ class OfflineHttpServer {
         }
 
         // Route: /message/{account}/{box}/{uidValidity}/{uid}.html?allowRemote=0|1
-        if (segs.length == 5 && segs[0] == 'message' && segs[4].endsWith('.html')) {
+        if (segs.length == 5 &&
+            segs[0] == 'message' &&
+            segs[4].endsWith('.html')) {
           final account = Uri.decodeComponent(segs[1]);
           final box = Uri.decodeComponent(segs[2]);
           final uidValidity = int.tryParse(segs[3]) ?? 0;
@@ -159,7 +183,13 @@ class OfflineHttpServer {
           } else {
             // Fallback to sanitized inline (as stored); wrap with CSP and CSS
             final inner = cached?.htmlSanitizedBlocked ?? '';
-            final innerRewritten = _rewriteCidToLocal(inner, account, box, uidValidity, uid);
+            final innerRewritten = _rewriteCidToLocal(
+              inner,
+              account,
+              box,
+              uidValidity,
+              uid,
+            );
             if (innerRewritten.trim().isEmpty) {
               final plain = cached?.plainText ?? '';
               final pre = '<pre class="wb-pre">${_escapeHtml(plain)}</pre>';
@@ -170,7 +200,10 @@ class OfflineHttpServer {
             source = 'inline';
           }
 
-          req.response.headers.set(HttpHeaders.contentTypeHeader, 'text/html; charset=utf-8');
+          req.response.headers.set(
+            HttpHeaders.contentTypeHeader,
+            'text/html; charset=utf-8',
+          );
           req.response.headers.set('X-From-Cache', source);
           req.response.write(body);
           await req.response.close();
@@ -192,8 +225,10 @@ class OfflineHttpServer {
 
   bool _hasMeaningfulContent(String doc) {
     try {
-      final m = RegExp(r'<div class=\"wb-container\">([\s\S]*?)<\/div>', caseSensitive: false)
-          .firstMatch(doc);
+      final m = RegExp(
+        r'<div class=\"wb-container\">([\s\S]*?)<\/div>',
+        caseSensitive: false,
+      ).firstMatch(doc);
       final inner = (m?.group(1) ?? '').replaceAll(RegExp(r'\s+'), '');
       return inner.length > 50;
     } catch (_) {
@@ -220,23 +255,34 @@ class OfflineHttpServer {
     }
   }
 
-  String _rewriteCidToLocal(String html, String account, String box, int uidValidity, int uid) {
+  String _rewriteCidToLocal(
+    String html,
+    String account,
+    String box,
+    int uidValidity,
+    int uid,
+  ) {
     try {
-      final base = '/attachment/'
+      final base =
+          '/attachment/'
           '${Uri.encodeComponent(account)}/'
           '${Uri.encodeComponent(box)}/'
           '$uidValidity/$uid';
       html = html.replaceAllMapped(
         RegExp(r'src\s*=\s*"cid:([^"]+)"', caseSensitive: false),
         (m) {
-          final cid = Uri.encodeComponent(m.group(1)!.replaceAll('<', '').replaceAll('>', ''));
+          final cid = Uri.encodeComponent(
+            m.group(1)!.replaceAll('<', '').replaceAll('>', ''),
+          );
           return 'src="http://127.0.0.1:$_port$base?cid=$cid"';
         },
       );
       html = html.replaceAllMapped(
         RegExp(r"src\s*=\s*'cid:([^']+)'", caseSensitive: false),
         (m) {
-          final cid = Uri.encodeComponent(m.group(1)!.replaceAll('<', '').replaceAll('>', ''));
+          final cid = Uri.encodeComponent(
+            m.group(1)!.replaceAll('<', '').replaceAll('>', ''),
+          );
           return "src='http://127.0.0.1:$_port$base?cid=$cid'";
         },
       );
@@ -269,9 +315,10 @@ class OfflineHttpServer {
   }
 
   String _wrapHtml(String innerHtml, {required bool allowRemote}) {
-    final cspImg = allowRemote
-        ? "img-src 'self' data: about: cid: http: https:;"
-        : "img-src 'self' data: about: cid:;";
+    final cspImg =
+        allowRemote
+            ? "img-src 'self' data: about: cid: http: https:;"
+            : "img-src 'self' data: about: cid:;";
     final csp = [
       "default-src 'none';",
       "base-uri 'none';",
@@ -312,4 +359,3 @@ class OfflineHttpServer {
         '</html>';
   }
 }
-

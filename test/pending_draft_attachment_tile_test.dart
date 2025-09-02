@@ -11,7 +11,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('PendingDraftAttachmentTile', () {
-    testWidgets('shows localized View and Re-attach actions (EN)', (WidgetTester tester) async {
+    testWidgets('shows localized View and Re-attach actions (EN)', (
+      WidgetTester tester,
+    ) async {
       // Register translations
       final translations = Lang();
 
@@ -42,7 +44,9 @@ void main() {
       expect(find.text('1.0 MB'), findsOneWidget); // formatted size
     });
 
-    testWidgets('shows localized Arabic labels (AR)', (WidgetTester tester) async {
+    testWidgets('shows localized Arabic labels (AR)', (
+      WidgetTester tester,
+    ) async {
       final translations = Lang();
 
       await tester.pumpWidget(
@@ -73,4 +77,3 @@ void main() {
     });
   });
 }
-

@@ -117,11 +117,10 @@ class ImapCommandQueue {
 
   /// Returns a debug snapshot of the queue state.
   Map<String, dynamic> debugState() => {
-        'hasPending': _currentLabel != null,
-        'currentLabel': _currentLabel,
-        'inFlight': _inFlight,
-        'idlePaused': _idlePaused,
-        'settleDelayMs': _settleDelay.inMilliseconds,
-      };
+    'hasPending': _currentLabel != null,
+    'currentLabel': _currentLabel,
+    'inFlight': _inFlight,
+    'idlePaused': _idlePaused,
+    'settleDelayMs': _settleDelay.inMilliseconds,
+  };
 }
-

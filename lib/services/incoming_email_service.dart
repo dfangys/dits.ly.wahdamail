@@ -10,14 +10,19 @@ import 'realtime_update_service.dart';
 /// High-performance incoming email notification service
 class IncomingEmailService extends GetxService {
   static IncomingEmailService? _instance;
-  static IncomingEmailService get instance => _instance ??= IncomingEmailService._();
-  
+  static IncomingEmailService get instance =>
+      _instance ??= IncomingEmailService._();
+
   IncomingEmailService._();
 
   // Real-time streams for incoming emails
-  final BehaviorSubject<List<MimeMessage>> _newEmailsStream = BehaviorSubject<List<MimeMessage>>.seeded([]);
-  final BehaviorSubject<int> _newEmailCountStream = BehaviorSubject<int>.seeded(0);
-  final PublishSubject<MimeMessage> _singleNewEmailStream = PublishSubject<MimeMessage>();
+  final BehaviorSubject<List<MimeMessage>> _newEmailsStream =
+      BehaviorSubject<List<MimeMessage>>.seeded([]);
+  final BehaviorSubject<int> _newEmailCountStream = BehaviorSubject<int>.seeded(
+    0,
+  );
+  final PublishSubject<MimeMessage> _singleNewEmailStream =
+      PublishSubject<MimeMessage>();
 
   // Public streams
   Stream<List<MimeMessage>> get newEmailsStream => _newEmailsStream.stream;
@@ -50,7 +55,7 @@ class IncomingEmailService extends GetxService {
   void _initializeService() {
     // Start with conservative polling
     startPolling(interval: const Duration(minutes: 2));
-    
+
     // Listen for app state changes to optimize polling
     _setupAppStateListener();
   }
@@ -58,16 +63,18 @@ class IncomingEmailService extends GetxService {
   /// Start polling for new emails with configurable interval
   void startPolling({Duration interval = const Duration(minutes: 1)}) {
     stopPolling();
-    
+
     _pollingTimer = Timer.periodic(interval, (_) {
       _checkForNewEmails();
     });
-    
+
     // Initial check
     _checkForNewEmails();
-    
+
     if (kDebugMode) {
-      print('📧 Started polling for new emails every ${interval.inMinutes} minutes');
+      print(
+        '📧 Started polling for new emails every ${interval.inMinutes} minutes',
+      );
     }
   }
 
@@ -75,7 +82,7 @@ class IncomingEmailService extends GetxService {
   void stopPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
-    
+
     if (kDebugMode) {
       print('📧 Stopped polling for new emails');
     }
@@ -115,7 +122,7 @@ class IncomingEmailService extends GetxService {
   void disableIdleMode() {
     _idleTimer?.cancel();
     _idleTimer = null;
-    
+
     if (kDebugMode) {
       print('📧 IDLE mode disabled');
     }
@@ -133,13 +140,13 @@ class IncomingEmailService extends GetxService {
       if (mailService == null) return;
 
       // Get current inbox
-      final inbox = mailService.client.selectedMailbox ?? 
-                   await mailService.client.selectInbox();
-      
+      final inbox =
+          mailService.client.selectedMailbox ??
+          await mailService.client.selectInbox();
 
       // Check message count
       final currentCount = inbox.messagesExists;
-      
+
       if (_lastKnownMessageCount == 0) {
         // First time - just store the count
         _lastKnownMessageCount = currentCount;
@@ -149,17 +156,16 @@ class IncomingEmailService extends GetxService {
       if (currentCount > _lastKnownMessageCount) {
         // New messages detected!
         final newMessageCount = currentCount - _lastKnownMessageCount;
-        
+
         if (kDebugMode) {
           print('📧 Detected $newMessageCount new messages');
         }
 
         // Fetch the new messages
         await _fetchNewMessages(newMessageCount);
-        
+
         _lastKnownMessageCount = currentCount;
       }
-
     } catch (e) {
       if (kDebugMode) {
         print('📧 Error checking for new emails: $e');
@@ -174,33 +180,36 @@ class IncomingEmailService extends GetxService {
       if (mailService == null) return;
 
       // Fetch the latest messages using correct API
-      
+
       final fetchResult = await mailService.client.fetchMessages(
         fetchPreference: FetchPreference.envelope,
       );
 
       final newMessages = fetchResult;
-      
+
       if (newMessages.isNotEmpty) {
         // Filter out already processed messages
-        final unprocessedMessages = newMessages.where((msg) {
-          final msgId = '${msg.uid ?? msg.sequenceId}';
-          return !_processedMessageIds.contains(msgId);
-        }).toList();
+        final unprocessedMessages =
+            newMessages.where((msg) {
+              final msgId = '${msg.uid ?? msg.sequenceId}';
+              return !_processedMessageIds.contains(msgId);
+            }).toList();
 
         if (unprocessedMessages.isNotEmpty) {
           // Update streams
           _newEmailsStream.add(unprocessedMessages);
-          _newEmailCountStream.add(_newEmailCountStream.value + unprocessedMessages.length);
+          _newEmailCountStream.add(
+            _newEmailCountStream.value + unprocessedMessages.length,
+          );
 
           // Emit individual messages for specific handling
           for (final message in unprocessedMessages) {
             _singleNewEmailStream.add(message);
-            
+
             // Mark as processed
             final msgId = '${message.uid ?? message.sequenceId}';
             _processedMessageIds.add(msgId);
-            
+
             // Notifications are handled centrally by EmailNotificationService to avoid duplicates.
             // This service only updates in-app indicators and streams.
           }
@@ -214,7 +223,6 @@ class IncomingEmailService extends GetxService {
           }
         }
       }
-
     } catch (e) {
       if (kDebugMode) {
         print('📧 Error fetching new messages: $e');
@@ -222,14 +230,11 @@ class IncomingEmailService extends GetxService {
     }
   }
 
-  
-
-
   /// Setup app state listener to optimize polling based on app state
   void _setupAppStateListener() {
     // This would typically listen to app lifecycle events
     // For now, we'll use a simple approach
-    
+
     // More frequent polling when app is active
     // Less frequent when app is in background
   }
@@ -255,4 +260,3 @@ class IncomingEmailService extends GetxService {
     super.onClose();
   }
 }
-

@@ -28,7 +28,7 @@ class BackgroundService {
 
   static bool get isSupported =>
       defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS;
+      defaultTargetPlatform == TargetPlatform.iOS;
 
   /// Initialize the background service
   static Future<void> initializeService() async {
@@ -46,7 +46,9 @@ class BackgroundService {
         );
       } else if (Platform.isIOS) {
         // iOS background processing is handled differently
-        debugPrint('Background service: iOS initialization - using app lifecycle events');
+        debugPrint(
+          'Background service: iOS initialization - using app lifecycle events',
+        );
       }
     } catch (e) {
       debugPrint('Background service initialization error: $e');
@@ -64,9 +66,7 @@ class BackgroundService {
           'com.wahda_bank.emailCheck',
           'emailBackgroundCheck',
           frequency: const Duration(minutes: 15),
-          constraints: Constraints(
-            networkType: NetworkType.connected,
-          ),
+          constraints: Constraints(networkType: NetworkType.connected),
           existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
           backoffPolicy: BackoffPolicy.linear,
           backoffPolicyDelay: const Duration(minutes: 5),
@@ -74,13 +74,18 @@ class BackgroundService {
       } else if (Platform.isIOS) {
         // For iOS, we'll use app lifecycle events instead of periodic tasks
         // iOS has strict background processing limitations
-        debugPrint('Background service: iOS detected, using app lifecycle events');
+        debugPrint(
+          'Background service: iOS detected, using app lifecycle events',
+        );
       }
 
       // Store service state
       final storage = GetStorage();
       await storage.write(keyBackgroundServiceEnabled, true);
-      await storage.write(keyBackgroundServiceLastRun, DateTime.now().toIso8601String());
+      await storage.write(
+        keyBackgroundServiceLastRun,
+        DateTime.now().toIso8601String(),
+      );
 
       return true;
     } catch (e) {
@@ -147,7 +152,10 @@ class BackgroundService {
 
         // Update last run timestamp
         final storage = GetStorage();
-        await storage.write(keyBackgroundServiceLastRun, DateTime.now().toIso8601String());
+        await storage.write(
+          keyBackgroundServiceLastRun,
+          DateTime.now().toIso8601String(),
+        );
 
         // Remove the checking notification
         await NotificationService.instance.plugin.cancel(notificationId);
@@ -196,22 +204,26 @@ class BackgroundService {
     // Fire and forget; do not block startup
     // ignore: discarded_futures
     Future(() async {
-      final endTrace = PerfTracer.begin('background.backfillAllMailboxes', args: {
-        'perMailboxLimit': perMailboxLimit,
-        'batchSize': batchSize,
-      });
+      final endTrace = PerfTracer.begin(
+        'background.backfillAllMailboxes',
+        args: {'perMailboxLimit': perMailboxLimit, 'batchSize': batchSize},
+      );
       try {
         final mailService = MailService.instance;
         // Try to get mailboxes either from controller or from client
         List<Mailbox> mailboxes = [];
         try {
           if (Get.isRegistered<MailBoxController>()) {
-            mailboxes = List<Mailbox>.from(Get.find<MailBoxController>().mailboxes);
+            mailboxes = List<Mailbox>.from(
+              Get.find<MailBoxController>().mailboxes,
+            );
           }
         } catch (_) {}
         if (mailboxes.isEmpty) {
           try {
-            mailboxes = List<Mailbox>.from(mailService.client.mailboxes ?? const []);
+            mailboxes = List<Mailbox>.from(
+              mailService.client.mailboxes ?? const [],
+            );
           } catch (_) {}
         }
         if (mailboxes.isEmpty) {
@@ -231,13 +243,17 @@ class BackgroundService {
 
             int processed = 0;
             while (processed < perMailboxLimit) {
-              final updated = await storage.backfillDerivedFields(maxRows: batchSize);
+              final updated = await storage.backfillDerivedFields(
+                maxRows: batchSize,
+              );
               if (updated <= 0) break;
               processed += updated;
               await Future.delayed(pauseBetweenBatches);
             }
             if (kDebugMode) {
-              print('📧 Backfill mailbox ${mb.name}: processed $processed rows');
+              print(
+                '📧 Backfill mailbox ${mb.name}: processed $processed rows',
+              );
             }
           } catch (e) {
             if (kDebugMode) {
@@ -250,14 +266,17 @@ class BackgroundService {
           print('📧 Global backfill error: $e');
         }
       } finally {
-        try { endTrace(); } catch (_) {}
+        try {
+          endTrace();
+        } catch (_) {}
       }
     });
   }
 
   /// Optimize battery usage by requesting battery optimization exemption
   static Future<void> optimizeBatteryUsage() async {
-    await EmailNotificationService.instance.requestBatteryOptimizationExemption();
+    await EmailNotificationService.instance
+        .requestBatteryOptimizationExemption();
   }
 
   /// Add next UID for inbox (legacy method, kept for compatibility)

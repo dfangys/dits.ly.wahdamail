@@ -4,10 +4,7 @@ import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import '../../views/settings/data/swap_data.dart';
 
 class ListTileCupertinoDilaogue extends GetView<SettingController> {
-  const ListTileCupertinoDilaogue({
-    super.key,
-    required this.direction,
-  });
+  const ListTileCupertinoDilaogue({super.key, required this.direction});
 
   final String direction;
 

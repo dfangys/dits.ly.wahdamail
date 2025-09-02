@@ -60,7 +60,7 @@ class AppTheme {
   // Elevation and shadows
   static List<BoxShadow> cardShadow = [
     BoxShadow(
-      color: Colors.black.withValues(alpha : 0.05),
+      color: Colors.black.withValues(alpha: 0.05),
       blurRadius: 8,
       offset: const Offset(0, 2),
     ),
@@ -68,7 +68,7 @@ class AppTheme {
 
   static List<BoxShadow> bottomNavShadow = [
     BoxShadow(
-      color: Colors.black.withValues(alpha : 0.1),
+      color: Colors.black.withValues(alpha: 0.1),
       blurRadius: 10,
       offset: const Offset(0, -2),
     ),
@@ -123,7 +123,10 @@ class AppTheme {
         ),
       ),
       listTileTheme: const ListTileThemeData(
-        contentPadding: EdgeInsets.symmetric(horizontal: spacing, vertical: smallSpacing),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: spacing,
+          vertical: smallSpacing,
+        ),
         minLeadingWidth: 24,
         minVerticalPadding: smallSpacing,
       ),
@@ -135,9 +138,7 @@ class AppTheme {
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: surfaceColor,
@@ -337,7 +338,7 @@ class AppTheme {
         }),
         trackColor: WidgetStateProperty.resolveWith<Color>((states) {
           if (states.contains(WidgetState.selected)) {
-            return primaryColor.withValues(alpha : 0.5);
+            return primaryColor.withValues(alpha: 0.5);
           }
           return textTertiaryColor;
         }),

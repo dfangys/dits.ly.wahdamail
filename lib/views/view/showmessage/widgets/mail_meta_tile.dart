@@ -17,62 +17,65 @@ class MailMetaTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
       valueListenable: isShow,
-      builder: (context, value, child) => AnimatedCrossFade(
-        firstChild: const SizedBox.shrink(),
-        secondChild: Padding(
-          padding: const EdgeInsets.only(top: 16.0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
-              borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-            ),
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                buildMailInfo(
-                  "From",
-                  message.from != null
-                      ? message.from!.map((e) => e.email).toList()
-                      : [],
+      builder:
+          (context, value, child) => AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(AppTheme.borderRadius),
                 ),
-                buildMailInfo(
-                  "To",
-                  (message.to != null && message.to!.isNotEmpty)
-                      ? message.to!.map((e) => e.email).toList()
-                      : (message.envelope?.to?.map((e) => e.email).toList() ?? []),
-                ),
-                buildMailInfo(
-                  "Cc",
-                  message.cc != null
-                      ? message.cc!.map((e) => e.email).toList()
-                      : [],
-                ),
-                buildMailInfo(
-                  "Bcc",
-                  message.bcc != null
-                      ? message.bcc!.map((e) => e.email).toList()
-                      : [],
-                ),
-                buildMailInfo(
-                  "Date",
-                  [
-                    DateFormat("EEEE, MMMM d, yyyy 'at' h:mm a").format(
-                      message.decodeDate() ?? message.envelope?.date ?? DateTime.now(),
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    buildMailInfo(
+                      "From",
+                      message.from != null
+                          ? message.from!.map((e) => e.email).toList()
+                          : [],
                     ),
+                    buildMailInfo(
+                      "To",
+                      (message.to != null && message.to!.isNotEmpty)
+                          ? message.to!.map((e) => e.email).toList()
+                          : (message.envelope?.to
+                                  ?.map((e) => e.email)
+                                  .toList() ??
+                              []),
+                    ),
+                    buildMailInfo(
+                      "Cc",
+                      message.cc != null
+                          ? message.cc!.map((e) => e.email).toList()
+                          : [],
+                    ),
+                    buildMailInfo(
+                      "Bcc",
+                      message.bcc != null
+                          ? message.bcc!.map((e) => e.email).toList()
+                          : [],
+                    ),
+                    buildMailInfo("Date", [
+                      DateFormat("EEEE, MMMM d, yyyy 'at' h:mm a").format(
+                        message.decodeDate() ??
+                            message.envelope?.date ??
+                            DateTime.now(),
+                      ),
+                    ]),
                   ],
-                )
-              ],
+                ),
+              ),
             ),
+            crossFadeState:
+                value ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            duration: AppTheme.mediumAnimationDuration,
+            sizeCurve: Curves.easeInOut,
+            firstCurve: Curves.easeOut,
+            secondCurve: Curves.easeIn,
           ),
-        ),
-        crossFadeState:
-        value ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-        duration: AppTheme.mediumAnimationDuration,
-        sizeCurve: Curves.easeInOut,
-        firstCurve: Curves.easeOut,
-        secondCurve: Curves.easeIn,
-      ),
     );
   }
 }
@@ -99,28 +102,32 @@ Widget buildMailInfo(String title, List<String> data) {
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: data.map((email) =>
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: GestureDetector(
-                    onTap: () {
-                      if (title == "Date") return;
-                      _showEmailOptions(email);
-                    },
-                    child: Text(
-                      email,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: title == "Date"
-                            ? AppTheme.textSecondaryColor
-                            : AppTheme.primaryColor,
+            children:
+                data
+                    .map(
+                      (email) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: GestureDetector(
+                          onTap: () {
+                            if (title == "Date") return;
+                            _showEmailOptions(email);
+                          },
+                          child: Text(
+                            email,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color:
+                                  title == "Date"
+                                      ? AppTheme.textSecondaryColor
+                                      : AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                )
-            ).toList(),
+                    )
+                    .toList(),
           ),
-        )
+        ),
       ],
     ),
   );
@@ -129,73 +136,74 @@ Widget buildMailInfo(String title, List<String> data) {
 void _showEmailOptions(String email) {
   showCupertinoModalPopup(
     context: Get.context!,
-    builder: (context) => CupertinoActionSheet(
-      title: const Text('Email Options'),
-      message: Text(email),
-      actions: [
-        CupertinoActionSheetAction(
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: email));
-            Navigator.pop(context);
+    builder:
+        (context) => CupertinoActionSheet(
+          title: const Text('Email Options'),
+          message: Text(email),
+          actions: [
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: email));
+                Navigator.pop(context);
 
-            // Show copy confirmation
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Email address copied to clipboard'),
-                backgroundColor: AppTheme.successColor,
-                behavior: SnackBarBehavior.floating,
-                duration: Duration(seconds: 2),
+                // Show copy confirmation
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Email address copied to clipboard'),
+                    backgroundColor: AppTheme.successColor,
+                    behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.copy, size: 20, color: AppTheme.primaryColor),
+                  SizedBox(width: 8),
+                  Text("Copy Email Address"),
+                ],
               ),
-            );
-          },
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.copy, size: 20, color: AppTheme.primaryColor),
-              SizedBox(width: 8),
-              Text("Copy Email Address"),
-            ],
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Get.back();
+                ComposeModal.show(Get.context!, arguments: {"to": email});
+              },
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.email_outlined,
+                    size: 20,
+                    color: AppTheme.primaryColor,
+                  ),
+                  SizedBox(width: 8),
+                  Text("New Message"),
+                ],
+              ),
+            ),
+            CupertinoActionSheetAction(
+              onPressed: () {
+                Get.back();
+                Get.to(() => SearchView(), arguments: {"terms": email});
+              },
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search, size: 20, color: AppTheme.primaryColor),
+                  SizedBox(width: 8),
+                  Text("Search"),
+                ],
+              ),
+            ),
+          ],
+          cancelButton: CupertinoActionSheetAction(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text("Cancel"),
           ),
         ),
-        CupertinoActionSheetAction(
-          onPressed: () {
-            Get.back();
-            ComposeModal.show(Get.context!, arguments: {
-              "to": email,
-            });
-          },
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.email_outlined, size: 20, color: AppTheme.primaryColor),
-              SizedBox(width: 8),
-              Text("New Message"),
-            ],
-          ),
-        ),
-        CupertinoActionSheetAction(
-          onPressed: () {
-            Get.back();
-            Get.to(() => SearchView(), arguments: {
-              "terms": email,
-            });
-          },
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.search, size: 20, color: AppTheme.primaryColor),
-              SizedBox(width: 8),
-              Text("Search"),
-            ],
-          ),
-        ),
-      ],
-      cancelButton: CupertinoActionSheetAction(
-        onPressed: () {
-          Navigator.pop(context);
-        },
-        child: const Text("Cancel"),
-      ),
-    ),
   );
 }

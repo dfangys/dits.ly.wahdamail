@@ -18,6 +18,8 @@ import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/services/sender_trust.dart';
 import 'package:wahda_bank/services/offline_http_server.dart';
+import 'package:wahda_bank/shared/logging/telemetry.dart';
+import 'package:wahda_bank/shared/utils/hashing.dart';
 
 class ShowMessage extends StatefulWidget {
   const ShowMessage({super.key, required this.message, required this.mailbox});
@@ -31,6 +33,9 @@ class ShowMessage extends StatefulWidget {
 class _ShowMessageState extends State<ShowMessage> {
   late MimeMessage message;
   late Mailbox mailbox;
+
+  DateTime? _telemetryStart;
+  bool _telemetrySent = false;
 
   // Offline-first content from store
   String? _initialHtml;
@@ -47,6 +52,7 @@ class _ShowMessageState extends State<ShowMessage> {
     super.initState();
     message = widget.message;
     mailbox = widget.mailbox;
+    _telemetryStart = DateTime.now();
     // Mark as read if not already
     try {
       if (!(message.isSeen)) {
@@ -64,7 +70,13 @@ class _ShowMessageState extends State<ShowMessage> {
     } catch (_) {}
 
     // Proactively prefetch full content for smooth open
-    try { Get.find<MailBoxController>().prefetchMessageContent(mailbox, message, quiet: true); } catch (_) {}
+    try {
+      Get.find<MailBoxController>().prefetchMessageContent(
+        mailbox,
+        message,
+        quiet: true,
+      );
+    } catch (_) {}
     // Load cached content immediately
     _loadCachedContent();
   }
@@ -73,10 +85,14 @@ class _ShowMessageState extends State<ShowMessage> {
     try {
       final mailService = MailService.instance;
       if (!mailService.client.isConnected) {
-        try { await mailService.connect().timeout(const Duration(seconds: 10)); } catch (_) {}
+        try {
+          await mailService.connect().timeout(const Duration(seconds: 10));
+        } catch (_) {}
       }
       try {
-        await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 8));
+        await mailService.client
+            .selectMailbox(mailbox)
+            .timeout(const Duration(seconds: 8));
       } catch (_) {}
     } catch (_) {}
   }
@@ -87,13 +103,21 @@ class _ShowMessageState extends State<ShowMessage> {
     final int gen = ++_loadGen; // capture generation for this load
     try {
       final accountEmail = MailService.instance.account.email;
-      final mailboxPath = mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : (mailbox.path);
+      final mailboxPath =
+          mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : (mailbox.path);
       final uidValidity = mailbox.uidValidity ?? 0;
       final uid = message.uid ?? -1;
       if (uid <= 0) {
         if (!mounted || gen != _loadGen) return;
-        setState(() { _initialHtml = message.decodeTextHtmlPart(); _initialHtmlPath = null; });
-        _maybeScheduleRetry(html: _initialHtml, htmlPath: _initialHtmlPath, uid: uid);
+        setState(() {
+          _initialHtml = message.decodeTextHtmlPart();
+          _initialHtmlPath = null;
+        });
+        _maybeScheduleRetry(
+          html: _initialHtml,
+          htmlPath: _initialHtmlPath,
+          uid: uid,
+        );
       } else {
         final store = MessageContentStore.instance;
         final cached = await store.getContent(
@@ -111,7 +135,12 @@ class _ShowMessageState extends State<ShowMessage> {
           MimeMessage? found;
           // 1) Prefer same mailbox list
           final list = ctrl.emails[mailbox] ?? const <MimeMessage>[];
-          final idx = list.indexWhere((m) => (uid > 0 && m.uid == uid) || ((message.sequenceId != null) && m.sequenceId == message.sequenceId));
+          final idx = list.indexWhere(
+            (m) =>
+                (uid > 0 && m.uid == uid) ||
+                ((message.sequenceId != null) &&
+                    m.sequenceId == message.sequenceId),
+          );
           if (idx != -1) {
             found = list[idx];
           }
@@ -119,8 +148,16 @@ class _ShowMessageState extends State<ShowMessage> {
           if (found == null) {
             for (final entry in ctrl.emails.entries) {
               final lst = entry.value;
-              final j = lst.indexWhere((m) => (uid > 0 && m.uid == uid) || ((message.sequenceId != null) && m.sequenceId == message.sequenceId));
-              if (j != -1) { found = lst[j]; break; }
+              final j = lst.indexWhere(
+                (m) =>
+                    (uid > 0 && m.uid == uid) ||
+                    ((message.sequenceId != null) &&
+                        m.sequenceId == message.sequenceId),
+              );
+              if (j != -1) {
+                found = lst[j];
+                break;
+              }
             }
           }
           if (found != null) effectiveMsg = found;
@@ -129,7 +166,8 @@ class _ShowMessageState extends State<ShowMessage> {
         // Determine trust (controls remote image policy)
         String senderKey = _extractSenderKey(effectiveMsg);
         final trusted = SenderTrustService.instance.isTrusted(senderKey);
-        final allowRemote = trusted; // user pref currently: allow only for trusted senders
+        final allowRemote =
+            trusted; // user pref currently: allow only for trusted senders
 
         // Enterprise policy: when remote images are allowed, prefer RAW HTML to preserve http/https URLs.
         // Otherwise, use sanitized (blocked) HTML with CSP.
@@ -142,15 +180,21 @@ class _ShowMessageState extends State<ShowMessage> {
               html = cached!.htmlSanitizedBlocked;
               if (kDebugMode) {
                 // ignore: avoid_print
-                print('VIEWER:sanitized_fallback uid=$uid -> RAW empty; using sanitized HTML from cache');
+                print(
+                  'VIEWER:sanitized_fallback uid=$uid -> RAW empty; using sanitized HTML from cache',
+                );
               }
             }
-          } else if (kDebugMode && (cached?.htmlSanitizedBlocked?.isNotEmpty ?? false)) {
+          } else if (kDebugMode &&
+              (cached?.htmlSanitizedBlocked?.isNotEmpty ?? false)) {
             // ignore: avoid_print
-            print('VIEWER:trust_fallback uid=$uid -> prefer RAW HTML over sanitized for remote images');
+            print(
+              'VIEWER:trust_fallback uid=$uid -> prefer RAW HTML over sanitized for remote images',
+            );
           }
         } else {
-          html = cached?.htmlSanitizedBlocked ?? effectiveMsg.decodeTextHtmlPart();
+          html =
+              cached?.htmlSanitizedBlocked ?? effectiveMsg.decodeTextHtmlPart();
         }
         // Last-resort inline fallback: use cached plain text if no HTML available
         if (html == null || html.trim().isEmpty) {
@@ -159,10 +203,15 @@ class _ShowMessageState extends State<ShowMessage> {
             html = _wrapPlainAsHtml(plain);
             if (kDebugMode) {
               // ignore: avoid_print
-              print('VIEWER:plain_fallback uid=$uid -> using cached/plain text as HTML');
+              print(
+                'VIEWER:plain_fallback uid=$uid -> using cached/plain text as HTML',
+              );
             }
           }
         }
+
+        // Emit telemetry once content has been determined from cache/plain
+        _sendOpenTelemetryOnce();
 
         // On-demand fetch fallback: if still empty, fetch this message body immediately
         if (html == null || html.trim().isEmpty) {
@@ -173,15 +222,29 @@ class _ShowMessageState extends State<ShowMessage> {
             List<MimeMessage> fetched = const <MimeMessage>[];
             try {
               fetched = await mailService.client
-                  .fetchMessageSequence(seq, fetchPreference: FetchPreference.fullWhenWithinSize)
-                  .timeout(const Duration(seconds: 15), onTimeout: () => <MimeMessage>[]);
+                  .fetchMessageSequence(
+                    seq,
+                    fetchPreference: FetchPreference.fullWhenWithinSize,
+                  )
+                  .timeout(
+                    const Duration(seconds: 15),
+                    onTimeout: () => <MimeMessage>[],
+                  );
             } catch (_) {
               // Retry once after re-select
-              try { await _ensureSelectedMailbox(); } catch (_) {}
+              try {
+                await _ensureSelectedMailbox();
+              } catch (_) {}
               try {
                 fetched = await mailService.client
-                    .fetchMessageSequence(seq, fetchPreference: FetchPreference.fullWhenWithinSize)
-                    .timeout(const Duration(seconds: 12), onTimeout: () => <MimeMessage>[]);
+                    .fetchMessageSequence(
+                      seq,
+                      fetchPreference: FetchPreference.fullWhenWithinSize,
+                    )
+                    .timeout(
+                      const Duration(seconds: 12),
+                      onTimeout: () => <MimeMessage>[],
+                    );
               } catch (_) {}
             }
             if (fetched.isNotEmpty) {
@@ -194,10 +257,14 @@ class _ShowMessageState extends State<ShowMessage> {
                   html = _wrapPlainAsHtml(plain);
                   if (kDebugMode) {
                     // ignore: avoid_print
-                    print('VIEWER:plain_fallback uid=$uid -> using on-demand fetched plain text as HTML');
+                    print(
+                      'VIEWER:plain_fallback uid=$uid -> using on-demand fetched plain text as HTML',
+                    );
                   }
                 }
               }
+              // Emit telemetry after on-demand fetch resolves content
+              _sendOpenTelemetryOnce();
             }
           } catch (_) {}
         }
@@ -208,13 +275,20 @@ class _ShowMessageState extends State<ShowMessage> {
         // If DB returned no file path, try to locate an existing offline file deterministically
         try {
           if ((htmlPath == null || htmlPath.isEmpty) && uid > 0) {
-            final pth = await _calcOfflineHtmlPathIfExists(accountEmail, mailboxPath, uidValidity, uid);
+            final pth = await _calcOfflineHtmlPathIfExists(
+              accountEmail,
+              mailboxPath,
+              uidValidity,
+              uid,
+            );
             if (pth != null) {
               htmlPath = pth;
               version = version == 0 ? 2 : version;
               if (kDebugMode) {
                 // ignore: avoid_print
-                print('VIEWER:path_heal uid=$uid -> found existing offline file: $htmlPath');
+                print(
+                  'VIEWER:path_heal uid=$uid -> found existing offline file: $htmlPath',
+                );
               }
               // Best-effort: persist the path back to DB for future loads
               try {
@@ -236,10 +310,19 @@ class _ShowMessageState extends State<ShowMessage> {
 
         if (kDebugMode) {
           int htmlLen = html?.length ?? 0;
-          bool exists = false; int size = -1;
-          try { if (htmlPath != null && htmlPath.isNotEmpty) { final f = File(htmlPath); exists = f.existsSync(); if (exists) size = f.statSync().size; } } catch (_) {}
+          bool exists = false;
+          int size = -1;
+          try {
+            if (htmlPath != null && htmlPath.isNotEmpty) {
+              final f = File(htmlPath);
+              exists = f.existsSync();
+              if (exists) size = f.statSync().size;
+            }
+          } catch (_) {}
           // ignore: avoid_print
-          print('VIEWER:cache uid=$uid box=$mailboxPath v=$version trusted=$trusted allowRemote=$allowRemote htmlLen=$htmlLen htmlPath=$htmlPath exists=$exists size=$size');
+          print(
+            'VIEWER:cache uid=$uid box=$mailboxPath v=$version trusted=$trusted allowRemote=$allowRemote htmlLen=$htmlLen htmlPath=$htmlPath exists=$exists size=$size',
+          );
         }
 
         // Build local HTTP URL for viewer on non-iOS platforms ONLY when we have something cached to serve
@@ -254,15 +337,20 @@ class _ShowMessageState extends State<ShowMessage> {
               }
             } catch (_) {}
             if (!hasCachedMeaningful) {
-              final hasInline = (cached?.htmlSanitizedBlocked?.trim().isNotEmpty ?? false) || (cached?.plainText?.trim().isNotEmpty ?? false);
+              final hasInline =
+                  (cached?.htmlSanitizedBlocked?.trim().isNotEmpty ?? false) ||
+                  (cached?.plainText?.trim().isNotEmpty ?? false);
               hasCachedMeaningful = hasInline;
             }
             if (hasCachedMeaningful) {
-              final port = OfflineHttpServer.instance.port ?? await OfflineHttpServer.instance.start();
+              final port =
+                  OfflineHttpServer.instance.port ??
+                  await OfflineHttpServer.instance.start();
               final accountEnc = Uri.encodeComponent(accountEmail);
               final boxEnc = Uri.encodeComponent(mailboxPath);
               final allow = allowRemote ? '1' : '0';
-              serverUrl = 'http://127.0.0.1:$port/message/$accountEnc/$boxEnc/$uidValidity/$uid.html?allowRemote=$allow';
+              serverUrl =
+                  'http://127.0.0.1:$port/message/$accountEnc/$boxEnc/$uidValidity/$uid.html?allowRemote=$allow';
             }
           }
         } catch (_) {}
@@ -270,12 +358,16 @@ class _ShowMessageState extends State<ShowMessage> {
         // Rebuild outdated/missing offline HTML files with CSS wrapper
         bool needRebuild = false;
         if (htmlPath != null && htmlPath.isNotEmpty) {
-          try { final exists = File(htmlPath).existsSync(); if (!exists) needRebuild = true; } catch (_) {}
+          try {
+            final exists = File(htmlPath).existsSync();
+            if (!exists) needRebuild = true;
+          } catch (_) {}
         }
         if (version < 2 && htmlPath != null && htmlPath.isNotEmpty) {
           needRebuild = true;
         }
-        if ((htmlPath == null || htmlPath.isEmpty) && (html != null && html.trim().isNotEmpty)) {
+        if ((htmlPath == null || htmlPath.isEmpty) &&
+            (html != null && html.trim().isNotEmpty)) {
           // No file yet: materialize one for fast load
           needRebuild = true;
         }
@@ -285,12 +377,16 @@ class _ShowMessageState extends State<ShowMessage> {
             final file = File(htmlPath);
             if (file.existsSync()) {
               final content = file.readAsStringSync();
-              final allowsHttp = content.contains("img-src 'self' data: about: cid: http: https:");
+              final allowsHttp = content.contains(
+                "img-src 'self' data: about: cid: http: https:",
+              );
               if (allowsHttp != allowRemote) {
                 needRebuild = true;
                 if (kDebugMode) {
                   // ignore: avoid_print
-                  print('VIEWER:policy_mismatch uid=$uid -> file allowsHttp=$allowsHttp, allowRemote=$allowRemote => rebuild');
+                  print(
+                    'VIEWER:policy_mismatch uid=$uid -> file allowsHttp=$allowsHttp, allowRemote=$allowRemote => rebuild',
+                  );
                 }
               }
             }
@@ -300,16 +396,20 @@ class _ShowMessageState extends State<ShowMessage> {
         if (needRebuild) {
           if (kDebugMode) {
             // ignore: avoid_print
-            print('VIEWER:materialize uid=$uid -> writing offline HTML file (prevPath=$htmlPath, v=$version, allowRemote=$allowRemote)');
+            print(
+              'VIEWER:materialize uid=$uid -> writing offline HTML file (prevPath=$htmlPath, v=$version, allowRemote=$allowRemote)',
+            );
           }
           try {
             // Enterprise policy: if remote images are allowed, always prefer RAW HTML for materialization.
-            String innerHtml = allowRemote
-                ? (effectiveMsg.decodeTextHtmlPart() ?? '')
-                : (html ?? '');
+            String innerHtml =
+                allowRemote
+                    ? (effectiveMsg.decodeTextHtmlPart() ?? '')
+                    : (html ?? '');
             // If still empty, fall back to cached plain text
             if (innerHtml.trim().isEmpty) {
-              final plain = cached?.plainText ?? effectiveMsg.decodeTextPlainPart() ?? '';
+              final plain =
+                  cached?.plainText ?? effectiveMsg.decodeTextPlainPart() ?? '';
               if (plain.trim().isNotEmpty) {
                 innerHtml = _wrapPlainAsHtml(plain);
               }
@@ -337,9 +437,12 @@ class _ShowMessageState extends State<ShowMessage> {
               forceMaterialize: false,
             );
             if (kDebugMode) {
-              try { final st = File(newPath).statSync();
+              try {
+                final st = File(newPath).statSync();
                 // ignore: avoid_print
-                print('VIEWER:materialized uid=$uid -> $newPath (${st.size} bytes)');
+                print(
+                  'VIEWER:materialized uid=$uid -> $newPath (${st.size} bytes)',
+                );
               } catch (_) {}
             }
             htmlPath = newPath;
@@ -354,9 +457,19 @@ class _ShowMessageState extends State<ShowMessage> {
 
         if (kDebugMode) {
           final hl = html?.length ?? 0;
-          bool exists = false; int size = -1; try { if (htmlPath != null && htmlPath.isNotEmpty) { final f=File(htmlPath); exists=f.existsSync(); if (exists) size=f.statSync().size; } } catch (_) {}
+          bool exists = false;
+          int size = -1;
+          try {
+            if (htmlPath != null && htmlPath.isNotEmpty) {
+              final f = File(htmlPath);
+              exists = f.existsSync();
+              if (exists) size = f.statSync().size;
+            }
+          } catch (_) {}
           // ignore: avoid_print
-          print('VIEWER:setState uid=$uid htmlLen=$hl htmlPath=$htmlPath exists=$exists size=$size');
+          print(
+            'VIEWER:setState uid=$uid htmlLen=$hl htmlPath=$htmlPath exists=$exists size=$size',
+          );
         }
         if (!mounted || gen != _loadGen) return;
         setState(() {
@@ -374,18 +487,36 @@ class _ShowMessageState extends State<ShowMessage> {
         _initialHtml = message.decodeTextHtmlPart();
         _initialHtmlPath = null;
       });
-      _maybeScheduleRetry(html: _initialHtml, htmlPath: _initialHtmlPath, uid: message.uid ?? -1);
+      _maybeScheduleRetry(
+        html: _initialHtml,
+        htmlPath: _initialHtmlPath,
+        uid: message.uid ?? -1,
+      );
     } finally {
       _loadingContent = false;
     }
   }
 
   // Compute expected offline HTML path and return it if it exists
-  Future<String?> _calcOfflineHtmlPathIfExists(String accountEmail, String mailboxPath, int uidValidity, int uid) async {
+  Future<String?> _calcOfflineHtmlPathIfExists(
+    String accountEmail,
+    String mailboxPath,
+    int uidValidity,
+    int uid,
+  ) async {
     try {
       final base = await getApplicationCacheDirectory();
       final safeBox = mailboxPath.replaceAll('/', '_');
-      final file = File(p.join(base.path, 'offline_html', accountEmail, safeBox, '$uidValidity', 'msg_$uid.html'));
+      final file = File(
+        p.join(
+          base.path,
+          'offline_html',
+          accountEmail,
+          safeBox,
+          '$uidValidity',
+          'msg_$uid.html',
+        ),
+      );
       if (await file.exists()) {
         return file.path;
       }
@@ -398,9 +529,14 @@ class _ShowMessageState extends State<ShowMessage> {
       .replaceAll('<', '&lt;')
       .replaceAll('>', '&gt;');
 
-  String _wrapPlainAsHtml(String s) => '<pre class="wb-pre">${_escapeHtml(s)}</pre>';
+  String _wrapPlainAsHtml(String s) =>
+      '<pre class="wb-pre">${_escapeHtml(s)}</pre>';
 
-  void _maybeScheduleRetry({required String? html, required String? htmlPath, required int uid}) {
+  void _maybeScheduleRetry({
+    required String? html,
+    required String? htmlPath,
+    required int uid,
+  }) {
     try {
       if (uid <= 0) return;
       // Only retry if no file path and inline HTML is tiny/empty
@@ -445,13 +581,15 @@ class _ShowMessageState extends State<ShowMessage> {
   // Falls back to a minimal regex only if parsing fails, to avoid heavy custom logic.
   Map<String, String>? _parseSenderFromHeaders() {
     try {
-      final raw = message.getHeaderValue('from') ?? message.getHeaderValue('reply-to');
+      final raw =
+          message.getHeaderValue('from') ?? message.getHeaderValue('reply-to');
       if (raw == null || raw.trim().isEmpty) return null;
       try {
         final addr = MailAddress.parse(raw);
-        final displayName = (addr.personalName != null && addr.personalName!.trim().isNotEmpty)
-            ? addr.personalName!.trim()
-            : addr.email;
+        final displayName =
+            (addr.personalName != null && addr.personalName!.trim().isNotEmpty)
+                ? addr.personalName!.trim()
+                : addr.email;
         return {'name': displayName, 'email': addr.email};
       } catch (_) {
         // Minimal best-effort extraction to avoid Unknown states
@@ -514,7 +652,8 @@ class _ShowMessageState extends State<ShowMessage> {
 
     // Try sender field as fallback
     if (message.sender != null) {
-      if (message.sender!.personalName != null && message.sender!.personalName!.trim().isNotEmpty) {
+      if (message.sender!.personalName != null &&
+          message.sender!.personalName!.trim().isNotEmpty) {
         return message.sender!.personalName!.trim();
       }
       return message.sender!.email;
@@ -551,7 +690,8 @@ class _ShowMessageState extends State<ShowMessage> {
 
     // Last resort: parse from raw headers using enough_mail, then minimal regex
     final parsed = _parseSenderFromHeaders();
-    if (parsed != null && (parsed['email']?.isNotEmpty ?? false)) return parsed['email']!;
+    if (parsed != null && (parsed['email']?.isNotEmpty ?? false))
+      return parsed['email']!;
 
     return 'unknown@example.com';
   }
@@ -562,11 +702,15 @@ class _ShowMessageState extends State<ShowMessage> {
     if (messageDate == null) {
       return "Date unknown";
     }
-    
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final messageDay = DateTime(messageDate.year, messageDate.month, messageDate.day);
-    
+    final messageDay = DateTime(
+      messageDate.year,
+      messageDate.month,
+      messageDate.day,
+    );
+
     // Professional date formatting based on recency
     if (messageDay == today) {
       // Today: show time only
@@ -594,13 +738,15 @@ class _ShowMessageState extends State<ShowMessage> {
       print('DEBUG: Date - envelope.date: ${message.envelope?.date}');
       print('DEBUG: Date - headers date: ${message.getHeaderValue("date")}');
     }
-    
+
     if (messageDate == null) {
       // Try envelope date as fallback
       if (message.envelope?.date != null) {
-        return DateFormat("EEE, MMM d, yyyy 'at' h:mm a").format(message.envelope!.date!);
+        return DateFormat(
+          "EEE, MMM d, yyyy 'at' h:mm a",
+        ).format(message.envelope!.date!);
       }
-      
+
       // Try header date as fallback
       final headerDate = message.getHeaderValue("date");
       if (headerDate != null) {
@@ -613,10 +759,10 @@ class _ShowMessageState extends State<ShowMessage> {
           }
         }
       }
-      
+
       return "Date unknown";
     }
-    
+
     return DateFormat("EEE, MMM d, yyyy 'at' h:mm a").format(messageDate);
   }
 
@@ -626,7 +772,7 @@ class _ShowMessageState extends State<ShowMessage> {
 
     final cleanName = name.trim();
     final nameParts = cleanName.split(RegExp(r'\s+'));
-    
+
     if (nameParts.length > 1) {
       // First and last name initials
       return "${nameParts.first[0]}${nameParts.last[0]}".toUpperCase();
@@ -634,7 +780,7 @@ class _ShowMessageState extends State<ShowMessage> {
       // Single name or email - take first character
       return cleanName[0].toUpperCase();
     }
-    
+
     return "?";
   }
 
@@ -670,8 +816,9 @@ class _ShowMessageState extends State<ShowMessage> {
     if (name.isEmpty) return AppTheme.primaryColor;
 
     // Use a consistent color based on the name
-    final colorIndex = name.codeUnits.fold<int>(
-        0, (prev, element) => prev + element) % AppTheme.colorPalette.length;
+    final colorIndex =
+        name.codeUnits.fold<int>(0, (prev, element) => prev + element) %
+        AppTheme.colorPalette.length;
     return AppTheme.colorPalette[colorIndex];
   }
 
@@ -680,7 +827,8 @@ class _ShowMessageState extends State<ShowMessage> {
   @override
   void didUpdateWidget(covariant ShowMessage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.message != widget.message || oldWidget.mailbox != widget.mailbox) {
+    if (oldWidget.message != widget.message ||
+        oldWidget.mailbox != widget.mailbox) {
       message = widget.message;
       mailbox = widget.mailbox;
       _loadCachedContent();
@@ -699,10 +847,7 @@ class _ShowMessageState extends State<ShowMessage> {
       backgroundColor: AppTheme.backgroundColor,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(60),
-        child: InbocAppBar(
-          message: message,
-          mailbox: mailbox,
-        ),
+        child: InbocAppBar(message: message, mailbox: mailbox),
       ),
       bottomNavigationBar: ViewMessageBottomNav(
         mailbox: mailbox,
@@ -731,7 +876,8 @@ class _ShowMessageState extends State<ShowMessage> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: isSeen ? FontWeight.w600 : FontWeight.w700,
+                          fontWeight:
+                              isSeen ? FontWeight.w600 : FontWeight.w700,
                           height: 1.2,
                           color: Theme.of(context).colorScheme.onSurface,
                         ),
@@ -747,7 +893,8 @@ class _ShowMessageState extends State<ShowMessage> {
                               label: Text('${threadLength + 1} in thread'),
                               padding: EdgeInsets.zero,
                               visualDensity: VisualDensity.compact,
-                              labelStyle: Theme.of(context).textTheme.labelSmall,
+                              labelStyle:
+                                  Theme.of(context).textTheme.labelSmall,
                             ),
                           if (hasAttachments)
                             const Chip(
@@ -766,7 +913,9 @@ class _ShowMessageState extends State<ShowMessage> {
 
                       // Sender info with avatar
                       InkWell(
-                        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.borderRadius,
+                        ),
                         onTap: () {
                           showMeta.value = !showMeta.value;
                         },
@@ -814,11 +963,17 @@ class _ShowMessageState extends State<ShowMessage> {
                                             color: AppTheme.textSecondaryColor,
                                           ),
                                         ),
-                                        
+
                                         // Message status indicators (enough_mail best practice)
-                                        if (hasAttachments || isAnswered || isForwarded || isFlagged || threadLength > 0)
+                                        if (hasAttachments ||
+                                            isAnswered ||
+                                            isForwarded ||
+                                            isFlagged ||
+                                            threadLength > 0)
                                           Padding(
-                                            padding: const EdgeInsets.only(left: 8),
+                                            padding: const EdgeInsets.only(
+                                              left: 8,
+                                            ),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
@@ -830,16 +985,22 @@ class _ShowMessageState extends State<ShowMessage> {
                                                   ),
                                                 if (hasAttachments)
                                                   const Padding(
-                                                    padding: EdgeInsets.only(left: 4),
+                                                    padding: EdgeInsets.only(
+                                                      left: 4,
+                                                    ),
                                                     child: Icon(
                                                       Icons.attach_file,
                                                       size: 14,
-                                                      color: AppTheme.textSecondaryColor,
+                                                      color:
+                                                          AppTheme
+                                                              .textSecondaryColor,
                                                     ),
                                                   ),
                                                 if (isAnswered)
                                                   const Padding(
-                                                    padding: EdgeInsets.only(left: 4),
+                                                    padding: EdgeInsets.only(
+                                                      left: 4,
+                                                    ),
                                                     child: Icon(
                                                       Icons.reply,
                                                       size: 14,
@@ -848,7 +1009,9 @@ class _ShowMessageState extends State<ShowMessage> {
                                                   ),
                                                 if (isForwarded)
                                                   const Padding(
-                                                    padding: EdgeInsets.only(left: 4),
+                                                    padding: EdgeInsets.only(
+                                                      left: 4,
+                                                    ),
                                                     child: Icon(
                                                       Icons.forward,
                                                       size: 14,
@@ -857,19 +1020,32 @@ class _ShowMessageState extends State<ShowMessage> {
                                                   ),
                                                 if (threadLength > 0)
                                                   Padding(
-                                                    padding: const EdgeInsets.only(left: 4),
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          left: 4,
+                                                        ),
                                                     child: Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 6,
+                                                            vertical: 2,
+                                                          ),
                                                       decoration: BoxDecoration(
-                                                        color: AppTheme.primaryColor,
-                                                        borderRadius: BorderRadius.circular(8),
+                                                        color:
+                                                            AppTheme
+                                                                .primaryColor,
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
                                                       ),
                                                       child: Text(
                                                         threadLength.toString(),
                                                         style: const TextStyle(
                                                           fontSize: 10,
                                                           color: Colors.white,
-                                                          fontWeight: FontWeight.bold,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                         ),
                                                       ),
                                                     ),
@@ -896,12 +1072,13 @@ class _ShowMessageState extends State<ShowMessage> {
                               // Expand/collapse icon
                               ValueListenableBuilder(
                                 valueListenable: showMeta,
-                                builder: (context, isExpanded, _) => Icon(
-                                  isExpanded
-                                      ? Icons.keyboard_arrow_up
-                                      : Icons.keyboard_arrow_down,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
+                                builder:
+                                    (context, isExpanded, _) => Icon(
+                                      isExpanded
+                                          ? Icons.keyboard_arrow_up
+                                          : Icons.keyboard_arrow_down,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
                               ),
                             ],
                           ),
@@ -945,12 +1122,15 @@ class _ShowMessageState extends State<ShowMessage> {
                   padding: const EdgeInsets.all(8.0),
                   child: EnterpriseMessageViewer(
                     mimeMessage: message,
-                    enableDarkMode: Theme.of(context).brightness == Brightness.dark,
+                    enableDarkMode:
+                        Theme.of(context).brightness == Brightness.dark,
                     blockExternalImages: true,
                     textScale: MediaQuery.of(context).textScaler.scale(1.0),
                     initialHtml: _initialHtml,
                     initialHtmlPath: _initialHtmlPath,
-                    preferInline: Platform.isIOS, // avoid iOS file:// CFNetwork issues by rendering inline
+                    preferInline:
+                        Platform
+                            .isIOS, // avoid iOS file:// CFNetwork issues by rendering inline
                   ),
                 ),
               ),
@@ -966,8 +1146,29 @@ class _ShowMessageState extends State<ShowMessage> {
 
   @override
   void dispose() {
-    try { _metaNotifier?.removeListener(_loadCachedContent); } catch (_) {}
+    try {
+      _metaNotifier?.removeListener(_loadCachedContent);
+    } catch (_) {}
     _metaNotifier = null;
     super.dispose();
+  }
+
+  void _sendOpenTelemetryOnce() {
+    if (_telemetrySent) return;
+    try {
+      if (_telemetryStart != null) {
+        final ms = DateTime.now().difference(_telemetryStart!).inMilliseconds;
+        final acct = MailService.instance.account.email;
+        Telemetry.event(
+          'message_open_ms',
+          props: {
+            'ms': ms,
+            'mailbox_hash': Hashing.djb2(mailbox.encodedPath).toString(),
+            'account_id_hash': Hashing.djb2(acct).toString(),
+          },
+        );
+        _telemetrySent = true;
+      }
+    } catch (_) {}
   }
 }

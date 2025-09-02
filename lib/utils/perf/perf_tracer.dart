@@ -12,7 +12,8 @@ import 'package:flutter/scheduler.dart';
 /// Or
 ///   PerfTracer.trace('controller.fetchMailbox', () async { ... });
 class PerfTracer {
-  static bool enabled = kProfileMode || kReleaseMode; // enable in profile/release by default
+  static bool enabled =
+      kProfileMode || kReleaseMode; // enable in profile/release by default
 
   static void Function() begin(String name, {Map<String, Object?>? args}) {
     if (!enabled) return _noop;
@@ -24,8 +25,11 @@ class PerfTracer {
     };
   }
 
-  static Future<T> trace<T>(String name, Future<T> Function() fn,
-      {Map<String, Object?>? args}) async {
+  static Future<T> trace<T>(
+    String name,
+    Future<T> Function() fn, {
+    Map<String, Object?>? args,
+  }) async {
     if (!enabled) return fn();
     final end = begin(name, args: args);
     try {
@@ -69,10 +73,9 @@ class FrameTimingSampler {
         'janky_pct': 0.0,
       };
     }
-    final totals = _timings
-        .map((t) => t.totalSpan.inMicroseconds / 1000.0)
-        .toList()
-      ..sort();
+    final totals =
+        _timings.map((t) => t.totalSpan.inMicroseconds / 1000.0).toList()
+          ..sort();
     final frames = totals.length;
     final avg = totals.reduce((a, b) => a + b) / frames;
     final p95 = totals[(frames * 0.95).floor().clamp(0, frames - 1)];
@@ -87,4 +90,3 @@ class FrameTimingSampler {
 }
 
 void _noop() {}
-
