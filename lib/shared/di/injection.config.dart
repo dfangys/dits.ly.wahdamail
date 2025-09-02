@@ -44,6 +44,15 @@ import '../../features/messaging/infrastructure/gateways/imap_gateway.dart'
     as _i569;
 import '../../features/messaging/infrastructure/gateways/smtp_gateway.dart'
     as _i1033;
+import '../../features/security/domain/repositories/keyring_repository.dart'
+    as _i1039;
+import '../../features/security/domain/repositories/trust_repository.dart'
+    as _i310;
+import '../../features/security/domain/services/crypto_engine.dart' as _i983;
+import '../../features/security/domain/services/encryption_service.dart'
+    as _i887;
+import '../../features/security/infrastructure/di/security_module.dart'
+    as _i246;
 import '../../features/sync/application/event_bus.dart' as _i52;
 import '../../features/sync/infrastructure/di/sync_module.dart' as _i958;
 import '../../features/sync/infrastructure/sync_scheduler.dart' as _i505;
@@ -63,6 +72,7 @@ _i174.GetIt init(
   final syncModule = _$SyncModule();
   final messagingModule = _$MessagingModule();
   final enterpriseApiModule = _$EnterpriseApiModule();
+  final securityModule = _$SecurityModule();
   gh.lazySingleton<_i52.SyncEventBus>(() => syncModule.provideSyncEventBus());
   gh.lazySingleton<_i802.LocalStore>(() => messagingModule.provideLocalStore());
   gh.lazySingleton<_i569.ImapGateway>(
@@ -79,6 +89,11 @@ _i174.GetIt init(
       () => enterpriseApiModule.provideBackoff());
   gh.lazySingleton<_i660.TokenStore>(
       () => enterpriseApiModule.provideTokenStore());
+  gh.lazySingleton<_i1039.KeyringRepository>(
+      () => securityModule.provideKeyring());
+  gh.lazySingleton<_i310.TrustRepository>(() => securityModule.provideTrust());
+  gh.lazySingleton<_i983.CryptoEngine>(
+      () => securityModule.provideCryptoEngine());
   gh.lazySingleton<_i1018.OutboxRepository>(
       () => messagingModule.provideOutboxRepository(gh<_i543.OutboxDao>()));
   gh.lazySingleton<_i898.MessageRepository>(
@@ -110,6 +125,11 @@ _i174.GetIt init(
             gh<_i749.RestGateway>(),
             gh<_i660.TokenStore>(),
           ));
+  gh.lazySingleton<_i887.EncryptionService>(
+      () => securityModule.provideEncryptionService(
+            gh<_i983.CryptoEngine>(),
+            gh<_i1039.KeyringRepository>(),
+          ));
   gh.lazySingleton<_i706.SyncService>(() => syncModule.provideSyncService(
         gh<_i569.ImapGateway>(),
         gh<_i898.MessageRepository>(),
@@ -124,3 +144,5 @@ class _$SyncModule extends _i958.SyncModule {}
 class _$MessagingModule extends _i953.MessagingModule {}
 
 class _$EnterpriseApiModule extends _i449.EnterpriseApiModule {}
+
+class _$SecurityModule extends _i246.SecurityModule {}

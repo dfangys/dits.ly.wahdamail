@@ -34,3 +34,20 @@ class StorageCorruptionError extends AppError {
 class RenderingError extends AppError {
   const RenderingError(String message, [Object? cause]) : super(message, cause);
 }
+
+// P8: Security/Crypto errors
+class CryptoError extends AppError {
+  const CryptoError(String message, [Object? cause]) : super(message, cause);
+}
+
+class DecryptionError extends CryptoError {
+  const DecryptionError(String message, [Object? cause]) : super(message, cause);
+}
+
+class SignatureInvalidError extends CryptoError {
+  const SignatureInvalidError(String message, [Object? cause]) : super(message, cause);
+}
+
+class KeyNotFoundError extends CryptoError {
+  const KeyNotFoundError(String message, [Object? cause]) : super(message, cause);
+}
