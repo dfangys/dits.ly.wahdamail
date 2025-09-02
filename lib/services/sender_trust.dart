@@ -33,4 +33,3 @@ class SenderTrustService {
     return (_box ?? GetStorage(_kBox)).read(key) ?? false;
   }
 }
-

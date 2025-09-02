@@ -6,11 +6,7 @@ class AttachmentTile extends StatelessWidget {
   final File file;
   final VoidCallback onRemove;
 
-  const AttachmentTile({
-    super.key,
-    required this.file,
-    required this.onRemove,
-  });
+  const AttachmentTile({super.key, required this.file, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -34,30 +30,30 @@ class AttachmentTile extends StatelessWidget {
           // File icon or thumbnail
           _isImage(fileExtension)
               ? ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.file(
-                    file,
-                    width: 40,
-                    height: 40,
-                    fit: BoxFit.cover,
-                  ),
-                )
-              : Container(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  file,
                   width: 40,
                   height: 40,
-                  decoration: BoxDecoration(
-                    color: _getFileColor(fileExtension).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    _getFileIcon(fileExtension),
-                    color: _getFileColor(fileExtension),
-                    size: 20,
-                  ),
+                  fit: BoxFit.cover,
                 ),
-          
+              )
+              : Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _getFileColor(fileExtension).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _getFileIcon(fileExtension),
+                  color: _getFileColor(fileExtension),
+                  size: 20,
+                ),
+              ),
+
           const SizedBox(width: 12),
-          
+
           // File info
           Expanded(
             child: Column(
@@ -100,7 +96,7 @@ class AttachmentTile extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // Remove button
           InkWell(
             onTap: onRemove,
@@ -223,17 +219,16 @@ class AttachmentTile extends StatelessWidget {
 
   String _formatFileSize(int bytes) {
     if (bytes <= 0) return '0 B';
-    
+
     const suffixes = ['B', 'KB', 'MB', 'GB'];
     var size = bytes.toDouble();
     var suffixIndex = 0;
-    
+
     while (size >= 1024 && suffixIndex < suffixes.length - 1) {
       size /= 1024;
       suffixIndex++;
     }
-    
+
     return '${size.toStringAsFixed(size < 10 ? 1 : 0)} ${suffixes[suffixIndex]}';
   }
 }
-

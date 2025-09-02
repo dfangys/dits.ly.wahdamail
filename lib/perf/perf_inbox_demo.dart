@@ -14,12 +14,9 @@ class PerfInboxDemo extends StatelessWidget {
         key: const Key('perf_inbox_scroll'),
         slivers: [
           SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                return const _PerfTile();
-              },
-              childCount: items.length,
-            ),
+            delegate: SliverChildBuilderDelegate((context, index) {
+              return const _PerfTile();
+            }, childCount: items.length),
           ),
         ],
       ),
@@ -75,4 +72,3 @@ class _PerfTile extends StatelessWidget {
     );
   }
 }
-

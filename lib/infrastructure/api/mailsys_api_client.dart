@@ -25,9 +25,8 @@ class MailsysApiClient extends GetConnect {
   @override
   void onInit() {
     final savedBaseUrl = _storage.read<String>(_storageKeyBaseUrl);
-    httpClient.baseUrl = (savedBaseUrl?.isNotEmpty == true)
-        ? savedBaseUrl!
-        : ApiConfig.baseUrl;
+    httpClient.baseUrl =
+        (savedBaseUrl?.isNotEmpty == true) ? savedBaseUrl! : ApiConfig.baseUrl;
     httpClient.timeout = const Duration(seconds: 60);
 
     // Load app token from storage or from dart-define for pre-auth usage
@@ -44,9 +43,10 @@ class MailsysApiClient extends GetConnect {
       request.headers['Content-Type'] = 'application/json';
       final userToken = _storage.read<String>(_storageKeyToken);
       // Prefer user token when present; otherwise fall back to app token for pre-auth endpoints
-      final authToken = (userToken != null && userToken.isNotEmpty)
-          ? userToken
-          : (_appToken ?? '');
+      final authToken =
+          (userToken != null && userToken.isNotEmpty)
+              ? userToken
+              : (_appToken ?? '');
       if (authToken.isNotEmpty) {
         request.headers['Authorization'] = 'Bearer $authToken';
       }
@@ -100,10 +100,7 @@ class MailsysApiClient extends GetConnect {
   /// POST /api/verify-otp
   /// Returns token in data.token
   Future<Map<String, dynamic>> verifyOtp(String email, String otp) async {
-    final res = await post('/api/verify-otp', {
-      'email': email,
-      'otp': otp,
-    });
+    final res = await post('/api/verify-otp', {'email': email, 'otp': otp});
     final body = _parse(res);
     final token = body['data']?['token'] as String?;
     if (token != null && token.isNotEmpty) {
@@ -128,13 +125,11 @@ class MailsysApiClient extends GetConnect {
   Future<Map<String, dynamic>> getUserProfile() async {
     final res = await get('/api/user');
     return _parse(res);
-    }
+  }
 
   /// PATCH /api/user/two-factor {enabled: bool}
   Future<Map<String, dynamic>> updateTwoFactor({required bool enabled}) async {
-    final res = await patch('/api/user/two-factor', {
-      'enabled': enabled,
-    });
+    final res = await patch('/api/user/two-factor', {'enabled': enabled});
     return _parse(res);
   }
 
@@ -208,7 +203,10 @@ class MailsysApiClient extends GetConnect {
   }
 
   /// PUT /api/auto-reply/:email
-  Future<Map<String, dynamic>> updateAutoReply(String email, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> updateAutoReply(
+    String email,
+    Map<String, dynamic> body,
+  ) async {
     final res = await put('/api/auto-reply/$email', body);
     return _parse(res);
   }
@@ -251,7 +249,10 @@ class MailsysApiClient extends GetConnect {
   }
 
   /// PUT /api/signatures/:id
-  Future<Map<String, dynamic>> updateSignature(int id, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> updateSignature(
+    int id,
+    Map<String, dynamic> body,
+  ) async {
     final res = await put('/api/signatures/$id', body);
     return _parse(res);
   }
@@ -269,9 +270,7 @@ class MailsysApiClient extends GetConnect {
   /// POST /api/reset-password { email }
   /// Sends OTP to user's phone
   Future<Map<String, dynamic>> requestPasswordReset(String email) async {
-    final res = await post('/api/reset-password', {
-      'email': email,
-    });
+    final res = await post('/api/reset-password', {'email': email});
     return _parse(res) as Map<String, dynamic>;
   }
 
@@ -326,7 +325,10 @@ class MailsysApiClient extends GetConnect {
   }
 
   /// PUT /api/contacts/:id
-  Future<Map<String, dynamic>> updateContact(int id, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> updateContact(
+    int id,
+    Map<String, dynamic> body,
+  ) async {
     final res = await put('/api/contacts/$id', body);
     return _parse(res);
   }
@@ -369,7 +371,10 @@ class MailsysApiClient extends GetConnect {
   }
 
   /// PUT /api/contact-groups/:id
-  Future<Map<String, dynamic>> updateContactGroup(int id, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> updateContactGroup(
+    int id,
+    Map<String, dynamic> body,
+  ) async {
     final res = await put('/api/contact-groups/$id', body);
     return _parse(res);
   }
@@ -387,7 +392,9 @@ class MailsysApiClient extends GetConnect {
   dynamic _parse(Response response) {
     if (kDebugMode) {
       // Avoid printing secrets; only print status
-      print('MailSys API: ${response.request?.method} ${response.request?.url} -> ${response.statusCode}');
+      print(
+        'MailSys API: ${response.request?.method} ${response.request?.url} -> ${response.statusCode}',
+      );
     }
     if (response.isOk && response.body is Map) {
       return response.body;
@@ -401,14 +408,18 @@ class MailsysApiClient extends GetConnect {
     // Normalize error
     final status = response.statusCode ?? 500;
     final body = response.body;
-    final msg = (body is Map && body['message'] is String)
-        ? body['message'] as String
-        : (response.statusText ?? 'Server error');
+    final msg =
+        (body is Map && body['message'] is String)
+            ? body['message'] as String
+            : (response.statusText ?? 'Server error');
 
     if (status == 401) {
       // Token invalid; clear it proactively
       clearToken();
-      throw MailsysApiException(message: msg, code: MailsysApiCode.unAuthorized);
+      throw MailsysApiException(
+        message: msg,
+        code: MailsysApiCode.unAuthorized,
+      );
     }
     if (status == 404) {
       throw MailsysApiException(message: msg, code: MailsysApiCode.notFound);

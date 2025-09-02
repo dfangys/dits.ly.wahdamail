@@ -23,9 +23,9 @@ class InternetService {
     if (!connected) _showNoInternetSnackBar();
 
     // ----- then, listen for changes -----------------------------------------
-    _subscription = Connectivity()
-        .onConnectivityChanged
-        .listen((List<ConnectivityResult> results) {
+    _subscription = Connectivity().onConnectivityChanged.listen((
+      List<ConnectivityResult> results,
+    ) {
       log('internet: ${results.map((e) => e.name).join(", ")}');
 
       final nowConnected = !results.contains(ConnectivityResult.none);

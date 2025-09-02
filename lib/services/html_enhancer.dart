@@ -7,7 +7,11 @@ class EnhancedHtmlResult {
   final String html;
   final bool hadExternalImages;
   final bool hasIframes;
-  EnhancedHtmlResult({required this.html, required this.hadExternalImages, required this.hasIframes});
+  EnhancedHtmlResult({
+    required this.html,
+    required this.hadExternalImages,
+    required this.hasIframes,
+  });
 }
 
 class HtmlEnhancer {
@@ -45,7 +49,11 @@ class HtmlEnhancer {
         hasIframes: hasIframes,
       );
     } catch (_) {
-      return EnhancedHtmlResult(html: rawHtml, hadExternalImages: false, hasIframes: false);
+      return EnhancedHtmlResult(
+        html: rawHtml,
+        hadExternalImages: false,
+        hasIframes: false,
+      );
     }
   }
 
@@ -53,7 +61,9 @@ class HtmlEnhancer {
     for (final el in doc.querySelectorAll('script, object, embed')) {
       el.remove();
     }
-    for (final el in doc.querySelectorAll('[onload], [onclick], [onerror], [onmouseover], [onfocus], [onmouseenter], [onmouseleave]')) {
+    for (final el in doc.querySelectorAll(
+      '[onload], [onclick], [onerror], [onmouseover], [onfocus], [onmouseenter], [onmouseleave]',
+    )) {
       final keys = List<String>.from(el.attributes.keys);
       for (final k in keys) {
         if (k.toLowerCase().startsWith('on')) {
@@ -107,7 +117,8 @@ class HtmlEnhancer {
   }
 
   static void _blockRemoteImages(dom.Document doc) {
-    const spacer = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+    const spacer =
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
     for (final img in doc.querySelectorAll('img[src]')) {
       final src = (img.attributes['src'] ?? '').trim();
       if (src.startsWith('http://') || src.startsWith('https://')) {
@@ -119,7 +130,10 @@ class HtmlEnhancer {
     }
   }
 
-  static void _collapsePictureAndSrcset(dom.Document doc, {required double deviceWidthPx}) {
+  static void _collapsePictureAndSrcset(
+    dom.Document doc, {
+    required double deviceWidthPx,
+  }) {
     for (final picture in doc.querySelectorAll('picture')) {
       final img = picture.querySelector('img');
       String? bestSrc;
@@ -154,8 +168,16 @@ class HtmlEnhancer {
     }
   }
 
-  static String? _pickFromSrcset(String srcset, {required double deviceWidthPx}) {
-    final candidates = srcset.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+  static String? _pickFromSrcset(
+    String srcset, {
+    required double deviceWidthPx,
+  }) {
+    final candidates =
+        srcset
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
     String? best;
     double bestScore = -1;
     for (final c in candidates) {
@@ -183,23 +205,18 @@ class HtmlEnhancer {
     return best;
   }
 
-  static void _applyBaseInlineStyles(dom.Document doc, {required bool darkMode}) {
+  static void _applyBaseInlineStyles(
+    dom.Document doc, {
+    required bool darkMode,
+  }) {
     for (final img in doc.querySelectorAll('img')) {
-      _mergeStyle(img, {
-        'max-width': '100%',
-        'height': 'auto',
-      });
+      _mergeStyle(img, {'max-width': '100%', 'height': 'auto'});
     }
     for (final pre in doc.querySelectorAll('pre, code')) {
-      _mergeStyle(pre, {
-        'white-space': 'pre-wrap',
-        'word-break': 'break-word',
-      });
+      _mergeStyle(pre, {'white-space': 'pre-wrap', 'word-break': 'break-word'});
     }
     for (final a in doc.querySelectorAll('a')) {
-      _mergeStyle(a, {
-        'text-decoration': 'none',
-      });
+      _mergeStyle(a, {'text-decoration': 'none'});
     }
     for (final bq in doc.querySelectorAll('blockquote')) {
       _mergeStyle(bq, {
@@ -225,4 +242,3 @@ class HtmlEnhancer {
     el.attributes['style'] = rebuilt;
   }
 }
-

@@ -43,20 +43,24 @@ class SelectionController extends GetxController {
     _selected.clear();
     _selected.addAll(messages);
     _isSelecting.value = _selected.isNotEmpty;
-    try { update(); } catch (_) {}
+    try {
+      update();
+    } catch (_) {}
   }
 
   void selectRange(List<MimeMessage> messages, int startIndex, int endIndex) {
     final start = startIndex < endIndex ? startIndex : endIndex;
     final end = startIndex < endIndex ? endIndex : startIndex;
-    
+
     for (int i = start; i <= end && i < messages.length; i++) {
       if (!_selected.contains(messages[i])) {
         _selected.add(messages[i]);
       }
     }
     _isSelecting.value = _selected.isNotEmpty;
-    try { update(); } catch (_) {}
+    try {
+      update();
+    } catch (_) {}
   }
 
   void deselectAll() {

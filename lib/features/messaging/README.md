@@ -34,3 +34,10 @@ Notes
 Shadow sync (P5)
 ImapGateway.idleStream → SyncService → MessageRepository.fetchInbox(headers) → LocalStore (DDD); metrics only (no UI/notifications)
 
+Search (P6)
+- Fields supported: from, to, subject, text (body-if-cached), dateFrom/dateTo, flags, limit
+- Value object: SearchQuery normalizes inputs (lowercase, trims, de-dupes flags)
+- Result entity: SearchResult (messageId, folderId, date, optional score)
+- Local-first strategy: LocalStore.searchMetadata; optional remote search via ImapGateway.searchHeaders (stubbed, disabled by default). Results are merged with local, de-duplicated, sorted by date DESC, then limited.
+- No DB schema/FTS changes in P6; FTS may come later
+

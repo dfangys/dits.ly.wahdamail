@@ -11,9 +11,9 @@ class CachedMessage {
   final MimeMessage message;
   final DateTime cachedAt;
   final Duration? expiry;
-  
+
   CachedMessage(this.message, {this.expiry}) : cachedAt = DateTime.now();
-  
+
   bool get isExpired {
     if (expiry == null) return false;
     return DateTime.now().difference(cachedAt) > expiry!;
@@ -24,9 +24,9 @@ class CachedMailbox {
   final List<MimeMessage> messages;
   final DateTime cachedAt;
   final Duration? expiry;
-  
+
   CachedMailbox(this.messages, {this.expiry}) : cachedAt = DateTime.now();
-  
+
   bool get isExpired {
     if (expiry == null) return false;
     return DateTime.now().difference(cachedAt) > expiry!;
@@ -37,14 +37,14 @@ class CachedAttachment {
   final Uint8List data;
   final DateTime cachedAt;
   final Duration? expiry;
-  
+
   CachedAttachment(this.data, {this.expiry}) : cachedAt = DateTime.now();
-  
+
   bool get isExpired {
     if (expiry == null) return false;
     return DateTime.now().difference(cachedAt) > expiry!;
   }
-  
+
   int get length => data.length;
 }
 
@@ -52,14 +52,14 @@ class CachedContent {
   final String content;
   final DateTime cachedAt;
   final Duration? expiry;
-  
+
   CachedContent(this.content, {this.expiry}) : cachedAt = DateTime.now();
-  
+
   bool get isExpired {
     if (expiry == null) return false;
     return DateTime.now().difference(cachedAt) > expiry!;
   }
-  
+
   int get length => content.length;
 }
 
@@ -67,14 +67,14 @@ class CachedThumbnail {
   final Uint8List data;
   final DateTime cachedAt;
   final Duration? expiry;
-  
+
   CachedThumbnail(this.data, {this.expiry}) : cachedAt = DateTime.now();
-  
+
   bool get isExpired {
     if (expiry == null) return false;
     return DateTime.now().difference(cachedAt) > expiry!;
   }
-  
+
   int get length => data.length;
 }
 
@@ -84,39 +84,50 @@ class CacheManager extends GetxService {
   static CacheManager get instance => Get.find<CacheManager>();
 
   // Memory caches with LRU eviction and expiration
-  final LRUMap<String, CachedMessage> _messageCache = LRUMap<String, CachedMessage>(_maxMessageCacheSize);
-  final LRUMap<String, CachedMailbox> _mailboxCache = LRUMap<String, CachedMailbox>(_maxMailboxCacheSize);
-  final LRUMap<String, CachedAttachment> _attachmentCache = LRUMap<String, CachedAttachment>(_maxAttachmentCacheSize);
-  
+  final LRUMap<String, CachedMessage> _messageCache =
+      LRUMap<String, CachedMessage>(_maxMessageCacheSize);
+  final LRUMap<String, CachedMailbox> _mailboxCache =
+      LRUMap<String, CachedMailbox>(_maxMailboxCacheSize);
+  final LRUMap<String, CachedAttachment> _attachmentCache =
+      LRUMap<String, CachedAttachment>(_maxAttachmentCacheSize);
+
   // Legacy LRU maps for backward compatibility
-  final LRUMap<String, MimeMessage> _legacyMessageCache = LRUMap<String, MimeMessage>(_maxMessageCacheSize);
-  final LRUMap<String, List<MimeMessage>> _legacyMailboxCache = LRUMap<String, List<MimeMessage>>(_maxMailboxCacheSize);
-  final LRUMap<String, Uint8List> _legacyAttachmentDataCache = LRUMap<String, Uint8List>(_maxAttachmentCacheSize);
-  final LRUMap<String, String> _messageContentCache = LRUMap<String, String>(_maxContentCacheSize);
-  final LRUMap<String, List<MimePart>> _attachmentListCache = LRUMap<String, List<MimePart>>(_maxAttachmentCacheSize * 2);
-  
+  final LRUMap<String, MimeMessage> _legacyMessageCache =
+      LRUMap<String, MimeMessage>(_maxMessageCacheSize);
+  final LRUMap<String, List<MimeMessage>> _legacyMailboxCache =
+      LRUMap<String, List<MimeMessage>>(_maxMailboxCacheSize);
+  final LRUMap<String, Uint8List> _legacyAttachmentDataCache =
+      LRUMap<String, Uint8List>(_maxAttachmentCacheSize);
+  final LRUMap<String, String> _messageContentCache = LRUMap<String, String>(
+    _maxContentCacheSize,
+  );
+  final LRUMap<String, List<MimePart>> _attachmentListCache =
+      LRUMap<String, List<MimePart>>(_maxAttachmentCacheSize * 2);
+
   // Cache statistics with additional metrics
-  final RxMap<String, int> _cacheStats = <String, int>{
-    'message_hits': 0,
-    'message_misses': 0,
-    'mailbox_hits': 0,
-    'mailbox_misses': 0,
-    'attachment_hits': 0,
-    'attachment_misses': 0,
-    'content_hits': 0,
-    'content_misses': 0,
-    'thumbnail_hits': 0,
-    'thumbnail_misses': 0,
-    'evictions': 0,
-    'cache_invalidations': 0,
-  }.obs;
+  final RxMap<String, int> _cacheStats =
+      <String, int>{
+        'message_hits': 0,
+        'message_misses': 0,
+        'mailbox_hits': 0,
+        'mailbox_misses': 0,
+        'attachment_hits': 0,
+        'attachment_misses': 0,
+        'content_hits': 0,
+        'content_misses': 0,
+        'thumbnail_hits': 0,
+        'thumbnail_misses': 0,
+        'evictions': 0,
+        'cache_invalidations': 0,
+      }.obs;
 
   // Enhanced cache configuration
   static const int _maxMessageCacheSize = 150;
   static const int _maxMailboxCacheSize = 25;
   static const int _maxAttachmentCacheSize = 75;
   static const int _maxContentCacheSize = 300;
-  static const int _maxAttachmentDataSize = 10 * 1024 * 1024; // 10MB per attachment
+  static const int _maxAttachmentDataSize =
+      10 * 1024 * 1024; // 10MB per attachment
 
   // Preloading queues
   final Queue<String> _preloadQueue = Queue<String>();
@@ -160,7 +171,9 @@ class CacheManager extends GetxService {
 
   void cacheMailboxMessages(Mailbox mailbox, List<MimeMessage> messages) {
     final key = _getMailboxKey(mailbox);
-    _legacyMailboxCache[key] = List.from(messages); // Create a copy to avoid reference issues
+    _legacyMailboxCache[key] = List.from(
+      messages,
+    ); // Create a copy to avoid reference issues
   }
 
   List<MimeMessage>? getCachedMailboxMessages(Mailbox mailbox) {
@@ -213,20 +226,25 @@ class CacheManager extends GetxService {
 
   // Attachment data caching
   String _getAttachmentKey(MimeMessage message, MimePart attachment) {
-    final filename = attachment.getHeaderContentDisposition()?.filename ?? 
-                    attachment.getHeaderContentType()?.parameters['name'] ?? 
-                    'attachment_${attachment.hashCode}';
+    final filename =
+        attachment.getHeaderContentDisposition()?.filename ??
+        attachment.getHeaderContentType()?.parameters['name'] ??
+        'attachment_${attachment.hashCode}';
     return 'attachment_${_getMessageKey(message)}_$filename';
   }
 
-  void cacheAttachmentData(MimeMessage message, MimePart attachment, Uint8List data) {
+  void cacheAttachmentData(
+    MimeMessage message,
+    MimePart attachment,
+    Uint8List data,
+  ) {
     if (data.length > _maxAttachmentDataSize) {
       if (kDebugMode) {
         print('Attachment too large to cache: ${data.length} bytes');
       }
       return;
     }
-    
+
     final key = _getAttachmentKey(message, attachment);
     _legacyAttachmentDataCache[key] = data;
   }
@@ -235,9 +253,11 @@ class CacheManager extends GetxService {
     final key = _getAttachmentKey(message, attachment);
     final cached = _legacyAttachmentDataCache[key];
     if (cached != null) {
-      _cacheStats['attachment_hits'] = (_cacheStats['attachment_hits'] ?? 0) + 1;
+      _cacheStats['attachment_hits'] =
+          (_cacheStats['attachment_hits'] ?? 0) + 1;
     } else {
-      _cacheStats['attachment_misses'] = (_cacheStats['attachment_misses'] ?? 0) + 1;
+      _cacheStats['attachment_misses'] =
+          (_cacheStats['attachment_misses'] ?? 0) + 1;
     }
     return cached;
   }
@@ -259,7 +279,7 @@ class CacheManager extends GetxService {
 
   Future<void> _processPreloadQueue() async {
     if (_isPreloading || _preloadQueue.isEmpty) return;
-    
+
     _isPreloading = true;
     try {
       _preloadQueue.removeFirst();
@@ -295,11 +315,12 @@ class CacheManager extends GetxService {
     _messageCache.remove(messageKey);
     _messageContentCache.remove(_getContentKey(message));
     _attachmentListCache.remove(_getAttachmentListKey(message));
-    
+
     // Remove attachment data for this message
-    final keysToRemove = _attachmentCache.keys
-        .where((key) => key.startsWith('attachment_$messageKey'))
-        .toList();
+    final keysToRemove =
+        _attachmentCache.keys
+            .where((key) => key.startsWith('attachment_$messageKey'))
+            .toList();
     for (final key in keysToRemove) {
       _attachmentCache.remove(key);
     }
@@ -329,14 +350,16 @@ class CacheManager extends GetxService {
   void _performCleanup() {
     // Cleanup is automatically handled by LRUMap
     // But we can add additional logic here if needed
-    
+
     if (kDebugMode) {
       print('Cache cleanup performed');
       print('Cache stats: ${Map.from(_cacheStats)}');
-      print('Cache sizes: Messages=${_messageCache.length}, '
-            'Mailboxes=${_mailboxCache.length}, '
-            'Attachments=${_attachmentCache.length}, '
-            'Content=${_messageContentCache.length}');
+      print(
+        'Cache sizes: Messages=${_messageCache.length}, '
+        'Mailboxes=${_mailboxCache.length}, '
+        'Attachments=${_attachmentCache.length}, '
+        'Content=${_messageContentCache.length}',
+      );
     }
   }
 
@@ -377,9 +400,11 @@ class CacheManager extends GetxService {
     }
 
     if (kDebugMode) {
-      print('Memory budget enforced. RSS=${(rss / (1024 * 1024)).toStringAsFixed(1)}MB, '
-            'cache=${(cacheBytes / (1024 * 1024)).toStringAsFixed(1)}MB -> '
-            '${(estimatedMemoryUsage / (1024 * 1024)).toStringAsFixed(1)}MB');
+      print(
+        'Memory budget enforced. RSS=${(rss / (1024 * 1024)).toStringAsFixed(1)}MB, '
+        'cache=${(cacheBytes / (1024 * 1024)).toStringAsFixed(1)}MB -> '
+        '${(estimatedMemoryUsage / (1024 * 1024)).toStringAsFixed(1)}MB',
+      );
     }
   }
 
@@ -448,7 +473,7 @@ class CacheManager extends GetxService {
 
   // Public trigger for budget enforcement
   void enforceBudgetNow() => _enforceMemoryBudget();
-  
+
   double get messageHitRate {
     final hits = _cacheStats['message_hits'] ?? 0;
     final misses = _cacheStats['message_misses'] ?? 0;
@@ -480,23 +505,23 @@ class CacheManager extends GetxService {
   // Memory usage estimation
   int get estimatedMemoryUsage {
     int total = 0;
-    
+
     // Estimate message cache size
     total += _messageCache.length * 1024; // Rough estimate per message
-    
+
     // Estimate mailbox cache size
     total += _mailboxCache.length * 10 * 1024; // Rough estimate per mailbox
-    
+
     // Estimate attachment cache size
     for (final data in _attachmentCache.values) {
       total += data.length;
     }
-    
+
     // Estimate content cache size
     for (final content in _messageContentCache.values) {
       total += content.length * 2; // UTF-16 encoding
     }
-    
+
     return total;
   }
 
@@ -533,15 +558,14 @@ class LRUMap<K, V> {
   }
 
   V? remove(K key) => _map.remove(key);
-  
+
   bool containsKey(K key) => _map.containsKey(key);
-  
+
   void clear() => _map.clear();
-  
+
   int get length => _map.length;
-  
+
   Iterable<K> get keys => _map.keys;
-  
+
   Iterable<V> get values => _map.values;
 }
-

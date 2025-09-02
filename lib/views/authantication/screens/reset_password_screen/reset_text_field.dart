@@ -9,15 +9,14 @@ import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_
 import 'package:wahda_bank/views/authantication/screens/otp/verify_reset_password/reset_password_otp_screen.dart';
 
 class ResetPasswordTextField extends StatefulWidget {
-  const ResetPasswordTextField({
-    super.key,
-  });
+  const ResetPasswordTextField({super.key});
 
   @override
   State<ResetPasswordTextField> createState() => _ResetPasswordTextFieldState();
 }
 
-class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with SingleTickerProviderStateMixin {
+class _ResetPasswordTextFieldState extends State<ResetPasswordTextField>
+    with SingleTickerProviderStateMixin {
   final bool isBusy = false;
   bool _isSubmitting = false;
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -101,7 +100,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha : 0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, -5),
               ),
@@ -170,10 +169,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
                       duration: const Duration(milliseconds: 800),
                       curve: Curves.easeOutCubic,
                       builder: (context, value, child) {
-                        return Opacity(
-                          opacity: value,
-                          child: child,
-                        );
+                        return Opacity(opacity: value, child: child);
                       },
                       child: Padding(
                         padding: EdgeInsets.symmetric(
@@ -224,16 +220,17 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
                         duration: const Duration(milliseconds: 500),
                         curve: Curves.easeOut,
                         builder: (context, value, child) {
-                          return Opacity(
-                            opacity: value,
-                            child: child,
-                          );
+                          return Opacity(opacity: value, child: child);
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: Row(
                             children: [
-                              Icon(Icons.error_outline, color: Colors.red.shade700, size: 16),
+                              Icon(
+                                Icons.error_outline,
+                                color: Colors.red.shade700,
+                                size: 16,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -285,10 +282,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
           duration: const Duration(milliseconds: 800),
           curve: Curves.easeOutCubic,
           builder: (context, value, child) {
-            return Opacity(
-              opacity: value,
-              child: child,
-            );
+            return Opacity(opacity: value, child: child);
           },
           child: Padding(
             padding: const EdgeInsets.all(16.0),
@@ -299,20 +293,17 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
               icon: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha : 0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha : 0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 5,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  size: 18,
-                ),
+                child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
               ),
             ),
           ),
@@ -328,7 +319,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha : 0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -390,8 +381,13 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
           if ((res['status'] == 'success') || (res['data'] is Map)) {
             btnController.success();
             // Try to extract masked phone for UI
-            final data = (res['data'] is Map) ? res['data'] as Map : <String, dynamic>{};
-            final maskedPhone = data['masked_phone'] ?? res['masked_phone'] ?? data['phone_masked'] ?? data['phone'];
+            final data =
+                (res['data'] is Map) ? res['data'] as Map : <String, dynamic>{};
+            final maskedPhone =
+                data['masked_phone'] ??
+                res['masked_phone'] ??
+                data['phone_masked'] ??
+                data['phone'];
             Get.to(
               () => ResetPasswordOtpScreen(
                 email: email,

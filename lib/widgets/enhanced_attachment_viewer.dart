@@ -27,7 +27,7 @@ class EnhancedAttachmentViewer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final attachments = _getAttachments();
-    
+
     if (attachments.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -44,9 +44,12 @@ class EnhancedAttachmentViewer extends StatelessWidget {
   List<ContentInfo> _getAttachments() {
     try {
       // Prefer only real attachments when inline display is disabled
-      final contentInfo = showInline
-          ? mimeMessage.findContentInfo()
-          : mimeMessage.findContentInfo(disposition: ContentDisposition.attachment);
+      final contentInfo =
+          showInline
+              ? mimeMessage.findContentInfo()
+              : mimeMessage.findContentInfo(
+                disposition: ContentDisposition.attachment,
+              );
 
       return contentInfo.toList();
     } catch (e) {
@@ -80,16 +83,21 @@ class EnhancedAttachmentViewer extends StatelessWidget {
     );
   }
 
-  Widget _buildAttachmentList(BuildContext context, List<ContentInfo> attachments) {
+  Widget _buildAttachmentList(
+    BuildContext context,
+    List<ContentInfo> attachments,
+  ) {
     final displayAttachments = attachments.take(maxAttachmentsToShow).toList();
-    
+
     return Column(
       children: [
-        ...displayAttachments.map((attachment) => EnhancedAttachmentTile(
-          key: ValueKey('${attachment.fetchId}_${attachment.fileName ?? ''}'),
-          contentInfo: attachment,
-          mimeMessage: mimeMessage,
-        )),
+        ...displayAttachments.map(
+          (attachment) => EnhancedAttachmentTile(
+            key: ValueKey('${attachment.fetchId}_${attachment.fileName ?? ''}'),
+            contentInfo: attachment,
+            mimeMessage: mimeMessage,
+          ),
+        ),
         if (attachments.length > maxAttachmentsToShow)
           Padding(
             padding: const EdgeInsets.all(16),
@@ -129,10 +137,10 @@ class _EnhancedAttachmentTileState extends State<EnhancedAttachmentTile> {
     final fileName = widget.contentInfo.fileName ?? 'Unknown';
     final fileSize = _formatFileSize(widget.contentInfo.size);
     final fileIcon = _getFileIcon(fileName);
-final mimeType = MimeUtils.inferMimeType(
-        fileName,
-        contentType: widget.contentInfo.contentType?.mediaType.toString(),
-      );
+    final mimeType = MimeUtils.inferMimeType(
+      fileName,
+      contentType: widget.contentInfo.contentType?.mediaType.toString(),
+    );
 
     return ListTile(
       leading: Container(
@@ -142,18 +150,11 @@ final mimeType = MimeUtils.inferMimeType(
           color: _getFileColor(fileName).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(
-          fileIcon,
-          color: _getFileColor(fileName),
-          size: 24,
-        ),
+        child: Icon(fileIcon, color: _getFileColor(fileName), size: 24),
       ),
       title: Text(
         fileName,
-        style: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
-        ),
+        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -191,16 +192,17 @@ final mimeType = MimeUtils.inferMimeType(
             tooltip: 'Share',
           ),
           IconButton(
-            icon: _isDownloading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    _isDownloaded ? Icons.open_in_new : Icons.download,
-                    size: 20,
-                  ),
+            icon:
+                _isDownloading
+                    ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                    : Icon(
+                      _isDownloaded ? Icons.open_in_new : Icons.download,
+                      size: 20,
+                    ),
             onPressed: _isDownloading ? null : _downloadAndOpenAttachment,
             tooltip: _isDownloaded ? 'Open' : 'Download',
           ),
@@ -219,7 +221,7 @@ final mimeType = MimeUtils.inferMimeType(
 
   IconData _getFileIcon(String fileName) {
     final extension = fileName.toLowerCase().split('.').last;
-    
+
     switch (extension) {
       case 'pdf':
         return FontAwesomeIcons.filePdf;
@@ -266,7 +268,7 @@ final mimeType = MimeUtils.inferMimeType(
 
   Color _getFileColor(String fileName) {
     final extension = fileName.toLowerCase().split('.').last;
-    
+
     switch (extension) {
       case 'pdf':
         return Colors.red;
@@ -307,16 +309,16 @@ final mimeType = MimeUtils.inferMimeType(
 
   String _formatFileSize(int? bytes) {
     if (bytes == null || bytes == 0) return 'Unknown size';
-    
+
     const suffixes = ['B', 'KB', 'MB', 'GB'];
     var size = bytes.toDouble();
     var suffixIndex = 0;
-    
+
     while (size >= 1024 && suffixIndex < suffixes.length - 1) {
       size /= 1024;
       suffixIndex++;
     }
-    
+
     return '${size.toStringAsFixed(size < 10 ? 1 : 0)} ${suffixes[suffixIndex]}';
   }
 
@@ -335,7 +337,9 @@ final mimeType = MimeUtils.inferMimeType(
       }
       // Create temporary file for preview
       final directory = await getTemporaryDirectory();
-      final fileName = widget.contentInfo.fileName ?? 'attachment_${DateTime.now().millisecondsSinceEpoch}';
+      final fileName =
+          widget.contentInfo.fileName ??
+          'attachment_${DateTime.now().millisecondsSinceEpoch}';
       final file = File('${directory.path}/$fileName');
       await file.writeAsBytes(data);
       // Open the file for preview
@@ -367,15 +371,16 @@ final mimeType = MimeUtils.inferMimeType(
       }
       // Create temporary file for sharing
       final directory = await getTemporaryDirectory();
-      final fileName = widget.contentInfo.fileName ?? 'attachment_${DateTime.now().millisecondsSinceEpoch}';
+      final fileName =
+          widget.contentInfo.fileName ??
+          'attachment_${DateTime.now().millisecondsSinceEpoch}';
       final file = File('${directory.path}/$fileName');
       await file.writeAsBytes(data);
       // Use SharePlus
       // ignore: deprecated_member_use
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'Sharing attachment: $fileName',
-      );
+      await Share.shareXFiles([
+        XFile(file.path),
+      ], text: 'Sharing attachment: $fileName');
       if (kDebugMode) {
         print('Shared attachment: $fileName');
       }
@@ -416,7 +421,9 @@ final mimeType = MimeUtils.inferMimeType(
       }
 
       final directory = await getApplicationDocumentsDirectory();
-      final fileName = widget.contentInfo.fileName ?? 'attachment_${DateTime.now().millisecondsSinceEpoch}';
+      final fileName =
+          widget.contentInfo.fileName ??
+          'attachment_${DateTime.now().millisecondsSinceEpoch}';
       final file = File('${directory.path}/$fileName');
       await file.writeAsBytes(data);
 
@@ -455,4 +462,3 @@ final mimeType = MimeUtils.inferMimeType(
     }
   }
 }
-

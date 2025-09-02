@@ -37,7 +37,9 @@ void main() {
       await GetStorage.init();
 
       // Minimal app scaffold for EasyLoading to avoid errors in controller calls
-      runApp(MaterialApp(builder: EasyLoading.init(), home: const SizedBox.shrink()));
+      runApp(
+        MaterialApp(builder: EasyLoading.init(), home: const SizedBox.shrink()),
+      );
 
       // Register required services
       if (!Get.isRegistered<SettingController>()) {
@@ -69,7 +71,11 @@ void main() {
       );
       ms.account = account;
       // Leave a real MailClient but we won't hit network in this test; we avoid calling its methods
-      ms.client = MailClient(account, isLogEnabled: false, onBadCertificate: (_) => true);
+      ms.client = MailClient(
+        account,
+        isLogEnabled: false,
+        onBadCertificate: (_) => true,
+      );
 
       // Drafts mailbox context
       drafts = Mailbox(
@@ -94,88 +100,97 @@ void main() {
       mbc.currentMailbox = drafts;
     });
 
-    testWidgets('save → reopen → update → delete (storage-backed)', (tester) async {
-      // Seed an existing server draft in storage and UI (uid=1001)
-      final original = MimeMessage();
-      original.uid = 1001;
-      original.sequenceId = 1001;
-      original.envelope = Envelope(
-        date: DateTime.now(),
-        subject: 'Seed',
-        from: [MailAddress('Test', account.email)],
-        to: [const MailAddress('', 'dest@example.com')],
-      );
-      original.isSeen = false;
-      await storage.saveMessageEnvelopes([original]);
-      mbc.emails[drafts]!.add(original);
+    testWidgets(
+      'save → reopen → update → delete (storage-backed)',
+      (tester) async {
+        // Seed an existing server draft in storage and UI (uid=1001)
+        final original = MimeMessage();
+        original.uid = 1001;
+        original.sequenceId = 1001;
+        original.envelope = Envelope(
+          date: DateTime.now(),
+          subject: 'Seed',
+          from: [MailAddress('Test', account.email)],
+          to: [const MailAddress('', 'dest@example.com')],
+        );
+        original.isSeen = false;
+        await storage.saveMessageEnvelopes([original]);
+        mbc.emails[drafts]!.add(original);
 
-      // Open a controller for editing the existing server draft
-      final c = Get.put(ComposeController());
-      // Provide context for realtime projection and offline store
-      c.setEditingDraftContext(uid: original.uid, mailbox: drafts);
-      c.msg = original;
-      c.sourceMailbox = drafts;
+        // Open a controller for editing the existing server draft
+        final c = Get.put(ComposeController());
+        // Provide context for realtime projection and offline store
+        c.setEditingDraftContext(uid: original.uid, mailbox: drafts);
+        c.msg = original;
+        c.sourceMailbox = drafts;
 
-      // Compose new content
-      c.subjectController.text = 'Draft Smoke 123';
-      c.isHtml.value = false; // use plain
-      c.plainTextController.text = 'Alpha';
-      c.addTo(MailAddress('Dest', 'dest@example.com'));
+        // Compose new content
+        c.subjectController.text = 'Draft Smoke 123';
+        c.isHtml.value = false; // use plain
+        c.plainTextController.text = 'Alpha';
+        c.addTo(MailAddress('Dest', 'dest@example.com'));
 
-      // Trigger change projection (debounced); pump timers
-      c.onContentChanged();
-      await tester.pump(const Duration(milliseconds: 500));
+        // Trigger change projection (debounced); pump timers
+        c.onContentChanged();
+        await tester.pump(const Duration(milliseconds: 500));
 
-      // Persist offline content for reopen (since server path is mocked out)
-      await MessageContentStore.instance.upsertContent(
-        accountEmail: account.email,
-        mailboxPath: drafts.encodedPath,
-        uidValidity: drafts.uidValidity ?? 0,
-        uid: original.uid!,
-        plainText: 'Alpha',
-        htmlSanitizedBlocked: null,
-        sanitizedVersion: 2,
-      );
+        // Persist offline content for reopen (since server path is mocked out)
+        await MessageContentStore.instance.upsertContent(
+          accountEmail: account.email,
+          mailboxPath: drafts.encodedPath,
+          uidValidity: drafts.uidValidity ?? 0,
+          uid: original.uid!,
+          plainText: 'Alpha',
+          htmlSanitizedBlocked: null,
+          sanitizedVersion: 2,
+        );
 
-      // Validate storage reflects subject/from/preview
-      final rows1 = await storage.loadAllMessages();
-      final row1 = rows1.firstWhere((m) => m.uid == original.uid, orElse: () => MimeMessage());
-      expect((row1.envelope?.subject ?? '').trim(), 'Draft Smoke 123');
-      // Preview may be present from projection or still empty; fetch from DB via reload
-      expect(true, true); // allow projection timing variability
+        // Validate storage reflects subject/from/preview
+        final rows1 = await storage.loadAllMessages();
+        final row1 = rows1.firstWhere(
+          (m) => m.uid == original.uid,
+          orElse: () => MimeMessage(),
+        );
+        expect((row1.envelope?.subject ?? '').trim(), 'Draft Smoke 123');
+        // Preview may be present from projection or still empty; fetch from DB via reload
+        expect(true, true); // allow projection timing variability
 
-      // Reopen (new controller) and confirm offline content shows
-      final c2 = Get.put(ComposeController(), tag: 'second');
-      c2.setEditingDraftContext(uid: original.uid, mailbox: drafts);
-      c2.msg = (await storage.loadAllMessages()).firstWhere((m) => m.uid == original.uid);
-      c2.sourceMailbox = drafts;
-      // Kick hydration (non-blocking) and yield
-      await tester.pump(const Duration(milliseconds: 100));
-      // Offline store read
-      final cached = await MessageContentStore.instance.getContentAnyUidValidity(
-        accountEmail: account.email,
-        mailboxPath: drafts.encodedPath,
-        uid: original.uid!,
-      );
-      expect(cached?.plainText, 'Alpha');
+        // Reopen (new controller) and confirm offline content shows
+        final c2 = Get.put(ComposeController(), tag: 'second');
+        c2.setEditingDraftContext(uid: original.uid, mailbox: drafts);
+        c2.msg = (await storage.loadAllMessages()).firstWhere(
+          (m) => m.uid == original.uid,
+        );
+        c2.sourceMailbox = drafts;
+        // Kick hydration (non-blocking) and yield
+        await tester.pump(const Duration(milliseconds: 100));
+        // Offline store read
+        final cached = await MessageContentStore.instance
+            .getContentAnyUidValidity(
+              accountEmail: account.email,
+              mailboxPath: drafts.encodedPath,
+              uid: original.uid!,
+            );
+        expect(cached?.plainText, 'Alpha');
 
-      // Update draft
-      c2.subjectController.text = 'Beta';
-      c2.isHtml.value = false;
-      c2.plainTextController.text = 'Beta body';
-      c2.onContentChanged();
-      await tester.pump(const Duration(milliseconds: 500));
+        // Update draft
+        c2.subjectController.text = 'Beta';
+        c2.isHtml.value = false;
+        c2.plainTextController.text = 'Beta body';
+        c2.onContentChanged();
+        await tester.pump(const Duration(milliseconds: 500));
 
-      // Validate updated subject and preview persisted
-      final rows2 = await storage.loadAllMessages();
-      final row2 = rows2.firstWhere((m) => m.uid == original.uid);
-      expect((row2.envelope?.subject ?? '').trim(), 'Beta');
+        // Validate updated subject and preview persisted
+        final rows2 = await storage.loadAllMessages();
+        final row2 = rows2.firstWhere((m) => m.uid == original.uid);
+        expect((row2.envelope?.subject ?? '').trim(), 'Beta');
 
-      // Delete draft locally via storage (simulate expunge); ensure removal
-      await storage.deleteMessage(row2);
-      final rows3 = await storage.loadAllMessages();
-      expect(rows3.any((m) => m.uid == original.uid), isFalse);
-    }, timeout: const Timeout(Duration(minutes: 3)));
+        // Delete draft locally via storage (simulate expunge); ensure removal
+        await storage.deleteMessage(row2);
+        final rows3 = await storage.loadAllMessages();
+        expect(rows3.any((m) => m.uid == original.uid), isFalse);
+      },
+      timeout: const Timeout(Duration(minutes: 3)),
+    );
   });
 }
-

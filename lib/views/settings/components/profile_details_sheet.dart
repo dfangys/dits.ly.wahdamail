@@ -75,19 +75,21 @@ class ProfileDetailsSheet extends GetView<SettingController> {
                       child: CircleAvatar(
                         radius: 30,
                         backgroundColor: Colors.white.withOpacity(0.2),
-                        child: Obx(() => Text(
-                              (controller.userName().isNotEmpty
-                                      ? controller.userName()[0]
-                                      : (controller.userEmail().isNotEmpty
-                                          ? controller.userEmail()[0]
-                                          : 'U'))
-                                  .toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            )),
+                        child: Obx(
+                          () => Text(
+                            (controller.userName().isNotEmpty
+                                    ? controller.userName()[0]
+                                    : (controller.userEmail().isNotEmpty
+                                        ? controller.userEmail()[0]
+                                        : 'U'))
+                                .toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -96,23 +98,29 @@ class ProfileDetailsSheet extends GetView<SettingController> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Obx(() => Text(
-                                controller.userName().isNotEmpty
-                                    ? controller.userName()
-                                    : controller.accountName(),
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              )),
+                          Obx(
+                            () => Text(
+                              controller.userName().isNotEmpty
+                                  ? controller.userName()
+                                  : controller.accountName(),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           Obx(() {
-                            final email = controller.userEmail().isNotEmpty
-                                ? controller.userEmail()
-                                : (Get.find<SettingController>().box.read('email')?.toString() ?? '');
+                            final email =
+                                controller.userEmail().isNotEmpty
+                                    ? controller.userEmail()
+                                    : (Get.find<SettingController>().box
+                                            .read('email')
+                                            ?.toString() ??
+                                        '');
                             return Row(
                               children: [
                                 Expanded(
@@ -129,13 +137,25 @@ class ProfileDetailsSheet extends GetView<SettingController> {
                                 ),
                                 IconButton(
                                   splashRadius: 18,
-                                  icon: const Icon(Icons.copy_rounded, size: 18, color: Colors.white),
-                                  onPressed: email.isEmpty
-                                      ? null
-                                      : () async {
-                                          await Clipboard.setData(ClipboardData(text: email));
-                                          Get.snackbar('Copied', 'Email copied to clipboard', snackPosition: SnackPosition.BOTTOM);
-                                        },
+                                  icon: const Icon(
+                                    Icons.copy_rounded,
+                                    size: 18,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed:
+                                      email.isEmpty
+                                          ? null
+                                          : () async {
+                                            await Clipboard.setData(
+                                              ClipboardData(text: email),
+                                            );
+                                            Get.snackbar(
+                                              'Copied',
+                                              'Email copied to clipboard',
+                                              snackPosition:
+                                                  SnackPosition.BOTTOM,
+                                            );
+                                          },
                                 ),
                               ],
                             );
@@ -150,10 +170,21 @@ class ProfileDetailsSheet extends GetView<SettingController> {
                               spacing: 6,
                               runSpacing: 6,
                               children: [
-                                _chip(icon: Icons.storage_rounded, label: usage.isNotEmpty ? usage : 'Usage', theme: theme),
-                                _chip(icon: Icons.inventory_2_rounded, label: quota.isNotEmpty ? quota : 'Plan', theme: theme),
                                 _chip(
-                                  icon: twofa ? Icons.verified_user_rounded : Icons.shield_outlined,
+                                  icon: Icons.storage_rounded,
+                                  label: usage.isNotEmpty ? usage : 'Usage',
+                                  theme: theme,
+                                ),
+                                _chip(
+                                  icon: Icons.inventory_2_rounded,
+                                  label: quota.isNotEmpty ? quota : 'Plan',
+                                  theme: theme,
+                                ),
+                                _chip(
+                                  icon:
+                                      twofa
+                                          ? Icons.verified_user_rounded
+                                          : Icons.shield_outlined,
                                   label: twofa ? '2FA On' : '2FA Off',
                                   theme: theme,
                                 ),
@@ -173,40 +204,70 @@ class ProfileDetailsSheet extends GetView<SettingController> {
               const SizedBox(height: 8),
 
               // Account section
-              Text('Account', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.2)),
+              Text(
+                'Account',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
                   color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Obx(() => _infoRow(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Obx(
+                  () => _infoRow(
                     icon: Icons.phone_rounded,
                     label: 'Phone',
-                    value: controller.userPhone().isNotEmpty ? controller.userPhone() : '-',
+                    value:
+                        controller.userPhone().isNotEmpty
+                            ? controller.userPhone()
+                            : '-',
                     theme: theme,
                     trailing: IconButton(
                       icon: const Icon(Icons.copy_rounded, size: 18),
-                      onPressed: controller.userPhone().isEmpty
-                          ? null
-                          : () async {
-                              await Clipboard.setData(ClipboardData(text: controller.userPhone()));
-                              Get.snackbar('Copied', 'Phone number copied to clipboard', snackPosition: SnackPosition.BOTTOM);
-                            },
+                      onPressed:
+                          controller.userPhone().isEmpty
+                              ? null
+                              : () async {
+                                await Clipboard.setData(
+                                  ClipboardData(text: controller.userPhone()),
+                                );
+                                Get.snackbar(
+                                  'Copied',
+                                  'Phone number copied to clipboard',
+                                  snackPosition: SnackPosition.BOTTOM,
+                                );
+                              },
                     ),
-                  )),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
 
               // Storage
-              Text('Storage', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.2)),
+              Text(
+                'Storage',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
               const SizedBox(height: 8),
               Obx(() {
                 final percent = controller.usagePercent().clamp(0.0, 100.0);
-                final label = controller.usageLabel().isNotEmpty
-                    ? '${controller.usageLabel()} of ${controller.quotaLabel()}'
-                    : (controller.quotaLabel().isNotEmpty ? controller.quotaLabel() : '');
+                final label =
+                    controller.usageLabel().isNotEmpty
+                        ? '${controller.usageLabel()} of ${controller.quotaLabel()}'
+                        : (controller.quotaLabel().isNotEmpty
+                            ? controller.quotaLabel()
+                            : '');
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -216,15 +277,29 @@ class ProfileDetailsSheet extends GetView<SettingController> {
                         value: percent / 100.0,
                         minHeight: 10,
                         color: theme.colorScheme.primary,
-                        backgroundColor: theme.colorScheme.primary.withOpacity(0.15),
+                        backgroundColor: theme.colorScheme.primary.withOpacity(
+                          0.15,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 6),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(label, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
-                        Text('${percent.toStringAsFixed(1)}%', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                        Text(
+                          label,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.7,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${percent.toStringAsFixed(1)}%',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -236,7 +311,13 @@ class ProfileDetailsSheet extends GetView<SettingController> {
               const SizedBox(height: 8),
 
               // Security
-              Text('Security', style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.2)),
+              Text(
+                'Security',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.2,
+                ),
+              ),
               const SizedBox(height: 8),
               // Two-factor toggle
               Obx(() {
@@ -248,17 +329,25 @@ class ProfileDetailsSheet extends GetView<SettingController> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.shield_rounded, color: Colors.redAccent),
+                        const Icon(
+                          Icons.shield_rounded,
+                          color: Colors.redAccent,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Two-factor Authentication', style: TextStyle(fontWeight: FontWeight.w600)),
+                              const Text(
+                                'Two-factor Authentication',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
                               Text(
                                 enabled ? 'Enabled' : 'Disabled',
                                 style: TextStyle(
-                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.7,
+                                  ),
                                   fontSize: 12,
                                 ),
                               ),
@@ -282,46 +371,74 @@ class ProfileDetailsSheet extends GetView<SettingController> {
                               if (!ok) {
                                 // revert UI
                                 controller.twoFactorEnabled.toggle();
-                                Get.snackbar('Error', 'Failed to update 2FA', snackPosition: SnackPosition.BOTTOM);
+                                Get.snackbar(
+                                  'Error',
+                                  'Failed to update 2FA',
+                                  snackPosition: SnackPosition.BOTTOM,
+                                );
                               }
                             },
-                            activeTrackColor: theme.colorScheme.primary.withValues(alpha: 0.3),
+                            activeTrackColor: theme.colorScheme.primary
+                                .withValues(alpha: 0.3),
                           ),
                       ],
                     ),
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
-                      child: status.isEmpty
-                          ? const SizedBox.shrink()
-                          : Container(
-                              key: ValueKey(status),
-                              margin: const EdgeInsets.only(top: 8),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: status == 'success' ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: status == 'success' ? Colors.green : Colors.red),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(status == 'success' ? Icons.check_circle : Icons.error_outline,
-                                      size: 18, color: status == 'success' ? Colors.green : Colors.red),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
+                      child:
+                          status.isEmpty
+                              ? const SizedBox.shrink()
+                              : Container(
+                                key: ValueKey(status),
+                                margin: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
                                       status == 'success'
-                                          ? 'Two-factor settings saved'
-                                          : 'Failed to update two-factor settings',
-                                      style: TextStyle(
-                                        color: status == 'success' ? Colors.green.shade800 : Colors.red.shade800,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                          ? Colors.green.withValues(alpha: 0.1)
+                                          : Colors.red.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color:
+                                        status == 'success'
+                                            ? Colors.green
+                                            : Colors.red,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      status == 'success'
+                                          ? Icons.check_circle
+                                          : Icons.error_outline,
+                                      size: 18,
+                                      color:
+                                          status == 'success'
+                                              ? Colors.green
+                                              : Colors.red,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        status == 'success'
+                                            ? 'Two-factor settings saved'
+                                            : 'Failed to update two-factor settings',
+                                        style: TextStyle(
+                                          color:
+                                              status == 'success'
+                                                  ? Colors.green.shade800
+                                                  : Colors.red.shade800,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
                     ),
                   ],
                 );
@@ -338,7 +455,9 @@ class ProfileDetailsSheet extends GetView<SettingController> {
                     icon: const Icon(Icons.refresh_rounded),
                     label: const Text('Refresh'),
                     style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   ElevatedButton.icon(
@@ -348,7 +467,9 @@ class ProfileDetailsSheet extends GetView<SettingController> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.colorScheme.primary,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   TextButton(
@@ -380,11 +501,19 @@ class ProfileDetailsSheet extends GetView<SettingController> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 2),
               Text(
                 value,
-                style: TextStyle(color: theme.colorScheme.onSurface.withValues(alpha: 0.8)),
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
+                ),
               ),
             ],
           ),
@@ -395,7 +524,11 @@ class ProfileDetailsSheet extends GetView<SettingController> {
   }
 }
 
-Widget _chip({required IconData icon, required String label, required ThemeData theme}) {
+Widget _chip({
+  required IconData icon,
+  required String label,
+  required ThemeData theme,
+}) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
@@ -410,10 +543,13 @@ Widget _chip({required IconData icon, required String label, required ThemeData 
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 12,
+          ),
         ),
       ],
     ),
   );
 }
-

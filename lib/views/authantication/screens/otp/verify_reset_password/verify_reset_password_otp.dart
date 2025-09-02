@@ -187,12 +187,15 @@ class _VerifyResetPasswordOtpScreenState
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
-    
+
     return Scaffold(
       backgroundColor: Theme.of(context).primaryColor,
       body: Column(
         children: [
-          SizedBox(height: isTablet ? WSizes.imageThumbSize * 1.2 : WSizes.imageThumbSize),
+          SizedBox(
+            height:
+                isTablet ? WSizes.imageThumbSize * 1.2 : WSizes.imageThumbSize,
+          ),
           // Logo with animation
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -220,7 +223,12 @@ class _VerifyResetPasswordOtpScreenState
               ),
             ),
           ),
-          SizedBox(height: isTablet ? WSizes.spaceBtwSections * 1.2 : WSizes.spaceBtwSections),
+          SizedBox(
+            height:
+                isTablet
+                    ? WSizes.spaceBtwSections * 1.2
+                    : WSizes.spaceBtwSections,
+          ),
           // Main content container with animation
           Expanded(
             child: TweenAnimationBuilder<double>(
@@ -230,10 +238,7 @@ class _VerifyResetPasswordOtpScreenState
               builder: (context, value, child) {
                 return Transform.translate(
                   offset: Offset(0, (1 - value) * 100),
-                  child: Opacity(
-                    opacity: value,
-                    child: child,
-                  ),
+                  child: Opacity(opacity: value, child: child),
                 );
               },
               child: Container(
@@ -246,7 +251,7 @@ class _VerifyResetPasswordOtpScreenState
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha : 0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 10,
                       offset: const Offset(0, -5),
                     ),
@@ -267,7 +272,7 @@ class _VerifyResetPasswordOtpScreenState
                               icon: Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.withValues(alpha : 0.1),
+                                  color: Colors.grey.withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(
@@ -279,9 +284,9 @@ class _VerifyResetPasswordOtpScreenState
                           ],
                         ),
                       ),
-                      
+
                       SizedBox(height: isTablet ? 10 : 5),
-                      
+
                       // Title with animation
                       TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -304,7 +309,7 @@ class _VerifyResetPasswordOtpScreenState
                           ),
                         ),
                       ),
-                      
+
                       // Divider with animation
                       TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -327,17 +332,14 @@ class _VerifyResetPasswordOtpScreenState
                           ),
                         ),
                       ),
-                      
+
                       // Instruction text with animation
                       TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.0, end: 1.0),
                         duration: const Duration(milliseconds: 800),
                         curve: Curves.easeOutCubic,
                         builder: (context, value, child) {
-                          return Opacity(
-                            opacity: value,
-                            child: child,
-                          );
+                          return Opacity(opacity: value, child: child);
                         },
                         child: Padding(
                           padding: EdgeInsets.symmetric(
@@ -354,9 +356,9 @@ class _VerifyResetPasswordOtpScreenState
                           ),
                         ),
                       ),
-                      
+
                       SizedBox(height: isTablet ? 20 : 10),
-                      
+
                       // OTP field with animation
                       TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -373,33 +375,35 @@ class _VerifyResetPasswordOtpScreenState
                         },
                         child: _buildPinput(context, isTablet),
                       ),
-                      
+
                       SizedBox(height: isTablet ? 20 : 10),
-                      
+
                       // Resend button with animation
                       TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.0, end: 1.0),
                         duration: const Duration(milliseconds: 1000),
                         curve: Curves.easeOutCubic,
                         builder: (context, value, child) {
-                          return Opacity(
-                            opacity: value,
-                            child: child,
-                          );
+                          return Opacity(opacity: value, child: child);
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           child: Row(
                             children: [
                               TextButton.icon(
-                                onPressed: (_resendSeconds == 0 && !_isResending) ? resendSms : null,
+                                onPressed:
+                                    (_resendSeconds == 0 && !_isResending)
+                                        ? resendSms
+                                        : null,
                                 icon: Icon(
                                   Icons.refresh_rounded,
                                   size: 18,
                                   color: Theme.of(context).primaryColor,
                                 ),
                                 label: Text(
-'resend_otp'.tr + (_resendSeconds > 0 ? ' ('+_resendSeconds.toString()+'s)' : ''),
+                                  _resendSeconds > 0
+                                      ? '${'resend_otp'.tr} (${_resendSeconds}s)'
+                                      : 'resend_otp'.tr,
                                   style: TextStyle(
                                     fontSize: isTablet ? 16 : 14,
                                     fontWeight: FontWeight.w500,
@@ -411,7 +415,7 @@ class _VerifyResetPasswordOtpScreenState
                           ),
                         ),
                       ),
-                      
+
                       // Password field with animation
                       TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -451,17 +455,14 @@ class _VerifyResetPasswordOtpScreenState
                           ),
                         ),
                       ),
-                      
+
                       // Password requirements text with animation
                       TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.0, end: 1.0),
                         duration: const Duration(milliseconds: 1000),
                         curve: Curves.easeOutCubic,
                         builder: (context, value, child) {
-                          return Opacity(
-                            opacity: value,
-                            child: child,
-                          );
+                          return Opacity(opacity: value, child: child);
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
@@ -484,9 +485,9 @@ class _VerifyResetPasswordOtpScreenState
                           ),
                         ),
                       ),
-                      
+
                       SizedBox(height: isTablet ? 20 : 10),
-                      
+
                       // Reset button with animation
                       TweenAnimationBuilder<double>(
                         tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -511,7 +512,7 @@ class _VerifyResetPasswordOtpScreenState
                           ),
                         ),
                       ),
-                      
+
                       SizedBox(height: isTablet ? 40 : 20),
                     ],
                   ),
@@ -539,7 +540,7 @@ class _VerifyResetPasswordOtpScreenState
         border: Border.all(color: Colors.grey.shade300),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha : 0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -552,7 +553,7 @@ class _VerifyResetPasswordOtpScreenState
       borderRadius: BorderRadius.circular(12),
       boxShadow: [
         BoxShadow(
-          color: Theme.of(context).primaryColor.withValues(alpha : 0.2),
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),
@@ -561,7 +562,7 @@ class _VerifyResetPasswordOtpScreenState
 
     final submittedPinTheme = defaultPinTheme.copyWith(
       decoration: defaultPinTheme.decoration?.copyWith(
-        color: Theme.of(context).primaryColor.withValues(alpha : 0.1),
+        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
         border: Border.all(color: Theme.of(context).primaryColor),
       ),
     );
@@ -586,7 +587,7 @@ class _VerifyResetPasswordOtpScreenState
       ),
       onCompleted: (pin) {
         if (kDebugMode) {
-          print("Completed: $pin");
+          print('Completed: $pin');
         }
         otpPin = pin;
       },

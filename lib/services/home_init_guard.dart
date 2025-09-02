@@ -35,7 +35,9 @@ class HomeInitGuard extends GetxService {
           await mailService.connect().timeout(const Duration(seconds: 12));
         } catch (e) {
           if (kDebugMode) {
-            debugPrint('HomeInitGuard: mailService.connect failed (will retry via controller): $e');
+            debugPrint(
+              'HomeInitGuard: mailService.connect failed (will retry via controller): $e',
+            );
           }
         }
       }
@@ -66,4 +68,3 @@ class HomeInitGuard extends GetxService {
     }
   }
 }
-

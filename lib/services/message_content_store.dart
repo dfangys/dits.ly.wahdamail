@@ -24,27 +24,36 @@ class CachedAttachment {
     required this.filePath,
   });
 
-  Map<String, Object?> toMap(String accountEmail, String mailboxPath, int uidValidity, int uid) => {
-        'content_id': contentId,
-        'file_name': fileName,
-        'mime_type': mimeType,
-        'size_bytes': sizeBytes,
-        'is_inline': isInline ? 1 : 0,
-        'file_path': filePath,
-        'account_email': accountEmail,
-        'mailbox_path': mailboxPath,
-        'uid_validity': uidValidity,
-        'uid': uid,
-      };
+  Map<String, Object?> toMap(
+    String accountEmail,
+    String mailboxPath,
+    int uidValidity,
+    int uid,
+  ) => {
+    'content_id': contentId,
+    'file_name': fileName,
+    'mime_type': mimeType,
+    'size_bytes': sizeBytes,
+    'is_inline': isInline ? 1 : 0,
+    'file_path': filePath,
+    'account_email': accountEmail,
+    'mailbox_path': mailboxPath,
+    'uid_validity': uidValidity,
+    'uid': uid,
+  };
 
   static CachedAttachment fromMap(Map<String, Object?> row) => CachedAttachment(
-        contentId: row['content_id'] as String?,
-        fileName: (row['file_name'] ?? '') as String,
-        mimeType: (row['mime_type'] ?? 'application/octet-stream') as String,
-        sizeBytes: (row['size_bytes'] is int) ? row['size_bytes'] as int : int.tryParse(row['size_bytes']?.toString() ?? '0') ?? 0,
-        isInline: (row['is_inline'] is int) ? (row['is_inline'] as int) == 1 : false,
-        filePath: (row['file_path'] ?? '') as String,
-      );
+    contentId: row['content_id'] as String?,
+    fileName: (row['file_name'] ?? '') as String,
+    mimeType: (row['mime_type'] ?? 'application/octet-stream') as String,
+    sizeBytes:
+        (row['size_bytes'] is int)
+            ? row['size_bytes'] as int
+            : int.tryParse(row['size_bytes']?.toString() ?? '0') ?? 0,
+    isInline:
+        (row['is_inline'] is int) ? (row['is_inline'] as int) == 1 : false,
+    filePath: (row['file_path'] ?? '') as String,
+  );
 }
 
 class CachedMessageContent {
@@ -86,8 +95,9 @@ class MessageContentStore {
     final db = await _db;
     final now = DateTime.now().millisecondsSinceEpoch;
 
-    final plainBlob = plainText == null ? null : _gz.encode(utf8.encode(plainText));
-    
+    final plainBlob =
+        plainText == null ? null : _gz.encode(utf8.encode(plainText));
+
     // Decide whether to store HTML inline or as file based on size and feature flags
     String? actualHtmlFilePath = htmlFilePath;
     List<int>? htmlBlob;
@@ -98,7 +108,8 @@ class MessageContentStore {
 
     if (htmlSanitizedBlocked != null && htmlFilePath == null) {
       final htmlBytes = utf8.encode(htmlSanitizedBlocked);
-      final shouldMaterialize = matEnabled && (forceMaterialize || htmlBytes.length > threshold);
+      final shouldMaterialize =
+          matEnabled && (forceMaterialize || htmlBytes.length > threshold);
       if (shouldMaterialize) {
         // Materialize to file for performance, but ALSO keep a compressed inline fallback for resilience
         actualHtmlFilePath = await saveOfflineHtmlDocument(
@@ -109,7 +120,9 @@ class MessageContentStore {
           sanitizedInnerHtml: htmlSanitizedBlocked,
           blockRemote: true, // Default to blocked for cached content
         );
-        htmlBlob = _gz.encode(htmlBytes); // Keep fallback inline HTML in DB for when the file is missing
+        htmlBlob = _gz.encode(
+          htmlBytes,
+        ); // Keep fallback inline HTML in DB for when the file is missing
       } else {
         // Store inline as blob
         htmlBlob = _gz.encode(htmlBytes);
@@ -141,13 +154,17 @@ class MessageContentStore {
       // Clear existing attachments for this message and re-insert
       await txn.delete(
         SQLiteDatabaseHelper.tableMessageAttachments,
-        where: 'account_email=? AND mailbox_path=? AND uid_validity=? AND uid=?',
+        where:
+            'account_email=? AND mailbox_path=? AND uid_validity=? AND uid=?',
         whereArgs: [accountEmail, mailboxPath, uidValidity, uid],
       );
       if (attachments.isNotEmpty) {
         final batch = txn.batch();
         for (final a in attachments) {
-          batch.insert(SQLiteDatabaseHelper.tableMessageAttachments, a.toMap(accountEmail, mailboxPath, uidValidity, uid));
+          batch.insert(
+            SQLiteDatabaseHelper.tableMessageAttachments,
+            a.toMap(accountEmail, mailboxPath, uidValidity, uid),
+          );
         }
         await batch.commit(noResult: true);
       }
@@ -179,13 +196,18 @@ class MessageContentStore {
     } catch (_) {}
     try {
       if (row['html_sanitized_blocked'] != null) {
-        html = utf8.decode(_gz.decode(row['html_sanitized_blocked'] as List<int>));
+        html = utf8.decode(
+          _gz.decode(row['html_sanitized_blocked'] as List<int>),
+        );
       }
       if (row['html_file_path'] != null) {
         htmlPath = row['html_file_path'] as String?;
       }
     } catch (_) {}
-    final version = (row['sanitized_version'] is int) ? row['sanitized_version'] as int : int.tryParse(row['sanitized_version']?.toString() ?? '1') ?? 1;
+    final version =
+        (row['sanitized_version'] is int)
+            ? row['sanitized_version'] as int
+            : int.tryParse(row['sanitized_version']?.toString() ?? '1') ?? 1;
 
     final attRows = await db.query(
       SQLiteDatabaseHelper.tableMessageAttachments,
@@ -196,10 +218,20 @@ class MessageContentStore {
     final atts = attRows.map(CachedAttachment.fromMap).toList();
 
     if (kDebugMode) {
-      int htmlLen = html?.length ?? 0; bool exists = false; int size = -1;
-      try { if (htmlPath != null && htmlPath.isNotEmpty) { final f=File(htmlPath); exists=f.existsSync(); if (exists) size=f.statSync().size; } } catch (_) {}
+      int htmlLen = html?.length ?? 0;
+      bool exists = false;
+      int size = -1;
+      try {
+        if (htmlPath != null && htmlPath.isNotEmpty) {
+          final f = File(htmlPath);
+          exists = f.existsSync();
+          if (exists) size = f.statSync().size;
+        }
+      } catch (_) {}
       // ignore: avoid_print
-      print('STORE:getContent uid=$uid box=$mailboxPath v=$version htmlLen=$htmlLen htmlPath=$htmlPath exists=$exists size=$size');
+      print(
+        'STORE:getContent uid=$uid box=$mailboxPath v=$version htmlLen=$htmlLen htmlPath=$htmlPath exists=$exists size=$size',
+      );
     }
 
     return CachedMessageContent(
@@ -238,13 +270,18 @@ class MessageContentStore {
     } catch (_) {}
     try {
       if (row['html_sanitized_blocked'] != null) {
-        html = utf8.decode(_gz.decode(row['html_sanitized_blocked'] as List<int>));
+        html = utf8.decode(
+          _gz.decode(row['html_sanitized_blocked'] as List<int>),
+        );
       }
       if (row['html_file_path'] != null) {
         htmlPath = row['html_file_path'] as String?;
       }
     } catch (_) {}
-    final version = (row['sanitized_version'] is int) ? row['sanitized_version'] as int : int.tryParse(row['sanitized_version']?.toString() ?? '1') ?? 1;
+    final version =
+        (row['sanitized_version'] is int)
+            ? row['sanitized_version'] as int
+            : int.tryParse(row['sanitized_version']?.toString() ?? '1') ?? 1;
 
     final attRows = await db.query(
       SQLiteDatabaseHelper.tableMessageAttachments,
@@ -255,10 +292,20 @@ class MessageContentStore {
     final atts = attRows.map(CachedAttachment.fromMap).toList();
 
     if (kDebugMode) {
-      int htmlLen = html?.length ?? 0; bool exists = false; int size = -1;
-      try { if (htmlPath != null && htmlPath.isNotEmpty) { final f=File(htmlPath); exists=f.existsSync(); if (exists) size=f.statSync().size; } } catch (_) {}
+      int htmlLen = html?.length ?? 0;
+      bool exists = false;
+      int size = -1;
+      try {
+        if (htmlPath != null && htmlPath.isNotEmpty) {
+          final f = File(htmlPath);
+          exists = f.existsSync();
+          if (exists) size = f.statSync().size;
+        }
+      } catch (_) {}
       // ignore: avoid_print
-      print('STORE:getContentAny uid=$uid box=$mailboxPath v=$version htmlLen=$htmlLen htmlPath=$htmlPath exists=$exists size=$size');
+      print(
+        'STORE:getContentAny uid=$uid box=$mailboxPath v=$version htmlLen=$htmlLen htmlPath=$htmlPath exists=$exists size=$size',
+      );
     }
 
     return CachedMessageContent(
@@ -305,41 +352,56 @@ class MessageContentStore {
     int? size,
   }) async {
     // Local helpers
-    String _sanitizeName(String n) {
-      var s = (n.isEmpty ? 'attachment' : n)
-          .replaceAll(RegExp(r'[\\/:*?\"<>|]'), '_')
-          .replaceAll(RegExp(r'\s+'), ' ')
-          .trim();
+    String sanitizeName(String n) {
+      var s =
+          (n.isEmpty ? 'attachment' : n)
+              .replaceAll(RegExp(r'[\\/:*?\"<>|]'), '_')
+              .replaceAll(RegExp(r'\s+'), ' ')
+              .trim();
       if (s.isEmpty) s = 'attachment';
       // keep reasonable length for FS
       if (s.length > 80) s = s.substring(0, 80);
       return s;
     }
 
-    bool _isPdfBytes(List<int> b) => b.length >= 5 && b[0] == 0x25 && b[1] == 0x50 && b[2] == 0x44 && b[3] == 0x46 && b[4] == 0x2D;
+    bool isPdfBytes(List<int> b) =>
+        b.length >= 5 &&
+        b[0] == 0x25 &&
+        b[1] == 0x50 &&
+        b[2] == 0x44 &&
+        b[3] == 0x46 &&
+        b[4] == 0x2D;
 
-    bool _looksPdfByHint() {
+    bool looksPdfByHint() {
       final m = (mimeType ?? '').toLowerCase();
       final name = fileName.toLowerCase();
-      return name.endsWith('.pdf') || m == 'application/pdf' || m == 'application/x-pdf' || m.contains('pdf');
+      return name.endsWith('.pdf') ||
+          m == 'application/pdf' ||
+          m == 'application/x-pdf' ||
+          m.contains('pdf');
     }
 
-    List<int>? _normalizePdfBytesIfNeeded(List<int> input) {
+    List<int>? normalizePdfBytesIfNeeded(List<int> input) {
       try {
-        if (_isPdfBytes(input)) return null; // already proper PDF
+        if (isPdfBytes(input)) return null; // already proper PDF
 
         // Try to interpret as text and decode base64 variants
         String asText = '';
-        try { asText = utf8.decode(input, allowMalformed: true); } catch (_) {}
+        try {
+          asText = utf8.decode(input, allowMalformed: true);
+        } catch (_) {}
 
         if (asText.isNotEmpty) {
           // Full-string base64
           final cleaned = asText.replaceAll(RegExp(r'\s'), '');
-          final isB64 = cleaned.length >= 20 && cleaned.length % 4 == 0 && RegExp(r'^[A-Za-z0-9+/]*={0,2}$').hasMatch(cleaned);
+          final isB64 =
+              cleaned.length >= 20 &&
+              cleaned.length % 4 == 0 &&
+              RegExp(r'^[A-Za-z0-9+/]*={0,2}$').hasMatch(cleaned);
           if (isB64) {
             try {
               final decoded = base64.decode(cleaned);
-              if (_isPdfBytes(decoded)) return decoded;
+              if (isPdfBytes(decoded)) return decoded;
             } catch (_) {}
           }
 
@@ -352,7 +414,7 @@ class MessageContentStore {
             if (cleaned2.isNotEmpty) {
               try {
                 final decoded = base64.decode(cleaned2);
-                if (_isPdfBytes(decoded)) return decoded;
+                if (isPdfBytes(decoded)) return decoded;
               } catch (_) {}
             }
           }
@@ -361,12 +423,15 @@ class MessageContentStore {
           final jv = asText.indexOf('JVBERi0');
           if (jv != -1) {
             int end = jv;
-            while (end < asText.length && RegExp(r'[A-Za-z0-9+/=]').hasMatch(asText[end])) { end++; }
+            while (end < asText.length &&
+                RegExp(r'[A-Za-z0-9+/=]').hasMatch(asText[end])) {
+              end++;
+            }
             final seg = asText.substring(jv, end).replaceAll(RegExp(r'\s'), '');
             if (seg.isNotEmpty && seg.length % 4 == 0) {
               try {
                 final decoded = base64.decode(seg);
-                if (_isPdfBytes(decoded)) return decoded;
+                if (isPdfBytes(decoded)) return decoded;
               } catch (_) {}
             }
           }
@@ -374,7 +439,11 @@ class MessageContentStore {
 
         // Binary scan for %PDF- after junk
         for (int i = 0; i + 4 < input.length; i++) {
-          if (input[i] == 0x25 && input[i+1] == 0x50 && input[i+2] == 0x44 && input[i+3] == 0x46 && input[i+4] == 0x2D) {
+          if (input[i] == 0x25 &&
+              input[i + 1] == 0x50 &&
+              input[i + 2] == 0x44 &&
+              input[i + 3] == 0x46 &&
+              input[i + 4] == 0x2D) {
             return input.sublist(i);
           }
         }
@@ -382,58 +451,71 @@ class MessageContentStore {
       return null; // could not normalize
     }
 
-    String _extOf(String n) {
+    String extOf(String n) {
       final i = n.lastIndexOf('.');
       if (i > 0 && i < n.length - 1) return n.substring(i);
       return '';
     }
 
-    String _baseOf(String n) {
+    String baseOf(String n) {
       final i = n.lastIndexOf('.');
       if (i > 0) return n.substring(0, i);
       return n;
     }
 
-    String _slug(String s) {
+    String slug(String s) {
       final t = s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
       if (t.isEmpty) return 'id';
       return t.length > 10 ? t.substring(0, 10) : t;
     }
 
     // Best-practice: normalize PDF attachments before saving (handles base64/data URI/junk prefix)
-    if (_looksPdfByHint()) {
-      final normalized = _normalizePdfBytesIfNeeded(bytes);
+    if (looksPdfByHint()) {
+      final normalized = normalizePdfBytesIfNeeded(bytes);
       if (normalized != null) {
         bytes = normalized;
         size = bytes.length;
         if (kDebugMode) {
           // ignore: avoid_print
-          print('STORE:normalizePDF name=$fileName -> normalized ${bytes.length} bytes');
+          print(
+            'STORE:normalizePDF name=$fileName -> normalized ${bytes.length} bytes',
+          );
         }
       }
     }
 
     final base = await getApplicationCacheDirectory();
     final safeBox = mailboxPath.replaceAll('/', '_');
-    final dir = Directory(p.join(base.path, 'offline_attachments', accountEmail, safeBox, '$uidValidity', '$uid'));
+    final dir = Directory(
+      p.join(
+        base.path,
+        'offline_attachments',
+        accountEmail,
+        safeBox,
+        '$uidValidity',
+        '$uid',
+      ),
+    );
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
 
-    final sanitized = _sanitizeName(fileName);
-    final baseName = _baseOf(sanitized);
-    final ext = _extOf(sanitized);
+    final sanitized = sanitizeName(fileName);
+    final baseName = baseOf(sanitized);
+    final ext = extOf(sanitized);
 
     String suffix;
     if (uniquePartId != null && uniquePartId.trim().isNotEmpty) {
-      suffix = '__fid-${_slug(uniquePartId)}';
+      suffix = '__fid-${slug(uniquePartId)}';
     } else if (contentId != null && contentId.trim().isNotEmpty) {
-      suffix = '__cid-${_slug(contentId)}';
+      suffix = '__cid-${slug(contentId)}';
     } else if (size != null && size > 0) {
       suffix = '__sz-$size';
     } else {
       // last resort: small random nonce to avoid collisions
-      final r = DateTime.now().microsecondsSinceEpoch.remainder(0xFFFFFF).toRadixString(16);
+      final r = DateTime.now().microsecondsSinceEpoch
+          .remainder(0xFFFFFF)
+          .toRadixString(16);
       suffix = '__r-$r';
     }
 
@@ -447,7 +529,9 @@ class MessageContentStore {
         final existingLen = st.size;
         final newLen = bytes.length;
         if (existingLen != newLen) {
-          final r = DateTime.now().millisecondsSinceEpoch.remainder(0xFFFF).toRadixString(16);
+          final r = DateTime.now().millisecondsSinceEpoch
+              .remainder(0xFFFF)
+              .toRadixString(16);
           candidate = '$baseName${suffix}__$r$ext';
           dest = File(p.join(dir.path, candidate));
         }
@@ -462,12 +546,16 @@ class MessageContentStore {
     } catch (_) {
       // Fallback: copy and delete temp
       await dest.writeAsBytes(bytes, flush: true);
-      try { await tmp.delete(); } catch (_) {}
+      try {
+        await tmp.delete();
+      } catch (_) {}
     }
 
     if (kDebugMode) {
       // ignore: avoid_print
-      print('STORE:saveAttachmentBytes uid=$uid -> ${dest.path} (${bytes.length} bytes)');
+      print(
+        'STORE:saveAttachmentBytes uid=$uid -> ${dest.path} (${bytes.length} bytes)',
+      );
     }
     return dest.path;
   }
@@ -483,24 +571,34 @@ class MessageContentStore {
   }) async {
     final base = await getApplicationCacheDirectory();
     final safeBox = mailboxPath.replaceAll('/', '_');
-    final dir = Directory(p.join(base.path, 'offline_html', accountEmail, safeBox, '$uidValidity'));
+    final dir = Directory(
+      p.join(base.path, 'offline_html', accountEmail, safeBox, '$uidValidity'),
+    );
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
     final file = File(p.join(dir.path, 'msg_$uid.html'));
-    final doc = _wrapOfflineHtml(blockRemote: blockRemote, innerHtml: sanitizedInnerHtml);
+    final doc = _wrapOfflineHtml(
+      blockRemote: blockRemote,
+      innerHtml: sanitizedInnerHtml,
+    );
     await file.writeAsString(doc, flush: true);
     if (kDebugMode) {
       try {
         final st = await file.stat();
         // ignore: avoid_print
-        print('STORE:saveOfflineHtmlDocument uid=$uid -> ${file.path} (${st.size} bytes)');
+        print(
+          'STORE:saveOfflineHtmlDocument uid=$uid -> ${file.path} (${st.size} bytes)',
+        );
       } catch (_) {}
     }
     return file.path;
   }
 
-  String _wrapOfflineHtml({required bool blockRemote, required String innerHtml}) {
+  String _wrapOfflineHtml({
+    required bool blockRemote,
+    required String innerHtml,
+  }) {
     final csp = _csp(blockRemote);
     final css = _adaptiveBaseCss();
     return '<!doctype html>'
@@ -515,7 +613,10 @@ class MessageContentStore {
   }
 
   String _csp(bool blocked) {
-    final imgSrc = blocked ? "img-src 'self' data: about: cid:;" : "img-src 'self' data: about: cid: http: https:;";
+    final imgSrc =
+        blocked
+            ? "img-src 'self' data: about: cid:;"
+            : "img-src 'self' data: about: cid: http: https:;";
     return [
       "default-src 'none';",
       "base-uri 'none';",
@@ -565,7 +666,9 @@ class MessageContentStore {
     for (final r in attRows) {
       final pth = r['file_path'] as String?;
       if (pth != null && pth.isNotEmpty) {
-        try { await File(pth).delete(); } catch (_) {}
+        try {
+          await File(pth).delete();
+        } catch (_) {}
       }
     }
     // delete html file
@@ -578,7 +681,9 @@ class MessageContentStore {
     if (msgRows.isNotEmpty) {
       final htmlPath = msgRows.first['html_file_path'] as String?;
       if (htmlPath != null && htmlPath.isNotEmpty) {
-        try { await File(htmlPath).delete(); } catch (_) {}
+        try {
+          await File(htmlPath).delete();
+        } catch (_) {}
       }
     }
     await db.delete(
@@ -615,23 +720,32 @@ class MessageContentStore {
         int size = 0;
         final htmlPath = r['html_file_path'] as String?;
         if (htmlPath != null && htmlPath.isNotEmpty) {
-          try { final st = await File(htmlPath).stat(); size += st.size; } catch (_) {}
+          try {
+            final st = await File(htmlPath).stat();
+            size += st.size;
+          } catch (_) {}
         } else {
           // Account for in-DB html/plain blobs roughly using length
           try {
-            final plain = r['plain_text'] as List<int>?; if (plain != null) size += plain.length;
-            final html = r['html_sanitized_blocked'] as List<int>?; if (html != null) size += html.length;
+            final plain = r['plain_text'] as List<int>?;
+            if (plain != null) size += plain.length;
+            final html = r['html_sanitized_blocked'] as List<int>?;
+            if (html != null) size += html.length;
           } catch (_) {}
         }
         final atts = await db.query(
           SQLiteDatabaseHelper.tableMessageAttachments,
-          where: 'account_email=? AND mailbox_path=? AND uid_validity=? AND uid=?',
+          where:
+              'account_email=? AND mailbox_path=? AND uid_validity=? AND uid=?',
           whereArgs: [account, box, uidValidity, uid],
         );
         for (final a in atts) {
           final pth = a['file_path'] as String?;
           if (pth != null && pth.isNotEmpty) {
-            try { final st = await File(pth).stat(); size += st.size; } catch (_) {}
+            try {
+              final st = await File(pth).stat();
+              size += st.size;
+            } catch (_) {}
           } else {
             final sz = a['size_bytes'];
             if (sz is int) {
@@ -646,8 +760,14 @@ class MessageContentStore {
       }
 
       // First remove by TTL
-      for (final e in entries.where((e) => now - e.updatedAt > maxAgeMs).toList()) {
-        await removeMessageCache(accountEmail: e.account, mailboxPath: e.box, uidValidity: e.uidValidity, uid: e.uid);
+      for (final e
+          in entries.where((e) => now - e.updatedAt > maxAgeMs).toList()) {
+        await removeMessageCache(
+          accountEmail: e.account,
+          mailboxPath: e.box,
+          uidValidity: e.uidValidity,
+          uid: e.uid,
+        );
         total -= e.size;
       }
 
@@ -665,22 +785,32 @@ class MessageContentStore {
           int size = 0;
           final htmlPath = r['html_file_path'] as String?;
           if (htmlPath != null && htmlPath.isNotEmpty) {
-            try { final st = await File(htmlPath).stat(); size += st.size; } catch (_) {}
+            try {
+              final st = await File(htmlPath).stat();
+              size += st.size;
+            } catch (_) {}
           }
           list.add(_CacheEntry(account, box, uidValidity, uid, updated, size));
         }
         list.sort((a, b) => a.updatedAt.compareTo(b.updatedAt));
         for (final e in list) {
           if (total <= maxTotalBytes) break;
-          await removeMessageCache(accountEmail: e.account, mailboxPath: e.box, uidValidity: e.uidValidity, uid: e.uid);
+          await removeMessageCache(
+            accountEmail: e.account,
+            mailboxPath: e.box,
+            uidValidity: e.uidValidity,
+            uid: e.uid,
+          );
           total -= e.size;
         }
       }
     } catch (_) {}
   }
+
   // Sanitize HTML in isolate for large messages
   static Future<String> sanitizeHtmlInIsolate(String rawHtml) async {
-    if (!kIsWeb && rawHtml.length > 100 * 1024) { // 100KB threshold for isolate
+    if (!kIsWeb && rawHtml.length > 100 * 1024) {
+      // 100KB threshold for isolate
       return compute(_isolateSanitizeHtml, rawHtml);
     } else {
       // For small HTML or web platform, sanitize inline
@@ -695,7 +825,12 @@ class MessageContentStore {
 
     // Remove script tags
     sanitized = sanitized.replaceAll(
-      RegExp(r'<script[^>]*>.*?</script>', caseSensitive: false, multiLine: true, dotAll: true),
+      RegExp(
+        r'<script[^>]*>.*?</script>',
+        caseSensitive: false,
+        multiLine: true,
+        dotAll: true,
+      ),
       '',
     );
 
@@ -728,6 +863,12 @@ class _CacheEntry {
   final int uid;
   final int updatedAt;
   final int size;
-  _CacheEntry(this.account, this.box, this.uidValidity, this.uid, this.updatedAt, this.size);
+  _CacheEntry(
+    this.account,
+    this.box,
+    this.uidValidity,
+    this.uid,
+    this.updatedAt,
+    this.size,
+  );
 }
-

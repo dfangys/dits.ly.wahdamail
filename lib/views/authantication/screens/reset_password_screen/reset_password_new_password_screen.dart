@@ -8,19 +8,26 @@ import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_
 import 'package:wahda_bank/widgets/custom_loading_button.dart';
 
 class ResetPasswordNewPasswordScreen extends StatefulWidget {
-  const ResetPasswordNewPasswordScreen({super.key, required this.email, required this.otp});
+  const ResetPasswordNewPasswordScreen({
+    super.key,
+    required this.email,
+    required this.otp,
+  });
   final String email;
   final String otp;
 
   @override
-  State<ResetPasswordNewPasswordScreen> createState() => _ResetPasswordNewPasswordScreenState();
+  State<ResetPasswordNewPasswordScreen> createState() =>
+      _ResetPasswordNewPasswordScreenState();
 }
 
-class _ResetPasswordNewPasswordScreenState extends State<ResetPasswordNewPasswordScreen> {
+class _ResetPasswordNewPasswordScreenState
+    extends State<ResetPasswordNewPasswordScreen> {
   final TextEditingController _password = TextEditingController();
   final TextEditingController _confirm = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final CustomLoadingButtonController _btnController = CustomLoadingButtonController();
+  final CustomLoadingButtonController _btnController =
+      CustomLoadingButtonController();
   final mailsys = Get.find<MailsysApiClient>();
 
   bool _isSubmitting = false;
@@ -148,14 +155,14 @@ class _ResetPasswordNewPasswordScreenState extends State<ResetPasswordNewPasswor
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reset Password'),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Reset Password'), elevation: 0),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: isTablet ? 48 : 20, vertical: 16),
+            padding: EdgeInsets.symmetric(
+              horizontal: isTablet ? 48 : 20,
+              vertical: 16,
+            ),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 520),
               child: Form(
@@ -165,12 +172,15 @@ class _ResetPasswordNewPasswordScreenState extends State<ResetPasswordNewPasswor
                   children: [
                     Text(
                       'Create a new password',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Choose a strong password to protect your account.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade700),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey.shade700,
+                      ),
                     ),
                     const SizedBox(height: 24),
 
@@ -279,7 +289,11 @@ class _PasswordChecklist extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(ok ? Icons.check_circle : Icons.radio_button_unchecked, size: 16, color: ok ? Colors.green : Colors.grey),
+        Icon(
+          ok ? Icons.check_circle : Icons.radio_button_unchecked,
+          size: 16,
+          color: ok ? Colors.green : Colors.grey,
+        ),
         const SizedBox(width: 6),
         Text(
           label,
@@ -292,4 +306,3 @@ class _PasswordChecklist extends StatelessWidget {
     );
   }
 }
-

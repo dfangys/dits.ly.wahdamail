@@ -6,7 +6,7 @@ enum SwapAction { readUnread, archive, delete, toggleFlag, markAsJunk }
 
 SwapAction getSwapActionFromString(String action) {
   return SwapAction.values.firstWhere(
-        (e) => e.toString().split('.').last == action,
+    (e) => e.toString().split('.').last == action,
     orElse: () => SwapAction.readUnread,
   );
 }
@@ -92,7 +92,7 @@ class SwapSettingData {
       iconColor: Colors.white,
       opacity: 0.9,
       description: 'Move emails to junk folder',
-    )
+    ),
   };
 }
 

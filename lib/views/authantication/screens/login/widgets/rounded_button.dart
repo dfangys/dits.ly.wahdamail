@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:wahda_bank/widgets/custom_loading_button.dart';
 
 class WRoundedButton extends StatelessWidget {
-  const WRoundedButton(
-      {super.key,
-      required this.controller,
-      required this.onPress,
-      required this.text});
+  const WRoundedButton({
+    super.key,
+    required this.controller,
+    required this.onPress,
+    required this.text,
+  });
   final CustomLoadingButtonController controller;
   final String text;
   final Function()? onPress;

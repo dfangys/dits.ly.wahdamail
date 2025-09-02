@@ -15,17 +15,26 @@ class HomeBinding extends Bindings {
   void dependencies() {
     // Register MailService first as it's required by other services
     Get.put<MailService>(MailService.instance, permanent: true);
-    
+
     // Register SQLiteDraftRepository for draft functionality
-    Get.put<SQLiteDraftRepository>(SQLiteDraftRepository.instance, permanent: true);
-    
+    Get.put<SQLiteDraftRepository>(
+      SQLiteDraftRepository.instance,
+      permanent: true,
+    );
+
     // Register performance optimization services
     Get.put<CacheManager>(CacheManager(), permanent: true);
-    Get.put<RealtimeUpdateService>(RealtimeUpdateService.instance, permanent: true);
-    
+    Get.put<RealtimeUpdateService>(
+      RealtimeUpdateService.instance,
+      permanent: true,
+    );
+
     // Register progress controller
-    Get.put<EmailDownloadProgressController>(EmailDownloadProgressController(), permanent: true);
-    
+    Get.put<EmailDownloadProgressController>(
+      EmailDownloadProgressController(),
+      permanent: true,
+    );
+
     Get.lazyPut<MailBoxController>(() => MailBoxController(), fenix: true);
     Get.lazyPut<SelectionController>(() => SelectionController());
     Get.lazyPut<MailCountController>(() => MailCountController());
@@ -39,5 +48,4 @@ class HomeBinding extends Bindings {
     //   return storage;
     // });
   }
-
 }

@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
 class WAnimationLoaderWidget extends StatelessWidget {
-  const WAnimationLoaderWidget(
-      {super.key,
-      required this.text,
-      required this.animation,
-      this.showAction = false,
-      this.actionText,
-      this.onActionPressed});
+  const WAnimationLoaderWidget({
+    super.key,
+    required this.text,
+    required this.animation,
+    this.showAction = false,
+    this.actionText,
+    this.onActionPressed,
+  });
   final String text;
   final String animation;
   final bool showAction;
@@ -18,7 +19,7 @@ class WAnimationLoaderWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
-    
+
     return Center(
       child: SingleChildScrollView(
         child: ConstrainedBox(

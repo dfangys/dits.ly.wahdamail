@@ -24,11 +24,14 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
-  TextEditingController emailCtrl =
-  TextEditingController(text: kDebugMode ? "abdullah.salemnaseeb" : "");
-  TextEditingController passwordCtrl =
-  TextEditingController(text: kDebugMode ? "Aa12152010.@" : "");
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
+  TextEditingController emailCtrl = TextEditingController(
+    text: kDebugMode ? "abdullah.salemnaseeb" : "",
+  );
+  TextEditingController passwordCtrl = TextEditingController(
+    text: kDebugMode ? "Aa12152010.@" : "",
+  );
   CustomLoadingButtonController? controller = CustomLoadingButtonController();
   final loginFormKey = GlobalKey<FormState>();
   final otpController = Get.put(OtpController());
@@ -59,10 +62,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
+    ).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
 
     _animationController.forward();
 
@@ -137,7 +139,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
           ),
           SizedBox(
-            height: isTablet ? WSizes.spaceBtwSections * 1.2 : WSizes.spaceBtwSections,
+            height:
+                isTablet
+                    ? WSizes.spaceBtwSections * 1.2
+                    : WSizes.spaceBtwSections,
           ),
           // Main content container with animation
           Expanded(
@@ -156,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha : 0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, -5),
                       ),
@@ -168,7 +173,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          SizedBox(height: isTablet ? WSizes.spaceBtwSections * 1.2 : WSizes.spaceBtwSections),
+                          SizedBox(
+                            height:
+                                isTablet
+                                    ? WSizes.spaceBtwSections * 1.2
+                                    : WSizes.spaceBtwSections,
+                          ),
                           // Title with animation
                           TweenAnimationBuilder<double>(
                             tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -233,7 +243,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           ),
 
                           SizedBox(
-                            height: isTablet ? WSizes.defaultSpace * 1.5 : WSizes.defaultSpace,
+                            height:
+                                isTablet
+                                    ? WSizes.defaultSpace * 1.5
+                                    : WSizes.defaultSpace,
                           ),
 
                           // Password field with animation
@@ -259,10 +272,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             duration: const Duration(milliseconds: 1100),
                             curve: Curves.easeOutCubic,
                             builder: (context, value, child) {
-                              return Opacity(
-                                opacity: value,
-                                child: child,
-                              );
+                              return Opacity(opacity: value, child: child);
                             },
                             child: Padding(
                               padding: const EdgeInsets.all(10.0),
@@ -319,26 +329,41 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 try {
                                   _isSubmitting = true;
                                   controller!.start();
-                                  final fullEmail = '${emailCtrl.text.trim()}${WText.emailSuffix}';
+                                  final fullEmail =
+                                      '${emailCtrl.text.trim()}${WText.emailSuffix}';
                                   // Persist credentials for IMAP usage later
-                                  await MailService.instance.setAccount(fullEmail, passwordCtrl.text);
+                                  await MailService.instance.setAccount(
+                                    fullEmail,
+                                    passwordCtrl.text,
+                                  );
 
                                   final api = Get.find<MailsysApiClient>();
-                                  final res = await api.login(fullEmail, passwordCtrl.text);
-                                  final data = res['data'] as Map<String, dynamic>?;
-                                  final requiresOtp = data?['requires_otp'] == true;
+                                  final res = await api.login(
+                                    fullEmail,
+                                    passwordCtrl.text,
+                                  );
+                                  final data =
+                                      res['data'] as Map<String, dynamic>?;
+                                  final requiresOtp =
+                                      data?['requires_otp'] == true;
                                   final token = data?['token'] as String?;
 
                                   if (requiresOtp) {
                                     // OTP was sent; start countdown and go to OTP entry screen
-                                    final maskedPhone = data?['masked_phone'] as String?;
+                                    final maskedPhone =
+                                        data?['masked_phone'] as String?;
                                     try {
                                       final c = Get.find<OtpController>();
                                       c.maskedPhone.value = maskedPhone ?? '';
                                       c.startResendCountdown(60);
                                     } catch (_) {}
-                                    Get.to(() => EnterOtpScreen(maskedPhone: maskedPhone));
-                                  } else if (token != null && token.isNotEmpty) {
+                                    Get.to(
+                                      () => EnterOtpScreen(
+                                        maskedPhone: maskedPhone,
+                                      ),
+                                    );
+                                  } else if (token != null &&
+                                      token.isNotEmpty) {
                                     // Authenticated without OTP; continue
                                     // Maintain legacy gate for navigation during migration
                                     // (Splash checks 'otp')
@@ -350,7 +375,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                       context: Get.context!,
                                       dialogType: DialogType.error,
                                       title: 'error'.tr,
-                                      desc: res['message']?.toString() ?? 'msg_some_thing_went_wrong'.tr,
+                                      desc:
+                                          res['message']?.toString() ??
+                                          'msg_some_thing_went_wrong'.tr,
                                     ).show();
                                   }
                                 } on MailsysApiException catch (e) {
@@ -397,7 +424,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha : 0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -475,15 +502,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Colors.grey.shade300,
-                  width: 1,
-                ),
+                borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(
-                  color: _isEmailValid ? Colors.grey.shade300 : Colors.red.shade300,
+                  color:
+                      _isEmailValid
+                          ? Colors.grey.shade300
+                          : Colors.red.shade300,
                   width: 1,
                 ),
               ),
@@ -496,17 +523,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
               ),
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Colors.red.shade400,
-                  width: 1.5,
-                ),
+                borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Colors.red.shade400,
-                  width: 2,
-                ),
+                borderSide: BorderSide(color: Colors.red.shade400, width: 2),
               ),
             ),
             style: TextStyle(
@@ -539,7 +560,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha : 0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -568,7 +589,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
           suffixIcon: IconButton(
             icon: Icon(
-              _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+              _obscurePassword
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
               color: Colors.grey.shade600,
               size: 22,
             ),
@@ -592,17 +615,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: Colors.grey.shade300,
-              width: 1,
-            ),
+            borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: Colors.grey.shade300,
-              width: 1,
-            ),
+            borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -613,17 +630,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: Colors.red.shade400,
-              width: 1.5,
-            ),
+            borderSide: BorderSide(color: Colors.red.shade400, width: 1.5),
           ),
           focusedErrorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: Colors.red.shade400,
-              width: 2,
-            ),
+            borderSide: BorderSide(color: Colors.red.shade400, width: 2),
           ),
         ),
         style: TextStyle(

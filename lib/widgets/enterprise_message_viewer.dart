@@ -28,7 +28,8 @@ class EnterpriseMessageViewer extends StatefulWidget {
   final bool preferInline;
 
   @override
-  State<EnterpriseMessageViewer> createState() => _EnterpriseMessageViewerState();
+  State<EnterpriseMessageViewer> createState() =>
+      _EnterpriseMessageViewerState();
 }
 
 class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
@@ -55,7 +56,12 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
     // Decide if we expect a file load; this helps avoid premature loader removal
     try {
       final p = widget.initialHtmlPath;
-      _expectFile = !widget.preferInline && p != null && p.isNotEmpty && !p.startsWith('http') && File(p).existsSync();
+      _expectFile =
+          !widget.preferInline &&
+          p != null &&
+          p.isNotEmpty &&
+          !p.startsWith('http') &&
+          File(p).existsSync();
     } catch (_) {
       _expectFile = false;
     }
@@ -76,7 +82,9 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       } catch (_) {}
       // Debug summary of initial state
       // ignore: avoid_print
-      print('VIEWER:init uid=$uid expectFile=$_expectFile path=$path exists=$exists size=$fileSize preparedHtmlLen=$htmlLen blocked=$_blocked dark=${widget.enableDarkMode}');
+      print(
+        'VIEWER:init uid=$uid expectFile=$_expectFile path=$path exists=$exists size=$fileSize preparedHtmlLen=$htmlLen blocked=$_blocked dark=${widget.enableDarkMode}',
+      );
     }
 
     // Safety fallback: if the webview does not report size/load events in time,
@@ -87,9 +95,13 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
         if (!_isReady) {
           if (kDebugMode) {
             // ignore: avoid_print
-            print('VIEWER:safety_timer uid=${widget.mimeMessage.uid} firing -> dismiss loader');
+            print(
+              'VIEWER:safety_timer uid=${widget.mimeMessage.uid} firing -> dismiss loader',
+            );
           }
-          setState(() { _isReady = true; });
+          setState(() {
+            _isReady = true;
+          });
         }
       });
     });
@@ -107,7 +119,12 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
     // Re-evaluate whether we should expect a file load when props change
     try {
       final p = widget.initialHtmlPath;
-      _expectFile = !widget.preferInline && p != null && p.isNotEmpty && !p.startsWith('http') && File(p).existsSync();
+      _expectFile =
+          !widget.preferInline &&
+          p != null &&
+          p.isNotEmpty &&
+          !p.startsWith('http') &&
+          File(p).existsSync();
     } catch (_) {
       _expectFile = false;
     }
@@ -139,7 +156,10 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
           child: Stack(
             children: [
               InAppWebView(
-                initialData: InAppWebViewInitialData(data: _preparedHtml, baseUrl: WebUri("about:blank")),
+                initialData: InAppWebViewInitialData(
+                  data: _preparedHtml,
+                  baseUrl: WebUri("about:blank"),
+                ),
                 initialSettings: InAppWebViewSettings(
                   // Security posture
                   javaScriptEnabled: false,
@@ -168,12 +188,21 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                   final path = widget.initialHtmlPath;
                   if (kDebugMode) {
                     // ignore: avoid_print
-                    print('VIEWER:onWebViewCreated uid=${widget.mimeMessage.uid} initialHtmlPath=$path');
+                    print(
+                      'VIEWER:onWebViewCreated uid=${widget.mimeMessage.uid} initialHtmlPath=$path',
+                    );
                   }
                   if (widget.preferInline) {
                     try {
-                      await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
-                      if (mounted) setState(() { _expectFile = false; _isReady = true; });
+                      await _controller?.loadData(
+                        data: _inlineHtml,
+                        baseUrl: WebUri("about:blank"),
+                      );
+                      if (mounted)
+                        setState(() {
+                          _expectFile = false;
+                          _isReady = true;
+                        });
                     } catch (e) {
                       if (kDebugMode) {
                         // ignore: avoid_print
@@ -182,16 +211,32 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                     }
                   } else if (path != null && path.isNotEmpty) {
                     // HTTP URL from local server
-                    if (path.startsWith('http://') || path.startsWith('https://')) {
+                    if (path.startsWith('http://') ||
+                        path.startsWith('https://')) {
                       try {
                         // If remote images are allowed, prefer inline render to bypass sanitized cached files
                         if (!_blocked) {
-                          await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
-                          if (mounted) setState(() { _expectFile = false; _isReady = true; });
+                          await _controller?.loadData(
+                            data: _inlineHtml,
+                            baseUrl: WebUri("about:blank"),
+                          );
+                          if (mounted)
+                            setState(() {
+                              _expectFile = false;
+                              _isReady = true;
+                            });
                         } else {
-                          final adjusted = _withAllowRemoteParam(path, allowRemote: !_blocked);
-                          await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri(adjusted)));
-                          if (mounted) setState(() { _expectFile = false; });
+                          final adjusted = _withAllowRemoteParam(
+                            path,
+                            allowRemote: !_blocked,
+                          );
+                          await _controller?.loadUrl(
+                            urlRequest: URLRequest(url: WebUri(adjusted)),
+                          );
+                          if (mounted)
+                            setState(() {
+                              _expectFile = false;
+                            });
                         }
                       } catch (e) {
                         if (kDebugMode) {
@@ -206,7 +251,9 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                         final size = exists ? f.statSync().size : -1;
                         if (kDebugMode) {
                           // ignore: avoid_print
-                          print('VIEWER:onWebViewCreated file exists=$exists size=$size');
+                          print(
+                            'VIEWER:onWebViewCreated file exists=$exists size=$size',
+                          );
                         }
                         if (exists) {
                           // Inspect file inner content; if effectively empty, prefer inline fallback immediately
@@ -214,41 +261,84 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                           String content = '';
                           try {
                             content = f.readAsStringSync();
-                            final m = RegExp(r'<div class=\\\"wb-container\\\">([\\s\\S]*?)<\\/div>', caseSensitive: false).firstMatch(content);
+                            final m = RegExp(
+                              r'<div class=\\\"wb-container\\\">([\\s\\S]*?)<\\/div>',
+                              caseSensitive: false,
+                            ).firstMatch(content);
                             if (m != null) {
-                              final innerLen = (m.group(1) ?? '').replaceAll(RegExp(r'\\s+'), '').length;
+                              final innerLen =
+                                  (m.group(1) ?? '')
+                                      .replaceAll(RegExp(r'\\s+'), '')
+                                      .length;
                               if (innerLen < 20) useInline = true;
                             }
                           } catch (_) {}
                           if (useInline) {
                             if (kDebugMode) {
                               // ignore: avoid_print
-                              print('VIEWER:inline_fallback_pre uid=${widget.mimeMessage.uid} (onWebViewCreated)');
+                              print(
+                                'VIEWER:inline_fallback_pre uid=${widget.mimeMessage.uid} (onWebViewCreated)',
+                              );
                             }
-                            await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+                            await _controller?.loadData(
+                              data: _inlineHtml,
+                              baseUrl: WebUri("about:blank"),
+                            );
                             if (mounted) {
-                              setState(() { _expectFile = false; _usedInlineFallback = true; _isReady = true; });
+                              setState(() {
+                                _expectFile = false;
+                                _usedInlineFallback = true;
+                                _isReady = true;
+                              });
                             }
                           } else {
                             // iOS: prefer loading file content via loadData to avoid file:// navigation being blocked
                             if (Platform.isIOS) {
                               try {
-                                await _controller?.loadData(data: content, baseUrl: WebUri("about:blank"));
-                                if (mounted) setState(() { _expectFile = false; _isReady = true; });
+                                await _controller?.loadData(
+                                  data: content,
+                                  baseUrl: WebUri("about:blank"),
+                                );
+                                if (mounted)
+                                  setState(() {
+                                    _expectFile = false;
+                                    _isReady = true;
+                                  });
                               } catch (e) {
-                                if (kDebugMode) { print('VIEWER:iOS file loadData error: $e'); }
+                                if (kDebugMode) {
+                                  print('VIEWER:iOS file loadData error: $e');
+                                }
                               }
                             } else {
-                              await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+                              await _controller?.loadUrl(
+                                urlRequest: URLRequest(
+                                  url: WebUri('file://$path'),
+                                ),
+                              );
                               // Safety net: if not ready shortly, fallback to inline
-                              Future.delayed(const Duration(milliseconds: 800), () async {
-                                if (!mounted) return;
-                                if (!_isReady && _expectFile) {
-                                  if (kDebugMode) { print('VIEWER:safety_fallback uid=${widget.mimeMessage.uid} (onWebViewCreated)'); }
-                                  await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
-                                  if (mounted) setState(() { _expectFile = false; _usedInlineFallback = true; _isReady = true; });
-                                }
-                              });
+                              Future.delayed(
+                                const Duration(milliseconds: 800),
+                                () async {
+                                  if (!mounted) return;
+                                  if (!_isReady && _expectFile) {
+                                    if (kDebugMode) {
+                                      print(
+                                        'VIEWER:safety_fallback uid=${widget.mimeMessage.uid} (onWebViewCreated)',
+                                      );
+                                    }
+                                    await _controller?.loadData(
+                                      data: _inlineHtml,
+                                      baseUrl: WebUri("about:blank"),
+                                    );
+                                    if (mounted)
+                                      setState(() {
+                                        _expectFile = false;
+                                        _usedInlineFallback = true;
+                                        _isReady = true;
+                                      });
+                                  }
+                                },
+                              );
                             }
                           }
                         }
@@ -264,7 +354,9 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                 onContentSizeChanged: (controller, oldSize, newSize) {
                   if (kDebugMode) {
                     // ignore: avoid_print
-                    print('VIEWER:onContentSizeChanged uid=${widget.mimeMessage.uid} old=${oldSize.width}x${oldSize.height} new=${newSize.width}x${newSize.height}');
+                    print(
+                      'VIEWER:onContentSizeChanged uid=${widget.mimeMessage.uid} old=${oldSize.width}x${oldSize.height} new=${newSize.width}x${newSize.height}',
+                    );
                   }
                   setState(() {
                     // Fit height exactly to content with no artificial minimum
@@ -285,17 +377,22 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                     return NavigationActionPolicy.ALLOW;
                   }
                   // Allow local server URLs to load inside the WebView
-                  if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) {
+                  if (url.startsWith('http://127.0.0.1') ||
+                      url.startsWith('http://localhost')) {
                     return NavigationActionPolicy.ALLOW;
                   }
                   // Allow local file URLs for offline HTML
-                  if (url.startsWith('file://') || url.startsWith('filesystem:')) {
+                  if (url.startsWith('file://') ||
+                      url.startsWith('filesystem:')) {
                     return NavigationActionPolicy.ALLOW;
                   }
                   // External links: open in system browser
                   if (url.startsWith('http://') || url.startsWith('https://')) {
                     try {
-                      await launchUrlString(url, mode: LaunchMode.externalApplication);
+                      await launchUrlString(
+                        url,
+                        mode: LaunchMode.externalApplication,
+                      );
                     } catch (_) {}
                     return NavigationActionPolicy.CANCEL;
                   }
@@ -306,7 +403,9 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                   final s = url.toString();
                   if (kDebugMode) {
                     // ignore: avoid_print
-                    print('VIEWER:onLoadStop uid=${widget.mimeMessage.uid} url=$s expectFile=$_expectFile');
+                    print(
+                      'VIEWER:onLoadStop uid=${widget.mimeMessage.uid} url=$s expectFile=$_expectFile',
+                    );
                   }
                   setState(() {
                     if (_expectFile) {
@@ -326,12 +425,20 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                         final f = File(path);
                         if (f.existsSync()) {
                           String content = '';
-                          try { content = f.readAsStringSync(); } catch (_) {}
+                          try {
+                            content = f.readAsStringSync();
+                          } catch (_) {}
                           int innerLen = -1;
                           try {
-                            final m = RegExp(r'<div class=\"wb-container\">([\s\S]*?)<\/div>', caseSensitive: false).firstMatch(content);
+                            final m = RegExp(
+                              r'<div class=\"wb-container\">([\s\S]*?)<\/div>',
+                              caseSensitive: false,
+                            ).firstMatch(content);
                             if (m != null) {
-                              innerLen = (m.group(1) ?? '').replaceAll(RegExp(r'\s+'), '').length;
+                              innerLen =
+                                  (m.group(1) ?? '')
+                                      .replaceAll(RegExp(r'\s+'), '')
+                                      .length;
                             }
                           } catch (_) {}
                           final fallbackByDom = innerLen >= 0 && innerLen < 20;
@@ -339,9 +446,14 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                           if (fallbackByDom || fallbackByHeight) {
                             if (kDebugMode) {
                               // ignore: avoid_print
-                              print('VIEWER:inline_fallback uid=${widget.mimeMessage.uid} byDom=$fallbackByDom byHeight=$fallbackByHeight');
+                              print(
+                                'VIEWER:inline_fallback uid=${widget.mimeMessage.uid} byDom=$fallbackByDom byHeight=$fallbackByHeight',
+                              );
                             }
-                            await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+                            await _controller?.loadData(
+                              data: _inlineHtml,
+                              baseUrl: WebUri("about:blank"),
+                            );
                             if (mounted) {
                               setState(() {
                                 _expectFile = false;
@@ -357,17 +469,26 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                   } catch (e) {
                     if (kDebugMode) {
                       // ignore: avoid_print
-                      print('VIEWER:inline_fallback error uid=${widget.mimeMessage.uid}: $e');
+                      print(
+                        'VIEWER:inline_fallback error uid=${widget.mimeMessage.uid}: $e',
+                      );
                     }
                   }
                 },
                 onReceivedError: (controller, request, error) async {
                   // Handle navigation errors similarly
                   try {
-                    await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+                    await _controller?.loadData(
+                      data: _inlineHtml,
+                      baseUrl: WebUri("about:blank"),
+                    );
                   } catch (_) {}
                   if (mounted) {
-                    setState(() { _isReady = true; _expectFile = false; _usedInlineFallback = true; });
+                    setState(() {
+                      _isReady = true;
+                      _expectFile = false;
+                      _usedInlineFallback = true;
+                    });
                   }
                 },
               ),
@@ -396,9 +517,7 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       ContentBlocker(
         trigger: ContentBlockerTrigger(
           urlFilter: ".*",
-          resourceType: [
-            ContentBlockerTriggerResourceType.SCRIPT,
-          ],
+          resourceType: [ContentBlockerTriggerResourceType.SCRIPT],
         ),
         action: ContentBlockerAction(type: ContentBlockerActionType.BLOCK),
       ),
@@ -421,7 +540,11 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       ),
       child: Row(
         children: [
-          Icon(Icons.privacy_tip_outlined, color: Colors.orange.shade700, size: 20),
+          Icon(
+            Icons.privacy_tip_outlined,
+            color: Colors.orange.shade700,
+            size: 20,
+          ),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
@@ -436,7 +559,9 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
                 _preparedHtml = _buildPreparedHtml(blockRemote: _blocked);
               });
               try {
-                await _controller?.setSettings(settings: InAppWebViewSettings(contentBlockers: []));
+                await _controller?.setSettings(
+                  settings: InAppWebViewSettings(contentBlockers: []),
+                );
               } catch (_) {}
               await _reloadHtml();
             },
@@ -446,14 +571,19 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
           TextButton(
             onPressed: () async {
               try {
-                await SenderTrustService.instance.trustSender(_senderKey, trusted: true);
+                await SenderTrustService.instance.trustSender(
+                  _senderKey,
+                  trusted: true,
+                );
               } catch (_) {}
               setState(() {
                 _blocked = false;
                 _preparedHtml = _buildPreparedHtml(blockRemote: _blocked);
               });
               try {
-                await _controller?.setSettings(settings: InAppWebViewSettings(contentBlockers: []));
+                await _controller?.setSettings(
+                  settings: InAppWebViewSettings(contentBlockers: []),
+                );
               } catch (_) {}
               await _reloadHtml();
             },
@@ -471,20 +601,43 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       if (kDebugMode) {
         final htmlLen = _preparedHtml.length;
         // ignore: avoid_print
-        print('VIEWER:_reloadHtml uid=${widget.mimeMessage.uid} path=$path preparedHtmlLen=$htmlLen');
+        print(
+          'VIEWER:_reloadHtml uid=${widget.mimeMessage.uid} path=$path preparedHtmlLen=$htmlLen',
+        );
       }
       if (widget.preferInline) {
-        await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
-        if (mounted) setState(() { _expectFile = false; _isReady = true; });
-      } else if (path != null && path.isNotEmpty && (path.startsWith('http://') || path.startsWith('https://'))) {
+        await _controller?.loadData(
+          data: _inlineHtml,
+          baseUrl: WebUri("about:blank"),
+        );
+        if (mounted)
+          setState(() {
+            _expectFile = false;
+            _isReady = true;
+          });
+      } else if (path != null &&
+          path.isNotEmpty &&
+          (path.startsWith('http://') || path.startsWith('https://'))) {
         // If remote images are allowed (not blocked), prefer inline to avoid sanitized cached content
         if (!_blocked) {
-          await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
-          if (mounted) setState(() { _expectFile = false; _isReady = true; });
+          await _controller?.loadData(
+            data: _inlineHtml,
+            baseUrl: WebUri("about:blank"),
+          );
+          if (mounted)
+            setState(() {
+              _expectFile = false;
+              _isReady = true;
+            });
         } else {
           final adjusted = _withAllowRemoteParam(path, allowRemote: !_blocked);
-          await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri(adjusted)));
-          if (mounted) setState(() { _expectFile = false; });
+          await _controller?.loadUrl(
+            urlRequest: URLRequest(url: WebUri(adjusted)),
+          );
+          if (mounted)
+            setState(() {
+              _expectFile = false;
+            });
         }
       } else if (path != null && path.isNotEmpty && File(path).existsSync()) {
         // Inspect file inner content; if effectively empty, prefer inline fallback immediately
@@ -492,44 +645,83 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
         String content = '';
         try {
           content = File(path).readAsStringSync();
-          final m = RegExp(r'<div class=\"wb-container\">([\s\S]*?)<\/div>', caseSensitive: false).firstMatch(content);
+          final m = RegExp(
+            r'<div class=\"wb-container\">([\s\S]*?)<\/div>',
+            caseSensitive: false,
+          ).firstMatch(content);
           if (m != null) {
-            final innerLen = (m.group(1) ?? '').replaceAll(RegExp(r'\s+'), '').length;
+            final innerLen =
+                (m.group(1) ?? '').replaceAll(RegExp(r'\s+'), '').length;
             if (innerLen < 20) useInline = true;
           }
         } catch (_) {}
         if (useInline) {
           if (kDebugMode) {
             // ignore: avoid_print
-            print('VIEWER:inline_fallback_pre uid=${widget.mimeMessage.uid} (_reloadHtml)');
+            print(
+              'VIEWER:inline_fallback_pre uid=${widget.mimeMessage.uid} (_reloadHtml)',
+            );
           }
-          await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
+          await _controller?.loadData(
+            data: _inlineHtml,
+            baseUrl: WebUri("about:blank"),
+          );
           if (mounted) {
-            setState(() { _expectFile = false; _usedInlineFallback = true; _isReady = true; });
+            setState(() {
+              _expectFile = false;
+              _usedInlineFallback = true;
+              _isReady = true;
+            });
           }
         } else {
           if (Platform.isIOS) {
             try {
-              await _controller?.loadData(data: content, baseUrl: WebUri("about:blank"));
-              if (mounted) setState(() { _expectFile = false; _isReady = true; });
+              await _controller?.loadData(
+                data: content,
+                baseUrl: WebUri("about:blank"),
+              );
+              if (mounted)
+                setState(() {
+                  _expectFile = false;
+                  _isReady = true;
+                });
             } catch (e) {
-              if (kDebugMode) { print('VIEWER:iOS file loadData error (_reloadHtml): $e'); }
+              if (kDebugMode) {
+                print('VIEWER:iOS file loadData error (_reloadHtml): $e');
+              }
             }
           } else {
-            await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri('file://$path')));
+            await _controller?.loadUrl(
+              urlRequest: URLRequest(url: WebUri('file://$path')),
+            );
             // Safety net: if not ready shortly, fallback to inline
             Future.delayed(const Duration(milliseconds: 800), () async {
               if (!mounted) return;
               if (!_isReady && _expectFile) {
-                if (kDebugMode) { print('VIEWER:safety_fallback uid=${widget.mimeMessage.uid} (_reloadHtml)'); }
-                await _controller?.loadData(data: _inlineHtml, baseUrl: WebUri("about:blank"));
-                if (mounted) setState(() { _expectFile = false; _usedInlineFallback = true; _isReady = true; });
+                if (kDebugMode) {
+                  print(
+                    'VIEWER:safety_fallback uid=${widget.mimeMessage.uid} (_reloadHtml)',
+                  );
+                }
+                await _controller?.loadData(
+                  data: _inlineHtml,
+                  baseUrl: WebUri("about:blank"),
+                );
+                if (mounted)
+                  setState(() {
+                    _expectFile = false;
+                    _usedInlineFallback = true;
+                    _isReady = true;
+                  });
               }
             });
           }
         }
       } else {
-        await _controller?.loadData(data: _preparedHtml, baseUrl: WebUri("about:blank"));
+        await _controller?.loadData(
+          data: _preparedHtml,
+          baseUrl: WebUri("about:blank"),
+        );
       }
     } catch (e) {
       if (kDebugMode) {
@@ -546,7 +738,8 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
     }
     if (widget.initialHtmlPath != null && widget.initialHtmlPath!.isNotEmpty) {
       // If it's an HTTP URL, don't show placeholder; inline will render until HTTP load completes
-      if (widget.initialHtmlPath!.startsWith('http://') || widget.initialHtmlPath!.startsWith('https://')) {
+      if (widget.initialHtmlPath!.startsWith('http://') ||
+          widget.initialHtmlPath!.startsWith('https://')) {
         return _buildInlineHtml(blockRemote: blockRemote);
       }
       // Only favor the path if the file actually exists; otherwise fall back to initialHtml/raw
@@ -555,8 +748,12 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
           // Placeholder while file:// is loaded in onWebViewCreated/_reloadHtml
           // Force a light CSS for cached content to avoid black-on-black in dark mode
           final css = _baseCss(false, widget.textScale);
-          final placeholder = '<div style="padding:16px;color:#777;font-size:13px;">Loading cached content…</div>';
-          return _wrapHtml(_csp(blockRemote), '<style>$css</style>\n$placeholder');
+          final placeholder =
+              '<div style="padding:16px;color:#777;font-size:13px;">Loading cached content…</div>';
+          return _wrapHtml(
+            _csp(blockRemote),
+            '<style>$css</style>\n$placeholder',
+          );
         }
       } catch (_) {}
     }
@@ -572,15 +769,24 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
       final raw = widget.mimeMessage.decodeTextHtmlPart();
       if (raw == null || raw.trim().isEmpty) {
         // When unblocked and raw is empty, fall back to provided initialHtml if present (sanitized/plain), else plain text
-        if (widget.initialHtml != null && widget.initialHtml!.trim().isNotEmpty) {
+        if (widget.initialHtml != null &&
+            widget.initialHtml!.trim().isNotEmpty) {
           final css = _baseCss(false, widget.textScale);
-          return _wrapHtml(_csp(blockRemote), '<style>$css</style>\n${widget.initialHtml!}');
+          return _wrapHtml(
+            _csp(blockRemote),
+            '<style>$css</style>\n${widget.initialHtml!}',
+          );
         }
         final plain = widget.mimeMessage.decodeTextPlainPart() ?? '';
-        return _wrapHtml(_csp(blockRemote), '<pre class="wb-pre">${_escapeHtml(plain)}</pre>');
+        return _wrapHtml(
+          _csp(blockRemote),
+          '<pre class="wb-pre">${_escapeHtml(plain)}</pre>',
+        );
       }
       String html = raw;
-      html = _stripDangerous(html); // remove scripts/objects but keep external image URLs intact
+      html = _stripDangerous(
+        html,
+      ); // remove scripts/objects but keep external image URLs intact
       html = _rewriteCidImages(html, widget.mimeMessage);
       final css = _baseCss(false, widget.textScale);
       return _wrapHtml(_csp(blockRemote), '<style>$css</style>\n$html');
@@ -589,13 +795,19 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
     // When blocked, favor sanitized/cached initialHtml if provided; otherwise derive from raw with blocking
     if (widget.initialHtml != null && widget.initialHtml!.trim().isNotEmpty) {
       final css = _baseCss(false, widget.textScale);
-      return _wrapHtml(_csp(blockRemote), '<style>$css</style>\n${widget.initialHtml!}');
+      return _wrapHtml(
+        _csp(blockRemote),
+        '<style>$css</style>\n${widget.initialHtml!}',
+      );
     }
 
     final rawHtml = widget.mimeMessage.decodeTextHtmlPart();
     if (rawHtml == null || rawHtml.trim().isEmpty) {
       final plain = widget.mimeMessage.decodeTextPlainPart() ?? '';
-      return _wrapHtml(_csp(blockRemote), '<pre class="wb-pre">${_escapeHtml(plain)}</pre>');
+      return _wrapHtml(
+        _csp(blockRemote),
+        '<pre class="wb-pre">${_escapeHtml(plain)}</pre>',
+      );
     }
 
     String html = rawHtml;
@@ -611,7 +823,10 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
   }
 
   String _csp(bool blocked) {
-    final imgSrc = blocked ? "img-src 'self' data: about: cid:;" : "img-src 'self' data: about: cid: http: https:;";
+    final imgSrc =
+        blocked
+            ? "img-src 'self' data: about: cid:;"
+            : "img-src 'self' data: about: cid: http: https:;";
     // Note: 'self' maps to about: context; no external origins due to baseUrl about:blank
     return [
       "default-src 'none';",
@@ -670,13 +885,34 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
 
   String _stripDangerous(String html) {
     try {
-      html = html.replaceAll(RegExp(r'<script[\s\S]*?>[\s\S]*?<\/script>', caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r'<object[\s\S]*?>[\s\S]*?<\/object>', caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r'<embed[\s\S]*?>', caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r'on\w+\s*=\s*"[^"]*"', caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r"on\w+\s*=\s*'[^']*'", caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r'href\s*=\s*"javascript:[^"]*"', caseSensitive: false), '');
-      html = html.replaceAll(RegExp(r"href\s*=\s*'javascript:[^']*'", caseSensitive: false), '');
+      html = html.replaceAll(
+        RegExp(r'<script[\s\S]*?>[\s\S]*?<\/script>', caseSensitive: false),
+        '',
+      );
+      html = html.replaceAll(
+        RegExp(r'<object[\s\S]*?>[\s\S]*?<\/object>', caseSensitive: false),
+        '',
+      );
+      html = html.replaceAll(
+        RegExp(r'<embed[\s\S]*?>', caseSensitive: false),
+        '',
+      );
+      html = html.replaceAll(
+        RegExp(r'on\w+\s*=\s*"[^"]*"', caseSensitive: false),
+        '',
+      );
+      html = html.replaceAll(
+        RegExp(r"on\w+\s*=\s*'[^']*'", caseSensitive: false),
+        '',
+      );
+      html = html.replaceAll(
+        RegExp(r'href\s*=\s*"javascript:[^"]*"', caseSensitive: false),
+        '',
+      );
+      html = html.replaceAll(
+        RegExp(r"href\s*=\s*'javascript:[^']*'", caseSensitive: false),
+        '',
+      );
       return html;
     } catch (_) {
       return html;
@@ -684,14 +920,21 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
   }
 
   String _blockRemoteImages(String html) {
-    const spacer = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+    const spacer =
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
     // Replace direct img src
     html = html.replaceAllMapped(
-      RegExp(r'<img([^>]*?)src\s*=\s*\"https?:[^\"]*\"([^>]*)>', caseSensitive: false),
+      RegExp(
+        r'<img([^>]*?)src\s*=\s*\"https?:[^\"]*\"([^>]*)>',
+        caseSensitive: false,
+      ),
       (m) => '<img${m.group(1) ?? ''}src="$spacer"${m.group(2) ?? ''}>',
     );
     html = html.replaceAllMapped(
-      RegExp(r"<img([^>]*?)src\s*=\s*'https?:[^']*'([^>]*)>", caseSensitive: false),
+      RegExp(
+        r"<img([^>]*?)src\s*=\s*'https?:[^']*'([^>]*)>",
+        caseSensitive: false,
+      ),
       (m) => "<img${m.group(1) ?? ''}src='$spacer'${m.group(2) ?? ''}>",
     );
     // Neutralize img srcset
@@ -705,20 +948,32 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
     );
     // Neutralize lazy-loading attributes
     html = html.replaceAllMapped(
-      RegExp(r'<img([^>]*?)(data-(?:src|original|lazy-src))\s*=\s*\"https?:[^\"]*\"', caseSensitive: false),
+      RegExp(
+        r'<img([^>]*?)(data-(?:src|original|lazy-src))\s*=\s*\"https?:[^\"]*\"',
+        caseSensitive: false,
+      ),
       (m) => '<img${m.group(1) ?? ''}${m.group(2)}="$spacer"',
     );
     html = html.replaceAllMapped(
-      RegExp(r"<img([^>]*?)(data-(?:src|original|lazy-src))\s*=\s*'https?:[^']*'", caseSensitive: false),
+      RegExp(
+        r"<img([^>]*?)(data-(?:src|original|lazy-src))\s*=\s*'https?:[^']*'",
+        caseSensitive: false,
+      ),
       (m) => "<img${m.group(1) ?? ''}${m.group(2)}='$spacer'",
     );
     // Neutralize <source srcset> within <picture>
     html = html.replaceAllMapped(
-      RegExp(r'<source([^>]*?)srcset\s*=\s*\"https?:[^\"]*\"', caseSensitive: false),
+      RegExp(
+        r'<source([^>]*?)srcset\s*=\s*\"https?:[^\"]*\"',
+        caseSensitive: false,
+      ),
       (m) => '<source${m.group(1) ?? ''}srcset="">',
     );
     html = html.replaceAllMapped(
-      RegExp(r"<source([^>]*?)srcset\s*=\s*'https?:[^']*'", caseSensitive: false),
+      RegExp(
+        r"<source([^>]*?)srcset\s*=\s*'https?:[^']*'",
+        caseSensitive: false,
+      ),
       (m) => "<source${m.group(1) ?? ''}srcset=''>",
     );
     return html;
@@ -809,4 +1064,3 @@ class _EnterpriseMessageViewerState extends State<EnterpriseMessageViewer> {
     }
   }
 }
-

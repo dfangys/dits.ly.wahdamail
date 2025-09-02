@@ -2,12 +2,13 @@ import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as do
 import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as dom;
 import 'package:wahda_bank/features/messaging/domain/entities/attachment.dart' as dom;
 import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart';
+import 'package:wahda_bank/features/messaging/domain/entities/search_result.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.dart' as dom;
 import 'package:wahda_bank/features/messaging/infrastructure/datasources/local_store.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/mappers/message_mapper.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/dtos/message_row.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/dtos/body_row.dart';
-import 'package:wahda_bank/features/messaging/infrastructure/dtos/attachment_row.dart';
 
 class ImapMessageRepository implements MessageRepository {
   final String accountId;
@@ -115,5 +116,53 @@ class ImapMessageRepository implements MessageRepository {
     );
     await store.putAttachmentBlob(messageUid: messageId, partId: partId, bytes: bytes);
     return bytes;
+  }
+  @override
+  Future<List<dom.SearchResult>> search({required String accountId, required dom.SearchQuery q}) async {
+    // Local-first search using LocalStore
+    final rows = await store.searchMetadata(
+      text: q.text,
+      from: q.from,
+      to: q.to,
+      subject: q.subject,
+      dateFromEpochMs: q.dateFrom?.millisecondsSinceEpoch,
+      dateToEpochMs: q.dateTo?.millisecondsSinceEpoch,
+      flags: q.flags,
+      limit: q.limit,
+    );
+    final localResults = rows.map(MessageMapper.searchResultFromRow).toList();
+
+    // Optional remote search disabled by default (internal toggle)
+    const bool remoteEnabled = false;
+    List<dom.SearchResult> merged = localResults;
+    // TODO(P7+): retained for future sync/search path; unused in P6.
+    if (remoteEnabled) {
+      try {
+        // If a specific folder filter exists, search that; else skip for now
+        final headers = await gateway.searchHeaders(accountId: accountId, folderId: 'INBOX', q: q);
+        final remote = headers.map(MessageMapper.searchResultFromHeader).toList();
+        // Dedupe by (folderId,messageId)
+        final set = <String>{};
+        merged = [
+          ...localResults,
+          ...remote,
+        ].where((r) {
+          final key = '${r.folderId}:${r.messageId}';
+          final ok = !set.contains(key);
+          set.add(key);
+          return ok;
+        }).toList();
+      } catch (e) {
+        // Map errors to taxonomy via gateway mapping; ignore remote errors in P6
+        final _ = e; // no-op
+      }
+    }
+
+    // Sort by date DESC and apply limit if necessary
+    merged.sort((a, b) => b.date.millisecondsSinceEpoch.compareTo(a.date.millisecondsSinceEpoch));
+    if (q.limit != null && merged.length > q.limit!) {
+      merged = merged.sublist(0, q.limit!);
+    }
+    return merged;
   }
 }

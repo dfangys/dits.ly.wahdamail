@@ -16,7 +16,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   final storage = GetStorage();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -53,7 +54,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       await Future.delayed(const Duration(milliseconds: 2000));
       await NotificationService.instance.setup();
-      
+
       final hasEmail = storage.read('email') != null;
       final hasPassword = storage.read('password') != null;
       final hasOtpGate = storage.read('otp') != null;

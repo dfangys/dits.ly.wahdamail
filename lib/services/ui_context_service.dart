@@ -18,4 +18,3 @@ class UiContextService extends GetxService {
   set isAppForeground(bool v) => _isAppForeground.value = v;
   set inboxVisible(bool v) => _inboxVisible.value = v;
 }
-

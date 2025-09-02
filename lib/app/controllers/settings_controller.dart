@@ -40,11 +40,15 @@ class SettingController extends GetxController {
   final enhancedSpamFilter = false.obs;
   final isAuthenticated = true.obs; // Track if user has passed authentication
 
-  SwapActionModel get swipeGesturesLTRModel => SwapSettingData()
-      .swapActionModel[getSwapActionFromString(swipeGesturesLTR.value)]!;
+  SwapActionModel get swipeGesturesLTRModel =>
+      SwapSettingData().swapActionModel[getSwapActionFromString(
+        swipeGesturesLTR.value,
+      )]!;
 
-  SwapActionModel get swipeGesturesRTLModel => SwapSettingData()
-      .swapActionModel[getSwapActionFromString(swipeGesturesRTL.value)]!;
+  SwapActionModel get swipeGesturesRTLModel =>
+      SwapSettingData().swapActionModel[getSwapActionFromString(
+        swipeGesturesRTL.value,
+      )]!;
 
   @override
   void onInit() {
@@ -64,7 +68,10 @@ class SettingController extends GetxController {
     ever(appLock, (v) => box.write('appLock', v));
     ever(lockMethod, (v) => box.write('lockMethod', v));
     ever(autoLockTiming, (v) => box.write('autoLockTiming', v));
-    ever(hideNotificationContent, (v) => box.write('hideNotificationContent', v));
+    ever(
+      hideNotificationContent,
+      (v) => box.write('hideNotificationContent', v),
+    );
     ever(blockRemoteImages, (v) => box.write('blockRemoteImages', v));
     ever(enhancedSpamFilter, (v) => box.write('enhancedSpamFilter', v));
 
@@ -99,7 +106,8 @@ class SettingController extends GetxController {
     appLock.value = box.read('appLock') ?? false;
     lockMethod.value = box.read('lockMethod') ?? 'pin';
     autoLockTiming.value = box.read('autoLockTiming') ?? 'immediate';
-    hideNotificationContent.value = box.read('hideNotificationContent') ?? false;
+    hideNotificationContent.value =
+        box.read('hideNotificationContent') ?? false;
     blockRemoteImages.value = box.read('blockRemoteImages') ?? false;
     enhancedSpamFilter.value = box.read('enhancedSpamFilter') ?? false;
   }
@@ -174,7 +182,10 @@ class SettingController extends GetxController {
         accountName.value = name;
       }
       // Fallback: if email is missing, try local storage
-      userEmail.value = userEmail.isNotEmpty ? userEmail.value : (box.read('email')?.toString() ?? '');
+      userEmail.value =
+          userEmail.isNotEmpty
+              ? userEmail.value
+              : (box.read('email')?.toString() ?? '');
     } catch (_) {
       // Keep silent; UI will show whatever is available (local email/name)
       if (userEmail.isEmpty) {

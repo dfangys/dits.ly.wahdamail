@@ -36,41 +36,53 @@ class RedesignedComposeView extends StatelessWidget {
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 900;
 
-                Widget lastSaved = Obx(() => controller.lastSavedTime.isNotEmpty
-                    ? Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: theme.colorScheme.outline.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.access_time_outlined,
-                              size: 14,
-                              color: theme.colorScheme.onSurfaceVariant,
+                Widget lastSaved = Obx(
+                  () =>
+                      controller.lastSavedTime.isNotEmpty
+                          ? Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${'last_saved'.tr}: ${controller.lastSavedTime}',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontStyle: FontStyle.italic,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerHighest
+                                  .withValues(alpha: 0.3),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: theme.colorScheme.outline.withValues(
+                                  alpha: 0.2,
+                                ),
                               ),
                             ),
-                          ],
-                        ),
-                      )
-                    : const SizedBox.shrink());
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.access_time_outlined,
+                                  size: 14,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${'last_saved'.tr}: ${controller.lastSavedTime}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                          : const SizedBox.shrink(),
+                );
 
                 if (isWide) {
                   return SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -166,11 +178,7 @@ class RedesignedComposeView extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Icon(
-            Icons.edit_outlined,
-            color: theme.colorScheme.primary,
-            size: 20,
-          ),
+          Icon(Icons.edit_outlined, color: theme.colorScheme.primary, size: 20),
           const SizedBox(width: 8),
           Text(
             'compose_email'.tr,
@@ -180,33 +188,41 @@ class RedesignedComposeView extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Obx(() => controller.hasUnsavedChanges
-              ? Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.secondary.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.circle,
-                        size: 8,
-                        color: theme.colorScheme.secondary,
+          Obx(
+            () =>
+                controller.hasUnsavedChanges
+                    ? Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'unsaved_changes'.tr,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.secondary,
-                          fontSize: 11,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.secondary.withValues(
+                          alpha: 0.2,
                         ),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                    ],
-                  ),
-                )
-              : const SizedBox()),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.circle,
+                            size: 8,
+                            color: theme.colorScheme.secondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'unsaved_changes'.tr,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.secondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                    : const SizedBox(),
+          ),
         ],
       ),
     );
@@ -261,7 +277,9 @@ class RedesignedComposeView extends StatelessWidget {
                     Clipboard.setData(ClipboardData(text: email));
                     ScaffoldMessenger.of(Get.context!).showSnackBar(
                       SnackBar(
-                        content: Text('copied_to_clipboard'.trParams({'field': 'email'})),
+                        content: Text(
+                          'copied_to_clipboard'.trParams({'field': 'email'}),
+                        ),
                         behavior: SnackBarBehavior.floating,
                         backgroundColor: theme.colorScheme.primary,
                       ),
@@ -292,93 +310,111 @@ class RedesignedComposeView extends StatelessWidget {
           // To field
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Obx(() => EnhancedEmailChipsField(
-              title: "to".tr,
-              icon: Icons.mail_outline,
-              emails: controller.toList.toList(),
-              onDelete: (int i) => controller.removeFromToList(i),
-              onInsert: (MailAddress address) => controller.addTo(address),
-              trailingWidget: _buildCcBccToggle(theme),
-            )),
+            child: Obx(
+              () => EnhancedEmailChipsField(
+                title: "to".tr,
+                icon: Icons.mail_outline,
+                emails: controller.toList.toList(),
+                onDelete: (int i) => controller.removeFromToList(i),
+                onInsert: (MailAddress address) => controller.addTo(address),
+                trailingWidget: _buildCcBccToggle(theme),
+              ),
+            ),
           ),
-          
+
           // CC/BCC fields with smooth animation
-          Obx(() => AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            height: controller.isCcAndBccVisible() ? null : 0,
-            child: controller.isCcAndBccVisible()
-                ? Column(
-                    children: [
-                      const Divider(height: 1),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: EnhancedEmailChipsField(
-                          title: "CC".tr,
-                          icon: Icons.copy_outlined,
-                          emails: controller.cclist.toList(),
-                          onDelete: (int i) => controller.removeFromCcList(i),
-                          onInsert: (MailAddress address) => controller.addToCC(address),
-                        ),
-                      ),
-                      const Divider(height: 1),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: EnhancedEmailChipsField(
-                          title: "bcc".tr,
-                          icon: Icons.visibility_off_outlined,
-                          emails: controller.bcclist.toList(),
-                          onDelete: (int i) => controller.removeFromBccList(i),
-                          onInsert: (MailAddress address) => controller.addToBcc(address),
-                        ),
-                      ),
-                    ],
-                  )
-                : const SizedBox(),
-          )),
+          Obx(
+            () => AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              height: controller.isCcAndBccVisible() ? null : 0,
+              child:
+                  controller.isCcAndBccVisible()
+                      ? Column(
+                        children: [
+                          const Divider(height: 1),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: EnhancedEmailChipsField(
+                              title: "CC".tr,
+                              icon: Icons.copy_outlined,
+                              emails: controller.cclist.toList(),
+                              onDelete:
+                                  (int i) => controller.removeFromCcList(i),
+                              onInsert:
+                                  (MailAddress address) =>
+                                      controller.addToCC(address),
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: EnhancedEmailChipsField(
+                              title: "bcc".tr,
+                              icon: Icons.visibility_off_outlined,
+                              emails: controller.bcclist.toList(),
+                              onDelete:
+                                  (int i) => controller.removeFromBccList(i),
+                              onInsert:
+                                  (MailAddress address) =>
+                                      controller.addToBcc(address),
+                            ),
+                          ),
+                        ],
+                      )
+                      : const SizedBox(),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildCcBccToggle(ThemeData theme) {
-    return Obx(() => InkWell(
-          onTap: () => controller.isCcAndBccVisible.toggle(),
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: controller.isCcAndBccVisible()
-                  ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                  : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  controller.isCcAndBccVisible()
-                      ? Icons.expand_less
-                      : Icons.expand_more,
-                  size: 16,
-                  color: controller.isCcAndBccVisible()
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  controller.isCcAndBccVisible() ? 'hide_cc_bcc'.tr : 'cc_bcc'.tr,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: controller.isCcAndBccVisible()
+    return Obx(
+      () => InkWell(
+        onTap: () => controller.isCcAndBccVisible.toggle(),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color:
+                controller.isCcAndBccVisible()
+                    ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                    : theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
+                    ),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                controller.isCcAndBccVisible()
+                    ? Icons.expand_less
+                    : Icons.expand_more,
+                size: 16,
+                color:
+                    controller.isCcAndBccVisible()
                         ? theme.colorScheme.primary
                         : theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                controller.isCcAndBccVisible() ? 'hide_cc_bcc'.tr : 'cc_bcc'.tr,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color:
+                      controller.isCcAndBccVisible()
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ));
+        ),
+      ),
+    );
   }
 
   Widget _buildSubjectField(ThemeData theme) {
@@ -440,8 +476,12 @@ class RedesignedComposeView extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'draft_attachments'.trParams({'count': '${controller.pendingDraftAttachments.length}'}),
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                      'draft_attachments'.trParams({
+                        'count': '${controller.pendingDraftAttachments.length}',
+                      }),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -453,11 +493,13 @@ class RedesignedComposeView extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
-              ...controller.pendingDraftAttachments.map((m) => PendingDraftAttachmentTile(
-                    meta: m,
-                    onReattach: () => controller.reattachPendingAttachment(m),
-                    onView: () => controller.viewPendingAttachment(m),
-                  )),
+              ...controller.pendingDraftAttachments.map(
+                (m) => PendingDraftAttachmentTile(
+                  meta: m,
+                  onReattach: () => controller.reattachPendingAttachment(m),
+                  onView: () => controller.viewPendingAttachment(m),
+                ),
+              ),
               if (hasSelected) const SizedBox(height: 16),
               if (hasSelected) const Divider(height: 1),
               if (hasSelected) const SizedBox(height: 12),
@@ -524,16 +566,19 @@ class RedesignedComposeView extends StatelessWidget {
         children: [
           // Toolbar
           ComposeToolbar(),
-          
+
           const Divider(height: 1),
-          
+
           // Editor area
-          Obx(() => AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            child: controller.isHtml.isTrue
-                ? _buildHtmlEditor(theme)
-                : _buildPlainTextEditor(theme),
-          )),
+          Obx(
+            () => AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child:
+                  controller.isHtml.isTrue
+                      ? _buildHtmlEditor(theme)
+                      : _buildPlainTextEditor(theme),
+            ),
+          ),
         ],
       ),
     );
@@ -554,10 +599,7 @@ class RedesignedComposeView extends StatelessWidget {
             FontButtons(),
             ColorButtons(),
             ListButtons(),
-            ParagraphButtons(
-              caseConverter: false,
-              textDirection: true,
-            ),
+            ParagraphButtons(caseConverter: false, textDirection: true),
           ],
         ),
         htmlEditorOptions: HtmlEditorOptions(
@@ -583,7 +625,9 @@ class RedesignedComposeView extends StatelessWidget {
             controller.markHtmlEditorReady();
             // Apply any preloaded HTML body once the editor is ready
             if (controller.bodyPart.isNotEmpty) {
-              try { controller.htmlController.setText(controller.bodyPart); } catch (_) {}
+              try {
+                controller.htmlController.setText(controller.bodyPart);
+              } catch (_) {}
             }
           },
           onChangeContent: (String? changed) {
@@ -672,4 +716,3 @@ class RedesignedComposeView extends StatelessWidget {
     );
   }
 }
-

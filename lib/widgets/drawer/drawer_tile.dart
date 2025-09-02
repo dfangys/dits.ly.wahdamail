@@ -27,9 +27,10 @@ class WDrawerTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            color: isActive
-                ? Colors.white.withValues(alpha : 0.2)
-                : Colors.transparent,
+            color:
+                isActive
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -38,16 +39,13 @@ class WDrawerTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isActive
-                      ? Colors.white.withValues(alpha : 0.3)
-                      : Colors.white.withValues(alpha : 0.1),
+                  color:
+                      isActive
+                          ? Colors.white.withValues(alpha: 0.3)
+                          : Colors.white.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 20,
-                ),
+                child: Icon(icon, color: Colors.white, size: 20),
               ),
 
               const SizedBox(width: 12),
@@ -67,7 +65,10 @@ class WDrawerTile extends StatelessWidget {
               // Count badge
               if (count > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -86,7 +87,7 @@ class WDrawerTile extends StatelessWidget {
               if (count == 0)
                 Icon(
                   Iconsax.arrow_right_3,
-                  color: Colors.white.withValues(alpha : 0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                   size: 16,
                 ),
             ],

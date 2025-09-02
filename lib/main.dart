@@ -13,6 +13,8 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
 import 'package:wahda_bank/config/api_config.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
+import 'package:injectable/injectable.dart';
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +40,8 @@ Future main() async {
   };
 
   await GetStorage.init();
+  // Initialize DI container early (get_it + injectable)
+  await configureDependencies(env: Environment.dev);
 
   await NotificationService.instance.setup();
 
@@ -79,6 +83,6 @@ Future main() async {
     debugPrint('Workmanager initialization error: $e');
     // Continue app startup even if background service fails
   }
-  
+
   runApp(const MyApp());
 }

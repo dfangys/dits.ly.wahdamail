@@ -17,7 +17,11 @@ import 'package:wahda_bank/widgets/custom_loading_button.dart';
 import '../../reset_password_screen/reset_password_new_password_screen.dart';
 
 class ResetPasswordOtpScreen extends StatefulWidget {
-  const ResetPasswordOtpScreen({super.key, required this.email, this.maskedPhone});
+  const ResetPasswordOtpScreen({
+    super.key,
+    required this.email,
+    this.maskedPhone,
+  });
   final String email;
   final String? maskedPhone;
 
@@ -34,7 +38,8 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
   int _resendSeconds = 0;
   Timer? _resendTimer;
   String? _maskedPhone;
-  final CustomLoadingButtonController _btnController = CustomLoadingButtonController();
+  final CustomLoadingButtonController _btnController =
+      CustomLoadingButtonController();
 
   @override
   void initState() {
@@ -67,8 +72,13 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
       setState(() => _isResending = true);
       final res = await mailsys.requestPasswordReset(widget.email);
       // Try to read masked phone from various possible shapes
-      final data = (res['data'] is Map) ? res['data'] as Map : <String, dynamic>{};
-      final masked = data['masked_phone'] ?? res['masked_phone'] ?? data['phone_masked'] ?? data['phone'];
+      final data =
+          (res['data'] is Map) ? res['data'] as Map : <String, dynamic>{};
+      final masked =
+          data['masked_phone'] ??
+          res['masked_phone'] ??
+          data['phone_masked'] ??
+          data['phone'];
       if (masked is String && masked.isNotEmpty) {
         setState(() => _maskedPhone = masked);
       }
@@ -79,7 +89,9 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
               content: const Text('OTP has been resent'),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           );
         }
@@ -118,7 +130,9 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
     // We collect OTP here and verify on the next step with the password.
     Future.delayed(const Duration(milliseconds: 300), () {
       _btnController.success();
-      Get.to(() => ResetPasswordNewPasswordScreen(email: widget.email, otp: otpPin));
+      Get.to(
+        () => ResetPasswordNewPasswordScreen(email: widget.email, otp: otpPin),
+      );
       Future.delayed(const Duration(milliseconds: 400), () {
         _btnController.reset();
         if (mounted) setState(() => _isSubmitting = false);
@@ -133,7 +147,10 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
       backgroundColor: Theme.of(context).primaryColor,
       body: Column(
         children: [
-          SizedBox(height: isTablet ? WSizes.imageThumbSize * 1.2 : WSizes.imageThumbSize),
+          SizedBox(
+            height:
+                isTablet ? WSizes.imageThumbSize * 1.2 : WSizes.imageThumbSize,
+          ),
           TweenAnimationBuilder<double>(
             tween: Tween<double>(begin: 0.0, end: 1.0),
             duration: const Duration(milliseconds: 800),
@@ -152,12 +169,20 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
               child: SvgPicture.asset(
                 WImages.logoWhite,
                 fit: BoxFit.cover,
-                colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                colorFilter: const ColorFilter.mode(
+                  Colors.white,
+                  BlendMode.srcIn,
+                ),
                 width: Get.width * 0.7,
               ),
             ),
           ),
-          SizedBox(height: isTablet ? WSizes.spaceBtwSections * 1.2 : WSizes.spaceBtwSections),
+          SizedBox(
+            height:
+                isTablet
+                    ? WSizes.spaceBtwSections * 1.2
+                    : WSizes.spaceBtwSections,
+          ),
           Expanded(
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -173,9 +198,16 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: Theme.of(context).scaffoldBackgroundColor,
-                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(25), topRight: Radius.circular(25)),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(25),
+                    topRight: Radius.circular(25),
+                  ),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, -5)),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -5),
+                    ),
                   ],
                 ),
                 child: SingleChildScrollView(
@@ -183,16 +215,24 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(8.0),
-                        child: Row(children: [
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.1), shape: BoxShape.circle),
-                              child: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_back_ios_new_rounded,
+                                  size: 18,
+                                ),
+                              ),
                             ),
-                          ),
-                        ]),
+                          ],
+                        ),
                       ),
                       SizedBox(height: isTablet ? 10 : 5),
                       TweenAnimationBuilder<double>(
@@ -202,12 +242,18 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
                         builder: (context, value, child) {
                           return Opacity(
                             opacity: value,
-                            child: Transform.translate(offset: Offset(0, (1 - value) * 20), child: child),
+                            child: Transform.translate(
+                              offset: Offset(0, (1 - value) * 20),
+                              child: child,
+                            ),
                           );
                         },
                         child: Text(
                           'Verify OTP'.tr,
-                          style: TextStyle(fontSize: isTablet ? 28 : 25, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: isTablet ? 28 : 25,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       TweenAnimationBuilder<double>(
@@ -215,22 +261,35 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
                         duration: const Duration(milliseconds: 800),
                         curve: Curves.easeOutCubic,
                         builder: (context, value, child) {
-                          return Transform.scale(scaleX: value, alignment: Alignment.center, child: child);
+                          return Transform.scale(
+                            scaleX: value,
+                            alignment: Alignment.center,
+                            child: child,
+                          );
                         },
                         child: Container(
                           width: 60,
                           height: 6,
                           margin: const EdgeInsets.symmetric(vertical: 10),
-                          decoration: BoxDecoration(color: Theme.of(context).primaryColor, borderRadius: BorderRadius.circular(3)),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).primaryColor,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
                         ),
                       ),
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: isTablet ? 40 : 20, vertical: 10),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isTablet ? 40 : 20,
+                          vertical: 10,
+                        ),
                         child: Text(
                           _maskedPhone != null && _maskedPhone!.isNotEmpty
-                              ? 'An OTP has been sent to ' + _maskedPhone!
+                              ? 'An OTP has been sent to ${_maskedPhone!}'
                               : WText.verifyText,
-                          style: TextStyle(fontSize: isTablet ? 16 : 14, fontWeight: FontWeight.w300),
+                          style: TextStyle(
+                            fontSize: isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w300,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -242,7 +301,10 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
                         builder: (context, value, child) {
                           return Opacity(
                             opacity: value,
-                            child: Transform.translate(offset: Offset(0, (1 - value) * 30), child: child),
+                            child: Transform.translate(
+                              offset: Offset(0, (1 - value) * 30),
+                              child: child,
+                            ),
                           );
                         },
                         child: _buildPinput(context, isTablet),
@@ -250,16 +312,31 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
                       SizedBox(height: isTablet ? 20 : 10),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Row(children: [
-                          TextButton.icon(
-                            onPressed: (_resendSeconds == 0 && !_isResending) ? _resendOtp : null,
-                            icon: Icon(Icons.refresh_rounded, size: 18, color: Theme.of(context).primaryColor),
-                            label: Text(
-                              'resend_otp'.tr + (_resendSeconds > 0 ? ' (' + _resendSeconds.toString() + 's)' : ''),
-                              style: TextStyle(fontSize: isTablet ? 16 : 14, fontWeight: FontWeight.w500, color: Theme.of(context).primaryColor),
+                        child: Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed:
+                                  (_resendSeconds == 0 && !_isResending)
+                                      ? _resendOtp
+                                      : null,
+                              icon: Icon(
+                                Icons.refresh_rounded,
+                                size: 18,
+                                color: Theme.of(context).primaryColor,
+                              ),
+                              label: Text(
+                                _resendSeconds > 0
+                                    ? '${'resend_otp'.tr} (${_resendSeconds}s)'
+                                    : 'resend_otp'.tr,
+                                style: TextStyle(
+                                  fontSize: isTablet ? 16 : 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                              ),
                             ),
-                          ),
-                        ]),
+                          ],
+                        ),
                       ),
                       SizedBox(height: isTablet ? 20 : 10),
                       SizedBox(
@@ -297,7 +374,11 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 5, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 5,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
     );
@@ -306,7 +387,11 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
       border: Border.all(color: Theme.of(context).primaryColor, width: 2),
       borderRadius: BorderRadius.circular(12),
       boxShadow: [
-        BoxShadow(color: Theme.of(context).primaryColor.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 2)),
+        BoxShadow(
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
       ],
     );
 
@@ -327,7 +412,12 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
       cursor: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Container(margin: const EdgeInsets.only(bottom: 9), width: 22, height: 2, color: Theme.of(context).primaryColor),
+          Container(
+            margin: const EdgeInsets.only(bottom: 9),
+            width: 22,
+            height: 2,
+            color: Theme.of(context).primaryColor,
+          ),
         ],
       ),
       onCompleted: (pin) {
@@ -352,4 +442,3 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
     );
   }
 }
-

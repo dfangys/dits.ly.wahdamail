@@ -19,16 +19,19 @@ class ComposeToolbar extends StatelessWidget {
         child: Row(
           children: [
             // Format toggle
-            Obx(() => _buildToolbarButton(
-              context,
-              icon: controller.isHtml.isTrue ? Icons.code_off : Icons.code,
-              label: controller.isHtml.isTrue ? 'plain_text'.tr : 'rich_text'.tr,
-              onTap: () => controller.togglePlainHtml(),
-              isActive: controller.isHtml.isTrue,
-            )),
-            
+            Obx(
+              () => _buildToolbarButton(
+                context,
+                icon: controller.isHtml.isTrue ? Icons.code_off : Icons.code,
+                label:
+                    controller.isHtml.isTrue ? 'plain_text'.tr : 'rich_text'.tr,
+                onTap: () => controller.togglePlainHtml(),
+                isActive: controller.isHtml.isTrue,
+              ),
+            ),
+
             const SizedBox(width: 8),
-            
+
             // Attachment button
             _buildToolbarButton(
               context,
@@ -36,49 +39,59 @@ class ComposeToolbar extends StatelessWidget {
               label: 'attach'.tr,
               onTap: () => _showAttachmentOptions(context),
             ),
-            
+
             const SizedBox(width: 8),
-            
+
             // Priority button
-            Obx(() => _buildToolbarButton(
-              context,
-              icon: Icons.flag_outlined,
-              label: 'priority'.tr,
-              onTap: () => _showPriorityOptions(context),
-              isActive: controller.priority.value > 0,
-            )),
-            
+            Obx(
+              () => _buildToolbarButton(
+                context,
+                icon: Icons.flag_outlined,
+                label: 'priority'.tr,
+                onTap: () => _showPriorityOptions(context),
+                isActive: controller.priority.value > 0,
+              ),
+            ),
+
             const SizedBox(width: 16),
-            
+
             // Draft indicator
-            Obx(() => controller.hasUnsavedChanges
-                ? Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.secondary.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.edit_outlined,
-                          size: 12,
-                          color: theme.colorScheme.secondary,
+            Obx(
+              () =>
+                  controller.hasUnsavedChanges
+                      ? Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'draft'.tr,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.secondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.secondary.withValues(
+                            alpha: 0.2,
                           ),
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ],
-                    ),
-                  )
-                : const SizedBox()),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.edit_outlined,
+                              size: 12,
+                              color: theme.colorScheme.secondary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'draft'.tr,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.secondary,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                      : const SizedBox(),
+            ),
           ],
         ),
       ),
@@ -100,15 +113,19 @@ class ComposeToolbar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive
-              ? theme.colorScheme.primary.withValues(alpha: 0.1)
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          color:
+              isActive
+                  ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                  : theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.5,
+                  ),
           borderRadius: BorderRadius.circular(8),
-          border: isActive
-              ? Border.all(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                )
-              : null,
+          border:
+              isActive
+                  ? Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                  )
+                  : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -116,17 +133,19 @@ class ComposeToolbar extends StatelessWidget {
             Icon(
               icon,
               size: 16,
-              color: isActive
-                  ? theme.colorScheme.primary
-                  : theme.colorScheme.onSurfaceVariant,
+              color:
+                  isActive
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: isActive
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant,
+                color:
+                    isActive
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -142,67 +161,72 @@ class ComposeToolbar extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+      builder:
+          (context) => Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
               ),
             ),
-            const SizedBox(height: 20),
-            Text(
-              'add_attachment'.tr,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _buildAttachmentOption(
-                  context,
-                  icon: Icons.photo_library_outlined,
-                  label: 'photos'.tr,
-                  onTap: () {
-                    Navigator.pop(context);
-                    controller.pickImage();
-                  },
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.3,
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                _buildAttachmentOption(
-                  context,
-                  icon: Icons.insert_drive_file_outlined,
-                  label: 'files'.tr,
-                  onTap: () {
-                    Navigator.pop(context);
-                    controller.pickFiles();
-                  },
+                const SizedBox(height: 20),
+                Text(
+                  'add_attachment'.tr,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                _buildAttachmentOption(
-                  context,
-                  icon: Icons.camera_alt_outlined,
-                  label: 'camera'.tr,
-                  onTap: () {
-                    Navigator.pop(context);
-                    // Add camera functionality
-                  },
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildAttachmentOption(
+                      context,
+                      icon: Icons.photo_library_outlined,
+                      label: 'photos'.tr,
+                      onTap: () {
+                        Navigator.pop(context);
+                        controller.pickImage();
+                      },
+                    ),
+                    _buildAttachmentOption(
+                      context,
+                      icon: Icons.insert_drive_file_outlined,
+                      label: 'files'.tr,
+                      onTap: () {
+                        Navigator.pop(context);
+                        controller.pickFiles();
+                      },
+                    ),
+                    _buildAttachmentOption(
+                      context,
+                      icon: Icons.camera_alt_outlined,
+                      label: 'camera'.tr,
+                      onTap: () {
+                        Navigator.pop(context);
+                        // Add camera functionality
+                      },
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 20),
               ],
             ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
@@ -220,16 +244,14 @@ class ComposeToolbar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.5,
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              size: 32,
-              color: theme.colorScheme.primary,
-            ),
+            Icon(icon, size: 32, color: theme.colorScheme.primary),
             const SizedBox(height: 8),
             Text(
               label,
@@ -249,64 +271,71 @@ class ComposeToolbar extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
+      builder:
+          (context) => Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
               ),
             ),
-            const SizedBox(height: 20),
-            Text(
-              'set_priority'.tr,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ...List.generate(4, (index) {
-              final priorities = [
-                {'level': 0, 'label': 'normal'.tr, 'color': Colors.grey},
-                {'level': 1, 'label': 'low'.tr, 'color': Colors.blue},
-                {'level': 2, 'label': 'high'.tr, 'color': Colors.orange},
-                {'level': 3, 'label': 'urgent'.tr, 'color': Colors.red},
-              ];
-              
-              final priority = priorities[index];
-              
-              return Obx(() => ListTile(
-                leading: Icon(
-                  Icons.flag,
-                  color: priority['color'] as Color,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.3,
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                title: Text(priority['label'] as String),
-                trailing: controller.priority.value == priority['level']
-                    ? Icon(
-                        Icons.check_circle,
-                        color: theme.colorScheme.primary,
-                      )
-                    : null,
-                onTap: () {
-                  controller.priority.value = priority['level'] as int;
-                  Navigator.pop(context);
-                },
-              ));
-            }),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
+                const SizedBox(height: 20),
+                Text(
+                  'set_priority'.tr,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ...List.generate(4, (index) {
+                  final priorities = [
+                    {'level': 0, 'label': 'normal'.tr, 'color': Colors.grey},
+                    {'level': 1, 'label': 'low'.tr, 'color': Colors.blue},
+                    {'level': 2, 'label': 'high'.tr, 'color': Colors.orange},
+                    {'level': 3, 'label': 'urgent'.tr, 'color': Colors.red},
+                  ];
+
+                  final priority = priorities[index];
+
+                  return Obx(
+                    () => ListTile(
+                      leading: Icon(
+                        Icons.flag,
+                        color: priority['color'] as Color,
+                      ),
+                      title: Text(priority['label'] as String),
+                      trailing:
+                          controller.priority.value == priority['level']
+                              ? Icon(
+                                Icons.check_circle,
+                                color: theme.colorScheme.primary,
+                              )
+                              : null,
+                      onTap: () {
+                        controller.priority.value = priority['level'] as int;
+                        Navigator.pop(context);
+                      },
+                    ),
+                  );
+                }),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
     );
   }
 }
-

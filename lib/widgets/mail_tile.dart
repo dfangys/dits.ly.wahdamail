@@ -1,4 +1,3 @@
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,7 +29,8 @@ class MailTile extends StatefulWidget {
   State<MailTile> createState() => _MailTileState();
 }
 
-class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
+class _MailTileState extends State<MailTile>
+    with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
   final settingController = Get.find<SettingController>();
   final selectionController = Get.find<SelectionController>();
   final mailboxController = Get.find<MailBoxController>();
@@ -69,32 +69,27 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     // Listen for per-message meta updates (e.g., preview backfill)
     try {
       if (FeatureFlags.instance.perTileNotifiersEnabled) {
-        _metaNotifier = mailboxController.getMessageMetaNotifier(widget.mailBox, widget.message);
+        _metaNotifier = mailboxController.getMessageMetaNotifier(
+          widget.mailBox,
+          widget.message,
+        );
         _metaNotifier?.addListener(_onMetaChanged);
       }
     } catch (_) {}
-    
+
     // Initialize animation controllers for smooth feedback
     _feedbackController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-    
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.95,
-    ).animate(CurvedAnimation(
-      parent: _feedbackController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _fadeAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.3,
-    ).animate(CurvedAnimation(
-      parent: _feedbackController,
-      curve: Curves.easeInOut,
-    ));
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _feedbackController, curve: Curves.easeInOut),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 1.0, end: 0.3).animate(
+      CurvedAnimation(parent: _feedbackController, curve: Curves.easeInOut),
+    );
   }
 
   void _computeCachedValues() {
@@ -104,18 +99,20 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
         widget.message.to!.isNotEmpty) {
       // For sent/drafts, show recipient
       final recipient = widget.message.to!.first;
-      _senderName = recipient.personalName?.isNotEmpty == true 
-          ? recipient.personalName! 
-          : (recipient.email.isNotEmpty 
-              ? recipient.email.split('@').first 
-              : 'Unknown Recipient');
+      _senderName =
+          recipient.personalName?.isNotEmpty == true
+              ? recipient.personalName!
+              : (recipient.email.isNotEmpty
+                  ? recipient.email.split('@').first
+                  : 'Unknown Recipient');
       _senderEmail = recipient.email;
     } else {
       // For inbox and other folders, show sender
       MailAddress? sender;
-      
+
       // Try envelope first (most reliable)
-      if (widget.message.envelope?.from != null && widget.message.envelope!.from!.isNotEmpty) {
+      if (widget.message.envelope?.from != null &&
+          widget.message.envelope!.from!.isNotEmpty) {
         sender = widget.message.envelope!.from!.first;
       }
       // Fallback to message.from
@@ -134,7 +131,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
           }
         }
       }
-      
+
       if (sender != null) {
         // Use enough_mail_app pattern for smart sender display
         if (_isSentMessage()) {
@@ -142,7 +139,12 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
           final recipients = widget.message.to ?? [];
           if (recipients.isNotEmpty) {
             _senderName = recipients
-                .map((r) => r.personalName?.isNotEmpty == true ? r.personalName! : r.email)
+                .map(
+                  (r) =>
+                      r.personalName?.isNotEmpty == true
+                          ? r.personalName!
+                          : r.email,
+                )
                 .take(2) // Limit to first 2 recipients
                 .join(', ');
             _senderEmail = recipients.first.email;
@@ -152,11 +154,12 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
           }
         } else {
           // For received messages, show sender with enhanced logic
-          _senderName = sender.personalName?.isNotEmpty == true 
-              ? sender.personalName! 
-              : (sender.email.isNotEmpty 
-                  ? sender.email.split('@').first 
-                  : 'Unknown Sender');
+          _senderName =
+              sender.personalName?.isNotEmpty == true
+                  ? sender.personalName!
+                  : (sender.email.isNotEmpty
+                      ? sender.email.split('@').first
+                      : 'Unknown Sender');
           _senderEmail = sender.email;
         }
       } else {
@@ -166,18 +169,25 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
           if (rawFrom != null && rawFrom.trim().isNotEmpty) {
             try {
               final parsed = MailAddress.parse(rawFrom);
-              _senderName = parsed.personalName?.isNotEmpty == true
-                  ? parsed.personalName!
-                  : (parsed.email.isNotEmpty ? parsed.email.split('@').first : 'Unknown Sender');
+              _senderName =
+                  parsed.personalName?.isNotEmpty == true
+                      ? parsed.personalName!
+                      : (parsed.email.isNotEmpty
+                          ? parsed.email.split('@').first
+                          : 'Unknown Sender');
               _senderEmail = parsed.email;
               if (kDebugMode) {
-                debugPrint('📧 Tile sender fallback via raw headers: $_senderName <$_senderEmail>');
+                debugPrint(
+                  '📧 Tile sender fallback via raw headers: $_senderName <$_senderEmail>',
+                );
               }
             } catch (_) {
               _senderName = rawFrom.trim();
               _senderEmail = rawFrom.trim();
               if (kDebugMode) {
-                debugPrint('📧 Tile sender fallback (raw string): $_senderName');
+                debugPrint(
+                  '📧 Tile sender fallback (raw string): $_senderName',
+                );
               }
             }
           } else {
@@ -198,28 +208,30 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     } else {
       _hasAttachments = widget.message.hasAttachments();
     }
-    
+
     // DEBUG: Log attachment status for debugging
     if (kDebugMode && _hasAttachments) {
-      debugPrint('📎 Message "${widget.message.decodeSubject()}" has attachments');
+      debugPrint(
+        '📎 Message "${widget.message.decodeSubject()}" has attachments',
+      );
     }
-    
+
     // ENHANCED: Better date handling with comprehensive fallback chain
     DateTime? messageDate;
-    
+
     // Try multiple date sources in order of preference
     try {
       // 1. Try message.decodeDate() first
       messageDate = widget.message.decodeDate();
       if (messageDate != null && kDebugMode) {
-          debugPrint('📧 Date from message.decodeDate(): $messageDate');
+        debugPrint('📧 Date from message.decodeDate(): $messageDate');
       }
     } catch (e) {
       if (kDebugMode) {
         debugPrint('📧 Error in message.decodeDate(): $e');
       }
     }
-    
+
     // 2. Try envelope date if message date failed
     if (messageDate == null) {
       try {
@@ -233,7 +245,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
         }
       }
     }
-    
+
     // 3. Try parsing date header directly
     if (messageDate == null) {
       try {
@@ -250,20 +262,22 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
         }
       }
     }
-    
+
     // 4. Last resort: use current time but log the issue
     if (messageDate == null) {
       messageDate = DateTime.now();
       if (kDebugMode) {
-        debugPrint('📧 WARNING: Using current time as fallback for message date');
+        debugPrint(
+          '📧 WARNING: Using current time as fallback for message date',
+        );
         debugPrint('📧 Message UID: ${widget.message.uid}');
         debugPrint('📧 Message envelope: ${widget.message.envelope}');
         debugPrint('📧 Message headers: ${widget.message.headers}');
       }
     }
-    
+
     _messageDate = messageDate;
-    
+
     // ENHANCED: Use enough_mail_app pattern for proper subject decoding
     final decodedSubject = widget.message.decodeSubject();
     if (decodedSubject?.isNotEmpty == true) {
@@ -282,11 +296,13 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       }
       _subject = subject?.isNotEmpty == true ? subject! : 'No Subject';
     }
-    
+
     _preview = _generatePreview();
-    
+
     if (kDebugMode) {
-      debugPrint('📧 Mail tile computed: sender="$_senderName", subject="$_subject", date=$_messageDate');
+      debugPrint(
+        '📧 Mail tile computed: sender="$_senderName", subject="$_subject", date=$_messageDate',
+      );
     }
   }
 
@@ -294,16 +310,16 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     // Determine if this is a sent message based on mailbox context
     final controller = Get.find<MailBoxController>();
     final currentMailbox = controller.currentMailbox;
-    
+
     if (currentMailbox?.name.toLowerCase().contains('sent') == true) {
       return true;
     }
-    
+
     // Additional check for drafts
     if (currentMailbox?.name.toLowerCase().contains('draft') == true) {
       return true;
     }
-    
+
     return false;
   }
 
@@ -316,7 +332,9 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
 
     // 2. Try cached content from cache manager
     try {
-      final cachedContent = cacheManager.getCachedMessageContent(widget.message);
+      final cachedContent = cacheManager.getCachedMessageContent(
+        widget.message,
+      );
       if (cachedContent != null && cachedContent.isNotEmpty) {
         final preview = _extractPreviewFromContent(cachedContent);
         if (preview.isNotEmpty && preview != 'No preview available') {
@@ -328,7 +346,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
         print('📧 Error getting cached content: $e');
       }
     }
-    
+
     // 3. Try plain text and HTML only if needed (can be heavier)
     try {
       final plainText = widget.message.decodeTextPlainPart();
@@ -350,21 +368,22 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
     if (_hasAttachments) {
       return "📎 Message with attachments";
     }
-    
+
     // 5. Try envelope or headers for preview hints
     if (widget.message.envelope != null) {
-      final previewHeader = widget.message.getHeaderValue('x-preview') ??
-                           widget.message.getHeaderValue('x-microsoft-exchange-diagnostics');
+      final previewHeader =
+          widget.message.getHeaderValue('x-preview') ??
+          widget.message.getHeaderValue('x-microsoft-exchange-diagnostics');
       if (previewHeader != null && previewHeader.isNotEmpty) {
         return _cleanPreviewText(previewHeader);
       }
     }
-    
+
     // 6. Fallback based on message characteristics
     if (widget.message.isTextMessage()) {
       return "Text message";
     }
-    
+
     return "No preview available";
   }
 
@@ -387,13 +406,14 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
 
   String _extractPreviewFromContent(String content) {
     // Remove HTML tags and extra whitespace
-    final cleanContent = content
-        .replaceAll(RegExp(r'<[^>]*>'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    
+    final cleanContent =
+        content
+            .replaceAll(RegExp(r'<[^>]*>'), '')
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim();
+
     // Return first 100 characters
-    return cleanContent.length > 100 
+    return cleanContent.length > 100
         ? '${cleanContent.substring(0, 100)}...'
         : cleanContent;
   }
@@ -401,8 +421,10 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    
-    final bool isDraftsBox = widget.mailBox.name.toLowerCase().contains('draft');
+
+    final bool isDraftsBox = widget.mailBox.name.toLowerCase().contains(
+      'draft',
+    );
     final bool isUnread = isDraftsBox ? false : !widget.message.isSeen;
     final bool hasFlagged = widget.message.isFlagged;
     final theme = Theme.of(context);
@@ -430,9 +452,10 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
                   curve: Curves.easeInOut,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
-                    color: _isProcessing 
-                        ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                        : null,
+                    color:
+                        _isProcessing
+                            ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                            : null,
                   ),
                   child: OptimizedMailTileContent(
                     message: widget.message,
@@ -468,7 +491,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   // Action methods for email operations with optimistic updates
   void _markAsRead() async {
     final realtimeService = RealtimeUpdateService.instance;
-    
+
     // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
     final wasUnread = !widget.message.isSeen;
     setState(() {
@@ -478,37 +501,41 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
         widget.message.isSeen = false;
       }
     });
-    
+
     // Show immediate visual feedback
     _showActionFeedback(
       wasUnread ? 'Marked as read' : 'Marked as unread',
       wasUnread ? Icons.mark_email_read : Icons.mark_email_unread,
       Colors.blue,
     );
-    
+
     try {
       // Perform server action in background
       if (wasUnread) {
         await realtimeService.markMessageAsRead(widget.message);
         if (kDebugMode) {
-          print('📧 Successfully marked as read: ${widget.message.decodeSubject()}');
+          print(
+            '📧 Successfully marked as read: ${widget.message.decodeSubject()}',
+          );
         }
       } else {
         await realtimeService.markMessageAsUnread(widget.message);
         if (kDebugMode) {
-          print('📧 Successfully marked as unread: ${widget.message.decodeSubject()}');
+          print(
+            '📧 Successfully marked as unread: ${widget.message.decodeSubject()}',
+          );
         }
       }
     } catch (e) {
       if (kDebugMode) {
         print('📧 Error updating message status: $e');
       }
-      
+
       // ROLLBACK: Revert optimistic update on error
       setState(() {
         widget.message.isSeen = wasUnread;
       });
-      
+
       Get.snackbar(
         'Error',
         'Failed to update message: ${e.toString()}',
@@ -521,7 +548,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
 
   void _toggleFlag() async {
     final realtimeService = RealtimeUpdateService.instance;
-    
+
     // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
     final wasFlagged = widget.message.isFlagged;
     setState(() {
@@ -531,14 +558,14 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
         widget.message.isFlagged = true;
       }
     });
-    
+
     // Show immediate visual feedback
     _showActionFeedback(
       wasFlagged ? 'Unflagged' : 'Flagged',
       wasFlagged ? Icons.flag_outlined : Icons.flag,
       Colors.orange,
     );
-    
+
     try {
       // Perform server action in background
       if (wasFlagged) {
@@ -551,7 +578,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
       setState(() {
         widget.message.isFlagged = wasFlagged;
       });
-      
+
       Get.snackbar(
         'Error',
         'Failed to update flag: ${e.toString()}',
@@ -564,30 +591,22 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
 
   void _deleteMessage() async {
     final realtimeService = RealtimeUpdateService.instance;
-    
+
     // Show immediate visual feedback with animation
-    _showActionFeedback(
-      'Deleting...',
-      Icons.delete,
-      Colors.red,
-    );
-    
+    _showActionFeedback('Deleting...', Icons.delete, Colors.red);
+
     // OPTIMISTIC UPDATE: Start fade-out animation immediately
     setState(() {
       _isDeleting = true;
     });
-    
+
     try {
       // Perform server action
       await realtimeService.deleteMessage(widget.message);
-      
+
       // Success feedback
-      _showActionFeedback(
-        'Message deleted',
-        Icons.check,
-        Colors.green,
-      );
-      
+      _showActionFeedback('Message deleted', Icons.check, Colors.green);
+
       // Remove from UI after animation
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) {
@@ -595,13 +614,12 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
           mailboxController.removeMessageFromUI(widget.message, widget.mailBox);
         }
       });
-      
     } catch (e) {
       // ROLLBACK: Revert optimistic update on error
       setState(() {
         _isDeleting = false;
       });
-      
+
       Get.snackbar(
         'Error',
         'Failed to delete message: ${e.toString()}',
@@ -615,34 +633,74 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   void _archiveMessage() async {
     // Move message to Archive mailbox with optimistic UI and haptic feedback
     try {
-      _showActionFeedback('Archiving...', Icons.archive_outlined, Colors.orange);
-      final archive = mailboxController.mailboxes.firstWhereOrNull((e) => e.isArchive);
+      _showActionFeedback(
+        'Archiving...',
+        Icons.archive_outlined,
+        Colors.orange,
+      );
+      final archive = mailboxController.mailboxes.firstWhereOrNull(
+        (e) => e.isArchive,
+      );
       if (archive == null) {
-        Get.snackbar('Info', 'Archive mailbox not found', backgroundColor: Colors.blue, colorText: Colors.white, duration: const Duration(seconds: 2));
+        Get.snackbar(
+          'Info',
+          'Archive mailbox not found',
+          backgroundColor: Colors.blue,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
         return;
       }
       mailboxController.removeMessageFromUI(widget.message, widget.mailBox);
-      await mailboxController.moveMails([widget.message], widget.mailBox, archive);
+      await mailboxController.moveMails(
+        [widget.message],
+        widget.mailBox,
+        archive,
+      );
       _showActionFeedback('Message archived', Icons.check, Colors.green);
     } catch (e) {
-      Get.snackbar('Error', 'Failed to archive message: ${e.toString()}', backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 3));
+      Get.snackbar(
+        'Error',
+        'Failed to archive message: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
     }
   }
 
   void _markAsJunk() async {
     // Move message to Junk mailbox (spam)
     try {
-      _showActionFeedback('Moving to Junk...', Icons.report_gmailerrorred, const Color(0xFF9C27B0));
-      final junk = mailboxController.mailboxes.firstWhereOrNull((e) => e.isJunk);
+      _showActionFeedback(
+        'Moving to Junk...',
+        Icons.report_gmailerrorred,
+        const Color(0xFF9C27B0),
+      );
+      final junk = mailboxController.mailboxes.firstWhereOrNull(
+        (e) => e.isJunk,
+      );
       if (junk == null) {
-        Get.snackbar('Info', 'Junk mailbox not found', backgroundColor: Colors.blue, colorText: Colors.white, duration: const Duration(seconds: 2));
+        Get.snackbar(
+          'Info',
+          'Junk mailbox not found',
+          backgroundColor: Colors.blue,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 2),
+        );
         return;
       }
       mailboxController.removeMessageFromUI(widget.message, widget.mailBox);
       await mailboxController.moveMails([widget.message], widget.mailBox, junk);
       _showActionFeedback('Message moved to Junk', Icons.check, Colors.green);
     } catch (e) {
-      Get.snackbar('Error', 'Failed to move to Junk: ${e.toString()}', backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 3));
+      Get.snackbar(
+        'Error',
+        'Failed to move to Junk: ${e.toString()}',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+        duration: const Duration(seconds: 3),
+      );
     }
   }
 
@@ -650,12 +708,12 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   void _showActionFeedback(String message, IconData icon, Color color) {
     // Trigger haptic feedback
     HapticFeedback.lightImpact();
-    
+
     // Show subtle animation
     _feedbackController.forward().then((_) {
       _feedbackController.reverse();
     });
-    
+
     // Show toast-like feedback
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -671,9 +729,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
         duration: const Duration(milliseconds: 1500),
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
@@ -717,7 +773,8 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
             debugPrint('📧 Tile hydration: envelope loaded from DB');
           }
         }
-        if ((widget.message.from == null || widget.message.from!.isEmpty) && (mm.from?.isNotEmpty ?? false)) {
+        if ((widget.message.from == null || widget.message.from!.isEmpty) &&
+            (mm.from?.isNotEmpty ?? false)) {
           widget.message.from = mm.from;
           changed = true;
           if (kDebugMode) {
@@ -725,23 +782,33 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
           }
         }
         final subj = mm.decodeSubject() ?? mm.envelope?.subject;
-        if ((widget.message.decodeSubject() == null || (widget.message.decodeSubject()?.isEmpty ?? true)) && (subj != null && subj.isNotEmpty)) {
-          try { widget.message.setHeader('subject', subj); } catch (_) {}
+        if ((widget.message.decodeSubject() == null ||
+                (widget.message.decodeSubject()?.isEmpty ?? true)) &&
+            (subj != null && subj.isNotEmpty)) {
+          try {
+            widget.message.setHeader('subject', subj);
+          } catch (_) {}
           changed = true;
           if (kDebugMode) {
             debugPrint('📧 Tile hydration: subject loaded from DB');
           }
         }
         if (changed) {
-          try { widget.message.setHeader('x-ready', '1'); } catch (_) {}
+          try {
+            widget.message.setHeader('x-ready', '1');
+          } catch (_) {}
           if (mounted) {
             setState(() => _computeCachedValues());
           }
-          try { mailboxController.bumpMessageMeta(widget.mailBox, widget.message); } catch (_) {}
+          try {
+            mailboxController.bumpMessageMeta(widget.mailBox, widget.message);
+          } catch (_) {}
         }
       } else {
         if (kDebugMode) {
-          debugPrint('📧 Tile hydration: DB had no envelope row yet for this message');
+          debugPrint(
+            '📧 Tile hydration: DB had no envelope row yet for this message',
+          );
         }
       }
     } catch (e) {
@@ -801,26 +868,38 @@ class OptimizedMailTileContent extends StatelessWidget {
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
-    
+
     // Today: show time
     if (difference.inDays == 0) {
       return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    } 
+    }
     // Yesterday
     else if (difference.inDays == 1) {
       return 'Yesterday';
-    } 
+    }
     // This week: show day name
     else if (difference.inDays < 7) {
       const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       return weekdays[date.weekday - 1];
-    } 
+    }
     // This year: show month and day
     else if (date.year == now.year) {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[date.month - 1]} ${date.day}';
-    } 
+    }
     // Previous years: show full date
     else {
       return '${date.day}/${date.month}/${date.year.toString().substring(2)}';
@@ -839,13 +918,13 @@ class OptimizedMailTileContent extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isSelected
-            ? theme.primaryColor.withValues(alpha: 0.1)
-            : (isDarkMode ? Colors.grey.shade900 : Colors.white),
+        color:
+            isSelected
+                ? theme.primaryColor.withValues(alpha: 0.1)
+                : (isDarkMode ? Colors.grey.shade900 : Colors.white),
         borderRadius: BorderRadius.circular(12),
-        border: isSelected
-            ? Border.all(color: theme.primaryColor, width: 2)
-            : null,
+        border:
+            isSelected ? Border.all(color: theme.primaryColor, width: 2) : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isDarkMode ? 0.3 : 0.1),
@@ -876,13 +955,17 @@ class OptimizedMailTileContent extends StatelessWidget {
               },
               onLongPress: _toggleSelection,
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: FeatureFlags.instance.fixedExtentListEnabled ? 12 : 16),
+                padding: EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical:
+                      FeatureFlags.instance.fixedExtentListEnabled ? 12 : 16,
+                ),
                 child: Row(
                   children: [
                     // Selection indicator or avatar
                     _buildLeadingWidget(),
                     const SizedBox(width: 12),
-                    
+
                     // Message content
                     Expanded(
                       child: Column(
@@ -895,7 +978,10 @@ class OptimizedMailTileContent extends StatelessWidget {
                                 child: Text(
                                   senderName,
                                   style: TextStyle(
-                                    fontWeight: isUnread ? FontWeight.w600 : FontWeight.w500,
+                                    fontWeight:
+                                        isUnread
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
                                     fontSize: 16,
                                     color: theme.textTheme.bodyLarge?.color,
                                   ),
@@ -909,13 +995,22 @@ class OptimizedMailTileContent extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: theme.textTheme.bodySmall?.color,
-                                    fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
+                                    fontWeight:
+                                        isUnread
+                                            ? FontWeight.w500
+                                            : FontWeight.normal,
                                   ),
                                 ),
                             ],
                           ),
-                          SizedBox(height: (FeatureFlags.instance.fixedExtentListEnabled && (textScale > 1.1)) ? 2 : 4),
-                          
+                          SizedBox(
+                            height:
+                                (FeatureFlags.instance.fixedExtentListEnabled &&
+                                        (textScale > 1.1))
+                                    ? 2
+                                    : 4,
+                          ),
+
                           // Subject line with indicators
                           Row(
                             children: [
@@ -923,7 +1018,10 @@ class OptimizedMailTileContent extends StatelessWidget {
                                 child: Text(
                                   subject,
                                   style: TextStyle(
-                                    fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400,
+                                    fontWeight:
+                                        isUnread
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
                                     fontSize: 14,
                                     color: theme.textTheme.bodyMedium?.color,
                                   ),
@@ -934,33 +1032,50 @@ class OptimizedMailTileContent extends StatelessWidget {
                               // Draft sync badge (only in Drafts mailbox)
                               if (mailBox.isDrafts) ...[
                                 const SizedBox(width: 4),
-                                _DraftSyncBadge(message: message, mailbox: mailBox, theme: theme),
+                                _DraftSyncBadge(
+                                  message: message,
+                                  mailbox: mailBox,
+                                  theme: theme,
+                                ),
                               ],
                               // Thread count pill (if part of a conversation)
                               _ThreadCountPill(
-                                key: ValueKey(message.uid ?? message.sequenceId ?? 0),
+                                key: ValueKey(
+                                  message.uid ?? message.sequenceId ?? 0,
+                                ),
                                 message: message,
                                 theme: theme,
                                 metaNotifier: metaNotifier,
                               ),
 
                               // Attachment indicator - Enhanced visibility
-                              if (FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null)
+                              if (FeatureFlags
+                                      .instance
+                                      .perTileNotifiersEnabled &&
+                                  metaNotifier != null)
                                 ValueListenableBuilder<int>(
                                   valueListenable: metaNotifier!,
                                   builder: (context, _, __) {
-                                    final ha = message.getHeaderValue('x-has-attachments');
-                                    final hasAtt = ha == '1' || (ha == null ? hasAttachments : false);
+                                    final ha = message.getHeaderValue(
+                                      'x-has-attachments',
+                                    );
+                                    final hasAtt =
+                                        ha == '1' ||
+                                        (ha == null ? hasAttachments : false);
                                     return hasAtt
-                                        ? Row(children: [
+                                        ? Row(
+                                          children: [
                                             const SizedBox(width: 4),
                                             Container(
                                               padding: const EdgeInsets.all(3),
                                               decoration: BoxDecoration(
-                                                color: theme.primaryColor.withValues(alpha: 0.15),
-                                                borderRadius: BorderRadius.circular(6),
+                                                color: theme.primaryColor
+                                                    .withValues(alpha: 0.15),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
                                                 border: Border.all(
-                                                  color: theme.primaryColor.withValues(alpha: 0.3),
+                                                  color: theme.primaryColor
+                                                      .withValues(alpha: 0.3),
                                                   width: 0.5,
                                                 ),
                                               ),
@@ -970,7 +1085,8 @@ class OptimizedMailTileContent extends StatelessWidget {
                                                 color: theme.primaryColor,
                                               ),
                                             ),
-                                          ])
+                                          ],
+                                        )
                                         : const SizedBox.shrink();
                                   },
                                 )
@@ -979,16 +1095,21 @@ class OptimizedMailTileContent extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.all(3),
                                   decoration: BoxDecoration(
-                                    color: theme.primaryColor.withValues(alpha: 0.15),
+                                    color: theme.primaryColor.withValues(
+                                      alpha: 0.15,
+                                    ),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: theme.primaryColor.withValues(alpha: 0.3),
+                                      color: theme.primaryColor.withValues(
+                                        alpha: 0.3,
+                                      ),
                                       width: 0.5,
                                     ),
                                   ),
                                   child: Icon(
                                     Icons.attach_file,
-                                    size: 16, // Slightly larger for better visibility
+                                    size:
+                                        16, // Slightly larger for better visibility
                                     color: theme.primaryColor,
                                   ),
                                 ),
@@ -1011,49 +1132,67 @@ class OptimizedMailTileContent extends StatelessWidget {
                               ],
                             ],
                           ),
-                          SizedBox(height: (FeatureFlags.instance.fixedExtentListEnabled && (textScale > 1.1)) ? 2 : 4),
-                          
+                          SizedBox(
+                            height:
+                                (FeatureFlags.instance.fixedExtentListEnabled &&
+                                        (textScale > 1.1))
+                                    ? 2
+                                    : 4,
+                          ),
+
                           // Preview text (flexible to avoid vertical overflow)
                           Flexible(
-                            child: FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null
-                                ? ValueListenableBuilder<int>(
-                                    valueListenable: metaNotifier!,
-                                    builder: (context, _, __) {
-                                      final hp = message.getHeaderValue('x-preview');
-                                      final text = (hp != null && hp.trim().isNotEmpty) ? hp : preview;
-                                      return ClipRect(
-                                        child: Text(
-                                          text,
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: theme.textTheme.bodySmall?.color,
-                                            height: 1.25,
+                            child:
+                                FeatureFlags.instance.perTileNotifiersEnabled &&
+                                        metaNotifier != null
+                                    ? ValueListenableBuilder<int>(
+                                      valueListenable: metaNotifier!,
+                                      builder: (context, _, __) {
+                                        final hp = message.getHeaderValue(
+                                          'x-preview',
+                                        );
+                                        final text =
+                                            (hp != null && hp.trim().isNotEmpty)
+                                                ? hp
+                                                : preview;
+                                        return ClipRect(
+                                          child: Text(
+                                            text,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color:
+                                                  theme
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.color,
+                                              height: 1.25,
+                                            ),
+                                            maxLines: previewMaxLines,
+                                            overflow: TextOverflow.ellipsis,
+                                            softWrap: true,
                                           ),
-                                          maxLines: previewMaxLines,
-                                          overflow: TextOverflow.ellipsis,
-                                          softWrap: true,
+                                        );
+                                      },
+                                    )
+                                    : ClipRect(
+                                      child: Text(
+                                        preview,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color:
+                                              theme.textTheme.bodySmall?.color,
+                                          height: 1.25,
                                         ),
-                                      );
-                                    },
-                                  )
-                                : ClipRect(
-                                    child: Text(
-                                      preview,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: theme.textTheme.bodySmall?.color,
-                                        height: 1.25,
+                                        maxLines: previewMaxLines,
+                                        overflow: TextOverflow.ellipsis,
+                                        softWrap: true,
                                       ),
-                                      maxLines: previewMaxLines,
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: true,
                                     ),
-                                  ),
                           ),
                         ],
                       ),
                     ),
-                    
+
                     // Unread indicator
                     if (isUnread)
                       Container(
@@ -1076,7 +1215,7 @@ class OptimizedMailTileContent extends StatelessWidget {
 
   Widget _buildLeadingWidget() {
     final selectionController = Get.find<SelectionController>();
-    
+
     return Obx(() {
       final selecting = selectionController.selecting.value;
       if (selecting) {
@@ -1128,7 +1267,10 @@ class OptimizedMailTileContent extends StatelessWidget {
   }
 
   // Build individual swipe action based on action type (normalized via SwapAction enum)
-  SlidableAction _buildSwipeAction(String actionType, {required bool isStartPane}) {
+  SlidableAction _buildSwipeAction(
+    String actionType, {
+    required bool isStartPane,
+  }) {
     final action = getSwapActionFromString(actionType);
     switch (action) {
       case SwapAction.readUnread:
@@ -1173,11 +1315,14 @@ class OptimizedMailTileContent extends StatelessWidget {
         );
     }
   }
-
 }
 
 class _DraftSyncBadge extends StatelessWidget {
-  const _DraftSyncBadge({required this.message, required this.mailbox, required this.theme});
+  const _DraftSyncBadge({
+    required this.message,
+    required this.mailbox,
+    required this.theme,
+  });
   final MimeMessage message;
   final Mailbox mailbox;
   final ThemeData theme;
@@ -1197,24 +1342,45 @@ class _DraftSyncBadge extends StatelessWidget {
             decoration: BoxDecoration(
               color: theme.colorScheme.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.28), width: 0.5),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.28),
+                width: 0.5,
+              ),
             ),
             child: Row(
               children: [
                 SizedBox(
                   width: 12,
                   height: 12,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: theme.colorScheme.primary),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
                 const SizedBox(width: 4),
-                Text('Syncing', style: TextStyle(color: theme.colorScheme.primary, fontSize: 12, fontWeight: FontWeight.w600)),
+                Text(
+                  'Syncing',
+                  style: TextStyle(
+                    color: theme.colorScheme.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           );
         case DraftSyncBadgeState.synced:
-          return Icon(Icons.check_circle, size: 16, color: Colors.green.shade600);
+          return Icon(
+            Icons.check_circle,
+            size: 16,
+            color: Colors.green.shade600,
+          );
         case DraftSyncBadgeState.failed:
-          return Icon(Icons.error_outline, size: 16, color: Colors.red.shade600);
+          return Icon(
+            Icons.error_outline,
+            size: 16,
+            color: Colors.red.shade600,
+          );
         case DraftSyncBadgeState.idle:
           return const SizedBox.shrink();
       }
@@ -1259,7 +1425,10 @@ class _ThreadCountPill extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.primaryColor.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: theme.primaryColor.withValues(alpha: 0.28), width: 0.5),
+            border: Border.all(
+              color: theme.primaryColor.withValues(alpha: 0.28),
+              width: 0.5,
+            ),
           ),
           child: Row(
             children: [
@@ -1291,4 +1460,3 @@ class _ThreadCountPill extends StatelessWidget {
     return _buildPill();
   }
 }
-

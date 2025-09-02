@@ -1,5 +1,4 @@
 import 'package:injectable/injectable.dart';
-import 'package:get_storage/get_storage.dart';
 
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
 import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart' as dom;

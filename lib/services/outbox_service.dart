@@ -14,7 +14,8 @@ class OutboxService {
   final GetStorage _store = GetStorage();
 
   // key -> metadata map
-  final RxMap<String, Map<String, dynamic>> _entries = <String, Map<String, dynamic>>{}.obs;
+  final RxMap<String, Map<String, dynamic>> _entries =
+      <String, Map<String, dynamic>>{}.obs;
   RxMap<String, Map<String, dynamic>> get entries => _entries;
 
   Future<void> init() async {
@@ -56,4 +57,3 @@ class OutboxService {
     _persist();
   }
 }
-

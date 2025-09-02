@@ -21,9 +21,10 @@ class MailCountController extends GetxController {
   Future fetchMailBoxes() async {
     List boxes = storage.read('boxes') ?? [];
     if (boxes.isNotEmpty) {
-      List<Mailbox> bList = boxes
-          .map((e) => BoxModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+      List<Mailbox> bList =
+          boxes
+              .map((e) => BoxModel.fromJson(e as Map<String, dynamic>))
+              .toList();
       for (var b in bList) {
         String key = "${b.name.toLowerCase()}_count";
         counts[key] = storage.read(key) ?? b.messagesUnseen;

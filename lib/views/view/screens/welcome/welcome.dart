@@ -40,13 +40,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       'image': 'assets/svg/Onboarding2.svg',
       'title': 'Secure Email Access',
       'description':
-      'Access your emails securely from anywhere with our advanced security features.',
+          'Access your emails securely from anywhere with our advanced security features.',
     },
     {
       'image': 'assets/svg/Onboarding3.svg',
       'title': 'Stay Connected',
       'description':
-      'Never miss an important message with real-time notifications and updates.',
+          'Never miss an important message with real-time notifications and updates.',
     },
   ];
 
@@ -55,19 +55,22 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   void initState() {
     super.initState();
 
-    _animationController =
-        AnimationController(vsync: this, duration: _animDuration);
+    _animationController = AnimationController(
+      vsync: this,
+      duration: _animDuration,
+    );
 
-    _fadeAnimation =
-        CurvedAnimation(parent: _animationController, curve: Curves.easeOut);
+    _fadeAnimation = CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    );
 
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    ));
+    ).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
+    );
 
     _animationController.forward();
   }
@@ -132,12 +135,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                     controller: _pageController,
                     itemCount: _pages.length,
                     onPageChanged: (i) => setState(() => _currentPage = i),
-                    itemBuilder: (_, i) => _buildPage(
-                      imagePath: _pages[i]['image']!,
-                      title: _pages[i]['title']!,
-                      description: _pages[i]['description']!,
-                      isTablet: isTablet,
-                    ),
+                    itemBuilder:
+                        (_, i) => _buildPage(
+                          imagePath: _pages[i]['image']!,
+                          title: _pages[i]['title']!,
+                          description: _pages[i]['description']!,
+                          isTablet: isTablet,
+                        ),
                   ),
                 ),
                 /* Dots */
@@ -158,31 +162,36 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 ),
                 /* Buttons */
                 Padding(
-                  padding:
-                  const EdgeInsets.only(bottom: 40, left: 20, right: 20),
+                  padding: const EdgeInsets.only(
+                    bottom: 40,
+                    left: 20,
+                    right: 20,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _isLastPage
                           ? const SizedBox(width: 80)
                           : TextButton(
-                        onPressed: _onSkip,
-                        child: Text(
-                          'Skip',
-                          style: TextStyle(
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                            onPressed: _onSkip,
+                            child: Text(
+                              'Skip',
+                              style: TextStyle(
+                                color: Theme.of(context).primaryColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
                       ElevatedButton(
                         onPressed: _onNext,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(context).primaryColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 12),
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -227,10 +236,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               left: 20,
               right: 20,
             ),
-            child: imagePath.toLowerCase().endsWith('.svg')
-                ? SvgPicture.asset(imagePath, height: imgHeight)
-                : Image.asset(imagePath,
-                height: imgHeight, fit: BoxFit.contain),
+            child:
+                imagePath.toLowerCase().endsWith('.svg')
+                    ? SvgPicture.asset(imagePath, height: imgHeight)
+                    : Image.asset(
+                      imagePath,
+                      height: imgHeight,
+                      fit: BoxFit.contain,
+                    ),
           ),
           Text(
             title,

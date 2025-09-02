@@ -3,11 +3,13 @@ class MimeUtils {
     // Documents
     'pdf': 'application/pdf',
     'doc': 'application/msword',
-    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'docx':
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'xls': 'application/vnd.ms-excel',
     'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'ppt': 'application/vnd.ms-powerpoint',
-    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'pptx':
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'txt': 'text/plain',
     'csv': 'text/csv',
     'json': 'application/json',
@@ -55,9 +57,9 @@ class MimeUtils {
     final m = mime.toLowerCase();
     if (m.startsWith('image/')) return true;
     if (m == 'application/pdf') return true;
-    if (m.startsWith('text/') || m == 'application/json' || m == 'text/csv') return true;
+    if (m.startsWith('text/') || m == 'application/json' || m == 'text/csv')
+      return true;
     // You can extend with audio/video if you add viewers; for now keep conservative
     return false;
   }
 }
-

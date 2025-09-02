@@ -18,15 +18,17 @@ class HomeEmailList extends StatefulWidget {
   State<HomeEmailList> createState() => _HomeEmailListState();
 }
 
-class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserver {
+class _HomeEmailListState extends State<HomeEmailList>
+    with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   final MailBoxController controller = Get.find<MailBoxController>();
-  final SelectionController selectionController = Get.find<SelectionController>();
-  
+  final SelectionController selectionController =
+      Get.find<SelectionController>();
+
   bool _isLoadingMore = false;
   bool _allMessagesLoaded = false;
   int _currentPage = 1;
-  
+
   // Track processed messages to avoid duplicates
   final Set<int> _processedUIDs = <int>{};
   final Map<DateTime, List<MimeMessage>> _groupedMessages = {};
@@ -40,9 +42,13 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
     _scrollController.addListener(_onScroll);
 
     // Mark inbox visible
-    try { UiContextService.instance.inboxVisible = true; } catch (_) {}
-    try { UiContextService.instance.isAppForeground = true; } catch (_) {}
-    
+    try {
+      UiContextService.instance.inboxVisible = true;
+    } catch (_) {}
+    try {
+      UiContextService.instance.isAppForeground = true;
+    } catch (_) {}
+
     // Initialize email loading for home screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeHomeEmails();
@@ -53,7 +59,9 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
-    try { UiContextService.instance.inboxVisible = false; } catch (_) {}
+    try {
+      UiContextService.instance.inboxVisible = false;
+    } catch (_) {}
     super.dispose();
   }
 
@@ -62,36 +70,36 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
     if (controller.mailBoxInbox.messagesExists == 0) {
       await controller.initInbox();
     }
-    
+
     // Load initial emails if not already loaded
     if (controller.boxMails.isEmpty) {
       await controller.loadEmailsForBox(controller.mailBoxInbox);
     }
-    
+
     // Process the loaded messages
     _processMessages(controller.boxMails);
   }
 
   void _onScroll() {
     // Enhanced scroll detection for home screen
-    if (!_scrollController.hasClients || _isLoadingMore || _allMessagesLoaded) return;
-    
+    if (!_scrollController.hasClients || _isLoadingMore || _allMessagesLoaded)
+      return;
+
     final position = _scrollController.position;
     final maxScroll = position.maxScrollExtent;
     final currentScroll = position.pixels;
-    
+
     // Trigger loading when user is within 500px of bottom for home screen
-    if (currentScroll >= maxScroll - 500 && 
-        currentScroll < maxScroll - 50 && 
+    if (currentScroll >= maxScroll - 500 &&
+        currentScroll < maxScroll - 50 &&
         maxScroll > 0) {
-      
       // Add haptic feedback
       try {
         HapticFeedback.selectionClick();
       } catch (e) {
         // Ignore haptic feedback errors
       }
-      
+
       _loadMoreMessages();
     }
   }
@@ -115,11 +123,11 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
       return;
     }
     _lastSignature = sig;
-    
+
     // Process ALL messages; unready ones will render with shimmer until ready
     final allUniqueMessages = <MimeMessage>[];
     final allUIDs = <int>{};
-    
+
     for (final message in messages) {
       final uid = message.uid ?? message.sequenceId ?? 0;
       if (uid > 0 && !allUIDs.contains(uid)) {
@@ -127,7 +135,7 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
         allUIDs.add(uid);
       }
     }
-    
+
     // If no messages, clear everything
     if (allUniqueMessages.isEmpty) {
       _groupedMessages.clear();
@@ -136,11 +144,11 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
       if (mounted) setState(() {});
       return;
     }
-    
+
     // Update processed UIDs and count
     _processedUIDs.clear();
     _processedUIDs.addAll(allUIDs);
-    
+
     // Clear and rebuild with ALL unique messages
     _groupedMessages.clear();
     _dateKeys.clear();
@@ -156,7 +164,7 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
     for (final message in allUniqueMessages) {
       final date = _getMessageDate(message);
       final dateKey = DateTime(date.year, date.month, date.day);
-      
+
       if (!_groupedMessages.containsKey(dateKey)) {
         _groupedMessages[dateKey] = [];
         _dateKeys.add(dateKey);
@@ -166,7 +174,7 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
 
     // Sort date keys
     _dateKeys.sort((a, b) => b.compareTo(a)); // Newest dates first
-    
+
     if (mounted) {
       setState(() {});
     }
@@ -174,9 +182,7 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
 
   DateTime _getMessageDate(MimeMessage message) {
     try {
-      return message.decodeDate() ?? 
-             message.envelope?.date ?? 
-             DateTime.now();
+      return message.decodeDate() ?? message.envelope?.date ?? DateTime.now();
     } catch (e) {
       return DateTime.now();
     }
@@ -184,27 +190,30 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
 
   void _loadMoreMessages() async {
     if (_isLoadingMore || !mounted || _allMessagesLoaded) return;
-    
+
     final totalMessages = controller.boxMails.length;
     final currentlyDisplayed = _processedUIDs.length;
-    
+
     // Check if we've reached the end
     final mailboxMessageCount = controller.mailBoxInbox.messagesExists;
     if (currentlyDisplayed >= mailboxMessageCount && mailboxMessageCount > 0) {
       _allMessagesLoaded = true;
       return;
     }
-    
+
     setState(() {
       _isLoadingMore = true;
     });
-    
+
     try {
       if (currentlyDisplayed >= totalMessages) {
         // Load more from server
         final previousCount = totalMessages;
-        await controller.loadMoreEmails(controller.mailBoxInbox, _currentPage + 1);
-        
+        await controller.loadMoreEmails(
+          controller.mailBoxInbox,
+          _currentPage + 1,
+        );
+
         final newTotalMessages = controller.boxMails.length;
         if (newTotalMessages > previousCount) {
           _currentPage++;
@@ -231,16 +240,16 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Obx(() {
       // Listen to controller changes
       final messages = controller.boxMails;
-      
+
       // Update messages when controller changes (signature-based)
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _processMessages(messages);
       });
-      
+
       if (_groupedMessages.isEmpty && !_isLoadingMore) {
         return Center(
           child: Column(
@@ -262,11 +271,14 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
               ),
               const SizedBox(height: 8),
               Text(
-                  'Pull to refresh or check your connection',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: isDarkMode ? Colors.white.withValues(alpha: 0.5) : Colors.grey.shade500,
-                  ),
+                'Pull to refresh or check your connection',
+                style: TextStyle(
+                  fontSize: 14,
+                  color:
+                      isDarkMode
+                          ? Colors.white.withValues(alpha: 0.5)
+                          : Colors.grey.shade500,
+                ),
               ),
             ],
           ),
@@ -290,114 +302,132 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
             if (index == _dateKeys.length) {
               return Container(
                 padding: const EdgeInsets.all(16),
-                child: _allMessagesLoaded
-                  ? Container(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.check_circle_outline,
-                            color: isDarkMode 
-                                  ? Colors.green.shade300 
-                                  : Colors.green.shade600,
-                            size: 24,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'All emails loaded',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDarkMode 
-                                    ? Colors.green.shade300 
-                                    : Colors.green.shade600,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_processedUIDs.length} emails total',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDarkMode 
-                                    ? Colors.green.shade400 
-                                    : Colors.green.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : _isLoadingMore
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                        decoration: BoxDecoration(
-                          color: isDarkMode 
-                                ? Colors.grey.shade800.withValues(alpha: 0.3)
-                                : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isDarkMode 
-                                    ? Colors.black26 
-                                    : Colors.grey.shade300,
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  AppTheme.primaryColor,
+                child:
+                    _allMessagesLoaded
+                        ? Container(
+                          padding: const EdgeInsets.symmetric(vertical: 20),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                color:
+                                    isDarkMode
+                                        ? Colors.green.shade300
+                                        : Colors.green.shade600,
+                                size: 24,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'All emails loaded',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color:
+                                      isDarkMode
+                                          ? Colors.green.shade300
+                                          : Colors.green.shade600,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_processedUIDs.length} emails total',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      isDarkMode
+                                          ? Colors.green.shade400
+                                          : Colors.green.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                        : _isLoadingMore
+                        ? Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 20,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                isDarkMode
+                                    ? Colors.grey.shade800.withValues(
+                                      alpha: 0.3,
+                                    )
+                                    : Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    isDarkMode
+                                        ? Colors.black26
+                                        : Colors.grey.shade300,
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
                                   Text(
                                     'Loading more emails...',
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w500,
-                                      color: isDarkMode 
-                                            ? Colors.white.withValues(alpha: 0.87) 
-                                            : Colors.grey.shade700,
+                                      color:
+                                          isDarkMode
+                                              ? Colors.white.withValues(
+                                                alpha: 0.87,
+                                              )
+                                              : Colors.grey.shade700,
                                     ),
                                   ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Fetching from server',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isDarkMode 
-                                          ? Colors.white60 
-                                          : Colors.grey.shade600,
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Fetching from server',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color:
+                                          isDarkMode
+                                              ? Colors.white60
+                                              : Colors.grey.shade600,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 1),
-                                Text(
-                                  '${_processedUIDs.length} emails loaded',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isDarkMode 
-                                          ? Colors.white.withValues(alpha: 0.5) 
-                                          : Colors.grey.shade500,
+                                  const SizedBox(height: 1),
+                                  Text(
+                                    '${_processedUIDs.length} emails loaded',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color:
+                                          isDarkMode
+                                              ? Colors.white.withValues(
+                                                alpha: 0.5,
+                                              )
+                                              : Colors.grey.shade500,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      )
-                    : const SizedBox.shrink(),
+                                ],
+                              ),
+                            ],
+                          ),
+                        )
+                        : const SizedBox.shrink(),
               );
             }
 
@@ -411,7 +441,11 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
     });
   }
 
-  Widget _buildDateGroup(DateTime date, List<MimeMessage> messages, bool isDarkMode) {
+  Widget _buildDateGroup(
+    DateTime date,
+    List<MimeMessage> messages,
+    bool isDarkMode,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -434,74 +468,120 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
   }
 
   Widget _buildMessageTile(MimeMessage message) {
-    final meta = controller.getMessageMetaNotifier(controller.mailBoxInbox, message);
+    final meta = controller.getMessageMetaNotifier(
+      controller.mailBoxInbox,
+      message,
+    );
     bool isReady() => message.getHeaderValue('x-ready') == '1';
 
     Widget openHandler(Widget child) => GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            if (selectionController.isSelecting) {
-              selectionController.toggle(message);
-            } else {
-              try {
-                final listRef = controller.emails[controller.mailBoxInbox] ?? const <MimeMessage>[];
-                int index = 0;
-                if (listRef.isNotEmpty) {
-                  index = listRef.indexWhere((m) =>
-                      (message.uid != null && m.uid == message.uid) ||
-                      (message.sequenceId != null && m.sequenceId == message.sequenceId));
-                  if (index < 0) index = 0;
-                }
-                Get.to(() => ShowMessagePager(mailbox: controller.mailBoxInbox, initialMessage: message));
-              } catch (_) {
-                Get.to(() => ShowMessage(message: message, mailbox: controller.mailBoxInbox));
-              }
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (selectionController.isSelecting) {
+          selectionController.toggle(message);
+        } else {
+          try {
+            final listRef =
+                controller.emails[controller.mailBoxInbox] ??
+                const <MimeMessage>[];
+            int index = 0;
+            if (listRef.isNotEmpty) {
+              index = listRef.indexWhere(
+                (m) =>
+                    (message.uid != null && m.uid == message.uid) ||
+                    (message.sequenceId != null &&
+                        m.sequenceId == message.sequenceId),
+              );
+              if (index < 0) index = 0;
             }
-          },
-          child: child,
-        );
+            Get.to(
+              () => ShowMessagePager(
+                mailbox: controller.mailBoxInbox,
+                initialMessage: message,
+              ),
+            );
+          } catch (_) {
+            Get.to(
+              () => ShowMessage(
+                message: message,
+                mailbox: controller.mailBoxInbox,
+              ),
+            );
+          }
+        }
+      },
+      child: child,
+    );
 
     Widget shimmerRow() => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Shimmer.fromColors(
-            baseColor: Colors.grey.shade200,
-            highlightColor: Colors.grey.shade100,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(height: 12, width: 160, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                        const SizedBox(height: 8),
-                        Container(height: 10, width: double.infinity, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                        const SizedBox(height: 6),
-                        Container(height: 10, width: MediaQuery.of(context).size.width * 0.5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(height: 10, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                ],
-              ),
-            ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey.shade200,
+        highlightColor: Colors.grey.shade100,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
           ),
-        );
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 12,
+                      width: 160,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 10,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 10,
+                      width: MediaQuery.of(context).size.width * 0.5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                height: 10,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
 
     return ValueListenableBuilder<int>(
       valueListenable: meta,
@@ -518,17 +598,32 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
               selectionController.toggle(message);
             } else {
               try {
-                final listRef = controller.emails[controller.mailBoxInbox] ?? const <MimeMessage>[];
+                final listRef =
+                    controller.emails[controller.mailBoxInbox] ??
+                    const <MimeMessage>[];
                 int index = 0;
                 if (listRef.isNotEmpty) {
-                  index = listRef.indexWhere((m) =>
-                      (message.uid != null && m.uid == message.uid) ||
-                      (message.sequenceId != null && m.sequenceId == message.sequenceId));
+                  index = listRef.indexWhere(
+                    (m) =>
+                        (message.uid != null && m.uid == message.uid) ||
+                        (message.sequenceId != null &&
+                            m.sequenceId == message.sequenceId),
+                  );
                   if (index < 0) index = 0;
                 }
-                Get.to(() => ShowMessagePager(mailbox: controller.mailBoxInbox, initialMessage: message));
+                Get.to(
+                  () => ShowMessagePager(
+                    mailbox: controller.mailBoxInbox,
+                    initialMessage: message,
+                  ),
+                );
               } catch (_) {
-                Get.to(() => ShowMessage(message: message, mailbox: controller.mailBoxInbox));
+                Get.to(
+                  () => ShowMessage(
+                    message: message,
+                    mailbox: controller.mailBoxInbox,
+                  ),
+                );
               }
             }
           },
@@ -548,20 +643,33 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
     } else if (messageDate == yesterday) {
       return 'Yesterday';
     } else if (now.difference(messageDate).inDays < 7) {
-      const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const weekdays = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ];
       return weekdays[date.weekday - 1];
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
-      try { UiContextService.instance.isAppForeground = true; } catch (_) {}
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      try { UiContextService.instance.isAppForeground = false; } catch (_) {}
+      try {
+        UiContextService.instance.isAppForeground = true;
+      } catch (_) {}
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      try {
+        UiContextService.instance.isAppForeground = false;
+      } catch (_) {}
     }
   }
 }
-

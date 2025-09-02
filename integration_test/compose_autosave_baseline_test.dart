@@ -37,7 +37,9 @@ void main() {
       // Speed up autosave to 1s for test
       await FeatureFlags.instance.setDraftAutosaveIntervalSecs(1);
 
-      runApp(MaterialApp(builder: EasyLoading.init(), home: const SizedBox.shrink()));
+      runApp(
+        MaterialApp(builder: EasyLoading.init(), home: const SizedBox.shrink()),
+      );
 
       if (!Get.isRegistered<SettingController>()) {
         Get.put(SettingController(), permanent: true);
@@ -59,7 +61,11 @@ void main() {
         outgoingType: ServerType.smtp,
       );
       ms.account = account;
-      ms.client = MailClient(account, isLogEnabled: false, onBadCertificate: (_) => true);
+      ms.client = MailClient(
+        account,
+        isLogEnabled: false,
+        onBadCertificate: (_) => true,
+      );
 
       drafts = Mailbox(
         encodedName: 'Drafts',
@@ -81,35 +87,41 @@ void main() {
       mbc.currentMailbox = drafts;
     });
 
-    testWidgets('autosave sets baseline; subsequent ticks do nothing when unchanged', (tester) async {
-      final c = Get.put(ComposeController());
-      c.sourceMailbox = drafts;
-      c.isHtml.value = false;
-      c.subjectController.text = 'Baseline';
-      c.plainTextController.text = 'Hello';
-      c.addTo(const MailAddress('', 'dest@example.com'));
+    testWidgets(
+      'autosave sets baseline; subsequent ticks do nothing when unchanged',
+      (tester) async {
+        final c = Get.put(ComposeController());
+        c.sourceMailbox = drafts;
+        c.isHtml.value = false;
+        c.subjectController.text = 'Baseline';
+        c.plainTextController.text = 'Hello';
+        c.addTo(const MailAddress('', 'dest@example.com'));
 
-      // Trigger change detection
-      c.onContentChanged();
+        // Trigger change detection
+        c.onContentChanged();
 
-      // Wait > autosave interval for first save
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+        // Wait > autosave interval for first save
+        await tester.pumpAndSettle(const Duration(seconds: 2));
 
-      // Inspect drafts stored
-      final repo = SQLiteDraftRepository.instance;
-      final all1 = await repo.getAllDrafts();
-      expect(all1.length, greaterThanOrEqualTo(1));
-      final d1 = all1.first;
-      final t1 = d1.updatedAt;
+        // Inspect drafts stored
+        final repo = SQLiteDraftRepository.instance;
+        final all1 = await repo.getAllDrafts();
+        expect(all1.length, greaterThanOrEqualTo(1));
+        final d1 = all1.first;
+        final t1 = d1.updatedAt;
 
-      // No further edits - next autosave tick should be a no-op
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+        // No further edits - next autosave tick should be a no-op
+        await tester.pumpAndSettle(const Duration(seconds: 2));
 
-      final all2 = await repo.getAllDrafts();
-      expect(all2.length, equals(all1.length));
-      final d2 = all2.first;
-      expect(d2.updatedAt.millisecondsSinceEpoch, equals(t1.millisecondsSinceEpoch));
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        final all2 = await repo.getAllDrafts();
+        expect(all2.length, equals(all1.length));
+        final d2 = all2.first;
+        expect(
+          d2.updatedAt.millisecondsSinceEpoch,
+          equals(t1.millisecondsSinceEpoch),
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
   });
 }
-

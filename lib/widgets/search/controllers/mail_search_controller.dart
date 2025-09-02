@@ -20,10 +20,7 @@ class MailSearchController extends GetxController with StateMixin {
     if (Get.arguments != null) {
       searchController.text = Get.arguments['terms'];
     }
-    change(
-      null,
-      status: RxStatus.error('serach:${'enter_search_text'.tr}'),
-    );
+    change(null, status: RxStatus.error('serach:${'enter_search_text'.tr}'));
     scrollController.addListener(() {
       if (scrollController.position.pixels ==
           scrollController.position.maxScrollExtent) {

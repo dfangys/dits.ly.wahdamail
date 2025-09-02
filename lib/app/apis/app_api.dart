@@ -33,9 +33,7 @@ class AppApi extends GetConnect {
   }
 
   Future sendResetPasswordOtp(String email) async {
-    var res = await post("/reset-password/send-otp", {
-      'email': email,
-    });
+    var res = await post("/reset-password/send-otp", {'email': email});
     return parse(res);
   }
 
@@ -62,9 +60,10 @@ class AppApi extends GetConnect {
       );
     } else if (response.statusCode == 422) {
       throw AppApiException(
-        message: response.body is Map
-            ? response.body['message']
-            : response.statusText,
+        message:
+            response.body is Map
+                ? response.body['message']
+                : response.statusText,
         code: APICode.validation,
       );
     } else if (response.statusCode == 401) {
@@ -93,7 +92,7 @@ enum APICode {
   noContent,
   server,
   unknown,
-  unAuthorized
+  unAuthorized,
 }
 
 class AppApiException implements Exception {

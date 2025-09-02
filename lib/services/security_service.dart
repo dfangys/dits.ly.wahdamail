@@ -64,13 +64,15 @@ class SecurityService extends GetxService {
 
       // Get available biometrics to determine the best prompt
       final availableBiometrics = await _localAuth.getAvailableBiometrics();
-      final hasFaceId = availableBiometrics.contains(BiometricType.face) ||
+      final hasFaceId =
+          availableBiometrics.contains(BiometricType.face) ||
           availableBiometrics.contains(BiometricType.strong);
 
       // Customize the authentication prompt based on available biometrics
-      final String localizedReason = hasFaceId
-          ? 'Authenticate with Face ID to access your emails'
-          : 'Authenticate with biometrics to access your emails';
+      final String localizedReason =
+          hasFaceId
+              ? 'Authenticate with Face ID to access your emails'
+              : 'Authenticate with biometrics to access your emails';
 
       return await _localAuth.authenticate(
         localizedReason: localizedReason,
@@ -128,9 +130,9 @@ class SecurityService extends GetxService {
 
   // Handle app coming to foreground
   Future<void> onAppForeground() async {
-
     // If app lock is enabled, check if we need to authenticate
-    if (_settingsController.appLock.value && !_settingsController.isAuthenticated.value) {
+    if (_settingsController.appLock.value &&
+        !_settingsController.isAuthenticated.value) {
       // Check if we need to authenticate based on timing
       if (_shouldLockBasedOnTiming()) {
         // Show authentication screen

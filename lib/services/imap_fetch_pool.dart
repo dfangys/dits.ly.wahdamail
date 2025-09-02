@@ -50,10 +50,20 @@ class ImapFetchPool {
       }
       // Find matching mailbox on this client
       final boxes = await cli.listMailboxes();
-      Mailbox? match = boxes.firstWhereOrNull((mb) => _isSameMailbox(mb, mailboxHint));
-      match ??= boxes.firstWhereOrNull((mb) => mb.isInbox && mailboxHint.isInbox);
-      match ??= boxes.firstWhereOrNull((mb) => mb.name.toLowerCase() == mailboxHint.name.toLowerCase());
-      match ??= boxes.firstWhereOrNull((mb) => mb.encodedPath.toLowerCase() == mailboxHint.encodedPath.toLowerCase());
+      Mailbox? match = boxes.firstWhereOrNull(
+        (mb) => _isSameMailbox(mb, mailboxHint),
+      );
+      match ??= boxes.firstWhereOrNull(
+        (mb) => mb.isInbox && mailboxHint.isInbox,
+      );
+      match ??= boxes.firstWhereOrNull(
+        (mb) => mb.name.toLowerCase() == mailboxHint.name.toLowerCase(),
+      );
+      match ??= boxes.firstWhereOrNull(
+        (mb) =>
+            mb.encodedPath.toLowerCase() ==
+            mailboxHint.encodedPath.toLowerCase(),
+      );
       match ??= boxes.isNotEmpty ? boxes.first : null;
       if (match != null) {
         await cli.selectMailbox(match).timeout(const Duration(seconds: 10));
@@ -87,7 +97,9 @@ class ImapFetchPool {
       } catch (e, st) {
         if (!completer.isCompleted) completer.completeError(e, st);
         // If something went wrong, drop the client to force fresh connect next time
-        try { _client?.disconnect(); } catch (_) {}
+        try {
+          _client?.disconnect();
+        } catch (_) {}
         _client = null;
       }
     });
@@ -111,7 +123,10 @@ class ImapFetchPool {
           seq,
           fetchPreference: fetchPreference,
         );
-        final msgs = await fut.timeout(timeout, onTimeout: () => <MimeMessage>[]);
+        final msgs = await fut.timeout(
+          timeout,
+          onTimeout: () => <MimeMessage>[],
+        );
         return msgs;
       } catch (e) {
         if (kDebugMode) {
@@ -135,7 +150,10 @@ class ImapFetchPool {
           sequence,
           fetchPreference: fetchPreference,
         );
-        final msgs = await fut.timeout(timeout, onTimeout: () => <MimeMessage>[]);
+        final msgs = await fut.timeout(
+          timeout,
+          onTimeout: () => <MimeMessage>[],
+        );
         return msgs;
       } catch (e) {
         if (kDebugMode) {
@@ -159,7 +177,10 @@ class ImapFetchPool {
           MessageSequence.fromRange(uid, uid, isUidSequence: true),
           fetchPreference: fetchPreference,
         );
-        final msgs = await fut.timeout(timeout, onTimeout: () => <MimeMessage>[]);
+        final msgs = await fut.timeout(
+          timeout,
+          onTimeout: () => <MimeMessage>[],
+        );
         return msgs;
       } catch (e) {
         if (kDebugMode) {
@@ -193,9 +214,9 @@ class ImapFetchPool {
   }
 
   Future<void> dispose() async {
-    try { _client?.disconnect(); } catch (_) {}
+    try {
+      _client?.disconnect();
+    } catch (_) {}
     _client = null;
   }
 }
-
-

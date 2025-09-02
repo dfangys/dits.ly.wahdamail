@@ -2,9 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class WToTextField extends StatelessWidget {
-  WToTextField({
-    super.key,
-  });
+  WToTextField({super.key});
 
   final TextEditingController textController = TextEditingController();
 
@@ -17,8 +15,9 @@ class WToTextField extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 10),
           padding: const EdgeInsets.only(left: 10, right: 10),
           decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey)),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey),
+          ),
           child: Row(
             children: [
               SizedBox(
@@ -26,8 +25,9 @@ class WToTextField extends StatelessWidget {
                 child: TextFormField(
                   controller: textController,
                   decoration: InputDecoration(
-                      hintText: 'Email ID',
-                      hintStyle: TextStyle(color: Colors.grey.shade400)),
+                    hintText: 'Email ID',
+                    hintStyle: TextStyle(color: Colors.grey.shade400),
+                  ),
                 ),
               ),
               TextButton(
@@ -37,7 +37,7 @@ class WToTextField extends StatelessWidget {
               const Icon(
                 CupertinoIcons.person_2_square_stack_fill,
                 color: Colors.green,
-              )
+              ),
             ],
           ),
         ),

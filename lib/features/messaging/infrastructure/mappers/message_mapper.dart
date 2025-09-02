@@ -5,6 +5,7 @@ import 'package:wahda_bank/features/messaging/infrastructure/dtos/attachment_row
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
 import 'package:wahda_bank/features/messaging/domain/entities/body.dart' as dom;
 import 'package:wahda_bank/features/messaging/domain/entities/attachment.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/search_result.dart' as dom;
 
 class MessageMapper {
   static MessageRow fromHeaderDTO(HeaderDTO h) {
@@ -77,5 +78,17 @@ class MessageMapper {
         sizeBytes: r.sizeBytes,
         mimeType: r.mimeType,
         contentId: r.contentId,
+      );
+
+  static dom.SearchResult searchResultFromRow(MessageRow r) => dom.SearchResult(
+        messageId: r.id,
+        folderId: r.folderId,
+        date: DateTime.fromMillisecondsSinceEpoch(r.dateEpochMs),
+      );
+
+  static dom.SearchResult searchResultFromHeader(HeaderDTO h) => dom.SearchResult(
+        messageId: h.id,
+        folderId: h.folderId,
+        date: DateTime.fromMillisecondsSinceEpoch(h.dateEpochMs),
       );
 }

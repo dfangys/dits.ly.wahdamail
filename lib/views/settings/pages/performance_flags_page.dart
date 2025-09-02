@@ -73,9 +73,7 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
     final softMax = _budget.cacheSoftMaxBytes;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Performance & Feature Flags'),
-      ),
+      appBar: AppBar(title: const Text('Performance & Feature Flags')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -93,7 +91,10 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
             title: 'Cache Usage',
             value: _fmtBytes(_cacheBytes),
             subtitle: 'Estimated cache memory usage',
-            trailing: Text('Soft max: ${_fmtBytes(softMax)}', style: theme.textTheme.bodySmall),
+            trailing: Text(
+              'Soft max: ${_fmtBytes(softMax)}',
+              style: theme.textTheme.bodySmall,
+            ),
           ),
           const SizedBox(height: 12),
           _cacheBreakdown(theme),
@@ -191,7 +192,9 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
           ),
           Card(
             elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: ListTile(
               title: const Text('Polling interval'),
               subtitle: const Text('How frequently to check for updates'),
@@ -206,7 +209,9 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
                 ],
                 onChanged: (v) async {
                   if (v == null) return;
-                  await FeatureFlags.instance.setForegroundPollingIntervalSecs(v);
+                  await FeatureFlags.instance.setForegroundPollingIntervalSecs(
+                    v,
+                  );
                   setState(() => _pollingIntervalSecs = v);
                   _applyPollingSettingsNow();
                 },
@@ -277,8 +282,16 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
     final items = [
       _CacheItem('Messages', _cache.messageCacheCount, null),
       _CacheItem('Mailboxes', _cache.mailboxCacheCount, null),
-      _CacheItem('Attachments', _cache.attachmentCacheCount, _fmtBytes(_cache.attachmentCacheBytes)),
-      _CacheItem('Message content', _cache.contentCacheCount, _fmtBytes(_cache.contentCacheBytes)),
+      _CacheItem(
+        'Attachments',
+        _cache.attachmentCacheCount,
+        _fmtBytes(_cache.attachmentCacheBytes),
+      ),
+      _CacheItem(
+        'Message content',
+        _cache.contentCacheCount,
+        _fmtBytes(_cache.contentCacheBytes),
+      ),
       _CacheItem('Attachment lists', _cache.attachmentListCacheCount, null),
     ];
     final stats = _cache.cacheStats;
@@ -293,33 +306,65 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
           children: [
             Text('Cache breakdown', style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
-            ...items.map((e) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(e.name)),
-                      Text('count: ${e.count}'),
-                      if (e.bytesLabel != null) ...[
-                        const SizedBox(width: 12),
-                        Text(e.bytesLabel!),
-                      ],
+            ...items.map(
+              (e) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(e.name)),
+                    Text('count: ${e.count}'),
+                    if (e.bytesLabel != null) ...[
+                      const SizedBox(width: 12),
+                      Text(e.bytesLabel!),
                     ],
-                  ),
-                )),
+                  ],
+                ),
+              ),
+            ),
             const Divider(height: 24),
             Text('Hit rates', style: theme.textTheme.titleSmall),
             const SizedBox(height: 8),
-            _hitRow(theme, 'Message', _cache.messageHitRate, stats['message_hits'], stats['message_misses']),
-            _hitRow(theme, 'Mailbox', _cache.mailboxHitRate, stats['mailbox_hits'], stats['mailbox_misses']),
-            _hitRow(theme, 'Attachment', _cache.attachmentHitRate, stats['attachment_hits'], stats['attachment_misses']),
-            _hitRow(theme, 'Content', _cache.contentHitRate, stats['content_hits'], stats['content_misses']),
+            _hitRow(
+              theme,
+              'Message',
+              _cache.messageHitRate,
+              stats['message_hits'],
+              stats['message_misses'],
+            ),
+            _hitRow(
+              theme,
+              'Mailbox',
+              _cache.mailboxHitRate,
+              stats['mailbox_hits'],
+              stats['mailbox_misses'],
+            ),
+            _hitRow(
+              theme,
+              'Attachment',
+              _cache.attachmentHitRate,
+              stats['attachment_hits'],
+              stats['attachment_misses'],
+            ),
+            _hitRow(
+              theme,
+              'Content',
+              _cache.contentHitRate,
+              stats['content_hits'],
+              stats['content_misses'],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _hitRow(ThemeData theme, String name, double rate, int? hits, int? misses) {
+  Widget _hitRow(
+    ThemeData theme,
+    String name,
+    double rate,
+    int? hits,
+    int? misses,
+  ) {
     final pct = (rate * 100).toStringAsFixed(1);
     final h = hits ?? 0;
     final m = misses ?? 0;
@@ -399,11 +444,16 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
                 children: [
                   Text(title, style: theme.textTheme.titleMedium),
                   const SizedBox(height: 4),
-                  Text(value, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                  Text(
+                    value,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
                     Text(subtitle, style: theme.textTheme.bodySmall),
-                  ]
+                  ],
                 ],
               ),
             ),
@@ -417,7 +467,8 @@ class _PerformanceFlagsPageState extends State<PerformanceFlagsPage> {
   String _fmtBytes(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }
@@ -428,4 +479,3 @@ class _CacheItem {
   final String? bytesLabel;
   _CacheItem(this.name, this.count, this.bytesLabel);
 }
-
