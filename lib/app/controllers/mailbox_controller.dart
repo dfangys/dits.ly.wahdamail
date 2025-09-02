@@ -32,10 +32,22 @@ import 'package:wahda_bank/views/box/mailbox_view.dart';
 import 'package:wahda_bank/views/settings/data/swap_data.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
+import 'package:wahda_bank/app/constants/app_constants.dart';
 import '../../views/authantication/screens/login/login.dart';
-import '../../views/view/models/box_model.dart';
+import 'package:wahda_bank/services/imap_command_queue.dart';
+
+class _LocalDbLoadResult {
+  final int loaded;
+  final int localCount;
+  final bool loadedFromDb;
+  const _LocalDbLoadResult({required this.loaded, required this.localCount, required this.loadedFromDb});
+}
 
 class MailBoxController extends GetxController {
+  // Retry guard for initial mailbox loading to handle transient connection limits on hot restart
+  int _loadMailboxesRetries = 0;
+  static const int _loadMailboxesMaxRetries = 4;
+  Duration _loadMailboxesBackoff(int attempt) => Duration(seconds: 2 * (attempt + 1));
   // ENHANCED: Add IndexedCache for high-performance message caching
   late final IndexedCache<MimeMessage> _messageCache;
   static const int _maxCacheSize = 200; // Optimized for mobile devices
@@ -82,6 +94,16 @@ class MailBoxController extends GetxController {
 
   // Optimized IDLE once-only guard
   bool _optimizedIdleStarted = false;
+
+  // Background monitor for special-use mailboxes (Drafts, Sent, Trash, Junk)
+  Timer? _specialMonitorTimer;
+
+  // Auto background refresh for current mailbox using IDLE meta snapshots
+  Timer? _autoRefreshTimer;
+  bool _autoSyncInFlight = false;
+  DateTime _lastAutoSyncRun = DateTime.fromMillisecondsSinceEpoch(0);
+  final Map<String, int?> _mailboxUidNextSnapshot = {};
+  final Map<String, int?> _mailboxExistsSnapshot = {};
 
   // Replace Hive storage with SQLite storage
   final RxMap<Mailbox, SQLiteMailboxMimeStorage> mailboxStorage =
@@ -491,10 +513,10 @@ class MailBoxController extends GetxController {
               (m.sequenceId == message.sequenceId && message.sequenceId != null)
             );
             
-            if (!exists) {
+              if (!exists) {
               currentMessages.insert(0, message); // Add to beginning
               persistBatch.add(message);
-              try { bumpMessageMeta(current!, message); } catch (_) {}
+              try { if (current != null) bumpMessageMeta(current, message); } catch (_) {}
             }
           }
           // Trigger reactive updates
@@ -510,19 +532,21 @@ class MailBoxController extends GetxController {
           }
 
           // Kick off a very fast preview/backfill for the top few new messages
-          unawaited(_fastPreviewForNewMessages(current!, newMessages.take(3).toList()));
+          if (current != null) unawaited(_fastPreviewForNewMessages(current, newMessages.take(3).toList()));
           // Warm up envelopes for all new messages so tiles don't show Unknown/No Subject
-          unawaited(_ensureEnvelopesForNewMessages(current!, newMessages));
+          if (current != null) unawaited(_ensureEnvelopesForNewMessages(current, newMessages));
 
           // Also queue background backfill for the whole batch
           if (storage != null && newMessages.isNotEmpty) {
             try {
-              previewService.queueBackfillForMessages(
-                mailbox: current!,
-                messages: newMessages,
-                storage: storage,
-                maxJobs: 10,
-              );
+              if (current != null) {
+                previewService.queueBackfillForMessages(
+                  mailbox: current,
+                  messages: newMessages,
+                  storage: storage,
+                  maxJobs: 10,
+                );
+              }
             } catch (_) {}
           }
           
@@ -581,52 +605,127 @@ class MailBoxController extends GetxController {
 
   Future loadMailBoxes() async {
     try {
-      List b = getStoarage.read('boxes') ?? [];
-      if (b.isEmpty) {
-        await mailService.connect();
-        mailboxes(await mailService.client.listMailboxes());
-      } else {
-        mailboxes(
-          b.map((e) => BoxModel.fromJson(e as Map<String, dynamic>)).toList(),
-        );
+      // Attempt to connect with a short timeout. On hot restart, servers may still count the previous session.
+      try {
+        await mailService.connect().timeout(const Duration(seconds: 12));
+      } catch (connectErr) {
+        final msg = connectErr.toString();
+        // Handle transient IP/user connection limits or handshake/network issues silently with retry.
+        final transient = msg.contains('Maximum number of connections') ||
+            msg.contains('mail_max_userip_connections') ||
+            msg.contains('HandshakeException') ||
+            msg.contains('SocketException') ||
+            msg.contains('Connection timed out') ||
+            msg.contains('Failed host lookup') ||
+            msg.contains('CERTIFICATE_VERIFY_FAILED');
+        if (transient && _loadMailboxesRetries < _loadMailboxesMaxRetries) {
+          final backoff = _loadMailboxesBackoff(_loadMailboxesRetries++);
+          if (kDebugMode) {
+print('📫 loadMailBoxes: transient connect error, retrying in ${backoff.inSeconds}s (attempt #$_loadMailboxesRetries) → $msg');
+          }
+          // Keep the spinner visible; do not show snackbar. Retry shortly.
+          Future.delayed(backoff, () async {
+            try { await loadMailBoxes(); } catch (_) {}
+          });
+          return; // Defer work to the retry
+        } else if (transient) {
+          if (kDebugMode) {
+print('📫 loadMailBoxes: giving up retries after $_loadMailboxesRetries attempts');
+          }
+          // Fall through to show a gentle error below.
+        } else {
+          // Non-transient: rethrow to outer catch
+          rethrow;
+        }
       }
-      for (var mailbox in mailboxes) {
-        if (mailboxStorage[mailbox] != null) continue;
-        mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
+
+      if (!mailService.client.isConnected) {
+        // If still not connected (cooldown), schedule retry and keep spinner
+        if (_loadMailboxesRetries < _loadMailboxesMaxRetries) {
+          final backoff = _loadMailboxesBackoff(_loadMailboxesRetries++);
+          if (kDebugMode) {
+print('📫 loadMailBoxes: not connected yet, retrying in ${backoff.inSeconds}s (attempt #$_loadMailboxesRetries)');
+          }
+          Future.delayed(backoff, () async {
+            try { await loadMailBoxes(); } catch (_) {}
+          });
+          return;
+        }
+      }
+
+      // Always fetch a fresh mailbox list from the server to avoid stale flags/paths
+      final listed = await mailService.client.listMailboxes();
+      if (listed.isNotEmpty) {
+        mailboxes(listed);
+      }
+
+      // Initialize per-mailbox storage if needed
+      for (var m in mailboxes) {
+        if (mailboxStorage[m] != null) continue;
+        mailboxStorage[m] = SQLiteMailboxMimeStorage(
           mailAccount: mailService.account,
-          mailbox: mailbox,
+          mailbox: m,
         );
-        emails[mailbox] = <MimeMessage>[];
-        await mailboxStorage[mailbox]!.init();
+        emails[m] = <MimeMessage>[];
+        await mailboxStorage[m]!.init();
       }
-      isBusy(false);
       await initInbox();
+      isBusy(false);
+
+      // Start background monitor for special-use mailboxes
+      _startSpecialMailboxMonitor();
+
+      // Reset retry counter after success
+      _loadMailboxesRetries = 0;
     } catch (e) {
       logger.e("Error in loadMailBoxes: $e");
+      // Keep spinner visible for a short time and retry once if possible on transient errors
+      final msg = e.toString();
+      final transient = msg.contains('Maximum number of connections') ||
+          msg.contains('mail_max_userip_connections') ||
+          msg.contains('HandshakeException') ||
+          msg.contains('SocketException') ||
+          msg.contains('Connection timed out') ||
+          msg.contains('Failed host lookup') ||
+          msg.contains('CERTIFICATE_VERIFY_FAILED');
+      if (transient && _loadMailboxesRetries < _loadMailboxesMaxRetries) {
+        final backoff = _loadMailboxesBackoff(_loadMailboxesRetries++);
+        if (kDebugMode) {
+          print('📫 loadMailBoxes: transient failure in outer catch, retrying in ${backoff.inSeconds}s (attempt #$_loadMailboxesRetries) → $msg');
+        }
+        Future.delayed(backoff, () async {
+          try { await loadMailBoxes(); } catch (_) {}
+        });
+        return;
+      }
+
+      // Show gentle error once and drop spinner so user can pull-to-refresh
       isBusy(false);
-      // Show error to user
-      Get.snackbar(
-        'Error',
-        'Failed to load mailboxes. Please check your connection and try again.',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+if (!Get.isSnackbarOpen) {
+        Get.snackbar(
+          'Connection issue',
+          'Failed to load mailboxes. Retrying may help.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+      }
     }
   }
 
   Future<void> loadEmailsForBox(Mailbox mailbox) async {
     // Check if we have cached emails first (moved outside try block for scope)
     final hasExistingEmails = emails[mailbox] != null && emails[mailbox]!.isNotEmpty;
-    
+
     try {
       // CRITICAL FIX: Prevent infinite loading loops
       if (isLoadingEmails.value) {
         logger.i("Already loading emails, skipping duplicate request");
         return;
       }
-      
+
       isLoadingEmails.value = true;
-      
+
       // Show progress for first-time load when no cached emails are present
       if (!hasExistingEmails) {
         progressController.show(
@@ -635,24 +734,25 @@ class MailBoxController extends GetxController {
           indeterminate: true,
         );
       }
-      
+
       // CRITICAL FIX: Add comprehensive logging for mailbox context
       logger.i("Loading emails for mailbox: ${mailbox.name} (path: ${mailbox.path})");
       logger.i("Has existing emails: $hasExistingEmails");
       logger.i("Previous current mailbox: ${currentMailbox?.name}");
-      
+
       // Only show progress indicator if this is the first time loading (no cached emails)
       // Removed progressController to avoid duplicate loading indicators
 
       isBoxBusy(true);
-      
+
       // Stop any previous polling when switching mailboxes
       _stopForegroundPolling();
+      _stopAutoBackgroundRefresh();
 
       // CRITICAL FIX: Set current mailbox FIRST to ensure proper context isolation
       currentMailbox = mailbox;
       logger.i("Set current mailbox to: ${currentMailbox?.name}");
-      
+
       // CRITICAL FIX: Force UI update to reflect mailbox change immediately
       update();
 
@@ -668,7 +768,8 @@ class MailBoxController extends GetxController {
       } catch (_) {}
 
       // PERFORMANCE FIX: If emails already exist, just return them (use cache)
-      if (hasExistingEmails) {
+      // IMPORTANT: Never short-circuit for Drafts – always reconcile against server for exact match
+      if (hasExistingEmails && !mailbox.isDrafts) {
         logger.i("Using cached emails for ${mailbox.name} (${emails[mailbox]!.length} messages)");
         // Kick off preview backfill for messages missing previews
         final storage = mailboxStorage[mailbox];
@@ -685,6 +786,16 @@ class MailBoxController extends GetxController {
         currentMailbox = mailbox;
         // Begin real-time updates via optimized IDLE (preferred) after cache hydration
         _initializeOptimizedIdleService();
+        _startAutoBackgroundRefresh();
+        return;
+      }
+
+      // For Drafts, force an exact reconciliation even if cache exists
+      if (mailbox.isDrafts) {
+        await _reconcileDraftsExact(mailbox, maxUidFetch: 2000);
+        isLoadingEmails.value = false;
+        _initializeOptimizedIdleService();
+        _startAutoBackgroundRefresh();
         return;
       }
 
@@ -707,9 +818,9 @@ class MailBoxController extends GetxController {
           throw TimeoutException("Mailbox selection timeout", const Duration(seconds: 10));
         },
       );
-      
+
       // NOTE: Defer starting optimized IDLE until after first-time load/prefetch completes
-      
+
       // Fetch mailbox with timeout adapted for first-time loads
       progressController.updateStatus('Loading emails…');
       final int outerTimeoutSeconds = hasExistingEmails ? 45 : 180;
@@ -722,12 +833,12 @@ class MailBoxController extends GetxController {
       );
     } catch (e) {
       logger.e("Error selecting mailbox: $e");
-      
+
       // Only retry if it's not a timeout from our own operations
       if (e is! TimeoutException) {
         try {
           // Removed progressController updateStatus to avoid duplicate indicators
-          
+
           // Shorter retry timeout
           await mailService.connect().timeout(
             const Duration(seconds: 8),
@@ -735,14 +846,14 @@ class MailBoxController extends GetxController {
               throw TimeoutException("Reconnection timeout", const Duration(seconds: 8));
             },
           );
-          
+
           await mailService.client.selectMailbox(mailbox).timeout(
             const Duration(seconds: 8),
             onTimeout: () {
               throw TimeoutException("Mailbox selection timeout on retry", const Duration(seconds: 8));
             },
           );
-          
+
           // PERFORMANCE FIX: Use forceRefresh on retry to ensure fresh data
           await fetchMailbox(mailbox, forceRefresh: true).timeout(
             const Duration(seconds: 30),
@@ -781,7 +892,7 @@ class MailBoxController extends GetxController {
       // Always reset loading state
       isBoxBusy(false);
       isLoadingEmails.value = false;
-      
+
       // Hide progress UI at the end only if no prefetch is active
       if (!isPrefetching.value) {
         progressController.hide();
@@ -820,7 +931,216 @@ class MailBoxController extends GetxController {
 
   // Pagination for emails
   int page = 1;
-  int pageSize = 50; // Increased from 10 to 50 for better email loading performance
+  int pageSize = AppConstants.PAGE_SIZE; // Increased from 10 to 50 for better email loading performance
+
+  // Helper: initialize storage with timeout and proper mailbox binding
+  Future<void> _initializeMailboxStorageSafe(Mailbox mailbox) async {
+    if (mailboxStorage[mailbox] != null) return;
+    mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
+      mailAccount: mailService.account,
+      mailbox: mailbox,
+    );
+    await mailboxStorage[mailbox]!.init().timeout(
+      Duration(seconds: AppConstants.DB_INIT_TIMEOUT_SECONDS),
+      onTimeout: () {
+        throw TimeoutException(
+          "Database initialization timeout",
+          Duration(seconds: AppConstants.DB_INIT_TIMEOUT_SECONDS),
+        );
+      },
+    );
+  }
+
+  // Helper: load first page from local DB (skipped on forceRefresh)
+  Future<_LocalDbLoadResult> _fmLoadFromLocalDb(
+    Mailbox mailbox,
+    int maxToLoad, {
+    required bool forceRefresh,
+  }) async {
+    final storage = mailboxStorage[mailbox]!;
+    int localCount = 0;
+    int loaded = 0;
+    bool loadedFromDb = false;
+    if (!forceRefresh) {
+      localCount = await storage.countMessages();
+      final fromDb = await storage
+          .loadMessagePage(limit: maxToLoad, offset: 0)
+          .timeout(
+            Duration(seconds: AppConstants.CONNECTION_TIMEOUT_SECONDS),
+            onTimeout: () => <MimeMessage>[],
+          );
+      if (fromDb.isNotEmpty) {
+        emails[mailbox]!.addAll(fromDb);
+        _computeAndStampThreadCounts(mailbox);
+        previewService.queueBackfillForMessages(
+          mailbox: mailbox,
+          messages: fromDb,
+          storage: storage,
+          maxJobs: AppConstants.PREVIEW_BACKFILL_MAX_JOBS_PAGINATION,
+        );
+        loaded = fromDb.length;
+        loadedFromDb = true;
+        logger.i("Loaded ${fromDb.length} messages from local DB for ${mailbox.name}");
+      }
+    }
+    return _LocalDbLoadResult(
+      loaded: loaded,
+      localCount: localCount,
+      loadedFromDb: loadedFromDb,
+    );
+  }
+
+  // Helper: enterprise sync followed by optional prefetch; returns true if satisfied window
+  Future<bool> _fmEnterpriseSyncAndMaybePrefetch(
+    Mailbox mailbox,
+    SQLiteMailboxMimeStorage storage,
+    int maxToLoad, {
+    required bool loadedFromDb,
+  }) async {
+    final satisfied = await _enterpriseSync(mailbox, storage, maxToLoad: maxToLoad);
+    if (!satisfied) return false;
+
+    // Sort newest first
+    _fmSortByDate(mailbox);
+    emails.refresh();
+    update();
+
+    // Prefetch window
+    final bool quietPrefetch = loadedFromDb;
+    if (!quietPrefetch) {
+      isPrefetching.value = true;
+      progressController.updateStatus('Prefetching message bodies and attachments…');
+      _updateReadyProgress(mailbox, maxToLoad);
+    }
+    await _prefetchFullContentForWindow(
+      mailbox,
+      limit: maxToLoad,
+      quiet: quietPrefetch,
+    );
+    if (!quietPrefetch) {
+      isPrefetching.value = false;
+      progressController.updateProgress(
+        current: maxToLoad,
+        total: maxToLoad,
+        progress: 1.0,
+        subtitle: 'Done',
+      );
+      progressController.hide();
+    }
+
+    // Start IDLE and auto background refresh after initial load
+    _initializeOptimizedIdleService();
+    _startAutoBackgroundRefresh();
+    logger.i("Enterprise sync satisfied initial window for ${mailbox.name} (${emails[mailbox]!.length})");
+    return true;
+  }
+
+  // Helper: fetch the remaining envelopes from server in descending sequence order
+  Future<void> _fmFetchRemainingFromServer(
+    Mailbox mailbox,
+    SQLiteMailboxMimeStorage storage,
+    int max,
+    int loaded,
+    int maxToLoad,
+  ) async {
+    int batchSize = AppConstants.MAILBOX_FETCH_BATCH_SIZE;
+    while (loaded < maxToLoad) {
+      int currentBatchSize = batchSize;
+      if (loaded + currentBatchSize > maxToLoad) {
+        currentBatchSize = maxToLoad - loaded;
+      }
+
+      // Descending from newest
+      int start = max - loaded - currentBatchSize + 1;
+      int end = max - loaded;
+
+      if (start < 1) start = 1;
+      if (end < start) break;
+
+      MessageSequence sequence;
+      try {
+        sequence = MessageSequence.fromRange(start, end);
+      } catch (e) {
+        logger.e("Error creating sequence for range $start:$end: $e");
+        break;
+      }
+
+      try {
+        final messages = await mailService.client
+            .fetchMessageSequence(
+              sequence,
+              fetchPreference: FetchPreference.envelope,
+            )
+            .timeout(
+              Duration(seconds: AppConstants.FETCH_NETWORK_TIMEOUT_SECONDS),
+              onTimeout: () => throw TimeoutException(
+                "Network fetch timeout",
+                Duration(seconds: AppConstants.FETCH_NETWORK_TIMEOUT_SECONDS),
+              ),
+            );
+
+        if (messages.isEmpty) break;
+
+        // De-duplicate by UID and sequenceId
+        final existingUids = emails[mailbox]!.map((m) => m.uid).whereType<int>().toSet();
+        final existingSeqIds = emails[mailbox]!.map((m) => m.sequenceId).whereType<int>().toSet();
+        final unique = messages.where((m) {
+          final uid = m.uid;
+          final seq = m.sequenceId;
+          final notByUid = uid == null || !existingUids.contains(uid);
+          final notBySeq = seq == null || !existingSeqIds.contains(seq);
+          return notByUid && notBySeq;
+        }).toList();
+
+        if (unique.isEmpty) break;
+        emails[mailbox]!.addAll(unique);
+        _computeAndStampThreadCounts(mailbox);
+        previewService.queueBackfillForMessages(
+          mailbox: mailbox,
+          messages: unique,
+          storage: storage,
+          maxJobs: AppConstants.PREVIEW_BACKFILL_MAX_JOBS_PAGINATION,
+        );
+
+        // Persist (best-effort)
+        storage.saveMessageEnvelopes(unique).catchError((e) {
+          logger.w("Database save failed: $e");
+        });
+
+        loaded += unique.length;
+        progressController.updateProgress(
+          current: loaded,
+          total: maxToLoad,
+          progress: (loaded / maxToLoad).clamp(0.0, 1.0),
+          subtitle: 'Downloading emails… $loaded / $maxToLoad',
+        );
+        logger.i("Loaded network batch: ${unique.length} messages (total: ${emails[mailbox]!.length})");
+      } catch (e) {
+        logger.e("Error loading messages for sequence $start:$end: $e");
+        // Continue with next batch instead of failing completely
+        loaded += currentBatchSize;
+        progressController.updateProgress(
+          current: loaded,
+          total: maxToLoad,
+          progress: (loaded / maxToLoad).clamp(0.0, 1.0),
+          subtitle: 'Recovering… $loaded / $maxToLoad',
+        );
+      }
+    }
+  }
+
+  // Helper: sort current mailbox newest-first
+  void _fmSortByDate(Mailbox mailbox) {
+    if (emails[mailbox]!.isEmpty) return;
+    emails[mailbox]!.sort((a, b) {
+      final dateA = a.decodeDate();
+      final dateB = b.decodeDate();
+      if (dateA == null && dateB == null) return 0;
+      if (dateA == null) return 1;
+      if (dateB == null) return -1;
+      return dateB.compareTo(dateA);
+    });
+  }
 
   Future<void> fetchMailbox(Mailbox mailbox, {bool forceRefresh = false}) async {
     final endTrace = PerfTracer.begin('controller.fetchMailbox', args: {
@@ -839,38 +1159,36 @@ class MailBoxController extends GetxController {
         return;
       }
 
-      int max = mailbox.messagesExists;
-      if (mailbox.uidNext != null && mailbox.isInbox) {
+      // Ensure fresh server metadata is used for counts/UIDNEXT
+      await _ensureConnectedAndSelectedMailbox(mailbox);
+      final selected = mailService.client.selectedMailbox ?? mailbox;
+
+      int max = selected.messagesExists;
+      if (selected.uidNext != null && mailbox.isInbox) {
         await GetStorage().write(
           BackgroundService.keyInboxLastUid,
-          mailbox.uidNext,
+          selected.uidNext,
         );
       }
-      
+
+      // Handle empty mailbox
       if (max == 0) {
-        // No messages, but still update the storage to trigger UI update
-        if (emails[mailbox] == null) {
-          emails[mailbox] = <MimeMessage>[];
-        }
+        emails[mailbox] ??= <MimeMessage>[];
         if (mailboxStorage[mailbox] != null) {
           await mailboxStorage[mailbox]!.saveMessageEnvelopes([]);
         }
-        
-        // CRITICAL FIX: Trigger reactive updates for empty mailbox
         emails.refresh();
         update();
         return;
       }
-      
-      // Initialize emails list if not exists
-      if (emails[mailbox] == null) {
-        emails[mailbox] = <MimeMessage>[];
-      }
 
-      // PERFORMANCE FIX: Only clear and refetch if forced or no emails cached
+      // Initialize emails list if not exists
+      emails[mailbox] ??= <MimeMessage>[];
+
+      // Use cached emails when allowed
       if (!forceRefresh && emails[mailbox]!.isNotEmpty) {
         logger.i("Using cached emails for ${mailbox.name} (${emails[mailbox]!.length} messages)");
-        return; // Use cached emails
+        return;
       }
 
       // Clear only when actually refreshing
@@ -879,25 +1197,12 @@ class MailBoxController extends GetxController {
         logger.i("Force refresh: cleared cached emails for ${mailbox.name}");
       }
 
-      // Initialize storage with timeout
-      if (mailboxStorage[mailbox] == null) {
-        mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
-          mailAccount: mailService.account,
-          mailbox: mailbox,
-        );
-        await mailboxStorage[mailbox]!.init().timeout(
-          const Duration(seconds: 10),
-          onTimeout: () {
-            throw TimeoutException("Database initialization timeout", const Duration(seconds: 10));
-          },
-        );
-      }
+      // Ensure storage is initialized
+      await _initializeMailboxStorageSafe(mailbox);
+      final storage = mailboxStorage[mailbox]!;
 
-      // PERFORMANCE OPTIMIZATION: Load only an initial window instead of entire mailbox
-      int loaded = 0;
-      int maxToLoad = math.min(max, 200); // Load up to 200 most recent for initial view
-      int batchSize = 50; // Batch size for network fetch
-      
+      // Compute initial window
+      final int maxToLoad = math.min(max, AppConstants.INITIAL_MAILBOX_LOAD_LIMIT);
       if (maxToLoad > 0) {
         progressController.updateProgress(
           current: 0,
@@ -907,214 +1212,53 @@ class MailBoxController extends GetxController {
         );
       }
 
-      // First, try to serve from local DB using page-based API
-      final storage = mailboxStorage[mailbox]!;
-      final localCount = await storage.countMessages();
-      final fromDb = await storage
-          .loadMessagePage(limit: maxToLoad, offset: 0)
-          .timeout(const Duration(seconds: 8), onTimeout: () => <MimeMessage>[]);
-      bool loadedFromDb = false;
-      if (fromDb.isNotEmpty) {
-        emails[mailbox]!.addAll(fromDb);
-        // Stamp thread counts for visible window
-        _computeAndStampThreadCounts(mailbox);
-        // Queue preview backfill for this page
-        previewService.queueBackfillForMessages(
-          mailbox: mailbox,
-          messages: fromDb,
-          storage: storage,
-          maxJobs: 20,
-        );
-        loaded = fromDb.length;
-        loadedFromDb = true;
-        logger.i("Loaded ${fromDb.length} messages from local DB for ${mailbox.name}");
-      }
-        
-      // Enterprise-grade sync: resumable with explicit checkpoints
-      final satisfied = await _enterpriseSync(mailbox, storage, maxToLoad: maxToLoad);
-      if (satisfied) {
-        // Sort and finish early
-        if (emails[mailbox]!.isNotEmpty) {
-          emails[mailbox]!.sort((a, b) {
-            final dateA = a.decodeDate();
-            final dateB = b.decodeDate();
-            if (dateA == null && dateB == null) return 0;
-            if (dateA == null) return 1;
-            if (dateB == null) return -1;
-            return dateB.compareTo(dateA);
-          });
-        }
+      // Local DB warm page
+      final db = await _fmLoadFromLocalDb(
+        mailbox,
+        maxToLoad,
+        forceRefresh: forceRefresh,
+      );
+
+      // Enterprise sync + prefetch path
+      final satisfied = await _fmEnterpriseSyncAndMaybePrefetch(
+        mailbox,
+        storage,
+        maxToLoad,
+        loadedFromDb: db.loadedFromDb,
+      );
+      if (satisfied) return;
+
+      // If already have enough locally, prefer quiet finish
+      if (!forceRefresh && db.localCount >= maxToLoad) {
+        _fmSortByDate(mailbox);
         emails.refresh();
         update();
-        // Eagerly prefetch full message bodies and attachment metadata for initial window
-        final bool quietPrefetch = loadedFromDb; // Quiet if page came from DB
-        if (!quietPrefetch) {
-          isPrefetching.value = true;
-          progressController.updateStatus('Prefetching message bodies and attachments…');
-          _updateReadyProgress(mailbox, maxToLoad);
-        }
-        await _prefetchFullContentForWindow(mailbox, limit: maxToLoad, quiet: quietPrefetch);
-        if (!quietPrefetch) {
-          isPrefetching.value = false;
-          progressController.updateProgress(
-            current: maxToLoad,
-            total: maxToLoad,
-            progress: 1.0,
-            subtitle: 'Done',
-          );
-          progressController.hide();
-        }
-        // Start real-time updates via optimized IDLE (preferred) after initial load
-        _initializeOptimizedIdleService();
-        logger.i("Enterprise sync satisfied initial window for ${mailbox.name} (${emails[mailbox]!.length})");
-        return;
-      }
-        
-        // If we already have enough locally, finish early
-        if (localCount >= maxToLoad) {
-        // Sort messages by date (newest first) for better UX
-        if (emails[mailbox]!.isNotEmpty) {
-          emails[mailbox]!.sort((a, b) {
-            final dateA = a.decodeDate();
-            final dateB = b.decodeDate();
-            if (dateA == null && dateB == null) return 0;
-            if (dateA == null) return 1;
-            if (dateB == null) return -1;
-            return dateB.compareTo(dateA);
-          });
-        }
-        emails.refresh();
-        update();
-        // Quiet prefetch for local-only satisfaction (no overlay)
         await _prefetchFullContentForWindow(mailbox, limit: maxToLoad, quiet: true);
-        // Start real-time updates via optimized IDLE (preferred) after DB load
         _initializeOptimizedIdleService();
         logger.i("Finished loading from local DB for ${mailbox.name} (${emails[mailbox]!.length} messages)");
         return;
       }
 
-      // Otherwise, fetch the remaining from the server (starting from newest)
-      while (loaded < maxToLoad) {
-        int currentBatchSize = batchSize;
-        if (loaded + currentBatchSize > maxToLoad) {
-          currentBatchSize = maxToLoad - loaded;
-        }
+      // Fetch remaining from server
+      await _fmFetchRemainingFromServer(
+        mailbox,
+        storage,
+        max,
+        db.loaded,
+        maxToLoad,
+      );
 
-        // Load from the most recent messages (highest sequence numbers)
-        int start = max - loaded - currentBatchSize + 1;
-        int end = max - loaded;
-
-        // Ensure valid range
-        if (start < 1) start = 1;
-        if (end < start) break;
-
-        MessageSequence sequence;
-        try {
-          sequence = MessageSequence.fromRange(start, end);
-        } catch (e) {
-          logger.e("Error creating sequence for range $start:$end: $e");
-          break;
-        }
-
-        try {
-          // Fetch from network (envelope-only for speed); we already loaded local page above
-          List<MimeMessage> messages = await mailService.client.fetchMessageSequence(
-            sequence,
-            fetchPreference: FetchPreference.envelope,
-          ).timeout(
-            const Duration(seconds: 30),
-            onTimeout: () {
-              throw TimeoutException("Network fetch timeout", const Duration(seconds: 30));
-            },
-          );
-
-          if (messages.isNotEmpty) {
-            // De-duplicate by UID and sequenceId
-            final existingUids = emails[mailbox]!
-                .map((m) => m.uid)
-                .whereType<int>()
-                .toSet();
-            final existingSeqIds = emails[mailbox]!
-                .map((m) => m.sequenceId)
-                .whereType<int>()
-                .toSet();
-            final unique = messages.where((m) {
-              final uid = m.uid;
-              final seq = m.sequenceId;
-              final notByUid = uid == null || !existingUids.contains(uid);
-              final notBySeq = seq == null || !existingSeqIds.contains(seq);
-              return notByUid && notBySeq;
-            }).toList();
-
-            if (unique.isNotEmpty) {
-              emails[mailbox]!.addAll(unique);
-              // Update thread counts after adding new messages
-              _computeAndStampThreadCounts(mailbox);
-              // Queue preview backfill for this batch
-              previewService.queueBackfillForMessages(
-                mailbox: mailbox,
-                messages: unique,
-                storage: storage,
-                maxJobs: 20,
-              );
-
-              // Save to database for future use (fire and forget)
-              storage.saveMessageEnvelopes(unique).catchError((e) {
-                logger.w("Database save failed: $e");
-              });
-
-              loaded += unique.length;
-              progressController.updateProgress(
-                current: loaded,
-                total: maxToLoad,
-                progress: (loaded / maxToLoad).clamp(0.0, 1.0),
-                subtitle: 'Downloading emails… $loaded / $maxToLoad',
-              );
-              logger.i("Loaded network batch: ${unique.length} messages (total: ${emails[mailbox]!.length})");
-            } else {
-              // No unique messages in this range, stop to avoid infinite loop
-              break;
-            }
-          } else {
-            // No more messages to load
-            break;
-          }
-        } catch (e) {
-          logger.e("Error loading messages for sequence $start:$end: $e");
-          // Continue with next batch instead of failing completely
-          loaded += currentBatchSize;
-          progressController.updateProgress(
-            current: loaded,
-            total: maxToLoad,
-            progress: (loaded / maxToLoad).clamp(0.0, 1.0),
-            subtitle: 'Recovering… $loaded / $maxToLoad',
-          );
-        }
-      }
-      
-      // Sort messages by date (newest first) for better UX
-      if (emails[mailbox]!.isNotEmpty) {
-        emails[mailbox]!.sort((a, b) {
-          final dateA = a.decodeDate();
-          final dateB = b.decodeDate();
-          if (dateA == null && dateB == null) return 0;
-          if (dateA == null) return 1;
-          if (dateB == null) return -1;
-          return dateB.compareTo(dateA); // Newest first
-        });
-      }
-      
-      // CRITICAL FIX: Trigger reactive updates for UI
+      _fmSortByDate(mailbox);
       emails.refresh();
       update();
-      
-      // Eagerly prefetch full bodies and attachment metadata for visible window
+
+      // Prefetch visible window
       isPrefetching.value = true;
       progressController.updateStatus('Prefetching message bodies and attachments…');
       _updateReadyProgress(mailbox, maxToLoad);
       await _prefetchFullContentForWindow(mailbox, limit: maxToLoad);
       isPrefetching.value = false;
-      
+
       logger.i("Finished loading ${emails[mailbox]!.length} emails for ${mailbox.name}");
       progressController.updateProgress(
         current: maxToLoad,
@@ -1122,34 +1266,29 @@ class MailBoxController extends GetxController {
         progress: 1.0,
         subtitle: 'Done',
       );
-      // Hide progress UI now that prefetch is complete
       progressController.hide();
-      
-      // Start real-time updates via optimized IDLE (preferred)
+
       _initializeOptimizedIdleService();
-      
-      // Update background service for inbox
+      _startAutoBackgroundRefresh();
+
       if (mailbox.isInbox) {
         try {
           BackgroundService.checkForNewMail(false);
         } catch (e) {
           logger.w("Background service error: $e");
-          // Continue without background service
         }
       }
-      
-      // Update unread count
+
       if (Get.isRegistered<MailCountController>()) {
         final countControll = Get.find<MailCountController>();
         String key = "${mailbox.name.toLowerCase()}_count";
         countControll.counts[key] =
             emails[mailbox]!.where((e) => !e.isSeen).length;
       }
-      
+
       storeContactMails(emails[mailbox]!);
     } catch (e) {
       logger.e("Error in fetchMailbox: $e");
-      // Don't rethrow, let the calling method handle the error
     } finally {
       try { endTrace(); } catch (_) {}
     }
@@ -1159,10 +1298,10 @@ class MailBoxController extends GetxController {
   Future<void> refreshMailbox(Mailbox mailbox) async {
     try {
       isBoxBusy(true);
-      
+
       // Reset pagination
       page = 1;
-      
+
       // PERFORMANCE FIX: Use forceRefresh parameter instead of manual clearing
       await fetchMailbox(mailbox, forceRefresh: true);
     } catch (e) {
@@ -1191,23 +1330,23 @@ class MailBoxController extends GetxController {
         debugPrint('🔄 Already loading more emails for ${mailbox.name}');
         return;
       }
-      
+
       if (isBoxBusy.value) return; // Prevent multiple simultaneous loads
-      
+
       // Check if we have more messages to load
       final currentCount = emails[mailbox]?.length ?? 0;
       final totalMessages = mailbox.messagesExists;
-      
+
       if (currentCount >= totalMessages) {
         logger.i("💡 All messages already loaded for ${mailbox.name} ($currentCount/$totalMessages)");
         return;
       }
-      
+
       // Set loading state
       _isLoadingMore[mailbox] = true;
-      
+
       logger.i("Loading more emails for ${mailbox.name} (current: $currentCount/$totalMessages)");
-      
+
       // Set current mailbox
       currentMailbox = mailbox;
 
@@ -1231,7 +1370,7 @@ class MailBoxController extends GetxController {
 
       // Load additional messages
       await _loadAdditionalMessages(mailbox, pageNumber ?? 1);
-      
+
     } catch (e) {
       logger.e("Error loading more emails: $e");
       // Don't show error for pagination failures to avoid disrupting UX
@@ -1268,11 +1407,11 @@ class MailBoxController extends GetxController {
         // For page 2: get messages (max-2*pageSize+1) to (max-pageSize)
         int sequenceStart = max - endIndex + 1;
         int sequenceEnd = max - startIndex;
-        
+
         // Ensure valid range
         if (sequenceStart < 1) sequenceStart = 1;
         if (sequenceEnd < sequenceStart) sequenceEnd = sequenceStart;
-        
+
         sequence = MessageSequence.fromRange(sequenceStart, sequenceEnd);
 logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       } catch (e) {
@@ -1322,7 +1461,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
         if (emails[mailbox] == null) {
           emails[mailbox] = <MimeMessage>[];
         }
-        
+
         // Add new messages and remove duplicates
         final existingUids = emails[mailbox]!
             .map((m) => m.uid)
@@ -1339,7 +1478,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
           final notBySeq = seq == null || !existingSeqIds.contains(seq);
           return notByUid && notBySeq;
         }).toList();
-        
+
         emails[mailbox]!.addAll(uniqueNewMessages);
         emails.refresh(); // CRITICAL FIX: Trigger reactive update for UI
         logger.i("Added ${uniqueNewMessages.length} unique messages to mailbox ${mailbox.name}");
@@ -1353,7 +1492,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
             logger.e("Error saving messages to storage: $e");
           }
         }
-        
+
         // Force UI update
         update();
       } else {
@@ -1367,98 +1506,8 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
   }
 
   Future<void> _loadDraftsFromServer(Mailbox mailbox) async {
-    try {
-      // CRITICAL FIX: Initialize emails list for draft mailbox
-      if (emails[mailbox] == null) {
-        emails[mailbox] = <MimeMessage>[];
-      }
-      
-      // Initialize storage for drafts if not exists
-      if (mailboxStorage[mailbox] == null) {
-        mailboxStorage[mailbox] = SQLiteMailboxMimeStorage(
-          mailAccount: mailService.account,
-          mailbox: mailbox,
-        );
-        await mailboxStorage[mailbox]!.init();
-      }
-
-      // PERFORMANCE FIX: Clear existing drafts before loading new ones
-      emails[mailbox]!.clear();
-
-      logger.i("Loading drafts from server for mailbox: ${mailbox.name}");
-
-      // PROPER ENOUGH_MAIL API: Load drafts from server like regular emails
-      int max = mailbox.messagesExists;
-      if (max == 0) {
-        logger.i("No draft messages exist in ${mailbox.name}");
-        // Update storage with empty list to trigger UI update
-        await mailboxStorage[mailbox]!.saveMessageEnvelopes([]);
-        update();
-        return;
-      }
-
-      // Load drafts using proper enough_mail API (they're just regular emails with \Draft flag)
-      int start = math.max(1, max - 100); // Load last 100 drafts
-      int end = max;
-      
-      logger.i("Fetching drafts from sequence $start:$end in ${mailbox.name}");
-      
-      final sequence = MessageSequence.fromRange(start, end);
-      final draftMessages = await mailService.client.fetchMessageSequence(
-        sequence,
-        fetchPreference: FetchPreference.envelope,
-      );
-
-      if (draftMessages.isEmpty) {
-        logger.i("No draft messages found in ${mailbox.name}");
-        await mailboxStorage[mailbox]!.saveMessageEnvelopes([]);
-        update();
-        return;
-      }
-
-      // Sort drafts by date (newest first)
-      draftMessages.sort((a, b) {
-        final dateA = a.decodeDate();
-        final dateB = b.decodeDate();
-        if (dateA == null && dateB == null) return 0;
-        if (dateA == null) return 1;
-        if (dateB == null) return -1;
-        return dateB.compareTo(dateA);
-      });
-
-      // Add drafts to emails list
-      emails[mailbox]!.addAll(draftMessages);
-      
-      // CRITICAL FIX: Save to storage and notify listeners properly
-      await mailboxStorage[mailbox]!.saveMessageEnvelopes(draftMessages);
-      
-      // Update unread count for drafts
-      if (Get.isRegistered<MailCountController>()) {
-        final countController = Get.find<MailCountController>();
-        String key = "${mailbox.name.toLowerCase()}_count";
-        countController.counts[key] = draftMessages.length; // All drafts are "unread"
-      }
-      
-      // Force UI update by triggering the observable
-      update();
-      
-      logger.i("Successfully loaded ${draftMessages.length} drafts from server for ${mailbox.name}");
-    } catch (e) {
-      logger.e("Error loading drafts from server: $e");
-      // Ensure UI shows empty state on error
-      if (emails[mailbox] == null) {
-        emails[mailbox] = <MimeMessage>[];
-      }
-      // Show error to user
-      Get.snackbar(
-        'Error Loading Drafts',
-        'Failed to load draft emails: ${e.toString()}',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-        duration: const Duration(seconds: 3),
-      );
-      update();
-    }
+    // Delegate to exact reconciliation to ensure server-authoritative state
+    await _reconcileDraftsExact(mailbox, maxUidFetch: 2000);
   }
 
 
@@ -1634,51 +1683,122 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     }
   }
 
-  // Operations on emails
-  Future markAsReadUnread(List<MimeMessage> messages, Mailbox box,
-      [bool isSeen = true]) async {
-    for (var message in messages) {
-      message.isSeen = isSeen;
-      if (mailboxStorage[box] != null) {
-        await mailboxStorage[box]!.saveMessageEnvelopes([message]);
-      }
-    }
+  Future<void> _ensureConnectedAndSelectedMailbox(Mailbox mailbox) async {
     if (!mailService.client.isConnected) {
-      return;
+      await mailService.connect().timeout(
+        Duration(seconds: AppConstants.CONNECTION_TIMEOUT_SECONDS),
+        onTimeout: () {
+          throw TimeoutException(
+            "Connection timeout",
+            Duration(seconds: AppConstants.CONNECTION_TIMEOUT_SECONDS),
+          );
+        },
+      );
     }
-    // set on server
-    if (mailService.client.isConnected) {
-      for (var message in messages) {
-        await mailService.client.flagMessage(message, isSeen: isSeen);
-      }
+    if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+      await mailService.client.selectMailbox(mailbox).timeout(
+        Duration(seconds: AppConstants.MAILBOX_SELECTION_TIMEOUT_SECONDS),
+        onTimeout: () {
+          throw TimeoutException(
+            "Mailbox selection timeout",
+            Duration(seconds: AppConstants.MAILBOX_SELECTION_TIMEOUT_SECONDS),
+          );
+        },
+      );
     }
   }
 
-  //
+  // Operations on emails
+  Future markAsReadUnread(List<MimeMessage> messages, Mailbox box,
+      [bool isSeen = true]) async {
+    // Optimistic local update
+    for (var message in messages) {
+      message.isSeen = isSeen;
+      try { await mailboxStorage[box]?.saveMessageEnvelopes([message]); } catch (_) {}
+    }
+    // Trigger UI refresh immediately
+    try { emails.refresh(); update(); } catch (_) {}
+
+    // Serialize and send to server with proper mailbox selection
+    await ImapCommandQueue.instance.run('markAsReadUnread', () async {
+      await _ensureConnectedAndSelectedMailbox(box);
+      for (var message in messages) {
+        try {
+          await mailService.client.flagMessage(message, isSeen: isSeen);
+        } catch (e) {
+logger.w('Failed to set seen=$isSeen for message ${message.uid ?? message.sequenceId}: $e');
+        }
+      }
+    });
+  }
+
+  // Pending server delete state and expunge scheduling
   DeleteResult? deleteResult;
   Map<Mailbox, List<MimeMessage>> deletedMessages = {};
+  Timer? _pendingExpungeTimer;
+  Mailbox? _pendingExpungeMailbox;
 
   Future deleteMails(List<MimeMessage> messages, Mailbox mailbox) async {
-    for (var message in messages) {
-      if (mailboxStorage[mailbox] != null) {
-        await mailboxStorage[mailbox]!.deleteMessage(message);
+    // Optimistic local UI removal and storage delete
+    try {
+      for (final message in messages) {
+        removeMessageFromUI(message, mailbox);
+        try { await mailboxStorage[mailbox]?.deleteMessage(message); } catch (_) {}
       }
-    }
+      emails.refresh();
+      update();
+    } catch (_) {}
+
     deletedMessages[mailbox] = messages;
-    // set on server
-    if (mailService.client.isConnected) {
-      deleteResult = await mailService.client.deleteMessages(
-        MessageSequence.fromMessages(messages),
-        messages: messages,
-        expunge: false,
-      );
-    }
+
+    await ImapCommandQueue.instance.run('deleteMails', () async {
+      try {
+        await _ensureConnectedAndSelectedMailbox(mailbox);
+        deleteResult = await mailService.client.deleteMessages(
+          MessageSequence.fromMessages(messages),
+          messages: messages,
+          expunge: false,
+        );
+      } catch (e) {
+        logger.w('Server delete failed: $e');
+      }
+    });
+
     if (deleteResult != null && deleteResult!.canUndo) {
+      // Schedule expunge if not undone within snackbar duration
+      const snackDuration = Duration(seconds: 5);
+      _pendingExpungeTimer?.cancel();
+      _pendingExpungeMailbox = mailbox;
+      _pendingExpungeTimer = Timer(snackDuration + const Duration(seconds: 1), () async {
+        if (deleteResult != null && _pendingExpungeMailbox != null) {
+          await ImapCommandQueue.instance.run('expungeAfterDelete', () async {
+            try {
+              final mailbox = _pendingExpungeMailbox!;
+              await _ensureConnectedAndSelectedMailbox(mailbox);
+              // Reissue delete with expunge=true to purge flagged messages
+              final msgs = deletedMessages[mailbox] ?? const <MimeMessage>[];
+              if (msgs.isNotEmpty) {
+                await mailService.client.deleteMessages(
+                  MessageSequence.fromMessages(msgs),
+                  messages: msgs,
+                  expunge: true,
+                );
+              }
+            } catch (e) {
+              logger.w('Expunge after delete failed: $e');
+            } finally {
+              deleteResult = null;
+              _pendingExpungeMailbox = null;
+            }
+          });
+        }
+      });
+
       Get.showSnackbar(
         GetSnackBar(
           message: 'messages_deleted'.tr,
           backgroundColor: Colors.redAccent,
-          duration: const Duration(seconds: 5),
+          duration: snackDuration,
           mainButton: TextButton(
             onPressed: () async {
               await undoDelete();
@@ -1688,54 +1808,243 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
         ),
       );
     }
+
+    // Light reconcile to ensure local view matches server state for recent window
+    try { await reconcileRecentWithServer(mailbox, window: 100); } catch (_) {}
   }
 
   Future undoDelete() async {
+    // Cancel any pending expunge
+    _pendingExpungeTimer?.cancel();
+    _pendingExpungeTimer = null;
+    _pendingExpungeMailbox = null;
+
     if (deleteResult != null) {
-      await mailService.client.undoDeleteMessages(deleteResult!);
+      try {
+        await mailService.client.undoDeleteMessages(deleteResult!);
+      } catch (e) {
+        logger.w('Undo delete failed: $e');
+      }
       deleteResult = null;
+      // Restore to storage and UI
       for (var mailbox in deletedMessages.keys) {
-        await mailboxStorage[mailbox]!
-            .saveMessageEnvelopes(deletedMessages[mailbox]!);
+        final restored = deletedMessages[mailbox] ?? const <MimeMessage>[];
+        try { await mailboxStorage[mailbox]?.saveMessageEnvelopes(restored); } catch (_) {}
+        try {
+          emails[mailbox] ??= <MimeMessage>[];
+          // Reinsert at top if not already present
+          for (final m in restored) {
+            final exists = emails[mailbox]!.any((e) =>
+              (m.uid != null && e.uid == m.uid) ||
+              (m.sequenceId != null && e.sequenceId == m.sequenceId)
+            );
+            if (!exists) {
+              emails[mailbox]!.insert(0, m);
+            }
+          }
+        } catch (_) {}
       }
       deletedMessages.clear();
+      try { emails.refresh(); update(); } catch (_) {}
     }
   }
 
   Future moveMails(List<MimeMessage> messages, Mailbox from, Mailbox to) async {
+    // Optimistic UI + storage updates
     for (var message in messages) {
-      if (mailboxStorage[from] != null) {
-        await mailboxStorage[from]!.deleteMessage(message);
-      }
-      if (mailboxStorage[to] != null) {
-        await mailboxStorage[to]!.saveMessageEnvelopes([message]);
-      }
+      try {
+        // Remove from source UI
+        final src = emails[from];
+        src?.removeWhere((m) =>
+          (message.uid != null && m.uid == message.uid) ||
+          (message.sequenceId != null && m.sequenceId == message.sequenceId)
+        );
+        // Add to destination UI
+        emails[to] ??= <MimeMessage>[];
+        final exists = emails[to]!.any((m) =>
+          (message.uid != null && m.uid == message.uid) ||
+          (message.sequenceId != null && m.sequenceId == message.sequenceId)
+        );
+        if (!exists) emails[to]!.insert(0, message);
+        // Persist
+        try { await mailboxStorage[from]?.deleteMessage(message); } catch (_) {}
+        try { await mailboxStorage[to]?.saveMessageEnvelopes([message]); } catch (_) {}
+      } catch (_) {}
     }
-    // set on server
-    if (mailService.client.isConnected) {
-      for (var message in messages) {
-        await mailService.client.moveMessage(message, to);
+    try { emails.refresh(); update(); } catch (_) {}
+
+    // Server move (serialized and mailbox-aware)
+    await ImapCommandQueue.instance.run('moveMails', () async {
+      try {
+        await _ensureConnectedAndSelectedMailbox(from);
+        for (var message in messages) {
+          try { await mailService.client.moveMessage(message, to); } catch (e) { logger.w('Move single failed: $e'); }
+        }
+      } catch (e) {
+        logger.w('Move failed: $e');
       }
+    });
+
+    // Reconcile both mailboxes lightly
+    try { await reconcileRecentWithServer(from, window: 100); } catch (_) {}
+    try { await reconcileRecentWithServer(to, window: 100); } catch (_) {}
+  }
+
+  /// High-level Archive using enough_mail helpers with optimistic UI
+  Future<bool> archiveMessages(List<MimeMessage> messages, Mailbox from, {bool optimistic = true}) async {
+    try {
+      // Optimistic: drop from current mailbox UI and local storage
+      if (optimistic) {
+        for (final m in messages) {
+          removeMessageFromUI(m, from);
+          try { await mailboxStorage[from]?.deleteMessage(m); } catch (_) {}
+        }
+      }
+
+      bool movedAny = false;
+      // Build sequence from UIDs where possible
+      final ids = messages.map((m) => m.uid).whereType<int>().toList();
+      if (ids.isNotEmpty) {
+        try {
+          await mailService.client.moveMessagesToFlag(
+            MessageSequence.fromIds(ids),
+            MailboxFlag.archive,
+          );
+          movedAny = true;
+        } catch (e) {
+          logger.w('Archive (bulk) failed, falling back to single moves: $e');
+          for (final m in messages) {
+            try {
+              await mailService.client.moveMessageToFlag(m, MailboxFlag.archive);
+              movedAny = true;
+            } catch (_) {}
+          }
+        }
+      } else {
+        // Fallback: move individually (for messages missing UID)
+        for (final m in messages) {
+          try {
+            await mailService.client.moveMessageToFlag(m, MailboxFlag.archive);
+            movedAny = true;
+          } catch (_) {}
+        }
+      }
+
+      // Fallback when server lacks special-use Archive support: move to a best-guess Archive mailbox by name/flag
+      if (!movedAny) {
+        final toArchive = mailboxes.firstWhereOrNull((m) => m.isArchive) ??
+            mailboxes.firstWhereOrNull((m) => m.name.toLowerCase().contains('archive')) ??
+            mailboxes.firstWhereOrNull((m) => m.name.toLowerCase().contains('all mail'));
+        if (toArchive != null) {
+          for (final m in messages) {
+            try { await mailService.client.moveMessage(m, toArchive); movedAny = true; } catch (_) {}
+          }
+        }
+      }
+
+      // Best-effort: persist to Archive storage
+      try {
+        final archive = mailboxes.firstWhereOrNull((m) => m.isArchive) ??
+            mailboxes.firstWhereOrNull((m) => m.name.toLowerCase().contains('archive')) ??
+            mailboxes.firstWhereOrNull((m) => m.name.toLowerCase().contains('all mail'));
+        if (archive != null) {
+          await mailboxStorage[archive]?.saveMessageEnvelopes(messages);
+        }
+      } catch (_) {}
+
+      // Kick a quick reconcile to remove any local ghosts
+      try { await reconcileRecentWithServer(from, window: 300); } catch (_) {}
+      return movedAny || optimistic; // optimistic UI already applied
+    } catch (e) {
+      logger.w('archiveMessages error: $e');
+      return false;
     }
   }
 
-  // update flage on messages on server
+  /// High-level Junk (Spam) using enough_mail helpers with optimistic UI
+  Future<bool> junkMessages(List<MimeMessage> messages, Mailbox from, {bool optimistic = true}) async {
+    try {
+      if (optimistic) {
+        for (final m in messages) {
+          removeMessageFromUI(m, from);
+          try { await mailboxStorage[from]?.deleteMessage(m); } catch (_) {}
+        }
+      }
+
+      bool movedAny = false;
+      final ids = messages.map((m) => m.uid).whereType<int>().toList();
+      if (ids.isNotEmpty) {
+        try {
+          await mailService.client.junkMessages(
+            MessageSequence.fromIds(ids),
+          );
+          movedAny = true;
+        } catch (e) {
+          logger.w('Junk (bulk) failed, falling back to single moves: $e');
+          for (final m in messages) {
+            try { await mailService.client.junkMessage(m); movedAny = true; } catch (_) {}
+          }
+        }
+      } else {
+        for (final m in messages) {
+          try { await mailService.client.junkMessage(m); movedAny = true; } catch (_) {}
+        }
+      }
+
+      // Fallback when server lacks special-use Junk support: move to a best-guess Junk/Spam mailbox by flag/name
+      if (!movedAny) {
+        final toJunk = mailboxes.firstWhereOrNull((m) => m.isJunk) ??
+            mailboxes.firstWhereOrNull((m) => m.name.toLowerCase().contains('junk')) ??
+            mailboxes.firstWhereOrNull((m) => m.name.toLowerCase().contains('spam'));
+        if (toJunk != null) {
+          for (final m in messages) {
+            try { await mailService.client.moveMessage(m, toJunk); movedAny = true; } catch (_) {}
+          }
+        }
+      }
+
+      // Best-effort: persist to Junk storage
+      try {
+        final junk = mailboxes.firstWhereOrNull((m) => m.isJunk) ??
+            mailboxes.firstWhereOrNull((m) => m.name.toLowerCase().contains('junk')) ??
+            mailboxes.firstWhereOrNull((m) => m.name.toLowerCase().contains('spam'));
+        if (junk != null) {
+          await mailboxStorage[junk]?.saveMessageEnvelopes(messages);
+        }
+      } catch (_) {}
+
+      try { await reconcileRecentWithServer(from, window: 300); } catch (_) {}
+      return movedAny || optimistic;
+    } catch (e) {
+      logger.w('junkMessages error: $e');
+      return false;
+    }
+  }
+
+  // update flag on messages on server (toggle)
   Future updateFlag(List<MimeMessage> messages, Mailbox mailbox) async {
+    // Optimistic local toggle
     for (var message in messages) {
-      message.isFlagged = !message.isFlagged;
-      if (mailboxStorage[mailbox] != null) {
-        await mailboxStorage[mailbox]!.saveMessageEnvelopes([message]);
-      }
+      try {
+        message.isFlagged = !message.isFlagged;
+        await mailboxStorage[mailbox]?.saveMessageEnvelopes([message]);
+      } catch (_) {}
     }
-    // set on server
-    if (mailService.client.isConnected) {
+    try { emails.refresh(); update(); } catch (_) {}
+
+    await ImapCommandQueue.instance.run('updateFlag', () async {
+      await _ensureConnectedAndSelectedMailbox(mailbox);
       for (var message in messages) {
-        await mailService.client.flagMessage(
-          message,
-          isFlagged: message.isFlagged,
-        );
+        try {
+          await mailService.client.flagMessage(
+            message,
+            isFlagged: message.isFlagged,
+          );
+        } catch (e) {
+          logger.w('Flag toggle failed for ${message.uid ?? message.sequenceId}: $e');
+        }
       }
-    }
+    });
   }
 
   // Operations on emails
@@ -1774,17 +2083,11 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     } else if (action == SwapAction.delete) {
       await deleteMails([message], box);
     } else if (action == SwapAction.archive) {
-      Mailbox? archive = mailboxes.firstWhereOrNull((e) => e.isArchive);
-      if (archive != null) {
-        await moveMails([message], box, archive);
-      }
+      await archiveMessages([message], box, optimistic: true);
     } else if (action == SwapAction.toggleFlag) {
       await updateFlag([message], box);
     } else if (action == SwapAction.markAsJunk) {
-      Mailbox? junk = mailboxes.firstWhereOrNull((e) => e.isJunk);
-      if (junk != null) {
-        await moveMails([message], box, junk);
-      }
+      await junkMessages([message], box, optimistic: true);
     }
   }
 
@@ -2208,12 +2511,14 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     if (sent != null) {
       try {
         // Ensure Sent is selected
+        logger.i('SendFlow: verifying message in Sent by Message-Id; mailbox=${sent.encodedPath}');
         if (!mailService.client.isConnected) {
           try { await mailService.connect(); } catch (_) {}
         }
         try { await mailService.client.selectMailbox(sent); } catch (_) {}
         // Fetch recent messages and look for matching Message-Id
         final msgId = (message.getHeaderValue('message-id') ?? message.getHeaderValue('Message-Id'))?.trim();
+        logger.i('SendFlow: Message-Id used for Sent detection: ${msgId ?? '(none)'}');
         int max = sent.messagesExists;
         if (max > 0) {
           final start = math.max(1, max - 20 + 1);
@@ -2224,6 +2529,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
             fetchPreference: FetchPreference.fullWhenWithinSize,
           ).timeout(const Duration(seconds: 20), onTimeout: () => <MimeMessage>[]);
           if (msgId != null) {
+            logger.i('SendFlow: fetched recent ${recents.length} items in Sent; scanning for Message-Id match');
             appended = recents.any((m) {
               final mid = (m.getHeaderValue('message-id') ?? m.getHeaderValue('Message-Id'))?.trim();
               return mid != null && mid == msgId;
@@ -2232,8 +2538,10 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
         }
         if (!appended) {
           try {
+            logger.i('SendFlow: APPEND to Sent required; attempting append');
             await mailService.client.appendMessage(message, sent);
             appended = true;
+            logger.i('SendFlow: APPEND to Sent succeeded');
           } catch (e) {
             logger.w('APPEND to Sent failed: $e');
           }
@@ -2245,7 +2553,8 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       if (!appended && needAppend) {
         // Fallback: if editing a draft, move it to Sent as a server-side record
         try {
-          await moveMails([draftMessage!], draftMailbox!, sent);
+          logger.w('SendFlow: APPEND not confirmed; moving draft to Sent as fallback');
+          await moveMails([draftMessage], draftMailbox, sent);
           appended = true;
         } catch (err) {
           logger.w('Move draft to Sent failed as fallback: $err');
@@ -2267,14 +2576,12 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
         } catch (_) {}
       }
       // Restore draft back into Drafts UI
-      if (draftMailbox != null && draftMessage != null) {
-        try {
-          emails[draftMailbox] ??= <MimeMessage>[];
-          emails[draftMailbox]!.insert(0, draftMessage);
-          emails.refresh();
-          update();
-        } catch (_) {}
-      }
+      try {
+        emails[draftMailbox] ??= <MimeMessage>[];
+        emails[draftMailbox]!.insert(0, draftMessage);
+        emails.refresh();
+        update();
+      } catch (_) {}
       // Remove from outbox
       try {
         if (sent != null) {
@@ -2298,6 +2605,49 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
           emails.refresh();
           update();
         }
+      }
+    } catch (_) {}
+
+    // If we sent from a draft, delete the original draft on the server and in local storage
+    if (needAppend) {
+      try {
+        logger.i('SendFlow: deleting original draft after send; mailbox=${draftMailbox.encodedPath}, uid=${draftMessage.uid ?? -1}, seq=${draftMessage.sequenceId ?? -1}');
+        // Select the original Drafts mailbox
+        if (!mailService.client.isConnected) {
+          try { await mailService.connect(); } catch (_) {}
+        }
+        try { await mailService.client.selectMailbox(draftMailbox); } catch (_) {}
+        // Prefer UID-based deletion
+        MessageSequence seq;
+        if (draftMessage.uid != null) {
+          seq = MessageSequence.fromRange(draftMessage.uid!, draftMessage.uid!, isUidSequence: true);
+        } else {
+          seq = MessageSequence.fromMessage(draftMessage);
+        }
+        await mailService.client.deleteMessages(seq, expunge: true);
+        logger.i('SendFlow: server delete (expunge) request issued for original draft');
+      } catch (e) {
+        logger.w('Failed to delete draft after send: $e');
+      }
+      // Purge from local storage and UI definitively
+      try { await mailboxStorage[draftMailbox]?.deleteMessage(draftMessage); logger.i('SendFlow: local DB purge of original draft completed'); } catch (e) { logger.w('SendFlow: local DB purge failed: $e'); }
+      try {
+        final list = emails[draftMailbox];
+        final before = list?.length ?? 0;
+        list?.removeWhere((m) =>
+            (draftMessage.uid != null && m.uid == draftMessage.uid) ||
+            (draftMessage.sequenceId != null && m.sequenceId == draftMessage.sequenceId));
+        final after = list?.length ?? 0;
+        logger.i('SendFlow: in-memory Drafts list removed ${(before - after).clamp(0, before)} item(s)');
+        emails.refresh();
+        update();
+      } catch (_) {}
+    }
+
+    // Light reconcile of Sent to ensure exact server state (captures provider auto-sent copies)
+    try {
+      if (sent != null) {
+        await reconcileRecentWithServer(sent, window: 300);
       }
     } catch (_) {}
 
@@ -2364,16 +2714,29 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       
       // Start the optimized IDLE service for real-time email updates
       idleService.startOptimizedIdle().then((_) {
-        if (kDebugMode) {
-          print('📧 ✅ Optimized IDLE service started successfully');
+        // Only mark as started if the service actually entered running state
+        if (idleService.isRunning) {
+          _optimizedIdleStarted = true;
+          if (kDebugMode) {
+            print('📧 ✅ Optimized IDLE service started successfully');
+          }
+        } else {
+          // Retry once after a short delay (e.g., when the queue had IDLE paused)
+          Future.delayed(const Duration(seconds: 1), () async {
+            try {
+              await idleService.startOptimizedIdle();
+              if (idleService.isRunning) {
+                _optimizedIdleStarted = true;
+                if (kDebugMode) print('📧 ✅ Optimized IDLE service started on retry');
+              }
+            } catch (_) {}
+          });
         }
       }).catchError((error) {
         if (kDebugMode) {
           print('📧 ❌ Failed to start optimized IDLE service: $error');
         }
       });
-
-      _optimizedIdleStarted = true;
       
       // Also initialize connection manager
       conn.ConnectionManager.instance;
@@ -2388,14 +2751,17 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     }
   }
 
-  Future<bool> _enterpriseSync(Mailbox mailbox, SQLiteMailboxMimeStorage storage, {required int maxToLoad}) async {
+  Future<bool> _enterpriseSync(Mailbox mailbox, SQLiteMailboxMimeStorage storage, {required int maxToLoad, bool quiet = false}) async {
     try {
+      // Use the currently selected mailbox for fresh server metadata
+      final selected = mailService.client.selectedMailbox ?? mailbox;
+
       // Persist server meta for reference
-      await storage.updateMailboxMeta(uidNext: mailbox.uidNext, uidValidity: mailbox.uidValidity);
+      await storage.updateMailboxMeta(uidNext: selected.uidNext, uidValidity: selected.uidValidity);
 
       // Detect UIDVALIDITY changes
       final state = await storage.getSyncState();
-      if (mailbox.uidValidity != null && state.uidValidity != null && mailbox.uidValidity != state.uidValidity) {
+      if (selected.uidValidity != null && state.uidValidity != null && selected.uidValidity != state.uidValidity) {
         // Reset on UIDVALIDITY change
         try {
           await storage.deleteAllMessages();
@@ -2410,13 +2776,15 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
 
       // 1) Ascending fetch for new mail beyond lastSyncedUidHigh
       final st1 = await storage.getSyncState();
-      if (mailbox.uidNext != null && (st1.lastSyncedUidHigh ?? 0) < (mailbox.uidNext! - 1)) {
+      if (selected.uidNext != null && (st1.lastSyncedUidHigh ?? 0) < (selected.uidNext! - 1)) {
         final startUid = (st1.lastSyncedUidHigh ?? 0) + 1;
-        final endUid = mailbox.uidNext! - 1;
+        final endUid = selected.uidNext! - 1;
         if (endUid >= startUid) {
           final take = math.min(capacity, endUid - startUid + 1);
           final fetchEnd = startUid + take - 1;
-          progressController.updateStatus('Fetching new mail…');
+          if (!quiet) {
+            progressController.updateStatus('Fetching new mail…');
+          }
           final seq = MessageSequence.fromRange(startUid, fetchEnd, isUidSequence: true);
           final fresh = await mailService.client.fetchMessageSequence(
             seq,
@@ -2439,18 +2807,20 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
               );
               await storage.saveMessageEnvelopes(uniqueFresh);
               await storage.updateSyncState(
-                uidNext: mailbox.uidNext,
-                uidValidity: mailbox.uidValidity,
+                uidNext: selected.uidNext,
+                uidValidity: selected.uidValidity,
                 lastSyncedUidHigh: fetchEnd,
                 lastSyncFinishedAt: DateTime.now().millisecondsSinceEpoch,
               );
               capacity = math.max(0, capacity - uniqueFresh.length);
-              progressController.updateProgress(
-                current: maxToLoad - capacity,
-                total: maxToLoad,
-                progress: maxToLoad > 0 ? ((maxToLoad - capacity) / maxToLoad).clamp(0.0, 1.0) : 1.0,
-                subtitle: 'Fetched ${uniqueFresh.length} new emails',
-              );
+              if (!quiet) {
+                progressController.updateProgress(
+                  current: maxToLoad - capacity,
+                  total: maxToLoad,
+                  progress: maxToLoad > 0 ? ((maxToLoad - capacity) / maxToLoad).clamp(0.0, 1.0) : 1.0,
+                  subtitle: 'Fetched ${uniqueFresh.length} new emails',
+                );
+              }
             }
           }
           if (capacity <= 0) return true;
@@ -2463,13 +2833,15 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       if (!initialDone) {
         int? high = st2.lastSyncedUidLow != null
             ? (st2.lastSyncedUidLow! - 1)
-            : (mailbox.uidNext != null ? mailbox.uidNext! - 1 : null);
+            : (selected.uidNext != null ? selected.uidNext! - 1 : null);
         const int batch = 50;
         while (high != null && high >= 1 && capacity > 0) {
           final low = math.max(1, high - batch + 1);
           final take = math.min(capacity, high - low + 1);
           final adjLow = high - take + 1;
-          progressController.updateStatus('Fetching older mail…');
+          if (!quiet) {
+            progressController.updateStatus('Fetching older mail…');
+          }
           final seq = MessageSequence.fromRange(adjLow, high, isUidSequence: true);
           final older = await mailService.client.fetchMessageSequence(
             seq,
@@ -2490,19 +2862,21 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
             // Initialize high watermark if not set
             final newHigh = st2.lastSyncedUidHigh ?? (mailbox.uidNext != null ? mailbox.uidNext! - 1 : high);
             await storage.updateSyncState(
-              uidNext: mailbox.uidNext,
-              uidValidity: mailbox.uidValidity,
+              uidNext: selected.uidNext,
+              uidValidity: selected.uidValidity,
               lastSyncedUidHigh: newHigh,
               lastSyncedUidLow: adjLow,
               lastSyncFinishedAt: DateTime.now().millisecondsSinceEpoch,
             );
             capacity -= uniqueOlder.length;
-            progressController.updateProgress(
-              current: maxToLoad - capacity,
-              total: maxToLoad,
-              progress: maxToLoad > 0 ? ((maxToLoad - capacity) / maxToLoad).clamp(0.0, 1.0) : 1.0,
-              subtitle: 'Downloading emails… ${maxToLoad - capacity} / $maxToLoad',
-            );
+            if (!quiet) {
+              progressController.updateProgress(
+                current: maxToLoad - capacity,
+                total: maxToLoad,
+                progress: maxToLoad > 0 ? ((maxToLoad - capacity) / maxToLoad).clamp(0.0, 1.0) : 1.0,
+                subtitle: 'Downloading emails… ${maxToLoad - capacity} / $maxToLoad',
+              );
+            }
           }
           high = adjLow - 1;
         }
@@ -2958,7 +3332,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
         return;
       }
       final secs = ff.foregroundPollingIntervalSecs;
-      final clamped = secs < 15 ? 15 : secs; // minimum safety interval
+      final clamped = secs < AppConstants.FOREGROUND_POLL_MIN_INTERVAL_SECONDS ? AppConstants.FOREGROUND_POLL_MIN_INTERVAL_SECONDS : secs; // minimum safety interval
       pollingInterval = Duration(seconds: clamped);
 
       _pollingMailboxPath = mailbox.encodedPath;
@@ -2994,6 +3368,112 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     } catch (_) {}
   }
 
+  // Auto background refresh (quiet, delta-driven) for the selected mailbox
+  void _startAutoBackgroundRefresh({Duration period = const Duration(seconds: AppConstants.AUTO_REFRESH_PERIOD_SECONDS)}) {
+    try {
+      _stopAutoBackgroundRefresh();
+      _autoRefreshTimer = Timer.periodic(period, (t) async {
+        if (_autoSyncInFlight) return;
+        // Respect in-flight loads/prefetches
+        if (isLoadingEmails.value || isPrefetching.value) return;
+        // Require an actively selected mailbox
+        final selected = mailService.client.selectedMailbox;
+        final m = currentMailbox ?? selected;
+        if (selected == null || m == null) return;
+
+        final key = selected.encodedPath.isNotEmpty ? selected.encodedPath : selected.name;
+        final uidNext = selected.uidNext;
+        final exists = selected.messagesExists;
+        final prevUid = _mailboxUidNextSnapshot[key];
+        final prevEx = _mailboxExistsSnapshot[key];
+
+        final hasChange = (uidNext != null && uidNext != prevUid) || (prevEx == null || exists != prevEx);
+        // Snapshot current server meta
+        _mailboxUidNextSnapshot[key] = uidNext;
+        _mailboxExistsSnapshot[key] = exists;
+
+        if (!hasChange) return; // No delta → no work
+        final now = DateTime.now();
+        if (now.difference(_lastAutoSyncRun).inSeconds < 5) return; // throttle
+
+        _autoSyncInFlight = true;
+        _lastAutoSyncRun = now;
+        try {
+          await _withIdlePause(() async {
+            // Quiet incremental sync and quick reconciliations for near-real-time accuracy
+            await _pollOnce(m, force: false);
+            await _reconcileFlagsForRecent(m, window: 150);
+            await reconcileRecentWithServer(m, window: 150);
+          });
+        } catch (_) {
+          // Ignore background sync errors
+        } finally {
+          _autoSyncInFlight = false;
+        }
+      });
+      if (kDebugMode) {
+        print('📧 🤫 Auto background refresh started');
+      }
+    } catch (_) {}
+  }
+
+  void _stopAutoBackgroundRefresh() {
+    try {
+      _autoRefreshTimer?.cancel();
+      _autoRefreshTimer = null;
+      if (kDebugMode) {
+        print('📧 📴 Auto background refresh stopped');
+      }
+    } catch (_) {}
+  }
+
+  // Monitor special-use mailboxes (Drafts, Sent, Trash, Junk) with low-impact periodic reconciliation
+  void _startSpecialMailboxMonitor() {
+    try {
+      _specialMonitorTimer?.cancel();
+      // 45s cadence strikes balance between freshness and battery usage
+      _specialMonitorTimer = Timer.periodic(Duration(seconds: AppConstants.SPECIAL_MONITOR_PERIOD_SECONDS), (t) async {
+        try {
+          final specials = mailboxes.where((m) => m.isDrafts || m.isSent || m.isTrash || m.isJunk).toList(growable: false);
+          if (specials.isEmpty) return;
+          // We reconcile even if IDLE is active, but keep it lightweight for large boxes
+          for (final m in specials) {
+            try {
+              if (m.isDrafts) {
+                // Drafts are typically small; do exact reconciliation
+                await _reconcileDraftsExact(m, maxUidFetch: 2000);
+              } else {
+                // For Sent/Trash/Junk, reconcile recent window
+                await reconcileRecentWithServer(m, window: 300);
+              }
+            } catch (_) {}
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('📧 Special mailbox monitor tick failed: $e');
+          }
+        }
+      });
+      if (kDebugMode) {
+        print('📧 🔭 Special mailbox monitor started (Drafts/Sent/Trash/Junk)');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 ⚠️ Failed to start special mailbox monitor: $e');
+      }
+    }
+  }
+
+  void _stopSpecialMailboxMonitor() {
+    try {
+      _specialMonitorTimer?.cancel();
+      _specialMonitorTimer = null;
+      if (kDebugMode) {
+        print('📧 📴 Special mailbox monitor stopped');
+      }
+    } catch (_) {}
+  }
+
   // Public method to apply updated polling settings immediately
   void restartForegroundPolling() {
     try {
@@ -3025,7 +3505,7 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       // Incremental sync: fetch only what capacity allows beyond current window
       final currentLen = emails[mailbox]?.length ?? 0;
       final target = math.min(mailbox.messagesExists, math.max(200, currentLen + 20));
-      final satisfied = await _enterpriseSync(mailbox, storage, maxToLoad: target);
+      final satisfied = await _enterpriseSync(mailbox, storage, maxToLoad: target, quiet: true);
       if (!satisfied) return;
 
       // Quiet prefetch for a small number of top unready messages
@@ -3053,6 +3533,71 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       if (unready.isEmpty) return;
       await _prefetchFullContentForMessages(mailbox, unready, quiet: true);
     } catch (_) {}
+  }
+
+  // Reconcile server flags/read status for recent window by fetching messages and applying flag changes
+  Future<void> _reconcileFlagsForRecent(Mailbox mailbox, {int window = 300}) async {
+    await ImapCommandQueue.instance.run('reconcileFlagsForRecent', () async {
+      try {
+        // Ensure connection and selection
+        await _ensureConnectedAndSelectedMailbox(mailbox);
+        final selected = mailService.client.selectedMailbox ?? mailbox;
+        final exists = selected.messagesExists;
+        if (exists <= 0) return;
+        final take = window.clamp(1, 2000);
+        int start = exists - take + 1;
+        if (start < 1) start = 1;
+        final seq = MessageSequence.fromRange(start, exists);
+
+        // Fetch full or envelope with flags for that range
+        // Using fullWhenWithinSize to ensure flags are populated consistently
+        final fetched = await mailService.client.fetchMessageSequence(
+          seq,
+          fetchPreference: FetchPreference.fullWhenWithinSize,
+        ).timeout(const Duration(seconds: 25), onTimeout: () => <MimeMessage>[]);
+        if (fetched.isEmpty) return;
+
+        // Build map by UID for quick lookup
+        final byUid = <int, MimeMessage>{};
+        for (final m in fetched) {
+          if (m.uid != null) byUid[m.uid!] = m;
+        }
+
+        final listRef = emails[mailbox];
+        if (listRef == null || listRef.isEmpty) return;
+
+        bool changed = false;
+        for (int i = 0; i < listRef.length; i++) {
+          final local = listRef[i];
+          final uid = local.uid;
+          if (uid == null) continue;
+          final server = byUid[uid];
+          if (server == null) continue;
+          bool any = false;
+          // Compare and update seen flag
+          if (local.isSeen != server.isSeen) {
+            local.isSeen = server.isSeen;
+            any = true;
+          }
+          // Compare and update flagged flag
+          if (local.isFlagged != server.isFlagged) {
+            local.isFlagged = server.isFlagged;
+            any = true;
+          }
+          if (any) {
+            changed = true;
+            try { await mailboxStorage[mailbox]?.saveMessageEnvelopes([local]); } catch (_) {}
+          }
+        }
+
+        if (changed) {
+          emails.refresh();
+          update();
+        }
+      } catch (e) {
+        logger.w('reconcileFlagsForRecent failed: $e');
+      }
+    });
   }
 
   Future<void> _prefetchFullContentForMessages(Mailbox mailbox, List<MimeMessage> messages, {bool quiet = false}) async {
@@ -3304,7 +3849,16 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
 
       // Force an incremental sync even if optimized IDLE is active, pausing IDLE briefly to avoid contention
       await _withIdlePause(() async {
-        await _pollOnce(m, force: true);
+        if (m.isDrafts) {
+          // Exact, server-authoritative reconciliation for Drafts
+          await _reconcileDraftsExact(m, maxUidFetch: 2000);
+        } else {
+          await _pollOnce(m, force: true);
+          // After polling, reconcile against server for recent window to capture deletions
+          await reconcileRecentWithServer(m, window: 300);
+          // Also reconcile flags/read status for recent window so server changes appear without restart
+          await _reconcileFlagsForRecent(m, window: 300);
+        }
       });
 
       // Ensure newest first and trigger UI
@@ -3324,6 +3878,199 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
       emails.refresh();
       update();
     } catch (_) {}
+  }
+
+  /// Reconcile the top [window] messages in the mailbox against the server to remove locally deleted items.
+  /// This is crucial when messages are deleted server-side (e.g., via webmail) so the app reflects the change.
+  Future<void> reconcileRecentWithServer(Mailbox mailbox, {int window = 300}) async {
+    await ImapCommandQueue.instance.run('reconcileRecentWithServer', () async {
+      try {
+        final listRef = emails[mailbox] ?? <MimeMessage>[];
+        if (listRef.isEmpty) return;
+
+      // Ensure connection and selection
+      try {
+        if (!mailService.client.isConnected) {
+          await mailService.connect().timeout(const Duration(seconds: 8));
+        }
+        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+          await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 8));
+        }
+      } catch (_) {}
+
+      final selected = mailService.client.selectedMailbox ?? mailbox;
+      final exists = selected.messagesExists;
+      if (exists <= 0) {
+        // Mailbox empty on server -> clear local list and storage
+        try { emails[mailbox]?.clear(); } catch (_) {}
+        try { await mailboxStorage[mailbox]?.deleteAllMessages(); } catch (_) {}
+        emails.refresh();
+        update();
+        return;
+      }
+
+      // Compute recent window by sequence range
+      final take = window.clamp(1, 2000); // hard cap
+      int start = exists - take + 1;
+      if (start < 1) start = 1;
+      final seq = MessageSequence.fromRange(start, exists);
+
+      // Fetch envelope-only for speed; we only need UIDs
+      final recent = await mailService.client.fetchMessageSequence(
+        seq,
+        fetchPreference: FetchPreference.envelope,
+      ).timeout(const Duration(seconds: 20), onTimeout: () => <MimeMessage>[]);
+
+      if (recent.isEmpty) return;
+      final serverUids = recent.map((m) => m.uid).whereType<int>().toSet();
+
+      // Determine local candidates within top window
+      final localTop = List<MimeMessage>.from(listRef.take(take));
+      final toRemove = <int>{};
+      for (final m in localTop) {
+        final uid = m.uid;
+        if (uid != null && !serverUids.contains(uid)) {
+          toRemove.add(uid);
+        }
+      }
+      if (toRemove.isEmpty) return;
+
+      // Remove from UI list
+      listRef.removeWhere((m) => m.uid != null && toRemove.contains(m.uid));
+      emails[mailbox] = listRef;
+      emails.refresh();
+      update();
+
+      // Remove from local storage (best-effort)
+      final st = mailboxStorage[mailbox];
+      if (st != null) {
+        for (final uid in toRemove) {
+          try {
+            await st.deleteMessageEnvelopes(
+              MessageSequence.fromRange(uid, uid, isUidSequence: true),
+            );
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    });
+  }
+
+  // Exact reconciliation for Drafts: replace local state with authoritative server state using UID-based fetch
+  Future<void> _reconcileDraftsExact(Mailbox mailbox, {int maxUidFetch = 2000}) async {
+    await ImapCommandQueue.instance.run('reconcileDraftsExact', () async {
+      try {
+        // Initialize storage if needed
+        mailboxStorage[mailbox] ??= SQLiteMailboxMimeStorage(
+          mailAccount: mailService.account,
+          mailbox: mailbox,
+        );
+        await mailboxStorage[mailbox]!.init();
+        emails[mailbox] ??= <MimeMessage>[];
+
+      // Ensure connection and selection
+      if (!mailService.client.isConnected) {
+        await mailService.connect().timeout(const Duration(seconds: 10));
+      }
+      if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
+        await mailService.client.selectMailbox(mailbox).timeout(const Duration(seconds: 10));
+      }
+
+      // Use the freshly selected mailbox status for authoritative counts/UIDs
+      final selected = mailService.client.selectedMailbox ?? mailbox;
+      final exists = selected.messagesExists;
+      if (exists <= 0) {
+        // Empty on server: clear local completely
+        emails[mailbox]!.clear();
+        await mailboxStorage[mailbox]!.deleteAllMessages();
+        emails.refresh();
+        update();
+        return;
+      }
+
+      // Determine UID range to fetch using fresh UIDNEXT
+      final uidNext = selected.uidNext;
+      int fromUid = 1;
+      int toUid;
+      if (uidNext != null) {
+        toUid = uidNext - 1;
+        // Limit to maxUidFetch to avoid large scans; Drafts are usually small
+        if ((toUid - fromUid + 1) > maxUidFetch) {
+          fromUid = toUid - maxUidFetch + 1;
+        }
+      } else {
+        // Fallback to sequence numbers if UIDNEXT is not available
+        final startSeq = math.max(1, exists - maxUidFetch + 1);
+        final endSeq = exists;
+        final seq = MessageSequence.fromRange(startSeq, endSeq);
+        final fetched = await mailService.client.fetchMessageSequence(
+          seq,
+          fetchPreference: FetchPreference.envelope,
+        ).timeout(const Duration(seconds: 25), onTimeout: () => <MimeMessage>[]);
+        await _replaceLocalWithFetchedDrafts(mailbox, fetched);
+        return;
+      }
+
+      // Fetch by UID in chunks to build the authoritative set
+      final List<MimeMessage> fetched = [];
+      const int chunk = 200;
+      int cur = fromUid;
+      while (cur <= toUid) {
+        final end = math.min(toUid, cur + chunk - 1);
+        final uidSeq = MessageSequence.fromRange(cur, end, isUidSequence: true);
+        final part = await mailService.client.fetchMessageSequence(
+          uidSeq,
+          fetchPreference: FetchPreference.envelope,
+        ).timeout(const Duration(seconds: 25), onTimeout: () => <MimeMessage>[]);
+        if (part.isNotEmpty) fetched.addAll(part);
+        cur = end + 1;
+      }
+
+      await _replaceLocalWithFetchedDrafts(mailbox, fetched);
+      } catch (e) {
+        logger.w('Drafts exact reconciliation failed: $e');
+      }
+    });
+  }
+
+  Future<void> _replaceLocalWithFetchedDrafts(Mailbox mailbox, List<MimeMessage> fetched) async {
+    try {
+      // Normalize by unique UID and sort newest first
+      final Map<int, MimeMessage> byUid = {};
+      for (final m in fetched) {
+        if (m.uid != null) byUid[m.uid!] = m;
+      }
+      final list = byUid.values.toList();
+      list.sort((a, b) {
+        final da = a.decodeDate();
+        final db = b.decodeDate();
+        if (da == null && db == null) return (b.uid ?? 0).compareTo(a.uid ?? 0);
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return db.compareTo(da);
+      });
+
+      // Replace in-memory and storage to match server exactly
+      emails[mailbox]!.clear();
+      emails[mailbox]!.addAll(list);
+      emails.refresh();
+      update();
+
+      final storage = mailboxStorage[mailbox]!;
+      await storage.deleteAllMessages();
+      if (list.isNotEmpty) {
+        await storage.saveMessageEnvelopes(list);
+      }
+
+      // Update counts
+      if (Get.isRegistered<MailCountController>()) {
+        final countController = Get.find<MailCountController>();
+        String key = "${mailbox.name.toLowerCase()}_count";
+        countController.counts[key] = list.length;
+      }
+    } catch (e) {
+      logger.w('Replacing local drafts with fetched set failed: $e');
+    }
   }
 
   // Pause optimized IDLE around a critical foreground sync to avoid DONE contention
@@ -3361,6 +4108,12 @@ logger.i("Loading messages $sequenceStart-$sequenceEnd for page $pageNumber");
     }
     
     MailService.instance.dispose();
+
+    // Stop special mailbox monitor
+    _stopSpecialMailboxMonitor();
+
+    // Stop auto background refresh
+    _stopAutoBackgroundRefresh();
 
     // Dispose meta notifiers
     for (final n in _messageMeta.values) {

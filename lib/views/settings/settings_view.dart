@@ -8,7 +8,7 @@ import 'pages/language_page.dart';
 import 'pages/signature_page.dart';
 import 'pages/swipe_gesture.dart';
 import 'pages/security_page.dart';
-import 'components/account_name.dart';
+import 'components/profile_details_sheet.dart';
 
 class SettingsView extends GetView<SettingController> {
   const SettingsView({super.key});
@@ -145,12 +145,12 @@ class SettingsView extends GetView<SettingController> {
 
     return GestureDetector(
       onTap: () {
-        // Show account edit sheet
+        // Show profile details sheet
         showModalBottomSheet(
           context: context,
           isScrollControlled: true,
           backgroundColor: Colors.transparent,
-          builder: (context) => AccountNameSheet(),
+          builder: (context) => const ProfileDetailsSheet(),
         );
       },
       child: Container(
@@ -259,61 +259,24 @@ class SettingsView extends GetView<SettingController> {
                         ),
                       );
                     },
-                    child: SizedBox.fromSize()
-                    // Obx(() {
-                    //   // Fixed email loading by using proper controller access
-                    //   final mailboxController = Get.find<MailBoxController>();
-                    //   final email = mailboxController.account?.email ?? 'No email available';
-                    //
-                    //   return Text(
-                    //     email,
-                    //     style: TextStyle(
-                    //       fontSize: 14,
-                    //       color: Colors.white.withValues(alpha : 0.8),
-                    //     ),
-                    //   );
-                    // }),
+                    child: Obx(() {
+                      final email = controller.userEmail().isNotEmpty
+                          ? controller.userEmail()
+                          : (Get.find<SettingController>().box.read('email')?.toString() ?? '');
+                      return Text(
+                        email,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withValues(alpha : 0.85),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      );
+                    }),
                   ),
 
                   const SizedBox(height: 12),
 
-                  // Edit profile button
-                  TweenAnimationBuilder(
-                    tween: Tween<double>(begin: 0, end: 1),
-                    duration: const Duration(milliseconds: 1000),
-                    builder: (context, value, child) {
-                      return Opacity(
-                        opacity: value,
-                        child: child,
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha : 0.2),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.edit_rounded,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Edit Profile',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),

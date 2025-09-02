@@ -10,7 +10,8 @@ import 'package:wahda_bank/utills/constants/sizes.dart';
 import '../../login/widgets/rounded_button.dart';
 
 class EnterOtpScreen extends GetView<OtpController> {
-  EnterOtpScreen({super.key});
+  EnterOtpScreen({super.key, this.maskedPhone});
+  final String? maskedPhone;
 
   final CustomLoadingButtonController btnController =
       CustomLoadingButtonController();
@@ -153,14 +154,23 @@ class EnterOtpScreen extends GetView<OtpController> {
                             },
                             child: Padding(
                               padding: EdgeInsets.symmetric(horizontal: isTablet ? 40 : 20),
-                              child: Text(
-                                "msg_otp_sent_to_your_email_and_phone".tr,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: const Color(0xFF37373F),
-                                  fontSize: isTablet ? 16 : 14,
-                                ),
-                              ),
+                              child: Obx(() {
+                                // Always touch the Rx so Obx has a dependency,
+                                // even if a non-reactive maskedPhone was passed in.
+                                final rxMasked = controller.maskedPhone.value;
+                                final mp = maskedPhone ?? rxMasked;
+                                final text = (mp.isNotEmpty)
+                                    ? 'An OTP has been sent to ' + mp
+                                    : "msg_otp_sent_to_your_email_and_phone".tr;
+                                return Text(
+                                  text,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: const Color(0xFF37373F),
+                                    fontSize: isTablet ? 16 : 14,
+                                  ),
+                                );
+                              }),
                             ),
                           ),
                           SizedBox(height: isTablet ? 30 : 20),
@@ -192,24 +202,34 @@ class EnterOtpScreen extends GetView<OtpController> {
                                 child: child,
                               );
                             },
-                            child: TextButton.icon(
-                              onPressed: () {
-                                controller.requestOtp();
-                              },
-                              icon: Icon(
-                                Icons.refresh_rounded,
-                                size: 18,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                              label: Text(
-                                'resend_otp'.tr,
-                                style: TextStyle(
-                                  fontSize: isTablet ? 18 : 16,
-                                  fontWeight: FontWeight.w500,
+                            child: Obx(() {
+                              final secs = controller.resendSeconds.value;
+                              final busy = controller.isRequestingOtp.value;
+                              final canResend = secs == 0 && !busy;
+                              final label = secs == 0
+                                  ? 'resend_otp'.tr
+                                  : 'resend_otp'.tr + ' (${secs}s)';
+                              return TextButton.icon(
+                                onPressed: canResend
+                                    ? () async {
+                                        await controller.resendOtp();
+                                      }
+                                    : null,
+                                icon: Icon(
+                                  Icons.refresh_rounded,
+                                  size: 18,
                                   color: Theme.of(context).primaryColor,
                                 ),
-                              ),
-                            ),
+                                label: Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: isTablet ? 18 : 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Theme.of(context).primaryColor,
+                                  ),
+                                ),
+                              );
+                            }),
                           ),
                           SizedBox(height: isTablet ? WSizes.defaultSpace * 1.5 : WSizes.defaultSpace),
                           // Continue button with animation

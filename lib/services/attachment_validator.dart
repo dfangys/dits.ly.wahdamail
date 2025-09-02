@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 /// Comprehensive validation result
@@ -528,9 +527,9 @@ class AttachmentValidator {
       
       metadata['json_type'] = jsonData.runtimeType.toString();
       if (jsonData is Map) {
-        metadata['json_keys'] = (jsonData as Map).keys.length;
+        metadata['json_keys'] = jsonData.keys.length;
       } else if (jsonData is List) {
-        metadata['json_items'] = (jsonData as List).length;
+        metadata['json_items'] = jsonData.length;
       }
       
       return ValidationResult(
@@ -606,7 +605,9 @@ class AttachmentValidator {
     // Check for ELF header (Linux executable)
     if (bytes.length >= 4 && 
         bytes[0] == 0x7F && bytes[1] == 0x45 && 
-        bytes[2] == 0x4C && bytes[3] == 0x46) return true;
+        bytes[2] == 0x4C && bytes[3] == 0x46) {
+      return true;
+    }
         
     return false;
   }

@@ -69,7 +69,7 @@ class OfflineHttpServer {
           final cid = norm(cidQ);
           final name = nameQ == null ? null : Uri.decodeComponent(nameQ);
 
-          final resolved = cached!;
+          final resolved = cached;
           var att = resolved.attachments.firstWhere(
             (a) => cid.isNotEmpty && norm(a.contentId) == cid,
             orElse: () => resolved.attachments.firstWhere(
@@ -230,14 +230,14 @@ class OfflineHttpServer {
         RegExp(r'src\s*=\s*"cid:([^"]+)"', caseSensitive: false),
         (m) {
           final cid = Uri.encodeComponent(m.group(1)!.replaceAll('<', '').replaceAll('>', ''));
-          return 'src="http://127.0.0.1:${_port}$base?cid=$cid"';
+          return 'src="http://127.0.0.1:$_port$base?cid=$cid"';
         },
       );
       html = html.replaceAllMapped(
         RegExp(r"src\s*=\s*'cid:([^']+)'", caseSensitive: false),
         (m) {
           final cid = Uri.encodeComponent(m.group(1)!.replaceAll('<', '').replaceAll('>', ''));
-          return "src='http://127.0.0.1:${_port}$base?cid=$cid'";
+          return "src='http://127.0.0.1:$_port$base?cid=$cid'";
         },
       );
       return html;

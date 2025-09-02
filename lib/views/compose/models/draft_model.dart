@@ -334,14 +334,28 @@ class DraftModel {
     // Set subject
     builder.subject = subject;
 
-    // Set content
-    builder.addMultipartAlternative(
-      htmlText: isHtml ? body : null,
-      plainText: isHtml ? _stripHtml(body) : body,
-    );
+    // Set content (avoid empty multipart/alternative)
+    final String htmlCandidate = isHtml ? body.trim() : '';
+    final String plainCandidate = isHtml ? _stripHtml(body).trim() : body.trim();
+    if (htmlCandidate.isEmpty && plainCandidate.isEmpty) {
+      builder.addMultipartAlternative(
+        htmlText: null,
+        plainText: ' ',
+      );
+    } else {
+      builder.addMultipartAlternative(
+        htmlText: htmlCandidate.isNotEmpty ? htmlCandidate : null,
+        plainText: plainCandidate.isNotEmpty ? plainCandidate : null,
+      );
+    }
 
-    // Set sender
-    builder.from = [MailAddress(account.name, account.email)];
+    // Set sender: prefer a real display name; if absent or equals email, omit name to keep RFC-5322 compliant simple addr-spec
+    final displayName = (account.name).trim();
+    if (displayName.isEmpty || displayName.toLowerCase() == account.email.toLowerCase()) {
+      builder.from = [MailAddress('', account.email)];
+    } else {
+      builder.from = [MailAddress(displayName, account.email)];
+    }
 
     // Add custom headers for enhanced draft features
     builder.addHeader('X-Category', category);

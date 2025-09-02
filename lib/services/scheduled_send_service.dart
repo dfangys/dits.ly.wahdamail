@@ -109,11 +109,22 @@ class ScheduledSendService {
         plainText: draft.isHtml ? _stripHtml(draft.body) : draft.body,
       );
 
-      // From: use SettingController account (via MailBoxController's MailService)
+      // From: use profile display name if available; else just the email address
       try {
         final mbc = Get.find<MailBoxController>();
         final acc = mbc.mailService.account;
-        builder.from = [MailAddress(acc.name, acc.email)];
+        String senderName = '';
+        try {
+          if (Get.isRegistered<SettingController>()) {
+            final sc = Get.find<SettingController>();
+            senderName = sc.userName.value.trim();
+          }
+        } catch (_) {}
+        if (senderName.isEmpty || senderName.toLowerCase() == acc.email.toLowerCase()) {
+          builder.from = [MailAddress('', acc.email)];
+        } else {
+          builder.from = [MailAddress(senderName, acc.email)];
+        }
       } catch (_) {}
 
       // Read receipts

@@ -67,7 +67,7 @@ class BackgroundService {
           constraints: Constraints(
             networkType: NetworkType.connected,
           ),
-          existingWorkPolicy: ExistingWorkPolicy.replace,
+          existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
           backoffPolicy: BackoffPolicy.linear,
           backoffPolicyDelay: const Duration(minutes: 5),
         );

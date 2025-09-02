@@ -179,7 +179,7 @@ class _ThreadViewerState extends State<ThreadViewer> {
                 )
                 .timeout(const Duration(seconds: 12));
             if (!mounted || gen != _loadGen) return;
-            final found = searchRes.messages ?? const <MimeMessage>[];
+            final found = searchRes.messages;
             for (final m in found) {
               if ((widget.message.uid != null && m.uid == widget.message.uid) || (widget.message.sequenceId != null && m.sequenceId == widget.message.sequenceId)) {
                 continue;

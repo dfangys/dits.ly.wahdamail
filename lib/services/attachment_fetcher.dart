@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'dart:convert';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/foundation.dart';
@@ -77,7 +76,7 @@ class AttachmentFetcher {
       // Try modern approach first
       if (part.mimeData != null) {
         final data = part.mimeData!.decodeBinary(encoding);
-        if (data != null && data.isNotEmpty) {
+        if (data.isNotEmpty) {
           return data;
         }
       }
@@ -145,7 +144,7 @@ class AttachmentFetcher {
         if (fetched.mimeData != null) {
           final encoding = fetched.getHeaderValue('content-transfer-encoding')?.toLowerCase().trim();
           final data = fetched.mimeData!.decodeBinary(encoding);
-          if (data != null && data.isNotEmpty) {
+          if (data.isNotEmpty) {
             return data;
           }
         }

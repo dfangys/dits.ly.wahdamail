@@ -31,7 +31,6 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
   final Set<int> _processedUIDs = <int>{};
   final Map<DateTime, List<MimeMessage>> _groupedMessages = {};
   final List<DateTime> _dateKeys = [];
-  int _lastProcessedCount = 0;
   String _lastSignature = '';
 
   @override
@@ -113,7 +112,6 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
     // Skip only if signature matches (covers content changes when count stays same)
     final sig = _computeSignature(messages);
     if (_groupedMessages.isNotEmpty && sig == _lastSignature) {
-      _lastProcessedCount = messages.length; // keep in sync
       return;
     }
     _lastSignature = sig;
@@ -135,7 +133,6 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
       _groupedMessages.clear();
       _dateKeys.clear();
       _processedUIDs.clear();
-      _lastProcessedCount = 0;
       if (mounted) setState(() {});
       return;
     }
@@ -143,7 +140,6 @@ class _HomeEmailListState extends State<HomeEmailList> with WidgetsBindingObserv
     // Update processed UIDs and count
     _processedUIDs.clear();
     _processedUIDs.addAll(allUIDs);
-    _lastProcessedCount = messages.length;
     
     // Clear and rebuild with ALL unique messages
     _groupedMessages.clear();

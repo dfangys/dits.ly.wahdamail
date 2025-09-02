@@ -53,9 +53,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       await Future.delayed(const Duration(milliseconds: 2000));
       await NotificationService.instance.setup();
+      
+      final hasEmail = storage.read('email') != null;
+      final hasPassword = storage.read('password') != null;
+      final hasOtpGate = storage.read('otp') != null;
+      final hasUserToken = storage.read('mailsys_token') != null;
 
-      if (storage.read('email') != null && storage.read('password') != null) {
-        if (storage.read('otp') != null) {
+      // If a new MailSys token exists, maintain legacy gate for navigation during migration
+      if (hasUserToken && !hasOtpGate) {
+        await storage.write('otp', true);
+      }
+
+      if (hasEmail && hasPassword) {
+        if (storage.read('otp') != null || hasUserToken) {
           Get.offAll(() => const LoadingFirstView());
         } else {
           Get.offAll(() => const LoginScreen());

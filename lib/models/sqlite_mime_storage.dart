@@ -182,8 +182,8 @@ final envelopeMap = jsonDecode(envelopeJson);
         final List<Map<String, dynamic>> result = await txn.query(
           SQLiteDatabaseHelper.tableMailboxes,
           columns: [SQLiteDatabaseHelper.columnId],
-          where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-          whereArgs: [mailbox.name, mailAccount.email],
+          where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+          whereArgs: [mailbox.encodedPath, mailAccount.email],
         );
 
         if (result.isNotEmpty) {
@@ -230,8 +230,8 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
       final List<Map<String, dynamic>> result = await txn.query(
         SQLiteDatabaseHelper.tableMailboxes,
         columns: [SQLiteDatabaseHelper.columnId],
-        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-        whereArgs: [mailbox.name, mailAccount.email],
+        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.encodedPath, mailAccount.email],
       );
 
       if (result.isEmpty) {
@@ -385,10 +385,12 @@ SQLiteDatabaseHelper.columnUidNext: mailbox.uidNext,
       final db = await SQLiteDatabaseHelper.instance.database;
       final mailboxId = await _getMailboxId();
 
+      int requested = 0;
       await db.transaction((txn) async {
-if (sequence.isUidSequence) {
+        if (sequence.isUidSequence) {
           // Delete by UID
           for (final uid in sequence.toList()) {
+            requested++;
             await txn.delete(
               SQLiteDatabaseHelper.tableEmails,
               where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
@@ -398,6 +400,7 @@ if (sequence.isUidSequence) {
         } else {
           // Delete by sequence ID
           for (final seqId in sequence.toList()) {
+            requested++;
             await txn.delete(
               SQLiteDatabaseHelper.tableEmails,
               where: '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnSequenceId} = ?',
@@ -406,6 +409,11 @@ if (sequence.isUidSequence) {
           }
         }
       });
+
+      if (kDebugMode) {
+        final mode = sequence.isUidSequence ? 'UID' : 'SEQ';
+        print('📧 DB deleteMessageEnvelopes: requested=$requested mode=$mode mailbox=${mailbox.name}');
+      }
 
       _notifyDataChanged();
     } catch (e) {
@@ -575,8 +583,8 @@ final isUid = sequence.isUidSequence;
     final List<Map<String, dynamic>> result = await txn.query(
       SQLiteDatabaseHelper.tableMailboxes,
       columns: [SQLiteDatabaseHelper.columnId],
-      where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-      whereArgs: [mailbox.name, mailAccount.email],
+      where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+      whereArgs: [mailbox.encodedPath, mailAccount.email],
     );
 
     if (result.isEmpty) {
@@ -957,12 +965,37 @@ final isUid = sequence.isUidSequence;
         updateFields[SQLiteDatabaseHelper.columnPreviewText] = previewText;
       }
 
-      await db.update(
+      final count = await db.update(
         SQLiteDatabaseHelper.tableEmails,
         updateFields,
         where: whereBuffer.toString(),
         whereArgs: args,
       );
+
+      // If no row was updated, insert a lightweight stub so hydration can succeed later
+      if (count == 0) {
+        final Map<String, Object?> insertMap = {
+          SQLiteDatabaseHelper.columnMailboxId: mailboxId,
+          // Only one of uid or sequenceId may be present; both columns are nullable
+          SQLiteDatabaseHelper.columnUid: uid,
+          SQLiteDatabaseHelper.columnSequenceId: sequenceId,
+          SQLiteDatabaseHelper.columnPreviewText: previewText.trim().isNotEmpty ? previewText : null,
+          SQLiteDatabaseHelper.columnHasAttachments: hasAttachments ? 1 : 0,
+          // Mark as seen by default for Drafts to avoid unread artifacts
+          SQLiteDatabaseHelper.columnIsSeen: 1,
+          // Use current time so ordering is reasonable until envelope is known
+          SQLiteDatabaseHelper.columnDate: DateTime.now().millisecondsSinceEpoch,
+          // Minimal placeholders; envelope/meta will be filled by subsequent updates
+          SQLiteDatabaseHelper.columnSubject: null,
+          SQLiteDatabaseHelper.columnFrom: null,
+          SQLiteDatabaseHelper.columnTo: null,
+        };
+        await db.insert(
+          SQLiteDatabaseHelper.tableEmails,
+          insertMap,
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
     } catch (e) {
       if (kDebugMode) {
         print('📧 Error updating preview/attachments: $e');
@@ -980,12 +1013,15 @@ final isUid = sequence.isUidSequence;
       final whereBuffer = StringBuffer('${SQLiteDatabaseHelper.columnMailboxId} = ?');
       final args = <Object?>[mailboxId];
 
-      if (message.uid != null) {
+      final uid = message.uid;
+      final seqId = message.sequenceId;
+
+      if (uid != null) {
         whereBuffer.write(' AND ${SQLiteDatabaseHelper.columnUid} = ?');
-        args.add(message.uid);
-      } else if (message.sequenceId != null) {
+        args.add(uid);
+      } else if (seqId != null) {
         whereBuffer.write(' AND ${SQLiteDatabaseHelper.columnSequenceId} = ?');
-        args.add(message.sequenceId);
+        args.add(seqId);
       } else {
         return;
       }
@@ -1014,6 +1050,10 @@ final isUid = sequence.isUidSequence;
       final senderName = _deriveSenderName(message);
       final normalizedSubject = _normalizeSubject(subj);
       final dayBucket = dateMillis ~/ 86400000;
+      // Preview/attachments hints from headers if provided (e.g., realtime projection)
+      final pv = message.getHeaderValue('x-preview');
+      final hasAttHeader = message.getHeaderValue('x-has-attachments');
+      final hasAttVal = (hasAttHeader == '1') ? 1 : (hasAttHeader == '0' ? 0 : null);
 
       final Map<String, Object?> data = {
         SQLiteDatabaseHelper.columnEnvelope: envJson,
@@ -1037,15 +1077,52 @@ final isUid = sequence.isUidSequence;
       if (toEmails.trim().isNotEmpty) {
         data[SQLiteDatabaseHelper.columnTo] = toEmails;
       }
+      if ((pv ?? '').toString().trim().isNotEmpty) {
+        data[SQLiteDatabaseHelper.columnPreviewText] = pv;
+      }
+      if (hasAttVal != null) {
+        data[SQLiteDatabaseHelper.columnHasAttachments] = hasAttVal;
+      }
       // Maintain day bucket with the updated date
       data[SQLiteDatabaseHelper.columnDayBucket] = dayBucket;
 
-      await db.update(
+      final count = await db.update(
         SQLiteDatabaseHelper.tableEmails,
         data,
         where: whereBuffer.toString(),
         whereArgs: args,
       );
+
+      // If no row updated, insert a new envelope row (upsert behavior)
+      if (count == 0) {
+        final Map<String, Object?> insertMap = {
+          SQLiteDatabaseHelper.columnMailboxId: mailboxId,
+          SQLiteDatabaseHelper.columnUid: uid,
+          SQLiteDatabaseHelper.columnSequenceId: seqId,
+          SQLiteDatabaseHelper.columnEnvelope: envJson,
+          SQLiteDatabaseHelper.columnSubject: subj.trim().isNotEmpty ? subj : null,
+          SQLiteDatabaseHelper.columnFrom: fromEmail.trim().isNotEmpty ? fromEmail : null,
+          SQLiteDatabaseHelper.columnTo: toEmails.trim().isNotEmpty ? toEmails : null,
+          SQLiteDatabaseHelper.columnDate: dateMillis,
+          SQLiteDatabaseHelper.columnEmailFlags: message.flags?.map((f) => f.toString()).join(',') ?? '',
+          SQLiteDatabaseHelper.columnIsSeen: message.isSeen ? 1 : 0,
+          SQLiteDatabaseHelper.columnIsFlagged: message.isFlagged ? 1 : 0,
+          SQLiteDatabaseHelper.columnIsDeleted: message.isDeleted ? 1 : 0,
+          SQLiteDatabaseHelper.columnIsAnswered: message.isAnswered ? 1 : 0,
+          SQLiteDatabaseHelper.columnSenderName: senderName.trim().isNotEmpty ? senderName : null,
+          SQLiteDatabaseHelper.columnNormalizedSubject: normalizedSubject.trim().isNotEmpty ? normalizedSubject : null,
+          SQLiteDatabaseHelper.columnDayBucket: dayBucket,
+          if ((pv ?? '').toString().trim().isNotEmpty)
+            SQLiteDatabaseHelper.columnPreviewText: pv,
+          if (hasAttVal != null)
+            SQLiteDatabaseHelper.columnHasAttachments: hasAttVal,
+        };
+        await db.insert(
+          SQLiteDatabaseHelper.tableEmails,
+          insertMap,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
     } catch (e) {
       if (kDebugMode) {
         print('📧 Error updating envelope/meta: $e');
@@ -1237,8 +1314,8 @@ final isUid = sequence.isUidSequence;
           SQLiteDatabaseHelper.columnUidNext,
           SQLiteDatabaseHelper.columnUidValidity,
         ],
-        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-        whereArgs: [mailbox.name, mailAccount.email],
+        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.encodedPath, mailAccount.email],
         limit: 1,
       );
       if (rows.isEmpty) return const MailboxMeta();
@@ -1271,8 +1348,8 @@ final isUid = sequence.isUidSequence;
       await db.update(
         SQLiteDatabaseHelper.tableMailboxes,
         data,
-        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-        whereArgs: [mailbox.name, mailAccount.email],
+        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.encodedPath, mailAccount.email],
       );
     } catch (e) {
       if (kDebugMode) {
@@ -1297,8 +1374,8 @@ final isUid = sequence.isUidSequence;
           SQLiteDatabaseHelper.columnLastSyncStartedAt,
           SQLiteDatabaseHelper.columnLastSyncFinishedAt,
         ],
-        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-        whereArgs: [mailbox.name, mailAccount.email],
+        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.encodedPath, mailAccount.email],
         limit: 1,
       );
       if (rows.isEmpty) return const MailboxSyncState();
@@ -1349,8 +1426,8 @@ final isUid = sequence.isUidSequence;
       await db.update(
         SQLiteDatabaseHelper.tableMailboxes,
         data,
-        where: '${SQLiteDatabaseHelper.columnName} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
-        whereArgs: [mailbox.name, mailAccount.email],
+        where: '${SQLiteDatabaseHelper.columnPath} = ? AND ${SQLiteDatabaseHelper.columnAccountEmail} = ?',
+        whereArgs: [mailbox.encodedPath, mailAccount.email],
       );
     } catch (e) {
       if (kDebugMode) {

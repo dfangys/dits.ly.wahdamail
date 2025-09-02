@@ -23,11 +23,11 @@ class WFullScreenLoader {
             )));
   }
 
-  static stopLoading() {
+  static void stopLoading() {
     Navigator.of(Get.overlayContext!).pop();
   }
 
-  static warningSnakBar({required title, message = ''}) {
+  static void warningSnakBar({required String title, String message = ''}) {
     Get.snackbar(title, message,
         isDismissible: true,
         shouldIconPulse: true,
@@ -42,7 +42,7 @@ class WFullScreenLoader {
         ));
   }
 
-  static sucessSnakBar({required title, message = '', duration = 3}) {
+  static void sucessSnakBar({required String title, String message = '', int duration = 3}) {
     Get.snackbar(title, message,
         isDismissible: true,
         shouldIconPulse: true,
@@ -57,7 +57,7 @@ class WFullScreenLoader {
         ));
   }
 
-  static errorSnakBar({required title, message = ''}) {
+  static void errorSnakBar({required String title, String message = ''}) {
     Get.snackbar(title, message,
         isDismissible: true,
         shouldIconPulse: true,
@@ -72,7 +72,7 @@ class WFullScreenLoader {
         ));
   }
 
-  static customToast({required message}) {
+  static void customToast({required String message}) {
     ScaffoldMessenger.of(Get.context!).showSnackBar(SnackBar(
         elevation: 0,
         duration: const Duration(seconds: 3),

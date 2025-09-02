@@ -10,6 +10,7 @@ import 'cache_manager.dart';
 import 'mail_service.dart';
 import 'imap_command_queue.dart';
 import 'imap_fetch_pool.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 
 /// ENHANCED: Real-time update service with event-driven architecture
 /// Based on enough_mail_app patterns for high-performance reactive updates
@@ -213,6 +214,11 @@ class RealtimeUpdateService extends GetxService {
       // Sync all mailboxes
       for (final mailbox in _mailboxesStream.value) {
         await _syncMailbox(mailbox);
+        // After syncing, reconcile recent window against server to drop any locally stale items
+        try {
+          final c = Get.find<MailBoxController>();
+          await c.reconcileRecentWithServer(mailbox, window: mailbox.isDrafts ? 1000 : 300);
+        } catch (_) {}
       }
       
       _syncStatusStream.add(SyncStatus.idle);

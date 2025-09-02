@@ -2,11 +2,11 @@ import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/widgets/custom_loading_button.dart';
-import 'package:wahda_bank/app/apis/app_api.dart';
+import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/views/authantication/screens/login/widgets/text_form_field.dart';
-import 'package:wahda_bank/views/authantication/screens/otp/verify_reset_password/verify_reset_password_otp.dart';
+import 'package:wahda_bank/views/authantication/screens/otp/verify_reset_password/reset_password_otp_screen.dart';
 
 class ResetPasswordTextField extends StatefulWidget {
   const ResetPasswordTextField({
@@ -19,9 +19,10 @@ class ResetPasswordTextField extends StatefulWidget {
 
 class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with SingleTickerProviderStateMixin {
   final bool isBusy = false;
+  bool _isSubmitting = false;
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
-  final appApi = Get.find<AppApi>();
+  final mailsys = Get.find<MailsysApiClient>();
   final btnController = CustomLoadingButtonController();
   bool isError = false;
   bool _isEmailValid = true;
@@ -374,20 +375,28 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
   }
 
   Future submitForm() async {
+    if (_isSubmitting) return;
     setState(() {
       isError = false;
     });
 
     if (formKey.currentState!.validate()) {
       try {
+        _isSubmitting = true;
         btnController.start();
         String email = emailController.text.trim() + WText.emailSuffix;
-        var res = await appApi.sendResetPasswordOtp(email);
-        if (res is Map && res.isNotEmpty) {
-          if (res.containsKey('otp_send') && res['otp_send']) {
+        final res = await mailsys.requestPasswordReset(email);
+        if (res.isNotEmpty) {
+          if ((res['status'] == 'success') || (res['data'] is Map)) {
             btnController.success();
+            // Try to extract masked phone for UI
+            final data = (res['data'] is Map) ? res['data'] as Map : <String, dynamic>{};
+            final maskedPhone = data['masked_phone'] ?? res['masked_phone'] ?? data['phone_masked'] ?? data['phone'];
             Get.to(
-                  () => VerifyResetPasswordOtpScreen(email: email),
+              () => ResetPasswordOtpScreen(
+                email: email,
+                maskedPhone: maskedPhone is String ? maskedPhone : null,
+              ),
             );
           } else {
             btnController.error();
@@ -401,7 +410,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
             isError = true;
           });
         }
-      } on AppApiException catch (e) {
+      } on MailsysApiException catch (e) {
         btnController.error();
         setState(() {
           isError = true;
@@ -422,6 +431,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField> with Si
             btnController.reset();
           });
         }
+        _isSubmitting = false;
       }
     } else {
       btnController.reset();

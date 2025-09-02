@@ -24,13 +24,14 @@ class OptimizedIdleService extends GetxService {
   static const Duration _initialReconnectDelay = Duration(seconds: 2);
   static const Duration _maxReconnectDelay = Duration(minutes: 5);
   static const Duration _healthCheckInterval = Duration(minutes: 3);
-  static const Duration _connectionTimeout = Duration(seconds: 15);
+  static const Duration _connectionTimeout = Duration(seconds: 25);
   static const int _maxReconnectAttempts = 10;
 
   // Internal state management
   Timer? _idleRefreshTimer;
   Timer? _healthCheckTimer;
   Timer? _reconnectTimer;
+  Timer? _pollCheckTimer; // Frequent exists watcher when server events are unreliable
   bool _isIdleActive = false;
   bool _shouldKeepRunning = false;
   int _reconnectAttempts = 0;
@@ -38,6 +39,7 @@ class OptimizedIdleService extends GetxService {
   DateTime? _lastIdleStart;
   StreamSubscription<ImapEvent>? _eventSubscription;
   Completer<void>? _idleCompleter;
+  int? _lastKnownExists;
 
   // Public read-only getters for coordination with controllers
   bool get isRunning => _shouldKeepRunning;
@@ -65,6 +67,29 @@ class OptimizedIdleService extends GetxService {
   @override
   void onInit() {
     super.onInit();
+    // Configure the IMAP command queue to pause/resume IDLE once per batch of commands
+    try {
+      ImapCommandQueue.instance.configureIdleHooks(
+        onPause: () async {
+          if (kDebugMode) {
+            print('📧 IMAP queue requesting IDLE stop');
+          }
+          await stopOptimizedIdle();
+        },
+        onResume: () async {
+          // Small settle delay is already handled by the queue
+          if (kDebugMode) {
+            print('📧 IMAP queue requesting IDLE start');
+          }
+          await startOptimizedIdle();
+        },
+        settleDelay: const Duration(milliseconds: 600),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('📧 Failed to configure queue idle hooks: $e');
+      }
+    }
     if (kDebugMode) {
       print('📧 OptimizedIdleService initialized');
     }
@@ -78,6 +103,17 @@ class OptimizedIdleService extends GetxService {
       }
       return;
     }
+
+    // Do not start if the IMAP queue currently holds the idle pause lock
+    try {
+      final st = ImapCommandQueue.instance.debugState();
+      if ((st['idlePaused'] as bool?) == true) {
+        if (kDebugMode) {
+          print('📧 ⏸️ Suppressing IDLE start: queue has paused idle');
+        }
+        return;
+      }
+    } catch (_) {}
 
     _shouldKeepRunning = true;
     _reconnectAttempts = 0;
@@ -107,6 +143,8 @@ class OptimizedIdleService extends GetxService {
     _idleRefreshTimer?.cancel();
     _healthCheckTimer?.cancel();
     _reconnectTimer?.cancel();
+    _pollCheckTimer?.cancel();
+    _pollCheckTimer = null;
     
     // Cancel event subscription
     await _eventSubscription?.cancel();
@@ -201,6 +239,17 @@ class OptimizedIdleService extends GetxService {
     final mailService = _mailService;
     if (mailService == null || !_shouldKeepRunning) return;
 
+    // If the IMAP queue has paused idle, do not start a session now; queue will resume later
+    try {
+      final st = ImapCommandQueue.instance.debugState();
+      if ((st['idlePaused'] as bool?) == true) {
+        if (kDebugMode) {
+          print('📧 ⏸️ Skipping IDLE session start: queue has paused idle');
+        }
+        return;
+      }
+    } catch (_) {}
+
     try {
       if (kDebugMode) {
         print('📧 ⏳ Starting polling session for real-time updates');
@@ -212,11 +261,20 @@ class OptimizedIdleService extends GetxService {
       // Set up event listener before starting polling
       _setupEventListener();
 
+      // Capture baseline exists count to detect new messages even if events are missed
+      try {
+        final selected = mailService.client.selectedMailbox;
+        _lastKnownExists = selected?.messagesExists;
+      } catch (_) { _lastKnownExists = null; }
+
       // Set up refresh timer to prevent server timeout
       _scheduleIdleRefresh();
 
       // Start polling mode - this is compatible with v2.1.7
       await mailService.client.startPolling(const Duration(seconds: 30));
+
+      // Start exists watcher to detect new emails proactively (fallback when events are unreliable)
+      _startExistWatcher();
       
       // Wait for polling to complete (either by server event or our refresh)
       await _idleCompleter!.future.timeout(
@@ -231,12 +289,14 @@ class OptimizedIdleService extends GetxService {
     } catch (e) {
       _isIdleActive = false;
       if (kDebugMode) {
-        print('📧 ❌ Polling session error: $e');
+        print('📧 ❌ IDLE session error: $e');
       }
       rethrow;
     } finally {
       _isIdleActive = false;
       _idleRefreshTimer?.cancel();
+      _pollCheckTimer?.cancel();
+      _pollCheckTimer = null;
       
       // Properly stop polling if it's still active
       try {
@@ -434,6 +494,16 @@ class OptimizedIdleService extends GetxService {
 
       // Trigger a refresh to update the message list
       await _triggerMailboxRefresh();
+
+      // Also reconcile recent window against server to ensure deletions are reflected without manual refresh
+      try {
+        final mailService = _mailService;
+        if (mailService?.client.selectedMailbox != null) {
+          final mb = mailService!.client.selectedMailbox!;
+          final c = Get.find<MailBoxController>();
+          await c.reconcileRecentWithServer(mb, window: mb.isDrafts ? 1000 : 300);
+        }
+      } catch (_) {}
       
     } catch (e) {
       if (kDebugMode) {
@@ -496,6 +566,43 @@ class OptimizedIdleService extends GetxService {
           print('📧 🔄 Refreshing IDLE session to prevent timeout');
         }
         _idleCompleter?.complete();
+      }
+    });
+  }
+
+  /// Periodically re-select mailbox to refresh EXISTS and trigger updates when events are missed
+  void _startExistWatcher() {
+    _pollCheckTimer?.cancel();
+    // Poll every 20s (lighter than startPolling interval) to detect exists changes
+    _pollCheckTimer = Timer.periodic(const Duration(seconds: 20), (t) async {
+      if (!_shouldKeepRunning) return;
+      final mailService = _mailService;
+      if (mailService == null || !mailService.client.isConnected) return;
+      try {
+        final selected = mailService.client.selectedMailbox;
+        if (selected == null) return;
+        // Re-select mailbox to refresh EXISTS metadata (cheap on most servers)
+        await ImapCommandQueue.instance.run('selectMailbox(existsWatcher:${selected.name})', () async {
+          await mailService.client.selectMailbox(selected).timeout(_connectionTimeout);
+        });
+        final refreshed = mailService.client.selectedMailbox;
+        final existsNow = refreshed?.messagesExists ?? selected.messagesExists;
+        if (_lastKnownExists == null) {
+          _lastKnownExists = existsNow;
+          return;
+        }
+        if (existsNow > _lastKnownExists!) {
+          if (kDebugMode) {
+            print('📧 📈 EXISTS increased ${_lastKnownExists} -> $existsNow, triggering fast new-mail path');
+          }
+          _lastKnownExists = existsNow;
+          // Trigger quick path: ask realtime service to load new messages for this mailbox
+          await _realtimeService.notifyNewMessages([], mailbox: refreshed ?? selected);
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('📧 ⚠️ exists watcher error: $e');
+        }
       }
     });
   }

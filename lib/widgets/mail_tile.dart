@@ -12,6 +12,7 @@ import 'package:wahda_bank/services/realtime_update_service.dart';
 import '../services/cache_manager.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/services/draft_sync_service.dart';
+import 'package:wahda_bank/views/settings/data/swap_data.dart';
 
 class MailTile extends StatefulWidget {
   const MailTile({
@@ -401,7 +402,8 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   Widget build(BuildContext context) {
     super.build(context);
     
-    final bool isUnread = !widget.message.isSeen;
+    final bool isDraftsBox = widget.mailBox.name.toLowerCase().contains('draft');
+    final bool isUnread = isDraftsBox ? false : !widget.message.isSeen;
     final bool hasFlagged = widget.message.isFlagged;
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
@@ -451,6 +453,7 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
                     onToggleFlag: _toggleFlag,
                     onDeleteMessage: _deleteMessage,
                     onArchiveMessage: _archiveMessage,
+                    onMarkAsJunk: _markAsJunk,
                     metaNotifier: _metaNotifier,
                   ),
                 ),
@@ -610,21 +613,36 @@ class _MailTileState extends State<MailTile> with AutomaticKeepAliveClientMixin,
   }
 
   void _archiveMessage() async {
-    // Archive functionality - move to archive folder
+    // Move message to Archive mailbox with optimistic UI and haptic feedback
     try {
-      Get.snackbar(
-        'Info',
-        'Archive functionality coming soon',
-        backgroundColor: Colors.blue,
-        colorText: Colors.white,
-      );
+      _showActionFeedback('Archiving...', Icons.archive_outlined, Colors.orange);
+      final archive = mailboxController.mailboxes.firstWhereOrNull((e) => e.isArchive);
+      if (archive == null) {
+        Get.snackbar('Info', 'Archive mailbox not found', backgroundColor: Colors.blue, colorText: Colors.white, duration: const Duration(seconds: 2));
+        return;
+      }
+      mailboxController.removeMessageFromUI(widget.message, widget.mailBox);
+      await mailboxController.moveMails([widget.message], widget.mailBox, archive);
+      _showActionFeedback('Message archived', Icons.check, Colors.green);
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to archive message',
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      Get.snackbar('Error', 'Failed to archive message: ${e.toString()}', backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 3));
+    }
+  }
+
+  void _markAsJunk() async {
+    // Move message to Junk mailbox (spam)
+    try {
+      _showActionFeedback('Moving to Junk...', Icons.report_gmailerrorred, const Color(0xFF9C27B0));
+      final junk = mailboxController.mailboxes.firstWhereOrNull((e) => e.isJunk);
+      if (junk == null) {
+        Get.snackbar('Info', 'Junk mailbox not found', backgroundColor: Colors.blue, colorText: Colors.white, duration: const Duration(seconds: 2));
+        return;
+      }
+      mailboxController.removeMessageFromUI(widget.message, widget.mailBox);
+      await mailboxController.moveMails([widget.message], widget.mailBox, junk);
+      _showActionFeedback('Message moved to Junk', Icons.check, Colors.green);
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to move to Junk: ${e.toString()}', backgroundColor: Colors.red, colorText: Colors.white, duration: const Duration(seconds: 3));
     }
   }
 
@@ -755,6 +773,7 @@ class OptimizedMailTileContent extends StatelessWidget {
     required this.onToggleFlag,
     required this.onDeleteMessage,
     required this.onArchiveMessage,
+    required this.onMarkAsJunk,
     this.metaNotifier,
   });
 
@@ -776,6 +795,7 @@ class OptimizedMailTileContent extends StatelessWidget {
   final VoidCallback onToggleFlag;
   final VoidCallback onDeleteMessage;
   final VoidCallback onArchiveMessage;
+  final VoidCallback onMarkAsJunk;
   final ValueListenable<int>? metaNotifier;
 
   String _formatDate(DateTime date) {
@@ -834,217 +854,223 @@ class OptimizedMailTileContent extends StatelessWidget {
           ),
         ],
       ),
-      child: Slidable(
-        key: ValueKey(message.uid ?? message.sequenceId),
-        startActionPane: _buildStartActionPane(),
-        endActionPane: _buildEndActionPane(),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () {
-              if (selectionController.isSelecting) {
-                _toggleSelection();
-              } else {
-                onTap?.call();
-              }
-            },
-            onLongPress: _toggleSelection,
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: FeatureFlags.instance.fixedExtentListEnabled ? 12 : 16),
-              child: Row(
-                children: [
-                  // Selection indicator or avatar
-                  _buildLeadingWidget(),
-                  const SizedBox(width: 12),
-                  
-                  // Message content
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header row with sender and time
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                senderName,
-                                style: TextStyle(
-                                  fontWeight: isUnread ? FontWeight.w600 : FontWeight.w500,
-                                  fontSize: 16,
-                                  color: theme.textTheme.bodyLarge?.color,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (messageDate != null)
-                              Text(
-                                _formatDate(messageDate!),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: theme.textTheme.bodySmall?.color,
-                                  fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
+      child: Obx(() {
+        final sc = Get.find<SettingController>();
+        // Establish reactive dependencies so changes reflect immediately
+        final ltr = sc.swipeGesturesLTR.value;
+        final rtl = sc.swipeGesturesRTL.value;
+        return Slidable(
+          key: ValueKey(message.uid ?? message.sequenceId),
+          startActionPane: _buildStartActionPaneFor(ltr),
+          endActionPane: _buildEndActionPaneFor(rtl),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                if (selectionController.isSelecting) {
+                  _toggleSelection();
+                } else {
+                  onTap?.call();
+                }
+              },
+              onLongPress: _toggleSelection,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: FeatureFlags.instance.fixedExtentListEnabled ? 12 : 16),
+                child: Row(
+                  children: [
+                    // Selection indicator or avatar
+                    _buildLeadingWidget(),
+                    const SizedBox(width: 12),
+                    
+                    // Message content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header row with sender and time
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  senderName,
+                                  style: TextStyle(
+                                    fontWeight: isUnread ? FontWeight.w600 : FontWeight.w500,
+                                    fontSize: 16,
+                                    color: theme.textTheme.bodyLarge?.color,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                          ],
-                        ),
-                        SizedBox(height: (FeatureFlags.instance.fixedExtentListEnabled && (textScale > 1.1)) ? 2 : 4),
-                        
-                        // Subject line with indicators
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                subject,
-                                style: TextStyle(
-                                  fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400,
-                                  fontSize: 14,
-                                  color: theme.textTheme.bodyMedium?.color,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            // Draft sync badge (only in Drafts mailbox)
-                            if (mailBox.isDrafts) ...[
-                              const SizedBox(width: 4),
-                              _DraftSyncBadge(message: message, mailbox: mailBox, theme: theme),
-                            ],
-                            // Thread count pill (if part of a conversation)
-                            _ThreadCountPill(
-                              key: ValueKey(message.uid ?? message.sequenceId ?? 0),
-                              message: message,
-                              theme: theme,
-                              metaNotifier: metaNotifier,
-                            ),
-
-                            // Attachment indicator - Enhanced visibility
-                            if (FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null)
-                              ValueListenableBuilder<int>(
-                                valueListenable: metaNotifier!,
-                                builder: (context, _, __) {
-                                  final ha = message.getHeaderValue('x-has-attachments');
-                                  final hasAtt = ha == '1' || (ha == null ? hasAttachments : false);
-                                  return hasAtt
-                                      ? Row(children: [
-                                          const SizedBox(width: 4),
-                                          Container(
-                                            padding: const EdgeInsets.all(3),
-                                            decoration: BoxDecoration(
-                                              color: theme.primaryColor.withValues(alpha: 0.15),
-                                              borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(
-                                                color: theme.primaryColor.withValues(alpha: 0.3),
-                                                width: 0.5,
-                                              ),
-                                            ),
-                                            child: Icon(
-                                              Icons.attach_file,
-                                              size: 16,
-                                              color: theme.primaryColor,
-                                            ),
-                                          ),
-                                        ])
-                                      : const SizedBox.shrink();
-                                },
-                              )
-                            else if (hasAttachments) ...[
-                              const SizedBox(width: 4),
-                              Container(
-                                padding: const EdgeInsets.all(3),
-                                decoration: BoxDecoration(
-                                  color: theme.primaryColor.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: theme.primaryColor.withValues(alpha: 0.3),
-                                    width: 0.5,
+                              if (messageDate != null)
+                                Text(
+                                  _formatDate(messageDate!),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.textTheme.bodySmall?.color,
+                                    fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
                                   ),
                                 ),
-                                child: Icon(
-                                  Icons.attach_file,
-                                  size: 16, // Slightly larger for better visibility
-                                  color: theme.primaryColor,
+                            ],
+                          ),
+                          SizedBox(height: (FeatureFlags.instance.fixedExtentListEnabled && (textScale > 1.1)) ? 2 : 4),
+                          
+                          // Subject line with indicators
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  subject,
+                                  style: TextStyle(
+                                    fontWeight: isUnread ? FontWeight.w600 : FontWeight.w400,
+                                    fontSize: 14,
+                                    color: theme.textTheme.bodyMedium?.color,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                            ],
-                            // Flag indicator
-                            if (hasFlagged) ...[
-                              const SizedBox(width: 4),
-                              Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Icon(
-                                  Icons.flag,
-                                  size: 14,
-                                  color: Colors.orange,
-                                ),
+                              // Draft sync badge (only in Drafts mailbox)
+                              if (mailBox.isDrafts) ...[
+                                const SizedBox(width: 4),
+                                _DraftSyncBadge(message: message, mailbox: mailBox, theme: theme),
+                              ],
+                              // Thread count pill (if part of a conversation)
+                              _ThreadCountPill(
+                                key: ValueKey(message.uid ?? message.sequenceId ?? 0),
+                                message: message,
+                                theme: theme,
+                                metaNotifier: metaNotifier,
                               ),
-                            ],
-                          ],
-                        ),
-                        SizedBox(height: (FeatureFlags.instance.fixedExtentListEnabled && (textScale > 1.1)) ? 2 : 4),
-                        
-                        // Preview text (flexible to avoid vertical overflow)
-                        Flexible(
-                          child: FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null
-                              ? ValueListenableBuilder<int>(
+
+                              // Attachment indicator - Enhanced visibility
+                              if (FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null)
+                                ValueListenableBuilder<int>(
                                   valueListenable: metaNotifier!,
                                   builder: (context, _, __) {
-                                    final hp = message.getHeaderValue('x-preview');
-                                    final text = (hp != null && hp.trim().isNotEmpty) ? hp : preview;
-                                    return ClipRect(
-                                      child: Text(
-                                        text,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: theme.textTheme.bodySmall?.color,
-                                          height: 1.25,
-                                        ),
-                                        maxLines: previewMaxLines,
-                                        overflow: TextOverflow.ellipsis,
-                                        softWrap: true,
-                                      ),
-                                    );
+                                    final ha = message.getHeaderValue('x-has-attachments');
+                                    final hasAtt = ha == '1' || (ha == null ? hasAttachments : false);
+                                    return hasAtt
+                                        ? Row(children: [
+                                            const SizedBox(width: 4),
+                                            Container(
+                                              padding: const EdgeInsets.all(3),
+                                              decoration: BoxDecoration(
+                                                color: theme.primaryColor.withValues(alpha: 0.15),
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(
+                                                  color: theme.primaryColor.withValues(alpha: 0.3),
+                                                  width: 0.5,
+                                                ),
+                                              ),
+                                              child: Icon(
+                                                Icons.attach_file,
+                                                size: 16,
+                                                color: theme.primaryColor,
+                                              ),
+                                            ),
+                                          ])
+                                        : const SizedBox.shrink();
                                   },
                                 )
-                              : ClipRect(
-                                  child: Text(
-                                    preview,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: theme.textTheme.bodySmall?.color,
-                                      height: 1.25,
+                              else if (hasAttachments) ...[
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    color: theme.primaryColor.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: theme.primaryColor.withValues(alpha: 0.3),
+                                      width: 0.5,
                                     ),
-                                    maxLines: previewMaxLines,
-                                    overflow: TextOverflow.ellipsis,
-                                    softWrap: true,
+                                  ),
+                                  child: Icon(
+                                    Icons.attach_file,
+                                    size: 16, // Slightly larger for better visibility
+                                    color: theme.primaryColor,
                                   ),
                                 ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  // Unread indicator
-                  if (isUnread)
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: theme.primaryColor,
-                        shape: BoxShape.circle,
+                              ],
+                              // Flag indicator
+                              if (hasFlagged) ...[
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Icon(
+                                    Icons.flag,
+                                    size: 14,
+                                    color: Colors.orange,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          SizedBox(height: (FeatureFlags.instance.fixedExtentListEnabled && (textScale > 1.1)) ? 2 : 4),
+                          
+                          // Preview text (flexible to avoid vertical overflow)
+                          Flexible(
+                            child: FeatureFlags.instance.perTileNotifiersEnabled && metaNotifier != null
+                                ? ValueListenableBuilder<int>(
+                                    valueListenable: metaNotifier!,
+                                    builder: (context, _, __) {
+                                      final hp = message.getHeaderValue('x-preview');
+                                      final text = (hp != null && hp.trim().isNotEmpty) ? hp : preview;
+                                      return ClipRect(
+                                        child: Text(
+                                          text,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: theme.textTheme.bodySmall?.color,
+                                            height: 1.25,
+                                          ),
+                                          maxLines: previewMaxLines,
+                                          overflow: TextOverflow.ellipsis,
+                                          softWrap: true,
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : ClipRect(
+                                    child: Text(
+                                      preview,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: theme.textTheme.bodySmall?.color,
+                                        height: 1.25,
+                                      ),
+                                      maxLines: previewMaxLines,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: true,
+                                    ),
+                                  ),
+                          ),
+                        ],
                       ),
                     ),
-                ],
+                    
+                    // Unread indicator
+                    if (isUnread)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: theme.primaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      }),
     );
   }
 
@@ -1085,32 +1111,27 @@ class OptimizedMailTileContent extends StatelessWidget {
     selectionController.toggle(message);
   }
 
-  // Build start action pane based on settings (Left-to-Right swipe)
-  ActionPane? _buildStartActionPane() {
-    final settingController = Get.find<SettingController>();
-    final action = settingController.swipeGesturesLTR.value;
-    
+  // Build start action pane (Left-to-Right swipe) for a given action key
+  ActionPane _buildStartActionPaneFor(String action) {
     return ActionPane(
       motion: const ScrollMotion(),
       children: [_buildSwipeAction(action, isStartPane: true)],
     );
   }
 
-  // Build end action pane based on settings (Right-to-Left swipe)
-  ActionPane? _buildEndActionPane() {
-    final settingController = Get.find<SettingController>();
-    final action = settingController.swipeGesturesRTL.value;
-    
+  // Build end action pane (Right-to-Left swipe) for a given action key
+  ActionPane _buildEndActionPaneFor(String action) {
     return ActionPane(
       motion: const ScrollMotion(),
       children: [_buildSwipeAction(action, isStartPane: false)],
     );
   }
 
-  // Build individual swipe action based on action type
+  // Build individual swipe action based on action type (normalized via SwapAction enum)
   SlidableAction _buildSwipeAction(String actionType, {required bool isStartPane}) {
-    switch (actionType) {
-      case 'read_unread':
+    final action = getSwapActionFromString(actionType);
+    switch (action) {
+      case SwapAction.readUnread:
         return SlidableAction(
           onPressed: (context) => onMarkAsRead(),
           backgroundColor: Colors.blue,
@@ -1118,7 +1139,7 @@ class OptimizedMailTileContent extends StatelessWidget {
           icon: isUnread ? Icons.mark_email_read : Icons.mark_email_unread,
           label: isUnread ? 'Read' : 'Unread',
         );
-      case 'flag':
+      case SwapAction.toggleFlag:
         return SlidableAction(
           onPressed: (context) => onToggleFlag(),
           backgroundColor: Colors.orange,
@@ -1126,7 +1147,7 @@ class OptimizedMailTileContent extends StatelessWidget {
           icon: hasFlagged ? Icons.flag : Icons.flag_outlined,
           label: hasFlagged ? 'Unflag' : 'Flag',
         );
-      case 'delete':
+      case SwapAction.delete:
         return SlidableAction(
           onPressed: (context) => onDeleteMessage(),
           backgroundColor: Colors.red,
@@ -1134,7 +1155,7 @@ class OptimizedMailTileContent extends StatelessWidget {
           icon: Icons.delete,
           label: 'Delete',
         );
-      case 'archive':
+      case SwapAction.archive:
         return SlidableAction(
           onPressed: (context) => onArchiveMessage(),
           backgroundColor: Colors.green,
@@ -1142,13 +1163,13 @@ class OptimizedMailTileContent extends StatelessWidget {
           icon: Icons.archive,
           label: 'Archive',
         );
-      default:
+      case SwapAction.markAsJunk:
         return SlidableAction(
-          onPressed: (context) => onMarkAsRead(),
-          backgroundColor: Colors.blue,
+          onPressed: (context) => onMarkAsJunk(),
+          backgroundColor: const Color(0xFF9C27B0),
           foregroundColor: Colors.white,
-          icon: isUnread ? Icons.mark_email_read : Icons.mark_email_unread,
-          label: isUnread ? 'Read' : 'Unread',
+          icon: Icons.report_gmailerrorred,
+          label: 'Junk',
         );
     }
   }
@@ -1156,7 +1177,7 @@ class OptimizedMailTileContent extends StatelessWidget {
 }
 
 class _DraftSyncBadge extends StatelessWidget {
-  const _DraftSyncBadge({super.key, required this.message, required this.mailbox, required this.theme});
+  const _DraftSyncBadge({required this.message, required this.mailbox, required this.theme});
   final MimeMessage message;
   final Mailbox mailbox;
   final ThemeData theme;
@@ -1195,7 +1216,6 @@ class _DraftSyncBadge extends StatelessWidget {
         case DraftSyncBadgeState.failed:
           return Icon(Icons.error_outline, size: 16, color: Colors.red.shade600);
         case DraftSyncBadgeState.idle:
-        default:
           return const SizedBox.shrink();
       }
     });

@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -757,67 +756,6 @@ class _AttachmentItem {
   );
 }
 
-class _SkeletonAttachment extends StatelessWidget {
-  const _SkeletonAttachment({required this.width, required this.height, this.radius = 8});
-  final double width;
-  final double height;
-  final double radius;
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: width,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
-        color: theme.colorScheme.surface,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(radius - 2),
-                  topRight: Radius.circular(radius - 2),
-                ),
-              ),
-              child: Icon(Icons.insert_drive_file, color: Colors.grey.shade500, size: 24),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                )
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _AttachmentThumb extends StatefulWidget {
   const _AttachmentThumb({required this.item, required this.onOpen, required this.onShare});
   final _AttachmentItem item;
@@ -880,7 +818,7 @@ class _AttachmentThumbState extends State<_AttachmentThumb> {
                            mime.contains('spreadsheet') ||
                            mime.contains('presentation');
 
-    if (!canGenerateThumb) return;
+if (!canGenerateThumb) { return; }
 
     setState(() => _loadingThumb = true);
     try {
