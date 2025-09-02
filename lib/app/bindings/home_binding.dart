@@ -5,6 +5,10 @@ import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
+import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
+import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
+import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
 
 import '../controllers/mail_count_controller.dart';
 import '../controllers/mailbox_controller.dart';
@@ -34,6 +38,11 @@ class HomeBinding extends Bindings {
       EmailDownloadProgressController(),
       permanent: true,
     );
+
+    // P12.2: Pre-register presentation ViewModels via DI for UI consumption
+    Get.put<MailboxViewModel>(getIt<MailboxViewModel>(), permanent: true);
+    Get.put<ComposeViewModel>(getIt<ComposeViewModel>(), permanent: true);
+    Get.put<SearchViewModel>(getIt<SearchViewModel>(), permanent: true);
 
     Get.lazyPut<MailBoxController>(() => MailBoxController(), fenix: true);
     Get.lazyPut<SelectionController>(() => SelectionController());

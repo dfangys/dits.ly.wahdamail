@@ -8,11 +8,15 @@ import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 import '../empty_box.dart';
 import 'controllers/mail_search_controller.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
+import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
 
 class SearchView extends StatelessWidget {
   SearchView({super.key});
   final controller = Get.put(MailSearchController());
   final mailboxController = Get.find<MailBoxController>();
+  // P12.2: bind UI to the ViewModel state
+  final SearchViewModel vm = Get.put<SearchViewModel>(getIt<SearchViewModel>());
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +55,10 @@ class SearchView extends StatelessWidget {
                 ),
                 GestureDetector(
                   onTap: () {
-                    controller.onSearch();
+                    vm.runSearch(
+                      controller,
+                      requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
+                    );
                   },
                   child: const Icon(
                     Icons.search,
@@ -64,17 +71,16 @@ class SearchView extends StatelessWidget {
           ),
         ),
       ),
-      body: controller.obx(
+      body: vm.obx(
         (state) => ListView.separated(
           controller: controller.scrollController,
           itemBuilder: (context, index) {
             return MailTile(
               onTap: () {
                 try {
-                  final MimeMessage message = controller.searchMessages[index];
+                  final MimeMessage message = vm.searchMessages[index];
                   final listRef =
-                      mailboxController.emails[mailboxController
-                          .mailBoxInbox] ??
+                      mailboxController.emails[mailboxController.mailBoxInbox] ??
                       const <MimeMessage>[];
                   int initial = 0;
                   if (listRef.isNotEmpty) {
@@ -95,20 +101,20 @@ class SearchView extends StatelessWidget {
                 } catch (_) {
                   Get.to(
                     () => ShowMessage(
-                      message: controller.searchMessages[index],
+                      message: vm.searchMessages[index],
                       mailbox: mailboxController.mailBoxInbox,
                     ),
                   );
                 }
               },
-              message: controller.searchMessages[index],
+              message: vm.searchMessages[index],
               mailBox: mailboxController.mailBoxInbox,
             );
           },
           separatorBuilder: (context, index) {
             return const Divider();
           },
-          itemCount: controller.searchMessages.length,
+          itemCount: vm.searchMessages.length,
         ),
         onEmpty: TAnimationLoaderWidget(
           text: 'Whoops! Box is empty',
@@ -116,29 +122,39 @@ class SearchView extends StatelessWidget {
           showAction: true,
           actionText: 'try_again'.tr,
           onActionPressed: () {
-            controller.onSearch();
+            vm.runSearch(
+              controller,
+              requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
+            );
           },
         ),
         onLoading: const Center(child: CircularProgressIndicator()),
-        onError:
-            (error) =>
-                error.toString().startsWith('serach:')
-                    ? TAnimationLoaderWidget(
-                      text: error.toString().split('serach:')[1],
-                      animation: 'assets/lottie/search.json',
-                      showAction: true,
-                      actionText: 'search'.tr,
-                      onActionPressed: () {
-                        controller.onSearch();
-                      },
-                    )
-                    : TAnimationLoaderWidget(
-                      text: error.toString(),
-                      animation: 'assets/lottie/error.json',
-                      showAction: false,
-                      actionText: 'try_again'.tr,
-                      onActionPressed: () {},
-                    ),
+        onError: (error) =>
+            error.toString().startsWith('serach:')
+                ? TAnimationLoaderWidget(
+                    text: error.toString().split('serach:')[1],
+                    animation: 'assets/lottie/search.json',
+                    showAction: true,
+                    actionText: 'search'.tr,
+                    onActionPressed: () {
+                      vm.runSearch(
+                        controller,
+                        requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
+                      );
+                    },
+                  )
+                : TAnimationLoaderWidget(
+                    text: error.toString(),
+                    animation: 'assets/lottie/error.json',
+                    showAction: true,
+                    actionText: 'search'.tr,
+                    onActionPressed: () {
+                      vm.runSearch(
+                        controller,
+                        requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
+                      );
+                    },
+                  ),
       ),
     );
   }

@@ -4,23 +4,11 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 
-class _FakePathProvider extends PathProviderPlatform {
-  Directory _tmp = Directory.systemTemp.createTempSync('wahda_test_');
-  @override
-  Future<String?> getApplicationDocumentsPath() async => _tmp.path;
-  @override
-  Future<String?> getApplicationSupportPath() async => _tmp.path;
-  @override
-  Future<String?> getTemporaryPath() async => _tmp.path;
-}
 
 FutureOr<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
-  PathProviderPlatform.instance = _FakePathProvider();
-
-  // Also stub method channels used by older path_provider implementations.
+// Stub method channels used by path_provider implementations.
   final tmp = Directory.systemTemp.createTempSync('wahda_test_');
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   // Some platforms use platform-specific channels; stub common ones.

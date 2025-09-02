@@ -44,6 +44,7 @@ extension EmailValidator on String {
 
 enum DraftSyncState { idle, syncing, synced, failed }
 
+@Deprecated('P12.2: Use ComposeViewModel for orchestration; controller remains a thin pass-through. TODO(P12.3) remove')
 class ComposeController extends GetxController {
   // Compose session identifier to correlate all server-side draft versions for this editor lifecycle
   // Used to reliably purge superseded drafts and avoid duplicates

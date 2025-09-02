@@ -8,6 +8,8 @@ import 'package:wahda_bank/views/compose/widgets/redesigned_compose_view.dart';
 import 'package:wahda_bank/views/compose/widgets/modern_draft_options_sheet.dart';
 import 'package:wahda_bank/views/compose/models/draft_model.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
+import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 
 /// Redesigned compose screen with enhanced UX and modern design
 class RedesignedComposeScreen extends StatefulWidget {
@@ -46,6 +48,8 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
     } else {
       controller = Get.put(ComposeController());
     }
+    // P12.2: Ensure ComposeViewModel is available via DI; ComposeController delegates send orchestration to it.
+    Get.put<ComposeViewModel>(getIt<ComposeViewModel>());
 
     // Initialize animations
     _fabAnimationController = AnimationController(

@@ -7,7 +7,6 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
-import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
 
 /// Presentation adapter for compose/send orchestration.

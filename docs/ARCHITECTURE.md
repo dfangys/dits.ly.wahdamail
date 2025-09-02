@@ -49,7 +49,7 @@ lib/
       domain/            # entities, value objects, repositories, services (interfaces)
       application/       # use cases (orchestration only)
       infrastructure/    # gateways, DAOs, mappers, repositories impl, DI modules
-      presentation/      # (reserved; UI still under app/views/widgets)
+      presentation/      # Active: ViewModels (GetX) own UI state/commands; legacy UI widgets in app/views/widgets bind to VMs
   shared/
     di/                  # get_it + injectable bootstrap
     logging/             # Telemetry helper (PII‑safe)
@@ -209,6 +209,8 @@ sequenceDiagram
 - **Kill switch**: single remote flag `ddd.kill_switch.enabled` routes everything to **legacy**; persists across restarts.
 
 ## Legacy → DDD Mapping
+
+> P12.2: Controllers are thin entry points that emit telemetry and delegate to ViewModels. Widgets bind to ViewModels. P12.3 removes legacy controller orchestration and the DDD wiring shim if fully superseded.
 
 | Legacy area                      | DDD replacement                                                   |
 | -------------------------------- | ----------------------------------------------------------------- |

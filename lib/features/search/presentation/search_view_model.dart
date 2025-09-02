@@ -6,12 +6,18 @@ import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:enough_mail/enough_mail.dart';
+import 'package:wahda_bank/services/mail_service.dart';
 
 /// Presentation adapter for search orchestrations.
 /// - Respects kill-switch precedence and P12 routing
 /// - Delegates to DDD search when enabled, otherwise legacy search via MailClient
 @lazySingleton
-class SearchViewModel {
+class SearchViewModel extends GetxController with StateMixin<List<MimeMessage>> {
+  // State owned by the ViewModel in P12.2
+  final List<MimeMessage> searchMessages = <MimeMessage>[];
+  MailSearchResult? searchResults;
+  final MailClient client = MailService.instance.client;
+
   Future<void> runSearch(MailSearchController controller, {required String requestId}) async {
     final sw = Stopwatch()..start();
 
@@ -20,8 +26,16 @@ class SearchViewModel {
         FeatureFlags.instance.dddSearchEnabled) {
       final handled = await DddUiWiring.maybeSearch(controller: controller);
       if (handled) {
-        // success handled by DDD; emit operation telemetry
+        // Copy results from controller into VM state for UI to observe
         try {
+          searchMessages
+            ..clear()
+            ..addAll(controller.searchMessages);
+          if (searchMessages.isEmpty) {
+            change(null, status: RxStatus.empty());
+          } else {
+            change(searchMessages, status: RxStatus.success());
+          }
           Telemetry.event('search_success', props: {
             'request_id': requestId,
             'op': 'search',
@@ -32,23 +46,23 @@ class SearchViewModel {
       }
     }
 
-    // Legacy fallback
+    // Legacy fallback handled directly by VM
     try {
-      final results = await controller.client.searchMessages(
+      final results = await client.searchMessages(
         MailSearch(
           controller.searchController.text,
           SearchQueryType.allTextHeaders,
           messageType: SearchMessageType.all,
         ),
       );
-      controller.searchResults = results;
-      controller.searchMessages
+      searchResults = results;
+      searchMessages
         ..clear()
         ..addAll(results.messages);
-      if (controller.searchMessages.isEmpty) {
-        controller.change(null, status: RxStatus.empty());
+      if (searchMessages.isEmpty) {
+        change(null, status: RxStatus.empty());
       } else {
-        controller.change(controller.searchMessages, status: RxStatus.success());
+        change(searchMessages, status: RxStatus.success());
       }
       Telemetry.event('search_success', props: {
         'request_id': requestId,
@@ -64,7 +78,7 @@ class SearchViewModel {
           'error_class': e.runtimeType.toString(),
         });
       } catch (_) {}
-      controller.change(null, status: RxStatus.error(e.toString()));
+      change(null, status: RxStatus.error(e.toString()));
     }
   }
 }
