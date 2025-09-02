@@ -31,3 +31,6 @@ Notes
 - No Flutter or external SDK imports in domain and application layers.
 - Pins unchanged: enough_mail: 2.1.7, enough_mail_flutter: 2.1.1
 
+Shadow sync (P5)
+ImapGateway.idleStream → SyncService → MessageRepository.fetchInbox(headers) → LocalStore (DDD); metrics only (no UI/notifications)
+

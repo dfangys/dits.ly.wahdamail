@@ -7,6 +7,7 @@ import 'package:wahda_bank/features/messaging/application/facade/messaging_facad
 import 'package:wahda_bank/features/messaging/infrastructure/facade/ddd_mail_service_impl.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/facade/legacy_messaging_facade.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
+import 'package:wahda_bank/features/sync/infrastructure/sync_scheduler.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -25,6 +26,18 @@ Future<void> configureDependencies({String env = Environment.dev}) async {
       getIt.registerLazySingleton<MessagingFacade>(() => getIt<DddMailServiceImpl>());
     } else {
       getIt.registerLazySingleton<MessagingFacade>(() => getIt<LegacyMessagingFacade>());
+    }
+  }
+
+  // P5: Start sync in shadow mode only if explicitly enabled and DDD messaging is off.
+  final ff = FeatureFlags.instance;
+  if (ff.dddSyncShadowMode && !ff.dddMessagingEnabled) {
+    // Use stored email as accountId; monitor INBOX only in P5.
+    try {
+      final scheduler = getIt<SyncScheduler>();
+      await scheduler.startShadow(accountId: 'default-account', folderId: 'INBOX');
+    } catch (_) {
+      // Do not crash DI on sync start failure in shadow mode.
     }
   }
 }
