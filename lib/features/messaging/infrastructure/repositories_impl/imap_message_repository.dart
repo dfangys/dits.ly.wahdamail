@@ -1,10 +1,13 @@
 import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as dom;
 import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/attachment.dart' as dom;
 import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/datasources/local_store.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/mappers/message_mapper.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/dtos/message_row.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/dtos/body_row.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/dtos/attachment_row.dart';
 
 class ImapMessageRepository implements MessageRepository {
   final String accountId;
@@ -34,10 +37,26 @@ class ImapMessageRepository implements MessageRepository {
 
   @override
   Future<dom.Message> fetchMessageBody({required dom.Folder folder, required String messageId}) async {
-    // P2: headers only; body not available yet.
-    final persisted = await store.getHeaders(folderId: folder.id, limit: 1000, offset: 0);
+    // Cache-first body fetch
+    BodyRow? body = await store.getBody(messageUid: messageId);
+    if (body == null) {
+      final dto = await gateway.fetchBody(
+        accountId: accountId,
+        folderId: folder.id,
+        messageUid: messageId,
+      );
+      body = MessageMapper.bodyRowFromDTO(dto);
+      await store.upsertBody(body);
+    }
+
+    // Merge with existing header to return full domain Message
+    final persisted = await store.getHeaders(folderId: folder.id, limit: 10000, offset: 0);
     final row = persisted.firstWhere((r) => r.id == messageId);
-    return MessageMapper.toDomain(row);
+    final base = MessageMapper.toDomain(row);
+    return base.copyWith(
+      plainBody: body.plainText,
+      htmlBody: body.html,
+    );
   }
 
   @override
@@ -64,5 +83,37 @@ class ImapMessageRepository implements MessageRepository {
       );
       await store.upsertHeaders([updated]);
     }
+  }
+
+  @override
+  Future<List<dom.Attachment>> listAttachments({required dom.Folder folder, required String messageId}) async {
+    // Cache-miss → gateway list → store
+    var rows = await store.listAttachments(messageUid: messageId);
+    if (rows.isEmpty) {
+      final dtos = await gateway.listAttachments(
+        accountId: accountId,
+        folderId: folder.id,
+        messageUid: messageId,
+      );
+      rows = dtos.map(MessageMapper.attachmentRowFromDTO).toList();
+      await store.upsertAttachments(rows);
+    }
+    return rows.map(MessageMapper.attachmentDomainFromRow).toList(growable: false);
+  }
+
+  @override
+  Future<List<int>> downloadAttachment({required dom.Folder folder, required String messageId, required String partId}) async {
+    // Idempotent download: serve from cache if present
+    final cached = await store.getAttachmentBlobRef(messageUid: messageId, partId: partId);
+    if (cached != null) return cached;
+
+    final bytes = await gateway.downloadAttachment(
+      accountId: accountId,
+      folderId: folder.id,
+      messageUid: messageId,
+      partId: partId,
+    );
+    await store.putAttachmentBlob(messageUid: messageId, partId: partId, bytes: bytes);
+    return bytes;
   }
 }

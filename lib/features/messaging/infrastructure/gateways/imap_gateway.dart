@@ -35,12 +35,63 @@ class HeaderDTO {
   });
 }
 
+class BodyDTO {
+  final String messageUid;
+  final String? plainText;
+  final String? html;
+  final String mimeType;
+  final int? sizeBytesEstimate;
+  const BodyDTO({
+    required this.messageUid,
+    required this.mimeType,
+    this.plainText,
+    this.html,
+    this.sizeBytesEstimate,
+  });
+}
+
+class AttachmentDTO {
+  final String messageUid;
+  final String partId;
+  final String filename;
+  final int? sizeBytes;
+  final String mimeType;
+  final String? contentId;
+  const AttachmentDTO({
+    required this.messageUid,
+    required this.partId,
+    required this.filename,
+    required this.mimeType,
+    this.sizeBytes,
+    this.contentId,
+  });
+}
+
 abstract class ImapGateway {
   Future<List<HeaderDTO>> fetchHeaders({
     required String accountId,
     required String folderId,
     int limit = 50,
     int offset = 0,
+  });
+
+  Future<BodyDTO> fetchBody({
+    required String accountId,
+    required String folderId,
+    required String messageUid,
+  });
+
+  Future<List<AttachmentDTO>> listAttachments({
+    required String accountId,
+    required String folderId,
+    required String messageUid,
+  });
+
+  Future<List<int>> downloadAttachment({
+    required String accountId,
+    required String folderId,
+    required String messageUid,
+    required String partId,
   });
 }
 
@@ -65,6 +116,18 @@ class EnoughImapGateway implements ImapGateway {
   final em.MailClient client;
   EnoughImapGateway(this.client);
 
+  Future<void> _ensureMailboxSelected(String folderId) async {
+    if (client.selectedMailbox == null ||
+        client.selectedMailbox!.encodedPath != folderId) {
+      await client.selectMailbox(em.Mailbox(
+        encodedPath: folderId,
+        encodedName: folderId,
+        pathSeparator: '/',
+        flags: const [],
+      ));
+    }
+  }
+
   @override
   Future<List<HeaderDTO>> fetchHeaders({
     required String accountId,
@@ -74,10 +137,7 @@ class EnoughImapGateway implements ImapGateway {
   }) async {
     try {
       // Ensure mailbox selected; keep minimal to avoid side-effects
-      if (client.selectedMailbox == null ||
-          client.selectedMailbox!.encodedPath != folderId) {
-        await client.selectMailbox(em.Mailbox(encodedPath: folderId, encodedName: folderId, pathSeparator: '/', flags: []));
-      }
+      await _ensureMailboxSelected(folderId);
       final res = await client.fetchMessageSequence(
         em.MessageSequence.fromRange(1, limit),
         fetchPreference: em.FetchPreference.envelope,
@@ -104,6 +164,59 @@ class EnoughImapGateway implements ImapGateway {
           preview: null,
         );
       }).toList(growable: false);
+    } catch (e) {
+      throw mapImapError(e);
+    }
+  }
+
+  @override
+  Future<BodyDTO> fetchBody({
+    required String accountId,
+    required String folderId,
+    required String messageUid,
+  }) async {
+    try {
+      await _ensureMailboxSelected(folderId);
+      // P3 placeholder: avoid SDK-specific API usage here; return minimal DTO.
+      // Real extraction will be implemented in a subsequent phase.
+      return BodyDTO(
+        messageUid: messageUid,
+        mimeType: 'text/plain',
+        plainText: null,
+        html: null,
+        sizeBytesEstimate: null,
+      );
+    } catch (e) {
+      throw mapImapError(e);
+    }
+  }
+
+  @override
+  Future<List<AttachmentDTO>> listAttachments({
+    required String accountId,
+    required String folderId,
+    required String messageUid,
+  }) async {
+    try {
+      await _ensureMailboxSelected(folderId);
+      // P3 placeholder: do not enumerate parts at this stage in infra.
+      return const <AttachmentDTO>[];
+    } catch (e) {
+      throw mapImapError(e);
+    }
+  }
+
+  @override
+  Future<List<int>> downloadAttachment({
+    required String accountId,
+    required String folderId,
+    required String messageUid,
+    required String partId,
+  }) async {
+    try {
+      await _ensureMailboxSelected(folderId);
+      // P3 placeholder: avoid SDK part download; let repository tests mock gateway.
+      return const <int>[];
     } catch (e) {
       throw mapImapError(e);
     }

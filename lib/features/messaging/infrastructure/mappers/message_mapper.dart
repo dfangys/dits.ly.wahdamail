@@ -1,6 +1,10 @@
 import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as dom;
 import 'package:wahda_bank/features/messaging/infrastructure/dtos/message_row.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/dtos/body_row.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/dtos/attachment_row.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
+import 'package:wahda_bank/features/messaging/domain/entities/body.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/attachment.dart' as dom;
 
 class MessageMapper {
   static MessageRow fromHeaderDTO(HeaderDTO h) {
@@ -41,4 +45,37 @@ class MessageMapper {
       previewText: r.preview,
     );
   }
+
+  static BodyRow bodyRowFromDTO(BodyDTO b) => BodyRow(
+        messageUid: b.messageUid,
+        mimeType: b.mimeType,
+        plainText: b.plainText,
+        html: b.html,
+        fetchedAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+      );
+
+  static AttachmentRow attachmentRowFromDTO(AttachmentDTO a) => AttachmentRow(
+        messageUid: a.messageUid,
+        partId: a.partId,
+        filename: a.filename,
+        sizeBytes: a.sizeBytes,
+        mimeType: a.mimeType,
+        contentId: a.contentId,
+      );
+
+  static dom.BodyContent bodyDomainFromRow(BodyRow r) => dom.BodyContent(
+        mimeType: r.mimeType,
+        plainText: r.plainText,
+        html: r.html,
+        sizeBytesEstimate: null,
+      );
+
+  static dom.Attachment attachmentDomainFromRow(AttachmentRow r) => dom.Attachment(
+        messageId: r.messageUid,
+        partId: r.partId,
+        filename: r.filename,
+        sizeBytes: r.sizeBytes,
+        mimeType: r.mimeType,
+        contentId: r.contentId,
+      );
 }
