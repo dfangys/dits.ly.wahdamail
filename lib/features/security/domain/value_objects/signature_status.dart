@@ -1,0 +1,1 @@
+enum SignatureStatus { valid, invalid }
