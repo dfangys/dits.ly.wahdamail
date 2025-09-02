@@ -44,6 +44,8 @@ import '../../features/messaging/infrastructure/gateways/imap_gateway.dart'
     as _i569;
 import '../../features/messaging/infrastructure/gateways/smtp_gateway.dart'
     as _i1033;
+import '../../features/messaging/presentation/compose_view_model.dart' as _i390;
+import '../../features/messaging/presentation/mailbox_view_model.dart' as _i77;
 import '../../features/notifications/domain/ports/notification_port.dart'
     as _i1015;
 import '../../features/notifications/infrastructure/di/notifications_module.dart'
@@ -57,6 +59,7 @@ import '../../features/rendering/infrastructure/di/rendering_module.dart'
     as _i479;
 import '../../features/rendering/infrastructure/html_sanitizer.dart' as _i105;
 import '../../features/rendering/infrastructure/preview_cache.dart' as _i992;
+import '../../features/search/presentation/search_view_model.dart' as _i961;
 import '../../features/security/domain/repositories/keyring_repository.dart'
     as _i1039;
 import '../../features/security/domain/repositories/trust_repository.dart'
@@ -120,6 +123,9 @@ _i174.GetIt init(
       () => renderingModule.provideCidResolver());
   gh.lazySingleton<_i992.PreviewCache>(
       () => renderingModule.providePreviewCache());
+  gh.lazySingleton<_i961.SearchViewModel>(() => _i961.SearchViewModel());
+  gh.lazySingleton<_i77.MailboxViewModel>(() => _i77.MailboxViewModel());
+  gh.lazySingleton<_i390.ComposeViewModel>(() => _i390.ComposeViewModel());
   gh.lazySingleton<_i1018.OutboxRepository>(
       () => messagingModule.provideOutboxRepository(gh<_i543.OutboxDao>()));
   gh.lazySingleton<_i898.MessageRepository>(
