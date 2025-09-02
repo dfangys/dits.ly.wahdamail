@@ -4,23 +4,38 @@ import 'package:mocktail/mocktail.dart';
 import 'package:wahda_bank/features/messaging/application/usecases/fetch_inbox.dart';
 import 'package:wahda_bank/features/messaging/application/usecases/fetch_message_body.dart';
 import 'package:wahda_bank/features/messaging/application/usecases/send_email.dart';
+import 'package:wahda_bank/features/messaging/domain/entities/outbox_item.dart';
+import 'package:wahda_bank/features/messaging/domain/value_objects/retry_policy.dart';
+import 'package:wahda_bank/features/messaging/domain/repositories/draft_repository.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/gateways/smtp_gateway.dart';
 import 'package:wahda_bank/features/messaging/application/usecases/mark_read.dart';
+import 'package:wahda_bank/features/messaging/domain/entities/draft.dart';
+import 'package:wahda_bank/features/messaging/domain/entities/outbox_item.dart';
 
 import 'package:wahda_bank/features/messaging/domain/entities/folder.dart';
 import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as ent;
 import 'package:wahda_bank/features/messaging/domain/repositories/folder_repository.dart';
 import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart';
 import 'package:wahda_bank/features/messaging/domain/repositories/outbox_repository.dart';
-import 'package:wahda_bank/features/messaging/domain/value_objects/email_address.dart';
 
 class _MockFolderRepo extends Mock implements FolderRepository {}
 class _MockMessageRepo extends Mock implements MessageRepository {}
 class _MockOutboxRepo extends Mock implements OutboxRepository {}
+class _MockDraftRepo extends Mock implements DraftRepository {}
+class _MockSmtpGateway extends Mock implements SmtpGateway {}
 
 void main() {
   setUpAll(() {
     registerFallbackValue(const Folder(id: 'INBOX', name: 'Inbox', isInbox: true));
-    registerFallbackValue(EmailAddress('', 'a@e.com'));
+    registerFallbackValue(const Draft(id: 'd', accountId: 'a', folderId: 'Drafts', messageId: 'm', rawBytes: []));
+    registerFallbackValue(OutboxItem(
+      id: 'q',
+      accountId: 'a',
+      folderId: 'Drafts',
+      messageId: 'm',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+    ));
   });
 
   group('FetchInbox', () {
@@ -68,40 +83,51 @@ void main() {
     });
   });
 
-  group('SendEmail', () {
-    test('validates and enqueues via outbox', () async {
+  group('SendEmail (P4)', () {
+    test('success path updates outbox to sent', () async {
       final outbox = _MockOutboxRepo();
-      final uc = SendEmail(outbox);
-      final from = EmailAddress('Alice', 'alice@example.com');
-      final to = [EmailAddress('Bob', 'bob@example.com')];
+      final drafts = _MockDraftRepo();
+      final smtp = _MockSmtpGateway();
+      final uc = SendEmail(drafts: drafts, outbox: outbox, smtp: smtp, retryPolicy: const RetryPolicy());
 
-      when(() => outbox.enqueue(
-            from: any(named: 'from'),
-            to: any(named: 'to'),
-            cc: any(named: 'cc'),
-            bcc: any(named: 'bcc'),
-            subject: any(named: 'subject'),
-            htmlBody: any(named: 'htmlBody'),
-            textBody: any(named: 'textBody'),
-          )).thenAnswer((_) async => 'qid-1');
+      when(() => drafts.saveDraft(any())).thenAnswer((_) async {});
 
-      final id = await uc(
-        from: from,
-        to: to,
-        subject: 'Hello',
-        textBody: 'Hi',
-      );
-      expect(id, 'qid-1');
+      when(() => outbox.enqueue(any())).thenAnswer((invocation) async => invocation.positionalArguments.first as OutboxItem);
+      when(() => outbox.markSending(any())).thenAnswer((_) async {});
+      when(() => smtp.send(accountId: any(named: 'accountId'), rawBytes: any(named: 'rawBytes'))).thenAnswer((_) async => '<id>');
+      when(() => outbox.markSent(any())).thenAnswer((_) async {});
 
-      // validation path
-      expect(
-        () => uc(from: from, to: const [], subject: 's'),
-        throwsArgumentError,
+      final res = await uc(
+        accountId: 'acct',
+        folderId: 'Drafts',
+        draftId: 'd1',
+        messageId: 'm1',
+        rawBytes: [1, 2, 3],
       );
-      expect(
-        () => uc(from: from, to: to, subject: '   '),
-        throwsArgumentError,
+      expect(res.status, OutboxStatus.sent);
+    });
+
+    test('failure path marks failed and sets retryAt', () async {
+      final outbox = _MockOutboxRepo();
+      final drafts = _MockDraftRepo();
+      final smtp = _MockSmtpGateway();
+      final uc = SendEmail(drafts: drafts, outbox: outbox, smtp: smtp, retryPolicy: const RetryPolicy());
+
+      when(() => drafts.saveDraft(any())).thenAnswer((_) async {});
+      when(() => outbox.enqueue(any())).thenAnswer((invocation) async => invocation.positionalArguments.first as OutboxItem);
+      when(() => outbox.markSending(any())).thenAnswer((_) async {});
+      when(() => smtp.send(accountId: any(named: 'accountId'), rawBytes: any(named: 'rawBytes'))).thenThrow(Exception('timeout'));
+      when(() => outbox.markFailed(id: any(named: 'id'), errorClass: any(named: 'errorClass'), retryAt: any(named: 'retryAt'))).thenAnswer((_) async {});
+
+      final res = await uc(
+        accountId: 'acct',
+        folderId: 'Drafts',
+        draftId: 'd1',
+        messageId: 'm1',
+        rawBytes: [1, 2, 3],
       );
+      expect(res.status, OutboxStatus.failed);
+      expect(res.retryAt, isNotNull);
     });
   });
 
