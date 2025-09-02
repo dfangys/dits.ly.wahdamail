@@ -53,7 +53,7 @@ dependencies:
   get_storage:
   hive_flutter:
   logger: ^2.0.2+1
-  enough_mail_flutter: ^2.1.1
+  enough_mail_flutter: 2.1.1
   permission_handler: ^12.0.0+1
   path_provider: ^2.1.2
   image: ^4.2.0
@@ -90,6 +90,9 @@ dependencies:
   # Added for in-app Office (DOCX/XLSX) lightweight previews
   archive: ^4.0.7
   xml: ^6.5.0
+  # DI container for DDD wiring (P0 foundation)
+  get_it: ^7.6.7
+  injectable: ^2.4.2
 
 dev_dependencies:
   flutter_test:
@@ -99,6 +102,10 @@ dev_dependencies:
   build_runner:
   hive_generator:
   sqflite_common_ffi: ^2.3.3
+  # Code generators for injectable (DI)
+  injectable_generator: ^2.4.1
+  # For use case unit tests (mocking domain repositories)
+  mocktail: ^1.0.4
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
