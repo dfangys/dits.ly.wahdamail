@@ -21,7 +21,8 @@ class PreviewService extends GetxService {
     return Get.find<PreviewService>();
   }
 
-  final int maxConcurrent = 4; // Slightly higher concurrency for faster first-run previews
+  final int maxConcurrent =
+      4; // Slightly higher concurrency for faster first-run previews
   int _active = 0;
 
   final Queue<_PreviewJob> _queue = Queue<_PreviewJob>();
@@ -36,7 +37,8 @@ class PreviewService extends GetxService {
   }
 
   String _mbKey(Mailbox mailbox) => mailbox.encodedPath;
-  String _jobKey(Mailbox m, MimeMessage msg) => '${_mbKey(m)}:${msg.uid ?? msg.sequenceId ?? "0"}';
+  String _jobKey(Mailbox m, MimeMessage msg) =>
+      '${_mbKey(m)}:${msg.uid ?? msg.sequenceId ?? "0"}';
 
   /// Queue a batch of messages for preview backfill (first N missing)
   void queueBackfillForMessages({
@@ -49,7 +51,8 @@ class PreviewService extends GetxService {
     int queued = 0;
     for (final msg in messages) {
       if (queued >= maxJobs) break;
-      final hasPreview = (msg.getHeaderValue('x-preview') ?? '').trim().isNotEmpty;
+      final hasPreview =
+          (msg.getHeaderValue('x-preview') ?? '').trim().isNotEmpty;
       if (hasPreview) continue;
       _queueJob(mailbox, msg, storage);
       queued++;
@@ -57,17 +60,23 @@ class PreviewService extends GetxService {
     _pump();
   }
 
-  void _queueJob(Mailbox mailbox, MimeMessage message, SQLiteMailboxMimeStorage storage) {
+  void _queueJob(
+    Mailbox mailbox,
+    MimeMessage message,
+    SQLiteMailboxMimeStorage storage,
+  ) {
     final key = _jobKey(mailbox, message);
     // Avoid duplicates
     if (_queue.any((j) => j.key == key)) return;
 
-    _queue.add(_PreviewJob(
-      key: key,
-      mailbox: mailbox,
-      messageRef: message,
-      storage: storage,
-    ));
+    _queue.add(
+      _PreviewJob(
+        key: key,
+        mailbox: mailbox,
+        messageRef: message,
+        storage: storage,
+      ),
+    );
   }
 
   void _pump() {
@@ -153,14 +162,20 @@ class PreviewService extends GetxService {
       // Stamp headers on the in-memory message to benefit current session
       try {
         job.messageRef.setHeader('x-preview', preview);
-        job.messageRef.setHeader('x-has-attachments', hasAttachments ? '1' : '0');
+        job.messageRef.setHeader(
+          'x-has-attachments',
+          hasAttachments ? '1' : '0',
+        );
         job.messageRef.setHeader('x-ready', '1');
       } catch (_) {}
 
       // Notify UI (per-message meta tick)
       try {
         if (Get.isRegistered<MailBoxController>()) {
-          Get.find<MailBoxController>().bumpMessageMeta(job.mailbox, job.messageRef);
+          Get.find<MailBoxController>().bumpMessageMeta(
+            job.mailbox,
+            job.messageRef,
+          );
         }
       } catch (_) {}
     } finally {

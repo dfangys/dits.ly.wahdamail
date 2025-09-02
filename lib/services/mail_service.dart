@@ -10,7 +10,6 @@ import 'package:wahda_bank/services/realtime_update_service.dart';
 import 'package:wahda_bank/services/optimized_idle_service.dart';
 import 'package:wahda_bank/services/connection_lease.dart';
 
-
 class MailService {
   static MailService? _instance;
   static MailService get instance {
@@ -88,10 +87,14 @@ class MailService {
 
   Future<bool> connect() async {
     // If a cooldown is active due to IP limit, avoid hammering the server
-    if (_ipLimitCooldownUntil != null && DateTime.now().isBefore(_ipLimitCooldownUntil!)) {
+    if (_ipLimitCooldownUntil != null &&
+        DateTime.now().isBefore(_ipLimitCooldownUntil!)) {
       if (kDebugMode) {
-        final secs = _ipLimitCooldownUntil!.difference(DateTime.now()).inSeconds;
-        print('Connection cooldown active due to IP limit. Retrying in ~${secs}s');
+        final secs =
+            _ipLimitCooldownUntil!.difference(DateTime.now()).inSeconds;
+        print(
+          'Connection cooldown active due to IP limit. Retrying in ~${secs}s',
+        );
       }
       return false;
     }
@@ -118,7 +121,9 @@ class MailService {
         } catch (_) {}
 
         // Start/refresh heartbeat so background tasks can defer their own connections
-        try { ConnectionLease.instance.startHeartbeat(owner: 'foreground'); } catch (_) {}
+        try {
+          ConnectionLease.instance.startHeartbeat(owner: 'foreground');
+        } catch (_) {}
 
         // Reset connection retries on successful connection
         _connectionRetries = 0;
@@ -133,11 +138,18 @@ class MailService {
       // Detect server-side IP/user limit and set a cooldown to avoid rapid retries
       try {
         final msg = e.toString();
-        if (msg.contains('Maximum number of connections from user+IP exceeded') || msg.contains('mail_max_userip_connections')) {
+        if (msg.contains(
+              'Maximum number of connections from user+IP exceeded',
+            ) ||
+            msg.contains('mail_max_userip_connections')) {
           // Back off for 90 seconds; adjust as needed for server policy
-          _ipLimitCooldownUntil = DateTime.now().add(const Duration(seconds: 90));
+          _ipLimitCooldownUntil = DateTime.now().add(
+            const Duration(seconds: 90),
+          );
           if (kDebugMode) {
-            print('IP limit detected; cooling down until ${_ipLimitCooldownUntil!.toIso8601String()}');
+            print(
+              'IP limit detected; cooling down until ${_ipLimitCooldownUntil!.toIso8601String()}',
+            );
           }
         }
       } catch (_) {}
@@ -189,7 +201,9 @@ class MailService {
       await idle.startOptimizedIdle();
       _isIdleActive = true;
       if (kDebugMode) {
-        print('IDLE mode started via OptimizedIdleService for mailbox: ${client.selectedMailbox?.name}');
+        print(
+          'IDLE mode started via OptimizedIdleService for mailbox: ${client.selectedMailbox?.name}',
+        );
       }
     } catch (e) {
       if (kDebugMode) {
@@ -220,38 +234,44 @@ class MailService {
 
   void _subscribeEvents() {
     printInfo(info: 'Subscribing to events');
-    _mailLoadEventSubscription =
-        client.eventBus.on<MailLoadEvent>().listen((event) {
-          try {
-            if (event.mailClient == client) {
-              if (kDebugMode) {
-                print('📧 MailLoadEvent received for: ${event.message.decodeSubject()}');
-              }
-              // Forward to RealtimeUpdateService as the single source of truth
-              Future.microtask(() async {
-                try {
-                  await RealtimeUpdateService.instance
-                      .notifyNewMessages([event.message], mailbox: client.selectedMailbox);
-                } catch (e) {
-                  if (kDebugMode) {
-                    print('📧 Error forwarding to RealtimeUpdateService: $e');
-                  }
-                }
-              });
-            }
-          } catch (e) {
+    _mailLoadEventSubscription = client.eventBus.on<MailLoadEvent>().listen(
+      (event) {
+        try {
+          if (event.mailClient == client) {
             if (kDebugMode) {
-              print('📧 Error processing MailLoadEvent: $e');
+              print(
+                '📧 MailLoadEvent received for: ${event.message.decodeSubject()}',
+              );
             }
-            // Don't rethrow - just log the error to prevent stream crashes
+            // Forward to RealtimeUpdateService as the single source of truth
+            Future.microtask(() async {
+              try {
+                await RealtimeUpdateService.instance.notifyNewMessages([
+                  event.message,
+                ], mailbox: client.selectedMailbox);
+              } catch (e) {
+                if (kDebugMode) {
+                  print('📧 Error forwarding to RealtimeUpdateService: $e');
+                }
+              }
+            });
           }
-        }, onError: (error) {
+        } catch (e) {
           if (kDebugMode) {
-            print('📧 MailLoadEvent stream error: $error');
+            print('📧 Error processing MailLoadEvent: $e');
           }
-        });
-    _mailVanishedEventSubscription =
-        client.eventBus.on<MailVanishedEvent>().listen((event) async {
+          // Don't rethrow - just log the error to prevent stream crashes
+        }
+      },
+      onError: (error) {
+        if (kDebugMode) {
+          print('📧 MailLoadEvent stream error: $error');
+        }
+      },
+    );
+    _mailVanishedEventSubscription = client.eventBus
+        .on<MailVanishedEvent>()
+        .listen((event) async {
           if (kDebugMode) {
             print('📧 MailVanishedEvent');
           }
@@ -263,33 +283,38 @@ class MailService {
                 await RealtimeUpdateService.instance.deleteMessage(m);
               } catch (e) {
                 if (kDebugMode) {
-                  print('📧 Error forwarding vanish to RealtimeUpdateService: $e');
+                  print(
+                    '📧 Error forwarding vanish to RealtimeUpdateService: $e',
+                  );
                 }
               }
             }
           }
         });
-    _mailUpdatedEventSubscription =
-        client.eventBus.on<MailUpdateEvent>().listen((event) {
-          if (event.mailClient == client) {
+    _mailUpdatedEventSubscription = client.eventBus.on<MailUpdateEvent>().listen((
+      event,
+    ) {
+      if (event.mailClient == client) {
+        if (kDebugMode) {
+          print('📧 MailUpdateEvent');
+        }
+        // Forward to RealtimeUpdateService; it will de-duplicate and update state
+        Future.microtask(() async {
+          try {
+            await RealtimeUpdateService.instance.notifyNewMessages([
+              event.message,
+            ], mailbox: client.selectedMailbox);
+          } catch (e) {
             if (kDebugMode) {
-              print('📧 MailUpdateEvent');
+              print('📧 Error forwarding update to RealtimeUpdateService: $e');
             }
-            // Forward to RealtimeUpdateService; it will de-duplicate and update state
-            Future.microtask(() async {
-              try {
-                await RealtimeUpdateService.instance
-                    .notifyNewMessages([event.message], mailbox: client.selectedMailbox);
-              } catch (e) {
-                if (kDebugMode) {
-                  print('📧 Error forwarding update to RealtimeUpdateService: $e');
-                }
-              }
-            });
           }
         });
-    _mailReconnectedEventSubscription =
-        client.eventBus.on<MailConnectionReEstablishedEvent>().listen((data) {
+      }
+    });
+    _mailReconnectedEventSubscription = client.eventBus
+        .on<MailConnectionReEstablishedEvent>()
+        .listen((data) {
           if (data.mailClient == client) {
             data.mailClient.isConnected;
 
@@ -314,7 +339,9 @@ class MailService {
   void dispose() {
     stopIdleMode();
     _unsubscribeEvents();
-    try { ConnectionLease.instance.stopHeartbeat(); } catch (_) {}
+    try {
+      ConnectionLease.instance.stopHeartbeat();
+    } catch (_) {}
     client.disconnect();
   }
 }

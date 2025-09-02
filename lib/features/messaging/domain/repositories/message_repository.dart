@@ -1,7 +1,8 @@
 import '../entities/message.dart';
 import '../entities/folder.dart';
 import '../entities/attachment.dart';
-import '../entities/body.dart';
+import '../entities/search_result.dart';
+import '../value_objects/search_query.dart';
 
 /// Domain repository interface for message operations.
 /// No SDK/infra types should appear here.
@@ -38,6 +39,12 @@ abstract class MessageRepository {
     required Folder folder,
     required String messageId,
     required bool read,
+  });
+
+  /// Search messages (local-first, optional remote merge)
+  Future<List<SearchResult>> search({
+    required String accountId,
+    required SearchQuery q,
   });
 }
 

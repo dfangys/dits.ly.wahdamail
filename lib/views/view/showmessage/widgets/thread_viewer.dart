@@ -21,7 +21,8 @@ class _ThreadViewerState extends State<ThreadViewer> {
   String? _error;
   List<MimeMessage> _thread = [];
   bool _oldestFirst = true;
-  int _loadGen = 0; // generation token to avoid setState after dispose or outdated async
+  int _loadGen =
+      0; // generation token to avoid setState after dispose or outdated async
 
   // Track expanded state and meta notifiers for live updates
   final Set<String> _expanded = <String>{};
@@ -34,14 +35,20 @@ class _ThreadViewerState extends State<ThreadViewer> {
   }
 
   String _idKey(MimeMessage m) =>
-      (m.uid != null) ? 'uid:${m.uid}' : (m.sequenceId != null ? 'seq:${m.sequenceId}' : 'hash:${m.hashCode}');
+      (m.uid != null)
+          ? 'uid:${m.uid}'
+          : (m.sequenceId != null
+              ? 'seq:${m.sequenceId}'
+              : 'hash:${m.hashCode}');
 
   void _attachMetaNotifiers() {
     try {
       final ctrl = Get.find<MailBoxController>();
       // Clean up previous listeners
       _meta.forEach((_, n) {
-        try { n.removeListener(_onAnyMetaChange); } catch (_) {}
+        try {
+          n.removeListener(_onAnyMetaChange);
+        } catch (_) {}
       });
       _meta.clear();
 
@@ -64,9 +71,15 @@ class _ThreadViewerState extends State<ThreadViewer> {
     try {
       final mail = MailService.instance;
       if (!mail.client.isConnected) {
-        try { await mail.connect().timeout(const Duration(seconds: 8)); } catch (_) {}
+        try {
+          await mail.connect().timeout(const Duration(seconds: 8));
+        } catch (_) {}
       }
-      try { await mail.client.selectMailbox(widget.mailbox).timeout(const Duration(seconds: 8)); } catch (_) {}
+      try {
+        await mail.client
+            .selectMailbox(widget.mailbox)
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {}
     } catch (_) {}
   }
 
@@ -74,18 +87,26 @@ class _ThreadViewerState extends State<ThreadViewer> {
     final int gen = ++_loadGen;
     try {
       if (!mounted || gen != _loadGen) return;
-      setState(() { _loading = true; _error = null; });
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
       final seq = widget.message.threadSequence;
       if (seq == null || seq.isEmpty) {
         // Strict header-only fallback: build a small relationship graph from Message-ID, In-Reply-To, and References.
         final ctrl = Get.find<MailBoxController>();
-        final list = List<MimeMessage>.from(ctrl.emails[widget.mailbox] ?? const <MimeMessage>[]);
+        final list = List<MimeMessage>.from(
+          ctrl.emails[widget.mailbox] ?? const <MimeMessage>[],
+        );
 
         List<String> _ids(String? raw) {
           if (raw == null || raw.isEmpty) return const <String>[];
           final matches = RegExp(r'<([^>]+)>').allMatches(raw);
           if (matches.isNotEmpty) {
-            return matches.map((m) => (m.group(1) ?? '').trim().toLowerCase()).where((e) => e.isNotEmpty).toList();
+            return matches
+                .map((m) => (m.group(1) ?? '').trim().toLowerCase())
+                .where((e) => e.isNotEmpty)
+                .toList();
           }
           // Fallback: single token without angle brackets (rare)
           final t = raw.trim();
@@ -96,7 +117,11 @@ class _ThreadViewerState extends State<ThreadViewer> {
         }
 
         String _msgKey(MimeMessage m) =>
-            (m.uid != null) ? 'uid:${m.uid}' : (m.sequenceId != null ? 'seq:${m.sequenceId}' : 'hash:${m.hashCode}');
+            (m.uid != null)
+                ? 'uid:${m.uid}'
+                : (m.sequenceId != null
+                    ? 'seq:${m.sequenceId}'
+                    : 'hash:${m.hashCode}');
 
         // Seed conversation IDs from the current message
         final convIds = <String>{};
@@ -120,7 +145,10 @@ class _ThreadViewerState extends State<ThreadViewer> {
 
         // Still no IDs: we cannot build a header-based conversation locally.
         if (convIds.isEmpty) {
-          setState(() { _thread = const <MimeMessage>[]; _loading = false; });
+          setState(() {
+            _thread = const <MimeMessage>[];
+            _loading = false;
+          });
           _attachMetaNotifiers();
           return;
         }
@@ -136,7 +164,9 @@ class _ThreadViewerState extends State<ThreadViewer> {
           pass++;
           for (final m in list) {
             // Skip current message and already added ones
-            if ((widget.message.uid != null && m.uid == widget.message.uid) || (widget.message.sequenceId != null && m.sequenceId == widget.message.sequenceId)) {
+            if ((widget.message.uid != null && m.uid == widget.message.uid) ||
+                (widget.message.sequenceId != null &&
+                    m.sequenceId == widget.message.sequenceId)) {
               continue;
             }
             final key = _msgKey(m);
@@ -175,13 +205,19 @@ class _ThreadViewerState extends State<ThreadViewer> {
             final rootId = convIds.first;
             final searchRes = await MailService.instance.client
                 .searchMessages(
-                  MailSearch(rootId, SearchQueryType.allTextHeaders, messageType: SearchMessageType.all),
+                  MailSearch(
+                    rootId,
+                    SearchQueryType.allTextHeaders,
+                    messageType: SearchMessageType.all,
+                  ),
                 )
                 .timeout(const Duration(seconds: 12));
             if (!mounted || gen != _loadGen) return;
             final found = searchRes.messages;
             for (final m in found) {
-              if ((widget.message.uid != null && m.uid == widget.message.uid) || (widget.message.sequenceId != null && m.sequenceId == widget.message.sequenceId)) {
+              if ((widget.message.uid != null && m.uid == widget.message.uid) ||
+                  (widget.message.sequenceId != null &&
+                      m.sequenceId == widget.message.sequenceId)) {
                 continue;
               }
               result.add(m);
@@ -190,7 +226,10 @@ class _ThreadViewerState extends State<ThreadViewer> {
         }
         _sort(result);
         if (!mounted || gen != _loadGen) return;
-        setState(() { _thread = result; _loading = false; });
+        setState(() {
+          _thread = result;
+          _loading = false;
+        });
         _attachMetaNotifiers();
         return;
       }
@@ -198,24 +237,39 @@ class _ThreadViewerState extends State<ThreadViewer> {
       final mail = MailService.instance;
       await _ensureSelectedMailbox();
 
-      final msgs = await mail.client.fetchMessageSequence(
-        seq,
-        fetchPreference: FetchPreference.envelope,
-      ).timeout(const Duration(seconds: 20), onTimeout: () => <MimeMessage>[]);
+      final msgs = await mail.client
+          .fetchMessageSequence(seq, fetchPreference: FetchPreference.envelope)
+          .timeout(
+            const Duration(seconds: 20),
+            onTimeout: () => <MimeMessage>[],
+          );
       if (!mounted || gen != _loadGen) return;
 
       // Remove the current message and sort
       final currentUid = widget.message.uid;
       final currentSeq = widget.message.sequenceId;
-      final filtered = msgs.where((m) => (currentUid != null && m.uid != currentUid) || (currentSeq != null && m.sequenceId != currentSeq)).toList();
+      final filtered =
+          msgs
+              .where(
+                (m) =>
+                    (currentUid != null && m.uid != currentUid) ||
+                    (currentSeq != null && m.sequenceId != currentSeq),
+              )
+              .toList();
       _sort(filtered);
 
       if (!mounted || gen != _loadGen) return;
-      setState(() { _thread = filtered; _loading = false; });
+      setState(() {
+        _thread = filtered;
+        _loading = false;
+      });
       _attachMetaNotifiers();
     } catch (e) {
       if (!mounted || gen != _loadGen) return;
-      setState(() { _error = 'Failed to load thread: $e'; _loading = false; });
+      setState(() {
+        _error = 'Failed to load thread: $e';
+        _loading = false;
+      });
     }
   }
 
@@ -236,7 +290,9 @@ class _ThreadViewerState extends State<ThreadViewer> {
   @override
   void dispose() {
     _meta.forEach((_, n) {
-      try { n.removeListener(_onAnyMetaChange); } catch (_) {}
+      try {
+        n.removeListener(_onAnyMetaChange);
+      } catch (_) {}
     });
     _meta.clear();
     super.dispose();
@@ -256,13 +312,21 @@ class _ThreadViewerState extends State<ThreadViewer> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              const Icon(Icons.forum_outlined, size: 18),
-              const SizedBox(width: 6),
-              Text('Conversation', style: Theme.of(context).textTheme.titleMedium),
-              const Spacer(),
-              IconButton(onPressed: _loadThread, icon: const Icon(Icons.refresh)),
-            ]),
+            Row(
+              children: [
+                const Icon(Icons.forum_outlined, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  'Conversation',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: _loadThread,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
             Text(_error!, style: const TextStyle(color: AppTheme.errorColor)),
           ],
@@ -276,7 +340,9 @@ class _ThreadViewerState extends State<ThreadViewer> {
       padding: const EdgeInsets.all(12.0),
       child: Card(
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.borderRadius)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(8.0),
           child: Column(
@@ -284,41 +350,51 @@ class _ThreadViewerState extends State<ThreadViewer> {
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(children: [
-                  const Icon(Icons.forum_outlined, size: 18),
-                  const SizedBox(width: 6),
-                  Text('Conversation', style: Theme.of(context).textTheme.titleMedium),
-                  const Spacer(),
-                  Text(_oldestFirst ? 'Oldest → Newest' : 'Newest → Oldest', style: Theme.of(context).textTheme.labelSmall),
-                  IconButton(
-                    tooltip: 'Toggle order',
-                    icon: const Icon(Icons.swap_vert),
-                    onPressed: () {
-                      setState(() {
-                        _oldestFirst = !_oldestFirst;
-                        _sort(_thread);
-                      });
-                    },
-                  ),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Icons.forum_outlined, size: 18),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Conversation',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const Spacer(),
+                    Text(
+                      _oldestFirst ? 'Oldest → Newest' : 'Newest → Oldest',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    IconButton(
+                      tooltip: 'Toggle order',
+                      icon: const Icon(Icons.swap_vert),
+                      onPressed: () {
+                        setState(() {
+                          _oldestFirst = !_oldestFirst;
+                          _sort(_thread);
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ),
               const Divider(height: 1),
-              ..._thread.map((m) => _ConversationItem(
-                    key: ValueKey(_idKey(m)),
-                    mailbox: widget.mailbox,
-                    message: m,
-                    expanded: _expanded.contains(_idKey(m)),
-                    onToggle: () {
-                      final k = _idKey(m);
-                      setState(() {
-                        if (_expanded.contains(k)) {
-                          _expanded.remove(k);
-                        } else {
-                          _expanded.add(k);
-                        }
-                      });
-                    },
-                  )),
+              ..._thread.map(
+                (m) => _ConversationItem(
+                  key: ValueKey(_idKey(m)),
+                  mailbox: widget.mailbox,
+                  message: m,
+                  expanded: _expanded.contains(_idKey(m)),
+                  onToggle: () {
+                    final k = _idKey(m);
+                    setState(() {
+                      if (_expanded.contains(k)) {
+                        _expanded.remove(k);
+                      } else {
+                        _expanded.add(k);
+                      }
+                    });
+                  },
+                ),
+              ),
             ],
           ),
         ),
@@ -328,7 +404,13 @@ class _ThreadViewerState extends State<ThreadViewer> {
 }
 
 class _ConversationItem extends StatefulWidget {
-  const _ConversationItem({super.key, required this.mailbox, required this.message, required this.expanded, required this.onToggle});
+  const _ConversationItem({
+    super.key,
+    required this.mailbox,
+    required this.message,
+    required this.expanded,
+    required this.onToggle,
+  });
   final Mailbox mailbox;
   final MimeMessage message;
   final bool expanded;
@@ -366,7 +448,10 @@ class _ConversationItemState extends State<_ConversationItem> {
       final uid = msg.uid ?? -1;
       final store = MessageContentStore.instance;
       final accountEmail = MailService.instance.account.email;
-      final mailboxPath = widget.mailbox.encodedPath.isNotEmpty ? widget.mailbox.encodedPath : widget.mailbox.path;
+      final mailboxPath =
+          widget.mailbox.encodedPath.isNotEmpty
+              ? widget.mailbox.encodedPath
+              : widget.mailbox.path;
       final uidValidity = widget.mailbox.uidValidity ?? 0;
 
       // Try cached first
@@ -385,10 +470,15 @@ class _ConversationItemState extends State<_ConversationItem> {
       String? html = cached?.htmlSanitizedBlocked;
       String? htmlPath = cached?.htmlFilePath;
 
-      if ((html == null || html.trim().isEmpty) && (htmlPath == null || htmlPath.isEmpty)) {
+      if ((html == null || html.trim().isEmpty) &&
+          (htmlPath == null || htmlPath.isEmpty)) {
         try {
           // Prefetch body in the background
-          await Get.find<MailBoxController>().prefetchMessageContent(widget.mailbox, msg, quiet: true);
+          await Get.find<MailBoxController>().prefetchMessageContent(
+            widget.mailbox,
+            msg,
+            quiet: true,
+          );
           // Re-check cache
           if (uid > 0) {
             cached = await store.getContent(
@@ -415,13 +505,17 @@ class _ConversationItemState extends State<_ConversationItem> {
 
   String get _subject {
     final s = widget.message.decodeSubject();
-    return (s == null || s.trim().isEmpty) ? (widget.message.envelope?.subject ?? 'No Subject') : s.trim();
+    return (s == null || s.trim().isEmpty)
+        ? (widget.message.envelope?.subject ?? 'No Subject')
+        : s.trim();
   }
 
   String get _sender {
     if (widget.message.from != null && widget.message.from!.isNotEmpty) {
       final f = widget.message.from!.first;
-      return f.personalName?.trim().isNotEmpty == true ? f.personalName! : f.email;
+      return f.personalName?.trim().isNotEmpty == true
+          ? f.personalName!
+          : f.email;
     }
     return widget.message.fromEmail ?? 'unknown@sender';
   }
@@ -430,7 +524,8 @@ class _ConversationItemState extends State<_ConversationItem> {
     final p = widget.message.getHeaderValue('x-preview');
     if (p != null && p.trim().isNotEmpty) return p;
     final t = widget.message.decodeTextPlainPart();
-    if (t != null && t.trim().isNotEmpty) return t.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (t != null && t.trim().isNotEmpty)
+      return t.replaceAll(RegExp(r'\s+'), ' ').trim();
     final html = widget.message.decodeTextHtmlPart();
     if (html != null && html.trim().isNotEmpty) {
       final stripped = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
@@ -450,10 +545,10 @@ class _ConversationItemState extends State<_ConversationItem> {
   }
 
   void _reply(String type) {
-    Get.to(() => const RedesignedComposeScreen(), arguments: {
-      'message': widget.message,
-      'type': type,
-    });
+    Get.to(
+      () => const RedesignedComposeScreen(),
+      arguments: {'message': widget.message, 'type': type},
+    );
   }
 
   Future<void> _delete() async {
@@ -463,13 +558,19 @@ class _ConversationItemState extends State<_ConversationItem> {
       // Let parent refresh by popping expansion, UI will update via controller lists
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Message deleted'), backgroundColor: Colors.redAccent),
+          const SnackBar(
+            content: Text('Message deleted'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text('Delete failed: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     }
@@ -492,8 +593,16 @@ class _ConversationItemState extends State<_ConversationItem> {
                 children: [
                   CircleAvatar(
                     radius: 16,
-                    backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.12),
-                    child: Text(_sender.isNotEmpty ? _sender[0].toUpperCase() : '?', style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor)),
+                    backgroundColor: AppTheme.primaryColor.withValues(
+                      alpha: 0.12,
+                    ),
+                    child: Text(
+                      _sender.isNotEmpty ? _sender[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -502,24 +611,44 @@ class _ConversationItemState extends State<_ConversationItem> {
                       children: [
                         Row(
                           children: [
-                            Expanded(child: Text(_sender, style: const TextStyle(fontWeight: FontWeight.w600))),
-                            Text(_date, style: Theme.of(context).textTheme.bodySmall),
+                            Expanded(
+                              child: Text(
+                                _sender,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              _date,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Text(_subject, style: Theme.of(context).textTheme.bodyMedium),
+                        Text(
+                          _subject,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: Icon(widget.expanded ? Icons.expand_less : Icons.expand_more),
+                    icon: Icon(
+                      widget.expanded ? Icons.expand_less : Icons.expand_more,
+                    ),
                     onPressed: widget.onToggle,
                   ),
                 ],
               ),
               const SizedBox(height: 6),
               if (!widget.expanded)
-                Text(_preview, maxLines: 3, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  _preview,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               if (widget.expanded) ...[
                 if (_loadingBody)
                   const Padding(
@@ -536,13 +665,29 @@ class _ConversationItemState extends State<_ConversationItem> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    TextButton.icon(onPressed: () => _reply('reply'), icon: const Icon(Icons.reply_rounded), label: const Text('Reply')),
+                    TextButton.icon(
+                      onPressed: () => _reply('reply'),
+                      icon: const Icon(Icons.reply_rounded),
+                      label: const Text('Reply'),
+                    ),
                     const SizedBox(width: 8),
-                    TextButton.icon(onPressed: () => _reply('reply_all'), icon: const Icon(Icons.reply_all_rounded), label: const Text('Reply All')),
+                    TextButton.icon(
+                      onPressed: () => _reply('reply_all'),
+                      icon: const Icon(Icons.reply_all_rounded),
+                      label: const Text('Reply All'),
+                    ),
                     const SizedBox(width: 8),
-                    TextButton.icon(onPressed: () => _reply('forward'), icon: const Icon(Icons.forward_rounded), label: const Text('Forward')),
+                    TextButton.icon(
+                      onPressed: () => _reply('forward'),
+                      icon: const Icon(Icons.forward_rounded),
+                      label: const Text('Forward'),
+                    ),
                     const Spacer(),
-                    IconButton(onPressed: _delete, icon: const Icon(Icons.delete_outline_rounded), color: Colors.redAccent),
+                    IconButton(
+                      onPressed: _delete,
+                      icon: const Icon(Icons.delete_outline_rounded),
+                      color: Colors.redAccent,
+                    ),
                   ],
                 ),
               ],
@@ -555,7 +700,12 @@ class _ConversationItemState extends State<_ConversationItem> {
 }
 
 class _ConversationBody extends StatelessWidget {
-  const _ConversationBody({required this.mailbox, required this.message, this.initialHtml, this.initialHtmlPath});
+  const _ConversationBody({
+    required this.mailbox,
+    required this.message,
+    this.initialHtml,
+    this.initialHtmlPath,
+  });
   final Mailbox mailbox;
   final MimeMessage message;
   final String? initialHtml;
@@ -564,18 +714,27 @@ class _ConversationBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Render lightweight HTML or show a small notice if none available yet.
-    if ((initialHtmlPath == null || initialHtmlPath!.isEmpty) && (initialHtml == null || initialHtml!.trim().isEmpty)) {
+    if ((initialHtmlPath == null || initialHtmlPath!.isEmpty) &&
+        (initialHtml == null || initialHtml!.trim().isEmpty)) {
       return Text(
         'Loading content…',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondaryColor),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondaryColor),
       );
     }
 
     // Keep the body minimal to avoid heavy nested webviews across many items; show a short excerpt.
-    final preview = (initialHtml ?? '').replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
-    final snippet = preview.isNotEmpty ? (preview.length > 400 ? preview.substring(0, 400) + '…' : preview) : 'Content ready';
+    final preview =
+        (initialHtml ?? '')
+            .replaceAll(RegExp(r'<[^>]*>'), ' ')
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim();
+    final snippet =
+        preview.isNotEmpty
+            ? (preview.length > 400 ? preview.substring(0, 400) + '…' : preview)
+            : 'Content ready';
 
     return Text(snippet, style: Theme.of(context).textTheme.bodyMedium);
   }
 }
-

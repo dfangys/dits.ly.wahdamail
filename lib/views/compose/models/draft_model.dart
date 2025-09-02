@@ -17,13 +17,13 @@ class DraftModel {
   /// Whether the body is HTML format
   final bool isHtml;
 
-  /// List of recipient email addresses in "Name <email>" format
+  /// List of recipient email addresses in `Name <email>` format
   final List<String> to;
 
-  /// List of CC recipient email addresses in "Name <email>" format
+  /// List of CC recipient email addresses in `Name <email>` format
   final List<String> cc;
 
-  /// List of BCC recipient email addresses in "Name <email>" format
+  /// List of BCC recipient email addresses in `Name <email>` format
   final List<String> bcc;
 
   /// List of file paths for attachments
@@ -214,33 +214,39 @@ class DraftModel {
       subject: map['subject'] ?? '',
       body: map['body'] ?? '',
       isHtml: map['is_html'] == 1,
-      to: map['to_address'] != null && map['to_address'].isNotEmpty
-          ? map['to_address'].split('||')
-          : <String>[],
-      cc: map['cc_address'] != null && map['cc_address'].isNotEmpty
-          ? map['cc_address'].split('||')
-          : <String>[],
-      bcc: map['bcc_address'] != null && map['bcc_address'].isNotEmpty
-          ? map['bcc_address'].split('||')
-          : <String>[],
-      attachmentPaths: map['attachment_paths'] != null && map['attachment_paths'].isNotEmpty
-          ? map['attachment_paths'].split('||')
-          : <String>[],
+      to:
+          map['to_address'] != null && map['to_address'].isNotEmpty
+              ? map['to_address'].split('||')
+              : <String>[],
+      cc:
+          map['cc_address'] != null && map['cc_address'].isNotEmpty
+              ? map['cc_address'].split('||')
+              : <String>[],
+      bcc:
+          map['bcc_address'] != null && map['bcc_address'].isNotEmpty
+              ? map['bcc_address'].split('||')
+              : <String>[],
+      attachmentPaths:
+          map['attachment_paths'] != null && map['attachment_paths'].isNotEmpty
+              ? map['attachment_paths'].split('||')
+              : <String>[],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at']),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at']),
       isScheduled: map['is_scheduled'] == 1,
-      scheduledFor: map['scheduled_for'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['scheduled_for'])
-          : null,
+      scheduledFor:
+          map['scheduled_for'] != null
+              ? DateTime.fromMillisecondsSinceEpoch(map['scheduled_for'])
+              : null,
       version: map['version'] ?? 1,
       category: map['category'] ?? 'default',
       priority: map['priority'] ?? 0,
       isSynced: map['is_synced'] == 1,
       serverUid: map['server_uid'],
       isDirty: map['is_dirty'] == 1,
-      tags: map['tags'] != null && map['tags'].isNotEmpty
-          ? map['tags'].split('||')
-          : <String>[],
+      tags:
+          map['tags'] != null && map['tags'].isNotEmpty
+              ? map['tags'].split('||')
+              : <String>[],
       lastError: map['last_error'],
     );
   }
@@ -248,12 +254,21 @@ class DraftModel {
   /// Create a draft from a MimeMessage
   factory DraftModel.fromMimeMessage(MimeMessage message) {
     // Extract recipients
-    final to = message.to?.map((addr) =>
-    '${addr.personalName ?? ''} <${addr.email}>').toList() ?? <String>[];
-    final cc = message.cc?.map((addr) =>
-    '${addr.personalName ?? ''} <${addr.email}>').toList() ?? <String>[];
-    final bcc = message.bcc?.map((addr) =>
-    '${addr.personalName ?? ''} <${addr.email}>').toList() ?? <String>[];
+    final to =
+        message.to
+            ?.map((addr) => '${addr.personalName ?? ''} <${addr.email}>')
+            .toList() ??
+        <String>[];
+    final cc =
+        message.cc
+            ?.map((addr) => '${addr.personalName ?? ''} <${addr.email}>')
+            .toList() ??
+        <String>[];
+    final bcc =
+        message.bcc
+            ?.map((addr) => '${addr.personalName ?? ''} <${addr.email}>')
+            .toList() ??
+        <String>[];
 
     // Extract content
     final htmlContent = message.decodeTextHtmlPart();
@@ -267,7 +282,10 @@ class DraftModel {
     // Get message ID - using the correct method for enough_mail 2.1.6
     String? messageId;
     try {
-      messageId = message.getHeaderValue('message-id')?.replaceAll('<', '').replaceAll('>', '');
+      messageId = message
+          .getHeaderValue('message-id')
+          ?.replaceAll('<', '')
+          .replaceAll('>', '');
     } catch (e) {
       // Fallback if header extraction fails
       messageId = null;
@@ -336,12 +354,10 @@ class DraftModel {
 
     // Set content (avoid empty multipart/alternative)
     final String htmlCandidate = isHtml ? body.trim() : '';
-    final String plainCandidate = isHtml ? _stripHtml(body).trim() : body.trim();
+    final String plainCandidate =
+        isHtml ? _stripHtml(body).trim() : body.trim();
     if (htmlCandidate.isEmpty && plainCandidate.isEmpty) {
-      builder.addMultipartAlternative(
-        htmlText: null,
-        plainText: ' ',
-      );
+      builder.addMultipartAlternative(htmlText: null, plainText: ' ');
     } else {
       builder.addMultipartAlternative(
         htmlText: htmlCandidate.isNotEmpty ? htmlCandidate : null,
@@ -351,7 +367,8 @@ class DraftModel {
 
     // Set sender: prefer a real display name; if absent or equals email, omit name to keep RFC-5322 compliant simple addr-spec
     final displayName = (account.name).trim();
-    if (displayName.isEmpty || displayName.toLowerCase() == account.email.toLowerCase()) {
+    if (displayName.isEmpty ||
+        displayName.toLowerCase() == account.email.toLowerCase()) {
       builder.from = [MailAddress('', account.email)];
     } else {
       builder.from = [MailAddress(displayName, account.email)];
@@ -369,7 +386,7 @@ class DraftModel {
     return builder.buildMimeMessage();
   }
 
-  /// Parse addresses from "Name <email>" format
+  /// Parse addresses from `Name <email>` format
   List<MailAddress> _parseAddresses(List<String> addresses) {
     return addresses.map((addr) {
       final match = RegExp(r'(.*) <(.*)>').firstMatch(addr);
@@ -428,9 +445,11 @@ class DraftModel {
     if (hasBody) {
       const previewLength = 50;
       final preview = _stripHtml(body).replaceAll('\n', ' ');
-      parts.add(preview.length > previewLength
-          ? '${preview.substring(0, previewLength)}...'
-          : preview);
+      parts.add(
+        preview.length > previewLength
+            ? '${preview.substring(0, previewLength)}...'
+            : preview,
+      );
     }
 
     return parts.join(' • ');

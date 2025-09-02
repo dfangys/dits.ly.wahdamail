@@ -11,7 +11,11 @@ import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/box/enhanced_mailbox_view.dart';
 
 class MailBoxView extends GetView<MailBoxController> {
-  const MailBoxView({super.key, required this.mailbox, this.isDarkMode = false});
+  const MailBoxView({
+    super.key,
+    required this.mailbox,
+    this.isDarkMode = false,
+  });
   final Mailbox mailbox;
   final bool isDarkMode;
 
@@ -22,7 +26,8 @@ class MailBoxView extends GetView<MailBoxController> {
     final isDarkMode = theme.brightness == Brightness.dark;
 
     return PopScope(
-onPopInvokedWithResult: (didPop, result) => selectionController.selected.clear(),
+      onPopInvokedWithResult:
+          (didPop, result) => selectionController.selected.clear(),
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
@@ -36,9 +41,10 @@ onPopInvokedWithResult: (didPop, result) => selectionController.selected.clear()
           ),
           centerTitle: true,
           elevation: 0,
-          backgroundColor: isDarkMode
-              ? Colors.black.withValues(alpha: 0.7)
-              : Colors.white.withValues(alpha: 0.9),
+          backgroundColor:
+              isDarkMode
+                  ? Colors.black.withValues(alpha: 0.7)
+                  : Colors.white.withValues(alpha: 0.9),
           flexibleSpace: ClipRect(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
@@ -89,7 +95,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   // Performance optimization variables
   List<MimeMessage>? _sortedMessages;
   int _lastProcessedCount = 0;
-  
+
   // Duplicate prevention with Set-based UID tracking
   final Set<int> _processedUIDs = <int>{};
   bool _allMessagesLoaded = false;
@@ -108,61 +114,65 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
 
   void _onScroll() {
     // Enhanced scroll detection with improved performance and user feedback
-    if (!_scrollController.hasClients || _isLoadingMore || _allMessagesLoaded) return;
-    
+    if (!_scrollController.hasClients || _isLoadingMore || _allMessagesLoaded)
+      return;
+
     final position = _scrollController.position;
     final maxScroll = position.maxScrollExtent;
     final currentScroll = position.pixels;
-    
+
     // ENHANCED: More responsive scroll loading with better thresholds
     // Trigger loading when user is within 600px of bottom (reduced from 800px for faster loading)
     // But not at absolute bottom to prevent infinite loops
-    if (currentScroll >= maxScroll - 600 && 
-        currentScroll < maxScroll - 50 && // Smaller buffer for more responsive loading
+    if (currentScroll >= maxScroll - 600 &&
+        currentScroll <
+            maxScroll - 50 && // Smaller buffer for more responsive loading
         maxScroll > 0) {
-      
       // ENHANCED: Add haptic feedback for better user experience
       try {
         HapticFeedback.selectionClick();
       } catch (e) {
         // Ignore haptic feedback errors on unsupported devices
       }
-      
+
       _loadMoreMessages();
     }
   }
 
-
   void _loadMoreMessages() async {
     if (_isLoadingMore || !mounted || _allMessagesLoaded) return;
-    
+
     final totalMessages = widget.controller.boxMails.length;
-    final currentlyDisplayed = _processedUIDs.length; // Use processed UIDs count for accuracy
-    
+    final currentlyDisplayed =
+        _processedUIDs.length; // Use processed UIDs count for accuracy
+
     // Check if we've reached the end based on mailbox message count
     final mailboxMessageCount = widget.mailbox.messagesExists;
     if (currentlyDisplayed >= mailboxMessageCount && mailboxMessageCount > 0) {
       _allMessagesLoaded = true;
       return;
     }
-    
+
     // Set loading state once
     setState(() {
       _isLoadingMore = true;
     });
-    
+
     try {
       // Check if we have more messages to display
       if (currentlyDisplayed >= totalMessages) {
         // Try to load more from server
         final previousCount = totalMessages;
-        await widget.controller.loadMoreEmails(widget.mailbox, _currentPage + 1);
-        
+        await widget.controller.loadMoreEmails(
+          widget.mailbox,
+          _currentPage + 1,
+        );
+
         // Check if new messages were actually loaded
         final newTotalMessages = widget.controller.boxMails.length;
         if (newTotalMessages > previousCount) {
           _currentPage++; // Increment page only after successful load
-          
+
           // Refresh the display with new messages
           final allMessages = widget.controller.boxMails;
           _processMessages(allMessages);
@@ -174,7 +184,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
         // We have more messages locally, just display them
         // Reduced delay for better performance
         await Future.delayed(const Duration(milliseconds: 50));
-        
+
         final allMessages = widget.controller.boxMails;
         _processMessages(allMessages);
       }
@@ -197,12 +207,12 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     if (messages.length == _lastProcessedCount && _groupedMessages.isNotEmpty) {
       return;
     }
-    
+
     // CRITICAL FIX: Process ALL messages, not just new unique ones
     // Filter out duplicate messages using UID-based Set checking
     final allUniqueMessages = <MimeMessage>[];
     final allUIDs = <int>{};
-    
+
     for (final message in messages) {
       final uid = message.uid ?? message.sequenceId ?? 0;
       if (uid > 0 && !allUIDs.contains(uid)) {
@@ -210,7 +220,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
         allUIDs.add(uid);
       }
     }
-    
+
     // If no messages, clear everything
     if (allUniqueMessages.isEmpty) {
       _groupedMessages.clear();
@@ -220,12 +230,12 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
       if (mounted) setState(() {});
       return;
     }
-    
+
     // Update processed UIDs and count
     _processedUIDs.clear();
     _processedUIDs.addAll(allUIDs);
     _lastProcessedCount = messages.length;
-    
+
     // Clear and rebuild with ALL unique messages
     _groupedMessages.clear();
     _dateKeys.clear();
@@ -242,7 +252,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     for (final message in _sortedMessages!) {
       final date = _getMessageDate(message);
       final dateKey = DateTime(date.year, date.month, date.day);
-      
+
       if (!_groupedMessages.containsKey(dateKey)) {
         _groupedMessages[dateKey] = [];
         _dateKeys.add(dateKey);
@@ -252,7 +262,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
 
     // Sort date keys once
     _dateKeys.sort((a, b) => b.compareTo(a)); // Newest dates first
-    
+
     if (mounted) {
       setState(() {});
     }
@@ -261,7 +271,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   DateTime _getMessageDate(MimeMessage message) {
     // Enhanced date extraction with multiple fallbacks
     DateTime? messageDate;
-    
+
     try {
       // Primary: Use decodeDate() method
       messageDate = message.decodeDate();
@@ -269,7 +279,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     } catch (e) {
       // Continue to next fallback
     }
-    
+
     try {
       // Secondary: Use envelope date
       messageDate = message.envelope?.date;
@@ -277,7 +287,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     } catch (e) {
       // Continue to next fallback
     }
-    
+
     try {
       // Tertiary: Parse date from headers
       final dateHeader = message.getHeaderValue('date');
@@ -288,7 +298,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
     } catch (e) {
       // Continue to final fallback
     }
-    
+
     // Final fallback: Use current time (should rarely happen)
     return DateTime.now();
   }
@@ -296,7 +306,8 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<List<MimeMessage>>(
-      valueListenable: widget.controller.mailboxStorage[widget.mailbox]!.dataNotifier,
+      valueListenable:
+          widget.controller.mailboxStorage[widget.mailbox]!.dataNotifier,
       builder: (context, List<MimeMessage> messages, _) {
         if (messages.isEmpty && !widget.controller.isBoxBusy()) {
           return Center(
@@ -319,7 +330,8 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton(
-                  onPressed: () => widget.controller.loadEmailsForBox(widget.mailbox),
+                  onPressed:
+                      () => widget.controller.loadEmailsForBox(widget.mailbox),
                   child: Text('try_again'.tr),
                 ),
               ],
@@ -343,114 +355,136 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                   if (index == _dateKeys.length) {
                     return Container(
                       padding: const EdgeInsets.all(16),
-                      child: _allMessagesLoaded
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(vertical: 20),
-                            child: Column(
-                              children: [
-                                Icon(
-                                  Icons.check_circle_outline,
-                                  color: widget.isDarkMode 
-                                        ? Colors.green.shade300 
-                                        : Colors.green.shade600,
-                                  size: 24,
+                      child:
+                          _allMessagesLoaded
+                              ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 20,
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'All emails loaded',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: widget.isDarkMode 
-                                          ? Colors.green.shade300 
-                                          : Colors.green.shade600,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${_processedUIDs.length} emails total',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: widget.isDarkMode 
-                                          ? Colors.green.shade400 
-                                          : Colors.green.shade700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : _isLoadingMore
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                              decoration: BoxDecoration(
-                                color: widget.isDarkMode 
-                                      ? Colors.grey.shade800.withValues(alpha: 0.3)
-                                      : Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: widget.isDarkMode 
-                                          ? Colors.black26 
-                                          : Colors.grey.shade300,
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        widget.theme.primaryColor,
+                                child: Column(
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle_outline,
+                                      color:
+                                          widget.isDarkMode
+                                              ? Colors.green.shade300
+                                              : Colors.green.shade600,
+                                      size: 24,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'All emails loaded',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color:
+                                            widget.isDarkMode
+                                                ? Colors.green.shade300
+                                                : Colors.green.shade600,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        'Loading more emails...',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: widget.isDarkMode 
-                                          ? Colors.white.withValues(alpha: 0.87) 
-                                          : Colors.grey.shade700,
-                                  ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${_processedUIDs.length} emails total',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color:
+                                            widget.isDarkMode
+                                                ? Colors.green.shade400
+                                                : Colors.green.shade700,
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'Fetching from server',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: widget.isDarkMode 
-                                                ? Colors.white60 
-                                                : Colors.grey.shade600,
+                                    ),
+                                  ],
+                                ),
+                              )
+                              : _isLoadingMore
+                              ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                  horizontal: 20,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      widget.isDarkMode
+                                          ? Colors.grey.shade800.withValues(
+                                            alpha: 0.3,
+                                          )
+                                          : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color:
+                                          widget.isDarkMode
+                                              ? Colors.black26
+                                              : Colors.grey.shade300,
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              widget.theme.primaryColor,
+                                            ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Loading more emails...',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                            color:
+                                                widget.isDarkMode
+                                                    ? Colors.white.withValues(
+                                                      alpha: 0.87,
+                                                    )
+                                                    : Colors.grey.shade700,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 1),
-                                      Text(
-                                        '${_processedUIDs.length} emails loaded',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: widget.isDarkMode 
-                                                ? Colors.white.withValues(alpha: 0.5) 
-                                                : Colors.grey.shade500,
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Fetching from server',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color:
+                                                widget.isDarkMode
+                                                    ? Colors.white60
+                                                    : Colors.grey.shade600,
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            )
-                          : const SizedBox.shrink(),
+                                        const SizedBox(height: 1),
+                                        Text(
+                                          '${_processedUIDs.length} emails loaded',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color:
+                                                widget.isDarkMode
+                                                    ? Colors.white.withValues(
+                                                      alpha: 0.5,
+                                                    )
+                                                    : Colors.grey.shade500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              )
+                              : const SizedBox.shrink(),
                     );
                   }
 
@@ -465,7 +499,9 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                     isDarkMode: widget.isDarkMode,
                   );
                 },
-                childCount: _dateKeys.length + (_isLoadingMore || _allMessagesLoaded ? 1 : 0),
+                childCount:
+                    _dateKeys.length +
+                    (_isLoadingMore || _allMessagesLoaded ? 1 : 0),
               ),
             ),
           ],
@@ -525,14 +561,14 @@ class OptimizedDateGroup extends StatelessWidget {
               onTap: () {
                 // CRITICAL FIX: Use safe navigation method with validation
                 final mailboxController = Get.find<MailBoxController>();
-                
+
                 debugPrint('=== MAILBOX VIEW EMAIL TAP DEBUG ===');
                 debugPrint('MailBoxView.dart onTap called!');
                 debugPrint('Subject: ${message.decodeSubject()}');
                 debugPrint('Current Mailbox: ${mailBox.name}');
                 debugPrint('Using safe navigation method');
                 debugPrint('====================================');
-                
+
                 // Use the new safe navigation method from the controller
                 mailboxController.safeNavigateToMessage(message, mailBox);
               },
@@ -558,22 +594,66 @@ class OptimizedDateGroup extends StatelessWidget {
       return 'Yesterday';
     } else if (dateOnly.isAfter(weekAgo)) {
       // This week - show day name
-      const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+      const days = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ];
       return days[date.weekday - 1];
     } else if (dateOnly.isAfter(monthAgo) && date.year == now.year) {
       // This month - show "Week of" format for better organization
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[date.month - 1]} ${date.day}';
     } else if (date.year == now.year) {
       // This year - show month and day
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[date.month - 1]} ${date.day}';
     } else {
       // Different year - show full date
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
       return '${months[date.month - 1]} ${date.day}, ${date.year}';
     }
   }
@@ -593,11 +673,6 @@ class OptimizedMailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MailTile(
-      message: message,
-      mailBox: mailBox,
-      onTap: onTap,
-    );
+    return MailTile(message: message, mailBox: mailBox, onTap: onTap);
   }
 }
-

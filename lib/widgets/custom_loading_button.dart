@@ -25,7 +25,7 @@ class CustomLoadingButtonController {
   void success() {
     _state = ButtonState.success;
     _stateChangeCallback?.call();
-    
+
     // Auto reset after 2 seconds
     Future.delayed(const Duration(seconds: 2), () {
       if (_state == ButtonState.success) {
@@ -37,7 +37,7 @@ class CustomLoadingButtonController {
   void error() {
     _state = ButtonState.error;
     _stateChangeCallback?.call();
-    
+
     // Auto reset after 2 seconds
     Future.delayed(const Duration(seconds: 2), () {
       if (_state == ButtonState.error) {
@@ -164,7 +164,7 @@ class _CustomLoadingButtonState extends State<CustomLoadingButton>
             borderRadius: BorderRadius.circular(widget.borderRadius),
             boxShadow: [
               BoxShadow(
-color: Colors.black.withValues(alpha: 0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: widget.elevation,
                 offset: Offset(0, widget.elevation / 2),
               ),
@@ -174,9 +174,10 @@ color: Colors.black.withValues(alpha: 0.2),
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(widget.borderRadius),
-              onTap: widget.controller.state == ButtonState.loading 
-                  ? null 
-                  : widget.onPressed,
+              onTap:
+                  widget.controller.state == ButtonState.loading
+                      ? null
+                      : widget.onPressed,
               child: Center(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
@@ -194,4 +195,3 @@ color: Colors.black.withValues(alpha: 0.2),
 // Legacy compatibility aliases
 typedef RoundedLoadingButtonController = CustomLoadingButtonController;
 typedef RoundedLoadingButton = CustomLoadingButton;
-

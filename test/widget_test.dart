@@ -10,5 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   // This default template test no longer applies to our app structure and
   // also triggers DB initialization in headless test runs. Skip it.
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {}, skip: true);
+  testWidgets(
+    'Counter increments smoke test',
+    (WidgetTester tester) async {},
+    skip: true,
+  );
 }

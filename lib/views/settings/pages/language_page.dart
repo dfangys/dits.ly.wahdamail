@@ -31,7 +31,7 @@ class LanguagePage extends GetView<SettingController> {
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha : 0.1),
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -47,7 +47,7 @@ class LanguagePage extends GetView<SettingController> {
                     'Choose your preferred language for the app interface',
                     style: TextStyle(
                       fontSize: 14,
-                      color: theme.colorScheme.onSurface.withValues(alpha : 0.8),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
                     ),
                   ),
                 ),
@@ -75,47 +75,55 @@ class LanguagePage extends GetView<SettingController> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(
-                color: theme.dividerColor.withValues(alpha : 0.1),
+                color: theme.dividerColor.withValues(alpha: 0.1),
               ),
             ),
             child: Column(
               children: [
                 // English option
-                Obx(() => _buildLanguageOption(
-                  context,
-                  language: 'en',
-                  title: 'english'.tr,
-                  subtitle: 'English',
-                  flagEmoji: '🇺🇸',
-                  isSelected: controller.language() == 'en',
-                  onTap: () {
-                    controller.language('en');
-                    timeago.setDefaultLocale('en');
-                    Get.updateLocale(const Locale('en'));
-                    Intl.defaultLocale = 'en';
-                    initializeDateFormatting('en');
-                  },
-                )),
+                Obx(
+                  () => _buildLanguageOption(
+                    context,
+                    language: 'en',
+                    title: 'english'.tr,
+                    subtitle: 'English',
+                    flagEmoji: '🇺🇸',
+                    isSelected: controller.language() == 'en',
+                    onTap: () {
+                      controller.language('en');
+                      timeago.setDefaultLocale('en');
+                      Get.updateLocale(const Locale('en'));
+                      Intl.defaultLocale = 'en';
+                      initializeDateFormatting('en');
+                    },
+                  ),
+                ),
 
-                Divider(height: 1, indent: 70, color: theme.dividerColor.withValues(alpha : 0.1)),
+                Divider(
+                  height: 1,
+                  indent: 70,
+                  color: theme.dividerColor.withValues(alpha: 0.1),
+                ),
 
                 // Arabic option
-                Obx(() => _buildLanguageOption(
-                  context,
-                  language: 'ar',
-                  title: 'arabic'.tr,
-                  subtitle: 'العربية',
-                  flagEmoji: '🇱🇾',
-                  isSelected: controller.language() == 'ar',
-                  onTap: () {
-                    controller.language('ar');
-                    timeago.setLocaleMessages('ar', timeago.ArMessages());
-                    timeago.setDefaultLocale('ar');
-                    Get.updateLocale(const Locale('ar'));
-                    Intl.defaultLocale = 'ar';
-                    initializeDateFormatting('ar');
-                  },
-                )),
+                Obx(
+                  () => _buildLanguageOption(
+                    context,
+                    language: 'ar',
+                    title: 'arabic'.tr,
+                    subtitle: 'العربية',
+                    flagEmoji: '🇱🇾',
+                    isSelected: controller.language() == 'ar',
+                    onTap: () {
+                      controller.language('ar');
+                      timeago.setLocaleMessages('ar', timeago.ArMessages());
+                      timeago.setDefaultLocale('ar');
+                      Get.updateLocale(const Locale('ar'));
+                      Intl.defaultLocale = 'ar';
+                      initializeDateFormatting('ar');
+                    },
+                  ),
+                ),
               ],
             ),
           ),
@@ -125,25 +133,18 @@ class LanguagePage extends GetView<SettingController> {
             margin: const EdgeInsets.all(16),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.amber.withValues(alpha : 0.1),
+              color: Colors.amber.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amber.withValues(alpha : 0.3)),
+              border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.info_outline,
-                  color: Colors.amber[800],
-                  size: 24,
-                ),
+                Icon(Icons.info_outline, color: Colors.amber[800], size: 24),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     'Changing the language will restart the app interface',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.amber[900],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.amber[900]),
                   ),
                 ),
               ],
@@ -155,14 +156,14 @@ class LanguagePage extends GetView<SettingController> {
   }
 
   Widget _buildLanguageOption(
-      BuildContext context, {
-        required String language,
-        required String title,
-        required String subtitle,
-        required String flagEmoji,
-        required bool isSelected,
-        required VoidCallback onTap,
-      }) {
+    BuildContext context, {
+    required String language,
+    required String title,
+    required String subtitle,
+    required String flagEmoji,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
     final theme = Theme.of(context);
 
     return ListTile(
@@ -170,40 +171,31 @@ class LanguagePage extends GetView<SettingController> {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: isSelected
-              ? theme.colorScheme.primary.withValues(alpha : 0.1)
-              : Colors.grey.withValues(alpha : 0.1),
+          color:
+              isSelected
+                  ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                  : Colors.grey.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
-          child: Text(
-            flagEmoji,
-            style: const TextStyle(fontSize: 24),
-          ),
+          child: Text(flagEmoji, style: const TextStyle(fontSize: 24)),
         ),
       ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w500,
-        ),
-      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(
         subtitle,
         style: TextStyle(
           fontSize: 12,
-          color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
         ),
       ),
-      trailing: isSelected
-          ? Icon(
-        Icons.check_circle,
-        color: theme.colorScheme.primary,
-      )
-          : Icon(
-        Icons.circle_outlined,
-        color: theme.colorScheme.onSurface.withValues(alpha : 0.3),
-      ),
+      trailing:
+          isSelected
+              ? Icon(Icons.check_circle, color: theme.colorScheme.primary)
+              : Icon(
+                Icons.circle_outlined,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+              ),
       onTap: onTap,
     );
   }

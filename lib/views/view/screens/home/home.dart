@@ -12,16 +12,16 @@ import 'package:wahda_bank/services/home_init_guard.dart';
 
 class HomeScreen extends GetView<MailBoxController> {
   const HomeScreen({super.key});
-  
+
   @override
   Widget build(BuildContext context) {
     final selectionController = Get.find<SelectionController>();
-    
+
     // Initialize Home once per app session (single init guard)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       HomeInitGuard.instance.ensureInitialized(controller);
     });
-    
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: PreferredSize(
@@ -51,9 +51,10 @@ class HomeScreen extends GetView<MailBoxController> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Theme.of(context).brightness == Brightness.dark 
-                        ? Colors.white70 
-                        : Colors.grey.shade700,
+                    color:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white70
+                            : Colors.grey.shade700,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -61,16 +62,17 @@ class HomeScreen extends GetView<MailBoxController> {
                   'Please wait',
                   style: TextStyle(
                     fontSize: 13,
-                    color: Theme.of(context).brightness == Brightness.dark 
-                        ? Colors.white54 
-                        : Colors.grey.shade600,
+                    color:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white54
+                            : Colors.grey.shade600,
                   ),
                 ),
               ],
             ),
           );
         }
-        
+
         // Use EnhancedMailboxView directly to avoid nested Scaffold and duplicate refresh/actions
         return EnhancedMailboxView(
           mailbox: controller.mailBoxInbox,
@@ -79,22 +81,23 @@ class HomeScreen extends GetView<MailBoxController> {
         );
       }),
       floatingActionButton: Obx(
-        () => selectionController.isSelecting
-          ? const SizedBox.shrink()
-          : FloatingActionButton(
-              onPressed: () {
-                ComposeModal.show(context);
-              },
-              backgroundColor: AppTheme.primaryColor,
-              child: const Icon(Icons.edit_outlined, color: Colors.white),
-            ),
+        () =>
+            selectionController.isSelecting
+                ? const SizedBox.shrink()
+                : FloatingActionButton(
+                  onPressed: () {
+                    ComposeModal.show(context);
+                  },
+                  backgroundColor: AppTheme.primaryColor,
+                  child: const Icon(Icons.edit_outlined, color: Colors.white),
+                ),
       ),
       bottomNavigationBar: Obx(
-        () => selectionController.isSelecting
-          ? SelectionBottomNav(box: controller.mailBoxInbox)
-          : const SizedBox.shrink(),
+        () =>
+            selectionController.isSelecting
+                ? SelectionBottomNav(box: controller.mailBoxInbox)
+                : const SizedBox.shrink(),
       ),
     );
   }
 }
-

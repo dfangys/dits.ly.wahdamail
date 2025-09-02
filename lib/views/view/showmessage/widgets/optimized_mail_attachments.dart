@@ -17,7 +17,8 @@ class OptimizedMailAttachments extends StatefulWidget {
   final Mailbox? mailbox;
 
   @override
-  State<OptimizedMailAttachments> createState() => _OptimizedMailAttachmentsState();
+  State<OptimizedMailAttachments> createState() =>
+      _OptimizedMailAttachmentsState();
 }
 
 class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
@@ -25,11 +26,11 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
   bool _isLoading = true;
   String? _error;
   late String _messageKey;
-  
+
   // Cache for attachments
   static final Map<String, List<ContentInfo>> _attachmentCache = {};
   static final Map<String, Uint8List> _attachmentDataCache = {};
-  
+
   // Services
   final MailService _mailService = Get.find<MailService>();
 
@@ -65,20 +66,23 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
       if (!widget.message.hasAttachments()) {
         // Try to fetch full content if not available
         try {
-          messageContent = await _mailService.client.fetchMessageContents(widget.message);
+          messageContent = await _mailService.client.fetchMessageContents(
+            widget.message,
+          );
         } catch (e) {
           // If fetch fails, use original message
           messageContent = widget.message;
         }
       }
-      
+
       // Extract attachments
-      _attachments = messageContent.findContentInfo(disposition: ContentDisposition.attachment);
+      _attachments = messageContent.findContentInfo(
+        disposition: ContentDisposition.attachment,
+      );
       _attachmentCache[_messageKey] = _attachments;
-      
+
       // Preload small attachments in background
       _preloadSmallAttachments();
-      
     } catch (e) {
       setState(() {
         _error = 'Failed to load attachments: $e';
@@ -93,7 +97,8 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
   void _preloadSmallAttachments() {
     for (final attachment in _attachments) {
       final size = attachment.size ?? 0;
-      if (size > 0 && size < 512 * 1024) { // Preload files smaller than 512KB
+      if (size > 0 && size < 512 * 1024) {
+        // Preload files smaller than 512KB
         _fetchAttachmentData(attachment).catchError((e) {
           // Ignore preload errors
           return null;
@@ -146,11 +151,7 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.error_outline,
-                color: Colors.red,
-                size: 48,
-              ),
+              const Icon(Icons.error_outline, color: Colors.red, size: 48),
               const SizedBox(height: 8),
               Text(
                 _error!,
@@ -186,11 +187,7 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Icon(
-                  Icons.attachment,
-                  color: Colors.grey[600],
-                  size: 20,
-                ),
+                Icon(Icons.attachment, color: Colors.grey[600], size: 20),
                 const SizedBox(width: 8),
                 Text(
                   'Attachments (${_attachments.length})',
@@ -250,9 +247,10 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
     try {
       final data = await _fetchAttachmentData(attachment);
       if (data != null) {
-        final filename = attachment.contentDisposition?.filename ?? 
-                        attachment.contentType?.parameters['name'] ?? 
-                        'attachment';
+        final filename =
+            attachment.contentDisposition?.filename ??
+            attachment.contentType?.parameters['name'] ??
+            'attachment';
         // Create a temporary file and share it
         // ignore: deprecated_member_use
         await Share.shareXFiles([
@@ -289,9 +287,10 @@ class _AttachmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final filename = attachment.contentDisposition?.filename ?? 
-                    attachment.contentType?.parameters['name'] ?? 
-                    'Unknown file';
+    final filename =
+        attachment.contentDisposition?.filename ??
+        attachment.contentType?.parameters['name'] ??
+        'Unknown file';
     final size = attachment.size;
     final sizeText = size != null ? _formatFileSize(size) : 'Unknown size';
 
@@ -303,26 +302,17 @@ class _AttachmentTile extends StatelessWidget {
           color: Colors.blue[100],
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(
-          _getFileIcon(filename),
-          color: Colors.blue[700],
-          size: 20,
-        ),
+        child: Icon(_getFileIcon(filename), color: Colors.blue[700], size: 20),
       ),
       title: Text(
         filename,
-        style: const TextStyle(
-          fontWeight: FontWeight.w500,
-        ),
+        style: const TextStyle(fontWeight: FontWeight.w500),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
         sizeText,
-        style: TextStyle(
-          color: Colors.grey[600],
-          fontSize: 12,
-        ),
+        style: TextStyle(color: Colors.grey[600], fontSize: 12),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -345,7 +335,8 @@ class _AttachmentTile extends StatelessWidget {
   String _formatFileSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    if (bytes < 1024 * 1024 * 1024)
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 
@@ -385,4 +376,3 @@ class _AttachmentTile extends StatelessWidget {
     }
   }
 }
-

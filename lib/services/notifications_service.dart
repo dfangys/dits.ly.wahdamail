@@ -53,7 +53,8 @@ class NotificationService {
 
     await plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(channel);
     await plugin.initialize(
       const InitializationSettings(
@@ -68,15 +69,18 @@ class NotificationService {
       onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
     );
     if (Platform.isAndroid) {
-      bool grant = await plugin
+      bool grant =
+          await plugin
               .resolvePlatformSpecificImplementation<
-                  AndroidFlutterLocalNotificationsPlugin>()
+                AndroidFlutterLocalNotificationsPlugin
+              >()
               ?.areNotificationsEnabled() ??
           false;
       if (!grant) {
         await plugin
             .resolvePlatformSpecificImplementation<
-                AndroidFlutterLocalNotificationsPlugin>()
+              AndroidFlutterLocalNotificationsPlugin
+            >()
             ?.requestNotificationsPermission();
       }
     }
@@ -84,8 +88,11 @@ class NotificationService {
   }
 
   void showFlutterNotification(
-      String title, String body, Map<String, dynamic> data,
-      [int id = 0]) {
+    String title,
+    String body,
+    Map<String, dynamic> data, [
+    int id = 0,
+  ]) {
     plugin.show(
       id,
       title,
@@ -136,13 +143,20 @@ class NotificationService {
         Mailbox? target;
         try {
           final boxes = await mailService.client.listMailboxes();
-          target = boxes.firstWhereOrNull((mb) =>
-              mb.encodedPath == mailboxPath || mb.path == mailboxPath || mb.name == mailboxPath || mb.name.toUpperCase() == mailboxPath.toUpperCase());
+          target = boxes.firstWhereOrNull(
+            (mb) =>
+                mb.encodedPath == mailboxPath ||
+                mb.path == mailboxPath ||
+                mb.name == mailboxPath ||
+                mb.name.toUpperCase() == mailboxPath.toUpperCase(),
+          );
         } catch (_) {}
         target ??= await mailService.client.selectInbox();
 
         // Select mailbox
-        try { await mailService.client.selectMailbox(target); } catch (_) {}
+        try {
+          await mailService.client.selectMailbox(target);
+        } catch (_) {}
 
         // Fetch the message by UID
         MimeMessage? message;

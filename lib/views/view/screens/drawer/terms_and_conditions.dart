@@ -33,23 +33,21 @@ class TermsAndCondition extends StatelessWidget {
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha : 0.1),
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.gavel,
-                    color: theme.colorScheme.primary,
-                    size: 28,
-                  ),
+                  Icon(Icons.gavel, color: theme.colorScheme.primary, size: 28),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
                       'Please read these terms and conditions carefully before using our services.',
                       style: TextStyle(
                         fontSize: 14,
-                        color: theme.colorScheme.onSurface.withValues(alpha : 0.8),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.8,
+                        ),
                       ),
                     ),
                   ),
@@ -87,7 +85,8 @@ class TermsAndCondition extends StatelessWidget {
                   _buildTermsSection(
                     context,
                     title: "Privacy Policy",
-                    content: "Your privacy is important to us. It is Wahda Bank's policy to respect your privacy regarding any information we may collect from you across our website and mobile applications.\n\nWe only ask for personal information when we truly need it to provide a service to you. We collect it by fair and lawful means, with your knowledge and consent.",
+                    content:
+                        "Your privacy is important to us. It is Wahda Bank's policy to respect your privacy regarding any information we may collect from you across our website and mobile applications.\n\nWe only ask for personal information when we truly need it to provide a service to you. We collect it by fair and lawful means, with your knowledge and consent.",
                     sectionNumber: "3",
                   ),
 
@@ -97,7 +96,8 @@ class TermsAndCondition extends StatelessWidget {
                   _buildTermsSection(
                     context,
                     title: "Security",
-                    content: "We value your trust in providing us your personal information, thus we are striving to use commercially acceptable means of protecting it. But remember that no method of transmission over the internet, or method of electronic storage is 100% secure and reliable, and we cannot guarantee its absolute security.",
+                    content:
+                        "We value your trust in providing us your personal information, thus we are striving to use commercially acceptable means of protecting it. But remember that no method of transmission over the internet, or method of electronic storage is 100% secure and reliable, and we cannot guarantee its absolute security.",
                     sectionNumber: "4",
                   ),
 
@@ -107,7 +107,7 @@ class TermsAndCondition extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha : 0.1),
+                      color: Colors.grey.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -115,14 +115,18 @@ class TermsAndCondition extends StatelessWidget {
                         Icon(
                           Icons.update,
                           size: 20,
-                          color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.6,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Text(
                           "Last updated: May 18, 2025",
                           style: TextStyle(
                             fontSize: 14,
-                            color: theme.colorScheme.onSurface.withValues(alpha : 0.6),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -169,11 +173,11 @@ class TermsAndCondition extends StatelessWidget {
   }
 
   Widget _buildTermsSection(
-      BuildContext context, {
-        required String title,
-        required String content,
-        required String sectionNumber,
-      }) {
+    BuildContext context, {
+    required String title,
+    required String content,
+    required String sectionNumber,
+  }) {
     final theme = Theme.of(context);
 
     return Column(
@@ -222,7 +226,7 @@ class TermsAndCondition extends StatelessWidget {
             content,
             style: TextStyle(
               fontSize: 14,
-              color: theme.colorScheme.onSurface.withValues(alpha : 0.7),
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
               height: 1.5,
             ),
           ),

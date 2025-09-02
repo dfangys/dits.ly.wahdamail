@@ -17,7 +17,8 @@ class LoadingFirstView extends StatefulWidget {
   State<LoadingFirstView> createState() => _LoadingFirstViewState();
 }
 
-class _LoadingFirstViewState extends State<LoadingFirstView> with SingleTickerProviderStateMixin {
+class _LoadingFirstViewState extends State<LoadingFirstView>
+    with SingleTickerProviderStateMixin {
   final GetStorage storage = GetStorage();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -53,10 +54,7 @@ class _LoadingFirstViewState extends State<LoadingFirstView> with SingleTickerPr
     );
 
     _rotateAnimation = Tween<double>(begin: 0.0, end: 0.05).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
     // Start animation
@@ -116,7 +114,6 @@ class _LoadingFirstViewState extends State<LoadingFirstView> with SingleTickerPr
       });
 
       await Future.delayed(const Duration(milliseconds: 300));
-
     } catch (e) {
       isReadyToRun = false;
       printError(info: e.toString());
@@ -125,7 +122,6 @@ class _LoadingFirstViewState extends State<LoadingFirstView> with SingleTickerPr
       setState(() {
         _isLoading = false;
       });
-
     } finally {
       if (isReadyToRun) {
         try {
@@ -144,7 +140,7 @@ class _LoadingFirstViewState extends State<LoadingFirstView> with SingleTickerPr
           dialogType: DialogType.error,
           title: 'Error',
           desc:
-          'An error occurred while trying to connect to the server. $error',
+              'An error occurred while trying to connect to the server. $error',
           btnOkOnPress: () {
             Get.back();
           },
@@ -185,9 +181,10 @@ class _LoadingFirstViewState extends State<LoadingFirstView> with SingleTickerPr
                     child: Transform.scale(
                       scale: _scaleAnimation.value,
                       child: Transform.rotate(
-                        angle: _animationController.value % 1 == 0.5
-                            ? _rotateAnimation.value
-                            : -_rotateAnimation.value,
+                        angle:
+                            _animationController.value % 1 == 0.5
+                                ? _rotateAnimation.value
+                                : -_rotateAnimation.value,
                         child: SizedBox(
                           height: isTablet ? 140.0 : 105.0,
                           width: isTablet ? 360.0 : 273.0,
@@ -218,7 +215,7 @@ class _LoadingFirstViewState extends State<LoadingFirstView> with SingleTickerPr
                         width: isTablet ? 280 : 220,
                         height: 6,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha : 0.3),
+                          color: Colors.white.withValues(alpha: 0.3),
                           borderRadius: BorderRadius.circular(3),
                         ),
                         child: Stack(

@@ -17,7 +17,8 @@ class MemoryBudgetService extends GetxService {
 
   // Defaults
   static const int _defaultSteadyStateMbMax = 200;
-  static const double _defaultCacheFraction = 0.5; // 50% of steady-state for caches
+  static const double _defaultCacheFraction =
+      0.5; // 50% of steady-state for caches
 
   int _steadyStateMaxBytes = _defaultSteadyStateMbMax * 1024 * 1024;
   double _cacheFraction = _defaultCacheFraction;
@@ -63,4 +64,3 @@ class MemoryBudgetService extends GetxService {
     }
   }
 }
-

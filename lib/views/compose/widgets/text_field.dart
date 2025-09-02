@@ -44,42 +44,50 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: widget.emails.map((email) {
-            final personal = email.personalName ?? '';
-            final displayLetter = personal.isNotEmpty
-                ? personal[0].toUpperCase()
-                : email.email[0].toUpperCase();
+          children:
+              widget.emails.map((email) {
+                final personal = email.personalName ?? '';
+                final displayLetter =
+                    personal.isNotEmpty
+                        ? personal[0].toUpperCase()
+                        : email.email[0].toUpperCase();
 
-            return Chip(
-              avatar: CircleAvatar(
-                backgroundColor: theme.colorScheme.primary.withValues(alpha : 0.2),
-                child: Text(
-                  displayLetter,
-                  style: TextStyle(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                return Chip(
+                  avatar: CircleAvatar(
+                    backgroundColor: theme.colorScheme.primary.withValues(
+                      alpha: 0.2,
+                    ),
+                    child: Text(
+                      displayLetter,
+                      style: TextStyle(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              label: Text(
-                "${personal.isNotEmpty ? personal : ''} <${email.email}>",
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isDarkMode ? Colors.white : Colors.black87,
-                ),
-              ),
-              deleteIcon: const Icon(Icons.close_rounded, size: 16),
-              onDeleted: widget.readOnly
-                  ? null
-                  : () => widget.onDelete(widget.emails.indexOf(email)),
-              backgroundColor:
-              isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
-              deleteIconColor:
-              isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-            );
-          }).toList(),
+                  label: Text(
+                    "${personal.isNotEmpty ? personal : ''} <${email.email}>",
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isDarkMode ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                  onDeleted:
+                      widget.readOnly
+                          ? null
+                          : () => widget.onDelete(widget.emails.indexOf(email)),
+                  backgroundColor:
+                      isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200,
+                  deleteIconColor:
+                      isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 0,
+                  ),
+                );
+              }).toList(),
         ),
 
         /// TypeAhead field using builder (your version)
@@ -94,14 +102,17 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
           itemBuilder: (context, suggestion) {
             final personal = suggestion.personalName ?? '';
             final subtitle = personal.isNotEmpty ? suggestion.email : null;
-            final avatarText = personal.isNotEmpty
-                ? personal[0].toUpperCase()
-                : suggestion.email[0].toUpperCase();
+            final avatarText =
+                personal.isNotEmpty
+                    ? personal[0].toUpperCase()
+                    : suggestion.email[0].toUpperCase();
 
             return ListTile(
               dense: true,
               leading: CircleAvatar(
-                backgroundColor: theme.colorScheme.primary.withValues(alpha : 0.2),
+                backgroundColor: theme.colorScheme.primary.withValues(
+                  alpha: 0.2,
+                ),
                 child: Text(
                   avatarText,
                   style: TextStyle(
@@ -117,16 +128,18 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
                   color: isDarkMode ? Colors.white : Colors.black87,
                 ),
               ),
-              subtitle: subtitle != null
-                  ? Text(
-                subtitle,
-                style: TextStyle(
-                  color: isDarkMode
-                      ? Colors.grey.shade400
-                      : Colors.grey.shade700,
-                ),
-              )
-                  : null,
+              subtitle:
+                  subtitle != null
+                      ? Text(
+                        subtitle,
+                        style: TextStyle(
+                          color:
+                              isDarkMode
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade700,
+                        ),
+                      )
+                      : null,
             );
           },
           onSelected: (MailAddress address) {
@@ -139,8 +152,7 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
               elevation: 4,
               borderRadius: BorderRadius.circular(12),
               color: isDarkMode ? Colors.grey.shade900 : Colors.white,
-              shadowColor:
-              isDarkMode ? Colors.black26 : Colors.grey.shade300,
+              shadowColor: isDarkMode ? Colors.black26 : Colors.grey.shade300,
               child: child,
             );
           },
@@ -155,9 +167,8 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
                 isDense: true,
                 hintStyle: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: isDarkMode
-                      ? Colors.grey.shade400
-                      : Colors.grey.shade600,
+                  color:
+                      isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
                 ),
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -166,11 +177,11 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
                     IconButton(
                       onPressed: () async {
                         if (await FlutterContacts.requestPermission(
-                            readonly: true)) {
+                          readonly: true,
+                        )) {
                           final contact =
-                          await FlutterContacts.openExternalPick();
-                          if (contact != null &&
-                              contact.emails.isNotEmpty) {
+                              await FlutterContacts.openExternalPick();
+                          if (contact != null && contact.emails.isNotEmpty) {
                             widget.onInsert(
                               MailAddress(
                                 contact.displayName,
@@ -182,8 +193,7 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
                       },
                       icon: Icon(
                         Icons.contacts_outlined,
-                        color:
-                        theme.colorScheme.primary.withValues(alpha : 0.8),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.8),
                         size: 20,
                       ),
                       tooltip: "Select from contacts",
@@ -198,8 +208,7 @@ class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
                 color: isDarkMode ? Colors.white : Colors.black87,
               ),
               onChanged: (val) {
-                if ((val.trim().endsWith(' ') ||
-                    val.trim().endsWith(',')) &&
+                if ((val.trim().endsWith(' ') || val.trim().endsWith(',')) &&
                     val.trim().length > 1) {
                   widget.onInsert(MailAddress("", val.trim()));
                   controller.clear();

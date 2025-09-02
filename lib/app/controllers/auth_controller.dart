@@ -17,7 +17,8 @@ class AuthController extends GetxController {
     super.onInit();
     // Check if user is already authenticated
     final storage = GetStorage();
-    final hasCredentials = storage.hasData('email') && storage.hasData('password');
+    final hasCredentials =
+        storage.hasData('email') && storage.hasData('password');
     isAuthenticated.value = hasCredentials;
 
     // Register with other controllers that might need auth state
@@ -86,7 +87,6 @@ class AuthController extends GetxController {
 
       // You might want to clear database tables as well
       // This would require access to your database implementation
-
     } catch (e) {
       logger.e("Error deleting account: $e");
     }
@@ -109,7 +109,7 @@ class AuthController extends GetxController {
       return false;
     }
   }
-  
+
   /// Clears all storage data without logging out
   ///
   /// This method:
@@ -120,21 +120,21 @@ class AuthController extends GetxController {
   Future<void> clearStorage() async {
     try {
       logger.i("Clearing app storage data");
-      
+
       // Get current authentication credentials to preserve them
       final storage = GetStorage();
       final email = storage.read('email');
       final password = storage.read('password');
-      
+
       // Clear all settings except authentication
       await storage.erase();
-      
+
       // Restore authentication if needed
       if (email != null && password != null) {
         await storage.write('email', email);
         await storage.write('password', password);
       }
-      
+
       logger.i("App storage data cleared successfully");
     } catch (e) {
       logger.e("Error clearing storage: $e");

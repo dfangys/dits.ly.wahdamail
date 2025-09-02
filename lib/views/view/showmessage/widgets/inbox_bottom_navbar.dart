@@ -105,9 +105,10 @@ class ViewMessageBottomNav extends StatelessWidget {
               width: isTablet ? 48 : 40,
               height: isTablet ? 48 : 40,
               decoration: BoxDecoration(
-                color: destructive
-                    ? Colors.red.withValues(alpha : 0.1)
-                    : AppTheme.primaryColor.withValues(alpha : 0.1),
+                color:
+                    destructive
+                        ? Colors.red.withValues(alpha: 0.1)
+                        : AppTheme.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -132,42 +133,43 @@ class ViewMessageBottomNav extends StatelessWidget {
   }
 
   void _navigateToCompose(String type) {
-    ComposeModal.show(Get.context!, arguments: {
-      'message': message,
-      'type': type,
-    });
+    ComposeModal.show(
+      Get.context!,
+      arguments: {'message': message, 'type': type},
+    );
   }
 
   void _showDeleteConfirmation(BuildContext context) {
     showCupertinoModalPopup(
       context: context,
-      builder: (context) => CupertinoActionSheet(
-        title: const Text(
-          'Delete Message',
-          style: TextStyle(color: AppTheme.textPrimaryColor),
-        ),
-        message: const Text(
-          'Are you sure you want to delete this message?',
-          style: TextStyle(color: AppTheme.textSecondaryColor),
-        ),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
-              mailController.deleteMails([message], mailbox);
-              Get.back(); // Close dialog
-              Get.back(); // Return to inbox
-            },
-            isDestructiveAction: true,
-            child: const Text('Delete'),
+      builder:
+          (context) => CupertinoActionSheet(
+            title: const Text(
+              'Delete Message',
+              style: TextStyle(color: AppTheme.textPrimaryColor),
+            ),
+            message: const Text(
+              'Are you sure you want to delete this message?',
+              style: TextStyle(color: AppTheme.textSecondaryColor),
+            ),
+            actions: [
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  mailController.deleteMails([message], mailbox);
+                  Get.back(); // Close dialog
+                  Get.back(); // Return to inbox
+                },
+                isDestructiveAction: true,
+                child: const Text('Delete'),
+              ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
+              onPressed: () {
+                Get.back();
+              },
+              child: const Text('Cancel'),
+            ),
           ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () {
-            Get.back();
-          },
-          child: const Text('Cancel'),
-        ),
-      ),
     );
   }
 }

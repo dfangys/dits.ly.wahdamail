@@ -19,13 +19,14 @@ class EnterOtpScreen extends GetView<OtpController> {
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
-    
+
     return Scaffold(
       backgroundColor: Theme.of(context).primaryColor,
       body: Column(
         children: [
           SizedBox(
-            height: isTablet ? WSizes.imageThumbSize * 1.2 : WSizes.imageThumbSize,
+            height:
+                isTablet ? WSizes.imageThumbSize * 1.2 : WSizes.imageThumbSize,
           ),
           // Logo with animation
           TweenAnimationBuilder<double>(
@@ -54,9 +55,7 @@ class EnterOtpScreen extends GetView<OtpController> {
               ),
             ),
           ),
-          const SizedBox(
-            height: WSizes.defaultSpace,
-          ),
+          const SizedBox(height: WSizes.defaultSpace),
           // Main content container with animation
           Expanded(
             child: TweenAnimationBuilder<double>(
@@ -66,10 +65,7 @@ class EnterOtpScreen extends GetView<OtpController> {
               builder: (context, value, child) {
                 return Transform.translate(
                   offset: Offset(0, (1 - value) * 100),
-                  child: Opacity(
-                    opacity: value,
-                    child: child,
-                  ),
+                  child: Opacity(opacity: value, child: child),
                 );
               },
               child: Container(
@@ -83,7 +79,7 @@ class EnterOtpScreen extends GetView<OtpController> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha : 0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 10,
                       offset: const Offset(0, -5),
                     ),
@@ -147,21 +143,22 @@ class EnterOtpScreen extends GetView<OtpController> {
                             duration: const Duration(milliseconds: 800),
                             curve: Curves.easeOutCubic,
                             builder: (context, value, child) {
-                              return Opacity(
-                                opacity: value,
-                                child: child,
-                              );
+                              return Opacity(opacity: value, child: child);
                             },
                             child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: isTablet ? 40 : 20),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isTablet ? 40 : 20,
+                              ),
                               child: Obx(() {
                                 // Always touch the Rx so Obx has a dependency,
                                 // even if a non-reactive maskedPhone was passed in.
                                 final rxMasked = controller.maskedPhone.value;
                                 final mp = maskedPhone ?? rxMasked;
-                                final text = (mp.isNotEmpty)
-                                    ? 'An OTP has been sent to ' + mp
-                                    : "msg_otp_sent_to_your_email_and_phone".tr;
+                                final text =
+                                    (mp.isNotEmpty)
+                                        ? 'An OTP has been sent to $mp'
+                                        : "msg_otp_sent_to_your_email_and_phone"
+                                            .tr;
                                 return Text(
                                   text,
                                   textAlign: TextAlign.center,
@@ -190,31 +187,35 @@ class EnterOtpScreen extends GetView<OtpController> {
                             },
                             child: _buildPinput(context, isTablet),
                           ),
-                          SizedBox(height: isTablet ? WSizes.defaultSpace * 1.5 : WSizes.defaultSpace),
+                          SizedBox(
+                            height:
+                                isTablet
+                                    ? WSizes.defaultSpace * 1.5
+                                    : WSizes.defaultSpace,
+                          ),
                           // Resend button with animation
                           TweenAnimationBuilder<double>(
                             tween: Tween<double>(begin: 0.0, end: 1.0),
                             duration: const Duration(milliseconds: 1000),
                             curve: Curves.easeOutCubic,
                             builder: (context, value, child) {
-                              return Opacity(
-                                opacity: value,
-                                child: child,
-                              );
+                              return Opacity(opacity: value, child: child);
                             },
                             child: Obx(() {
                               final secs = controller.resendSeconds.value;
                               final busy = controller.isRequestingOtp.value;
                               final canResend = secs == 0 && !busy;
-                              final label = secs == 0
-                                  ? 'resend_otp'.tr
-                                  : 'resend_otp'.tr + ' (${secs}s)';
+                              final label =
+                                  secs == 0
+                                      ? 'resend_otp'.tr
+                                      : '${'resend_otp'.tr} (${secs}s)';
                               return TextButton.icon(
-                                onPressed: canResend
-                                    ? () async {
-                                        await controller.resendOtp();
-                                      }
-                                    : null,
+                                onPressed:
+                                    canResend
+                                        ? () async {
+                                          await controller.resendOtp();
+                                        }
+                                        : null,
                                 icon: Icon(
                                   Icons.refresh_rounded,
                                   size: 18,
@@ -231,7 +232,12 @@ class EnterOtpScreen extends GetView<OtpController> {
                               );
                             }),
                           ),
-                          SizedBox(height: isTablet ? WSizes.defaultSpace * 1.5 : WSizes.defaultSpace),
+                          SizedBox(
+                            height:
+                                isTablet
+                                    ? WSizes.defaultSpace * 1.5
+                                    : WSizes.defaultSpace,
+                          ),
                           // Continue button with animation
                           TweenAnimationBuilder<double>(
                             tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -250,7 +256,10 @@ class EnterOtpScreen extends GetView<OtpController> {
                               controller: btnController,
                               onPress: () {
                                 String code = "";
-                                if (controller.autoFillOtpController.text.isNotEmpty) {
+                                if (controller
+                                    .autoFillOtpController
+                                    .text
+                                    .isNotEmpty) {
                                   code = controller.autoFillOtpController.text;
                                 } else {
                                   code = controller.otpPin;
@@ -263,7 +272,7 @@ class EnterOtpScreen extends GetView<OtpController> {
                           ),
                           SizedBox(height: isTablet ? 40 : 20),
                         ],
-                      )
+                      ),
                     ],
                   ),
                 ),
@@ -290,7 +299,7 @@ class EnterOtpScreen extends GetView<OtpController> {
         border: Border.all(color: Colors.grey.shade300),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha : 0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -303,7 +312,7 @@ class EnterOtpScreen extends GetView<OtpController> {
       borderRadius: BorderRadius.circular(12),
       boxShadow: [
         BoxShadow(
-          color: Theme.of(context).primaryColor.withValues(alpha : 0.2),
+          color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),
@@ -312,7 +321,7 @@ class EnterOtpScreen extends GetView<OtpController> {
 
     final submittedPinTheme = defaultPinTheme.copyWith(
       decoration: defaultPinTheme.decoration?.copyWith(
-        color: Theme.of(context).primaryColor.withValues(alpha : 0.1),
+        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
         border: Border.all(color: Theme.of(context).primaryColor),
       ),
     );
@@ -353,7 +362,6 @@ class EnterOtpScreen extends GetView<OtpController> {
 
       // ✔ Android SMS autofill (optional – see next section)
       // smsRetriever: controller.smsRetriever,   // your own implementation
-
       crossAxisAlignment: CrossAxisAlignment.center,
       keyboardType: TextInputType.number,
       hapticFeedbackType: HapticFeedbackType.lightImpact,
@@ -361,5 +369,6 @@ class EnterOtpScreen extends GetView<OtpController> {
       useNativeKeyboard: true,
       animationDuration: const Duration(milliseconds: 300),
       animationCurve: Curves.easeInOut,
-    );  }
+    );
+  }
 }

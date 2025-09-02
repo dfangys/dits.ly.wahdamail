@@ -70,16 +70,18 @@ class _SendOtpViewState extends State<SendOtpView> {
                       isError
                           ? "error_in_sending_otp".tr
                           : isSuccess
-                              ? "msg_otp_sent_successfully".tr
-                              : "msg_sending_otp".tr,
-                      style:
-                          Theme.of(context).textTheme.headlineSmall!.copyWith(
-                                color: isError
-                                    ? Colors.red
-                                    : isSuccess
-                                        ? Colors.green
-                                        : Colors.black,
-                              ),
+                          ? "msg_otp_sent_successfully".tr
+                          : "msg_sending_otp".tr,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineSmall!.copyWith(
+                        color:
+                            isError
+                                ? Colors.red
+                                : isSuccess
+                                ? Colors.green
+                                : Colors.black,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     if (!isError) const CircularProgressIndicator.adaptive(),
@@ -92,9 +94,10 @@ class _SendOtpViewState extends State<SendOtpView> {
                           final secs = controller.resendSeconds.value;
                           final busy = controller.isRequestingOtp.value;
                           final canResend = secs == 0 && !busy;
-                          final label = secs == 0
-                              ? 'resend'.tr
-                              : 'resend'.tr + ' (${secs}s)';
+                          final label =
+                              secs == 0
+                                  ? 'resend'.tr
+                                  : '${'resend'.tr} (${secs}s)';
                           return OutlinedButton(
                             style: ElevatedButton.styleFrom(
                               shape: RoundedRectangleBorder(

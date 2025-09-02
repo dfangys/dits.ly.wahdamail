@@ -1,7 +1,7 @@
 import 'package:collection/collection.dart';
 
 /// Temporarily stores values that can be accessed by an integer index.
-/// 
+///
 /// This is a high-performance cache implementation based on the official
 /// enough_mail_app for optimal memory management and IMAP performance.
 class IndexedCache<T> {
@@ -77,8 +77,9 @@ class IndexedCache<T> {
 
   /// Deletes the entry that matches the given [matcher] function.
   T? removeFirstWhere(bool Function(T element) matcher) {
-    final index =
-        _entries.indexWhere((value) => value != null && matcher(value as T));
+    final index = _entries.indexWhere(
+      (value) => value != null && matcher(value as T),
+    );
     if (index == -1) {
       return null;
     }
@@ -143,11 +144,10 @@ class IndexedCache<T> {
     return {
       'cacheSize': cacheSize,
       'capacity': capacity,
-'utilization': '${(cacheSize / capacity * 100).toStringAsFixed(1)}%',
+      'utilization': '${(cacheSize / capacity * 100).toStringAsFixed(1)}%',
       'isFull': isFull,
       'totalEntries': _entries.length,
       'nullEntries': _entries.where((e) => e == null).length,
     };
   }
 }
-

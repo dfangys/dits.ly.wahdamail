@@ -20,10 +20,7 @@ Future confirmDraft(BuildContext context) async {
     context: context,
     body: Padding(
       padding: const EdgeInsets.all(10),
-      child: Text(
-        "confirm_save_draft".tr,
-        textAlign: TextAlign.center,
-      ),
+      child: Text("confirm_save_draft".tr, textAlign: TextAlign.center),
     ),
     autoDismiss: false,
     dialogType: DialogType.question,

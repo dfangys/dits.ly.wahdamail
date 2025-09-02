@@ -51,7 +51,10 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
     super.initState();
     try {
       final ctrl = Get.find<MailBoxController>();
-      _metaNotifier = ctrl.getMessageMetaNotifier(widget.mailbox, widget.message);
+      _metaNotifier = ctrl.getMessageMetaNotifier(
+        widget.mailbox,
+        widget.message,
+      );
       _metaNotifier?.addListener(_loadAttachments);
     } catch (_) {}
     _loadAttachments();
@@ -64,10 +67,15 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
         oldWidget.mailbox != widget.mailbox ||
         oldWidget.includeInline != widget.includeInline ||
         oldWidget.offlineOnly != widget.offlineOnly) {
-      try { _metaNotifier?.removeListener(_loadAttachments); } catch (_) {}
+      try {
+        _metaNotifier?.removeListener(_loadAttachments);
+      } catch (_) {}
       try {
         final ctrl = Get.find<MailBoxController>();
-        _metaNotifier = ctrl.getMessageMetaNotifier(widget.mailbox, widget.message);
+        _metaNotifier = ctrl.getMessageMetaNotifier(
+          widget.mailbox,
+          widget.message,
+        );
         _metaNotifier?.addListener(_loadAttachments);
       } catch (_) {}
       _loadAttachments();
@@ -76,7 +84,9 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
 
   @override
   void dispose() {
-    try { _metaNotifier?.removeListener(_loadAttachments); } catch (_) {}
+    try {
+      _metaNotifier?.removeListener(_loadAttachments);
+    } catch (_) {}
     _metaNotifier = null;
     super.dispose();
   }
@@ -96,14 +106,24 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
       Map<String, String> mimeFetchByNameMime = {};
       List<ContentInfo> mimeCombined = const [];
       try {
-        final mimeInfosBase = widget.message.findContentInfo(disposition: ContentDisposition.attachment);
-        final inlineInfosBase = widget.includeInline
-            ? widget.message.findContentInfo(disposition: ContentDisposition.inline)
-            : const <ContentInfo>[];
-        mimeCombined = <ContentInfo>[]..addAll(mimeInfosBase)..addAll(inlineInfosBase);
+        final mimeInfosBase = widget.message.findContentInfo(
+          disposition: ContentDisposition.attachment,
+        );
+        final inlineInfosBase =
+            widget.includeInline
+                ? widget.message.findContentInfo(
+                  disposition: ContentDisposition.inline,
+                )
+                : const <ContentInfo>[];
+        mimeCombined =
+            <ContentInfo>[]
+              ..addAll(mimeInfosBase)
+              ..addAll(inlineInfosBase);
         for (final ci in mimeCombined) {
           final name = (ci.fileName ?? '').toLowerCase();
-          final mime = ci.contentType?.mediaType.toString() ?? 'application/octet-stream';
+          final mime =
+              ci.contentType?.mediaType.toString() ??
+              'application/octet-stream';
           final size = ci.size ?? 0;
           final keyNM = '$name|$mime|$size';
           final keyNameMime = '$name|$mime';
@@ -115,28 +135,58 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
       // On-demand metadata fetch if message has no ContentInfo yet and we're online
       if (!widget.offlineOnly && mimeCombined.isEmpty) {
         try {
-          final online = Get.isRegistered<InternetService>() ? InternetService.instance.connected : true;
+          final online =
+              Get.isRegistered<InternetService>()
+                  ? InternetService.instance.connected
+                  : true;
           if (online) {
             final mailService = MailService.instance;
             if (!mailService.client.isConnected) {
-              try { await mailService.connect().timeout(const Duration(seconds: 12)); } catch (_) {}
+              try {
+                await mailService.connect().timeout(
+                  const Duration(seconds: 12),
+                );
+              } catch (_) {}
             }
-            if (mailService.client.selectedMailbox?.encodedPath != widget.mailbox.encodedPath) {
-              try { await mailService.client.selectMailbox(widget.mailbox).timeout(const Duration(seconds: 10)); } catch (_) {}
+            if (mailService.client.selectedMailbox?.encodedPath !=
+                widget.mailbox.encodedPath) {
+              try {
+                await mailService.client
+                    .selectMailbox(widget.mailbox)
+                    .timeout(const Duration(seconds: 10));
+              } catch (_) {}
             }
             final seq = MessageSequence.fromMessage(widget.message);
             final fetched = await mailService.client
-                .fetchMessageSequence(seq, fetchPreference: FetchPreference.fullWhenWithinSize)
-                .timeout(const Duration(seconds: 20), onTimeout: () => <MimeMessage>[]);
+                .fetchMessageSequence(
+                  seq,
+                  fetchPreference: FetchPreference.fullWhenWithinSize,
+                )
+                .timeout(
+                  const Duration(seconds: 20),
+                  onTimeout: () => <MimeMessage>[],
+                );
             if (fetched.isNotEmpty) {
               final full = fetched.first;
-              final attach = full.findContentInfo(disposition: ContentDisposition.attachment);
-              final inline = widget.includeInline ? full.findContentInfo(disposition: ContentDisposition.inline) : const <ContentInfo>[];
-              mimeCombined = <ContentInfo>[]..addAll(attach)..addAll(inline);
+              final attach = full.findContentInfo(
+                disposition: ContentDisposition.attachment,
+              );
+              final inline =
+                  widget.includeInline
+                      ? full.findContentInfo(
+                        disposition: ContentDisposition.inline,
+                      )
+                      : const <ContentInfo>[];
+              mimeCombined =
+                  <ContentInfo>[]
+                    ..addAll(attach)
+                    ..addAll(inline);
               mimeFetchByKey.clear();
               for (final ci in mimeCombined) {
                 final name = (ci.fileName ?? '').toLowerCase();
-                final mime = ci.contentType?.mediaType.toString() ?? 'application/octet-stream';
+                final mime =
+                    ci.contentType?.mediaType.toString() ??
+                    'application/octet-stream';
                 final size = ci.size ?? 0;
                 final keyNM = '$name|$mime|$size';
                 mimeFetchByKey.putIfAbsent(keyNM, () => ci.fetchId);
@@ -149,20 +199,28 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
       // Load offline cached attachments first (reliable path + thumbnails)
       try {
         if (widget.message.uid != null) {
-          CachedMessageContent? cached = await MessageContentStore.instance.getContent(
-            accountEmail: MailService.instance.account.email,
-            mailboxPath: widget.mailbox.encodedPath.isNotEmpty ? widget.mailbox.encodedPath : widget.mailbox.path,
-            uidValidity: widget.mailbox.uidValidity ?? 0,
-            uid: widget.message.uid!,
-          );
+          CachedMessageContent? cached = await MessageContentStore.instance
+              .getContent(
+                accountEmail: MailService.instance.account.email,
+                mailboxPath:
+                    widget.mailbox.encodedPath.isNotEmpty
+                        ? widget.mailbox.encodedPath
+                        : widget.mailbox.path,
+                uidValidity: widget.mailbox.uidValidity ?? 0,
+                uid: widget.message.uid!,
+              );
           // Fallback for hot-restart or UIDVALIDITY mismatch
           if (cached == null || cached.attachments.isEmpty) {
             try {
-              cached = await MessageContentStore.instance.getContentAnyUidValidity(
-                accountEmail: MailService.instance.account.email,
-                mailboxPath: widget.mailbox.encodedPath.isNotEmpty ? widget.mailbox.encodedPath : widget.mailbox.path,
-                uid: widget.message.uid!,
-              );
+              cached = await MessageContentStore.instance
+                  .getContentAnyUidValidity(
+                    accountEmail: MailService.instance.account.email,
+                    mailboxPath:
+                        widget.mailbox.encodedPath.isNotEmpty
+                            ? widget.mailbox.encodedPath
+                            : widget.mailbox.path,
+                    uid: widget.message.uid!,
+                  );
             } catch (_) {}
           }
           if (cached != null && cached.attachments.isNotEmpty) {
@@ -179,9 +237,10 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
                   // Fallback to name+mime only when server didn't provide size
                   guessedFetch = mimeFetchByNameMime['$nameLower|$mime'];
                 }
-                final identityKey = (guessedFetch != null && guessedFetch.isNotEmpty)
-                    ? 'fid:$guessedFetch'
-                    : 'nm:$offKey';
+                final identityKey =
+                    (guessedFetch != null && guessedFetch.isNotEmpty)
+                        ? 'fid:$guessedFetch'
+                        : 'nm:$offKey';
                 final newItem = _AttachmentItem(
                   identityKey: identityKey,
                   name: a.fileName,
@@ -197,7 +256,10 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
                 seenNM.add(keyNM);
                 seenNameMime.add('$nameLower|$mime');
                 indexByNM.putIfAbsent(keyNM, () => _items.length - 1);
-                indexByNameMime.putIfAbsent('$nameLower|$mime', () => _items.length - 1);
+                indexByNameMime.putIfAbsent(
+                  '$nameLower|$mime',
+                  () => _items.length - 1,
+                );
               }
             }
           }
@@ -209,16 +271,24 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
         try {
           for (final ci in mimeCombined) {
             final nameLower = (ci.fileName ?? '').toLowerCase();
-            final mime = ci.contentType?.mediaType.toString() ?? 'application/octet-stream';
+            final mime =
+                ci.contentType?.mediaType.toString() ??
+                'application/octet-stream';
             final size = ci.size ?? 0;
             final keyNM = '$nameLower|$mime|$size';
-            if (seenNM.contains(keyNM) || seenNameMime.contains('$nameLower|$mime')) {
+            if (seenNM.contains(keyNM) ||
+                seenNameMime.contains('$nameLower|$mime')) {
               // Enrich existing item with fetchId when offline entry exists (match exact or fallback)
               int idx = indexByNM[keyNM] ?? -1;
               if (idx == -1) idx = indexByNameMime['$nameLower|$mime'] ?? -1;
-              if (idx != -1 && (_items[idx].fetchId == null || _items[idx].fetchId!.isEmpty)) {
+              if (idx != -1 &&
+                  (_items[idx].fetchId == null ||
+                      _items[idx].fetchId!.isEmpty)) {
                 final identityKey = 'fid:${ci.fetchId}';
-                _items[idx] = _items[idx].copyWith(identityKey: identityKey, fetchId: ci.fetchId);
+                _items[idx] = _items[idx].copyWith(
+                  identityKey: identityKey,
+                  fetchId: ci.fetchId,
+                );
               }
               continue;
             }
@@ -227,18 +297,23 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
             final isImage = _looksLikeImage(displayName, mime);
             if (seenNM.add(keyNM)) {
               final identityKey = 'fid:${ci.fetchId}';
-              _items.add(_AttachmentItem(
-                identityKey: identityKey,
-                name: displayName,
-                mimeType: mime,
-                size: size,
-                isImage: isImage,
-                fetchId: ci.fetchId,
-                contentId: null,
-              ));
+              _items.add(
+                _AttachmentItem(
+                  identityKey: identityKey,
+                  name: displayName,
+                  mimeType: mime,
+                  size: size,
+                  isImage: isImage,
+                  fetchId: ci.fetchId,
+                  contentId: null,
+                ),
+              );
               indexByNM.putIfAbsent(keyNM, () => _items.length - 1);
               seenNameMime.add('$nameLower|$mime');
-              indexByNameMime.putIfAbsent('$nameLower|$mime', () => _items.length - 1);
+              indexByNameMime.putIfAbsent(
+                '$nameLower|$mime',
+                () => _items.length - 1,
+              );
             }
           }
         } catch (_) {}
@@ -262,47 +337,60 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeIn,
       child: Column(
-        key: ValueKey('atts-${_items.length}') ,
+        key: ValueKey('atts-${_items.length}'),
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-        if (widget.showHeader)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                const Icon(Icons.attach_file, size: 18),
-                const SizedBox(width: 6),
-                Text('Attachments (${_items.length})', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                const Spacer(),
-                if (_items.length > 1)
-                  TextButton.icon(
-                    onPressed: _isBulkDownloading ? null : _downloadAllAttachments,
-                    icon: _isBulkDownloading
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.download_outlined, size: 18),
-                    label: const Text('Download all'),
+          if (widget.showHeader)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.attach_file, size: 18),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Attachments (${_items.length})',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-              ],
+                  const Spacer(),
+                  if (_items.length > 1)
+                    TextButton.icon(
+                      onPressed:
+                          _isBulkDownloading ? null : _downloadAllAttachments,
+                      icon:
+                          _isBulkDownloading
+                              ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : const Icon(Icons.download_outlined, size: 18),
+                      label: const Text('Download all'),
+                    ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 120,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              scrollDirection: Axis.horizontal,
+              itemCount: _items.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final it = _items[index];
+                return _AttachmentThumb(
+                  item: it,
+                  onOpen: () => _openItem(it),
+                  onShare: () => _shareItem(it),
+                );
+              },
             ),
           ),
-        const SizedBox(height: 6),
-        SizedBox(
-          height: 120,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            scrollDirection: Axis.horizontal,
-            itemCount: _items.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final it = _items[index];
-              return _AttachmentThumb(
-                item: it,
-                onOpen: () => _openItem(it),
-                onShare: () => _shareItem(it),
-              );
-            },
-          ),
-        ),
         ],
       ),
     );
@@ -327,12 +415,20 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
       }
 
       // Heal previously cached bad PDFs: if file doesn't start with %PDF-, attempt to re-fetch and re-save
-      final isPdfByHint = it.mimeType.toLowerCase() == 'application/pdf' || it.name.toLowerCase().endsWith('.pdf');
+      final isPdfByHint =
+          it.mimeType.toLowerCase() == 'application/pdf' ||
+          it.name.toLowerCase().endsWith('.pdf');
       if (isPdfByHint) {
         try {
           final f = File(path!);
           final b = await f.readAsBytes();
-          final isPdf = b.length >= 5 && b[0] == 0x25 && b[1] == 0x50 && b[2] == 0x44 && b[3] == 0x46 && b[4] == 0x2D;
+          final isPdf =
+              b.length >= 5 &&
+              b[0] == 0x25 &&
+              b[1] == 0x50 &&
+              b[2] == 0x44 &&
+              b[3] == 0x46 &&
+              b[4] == 0x2D;
           if (!isPdf && (it.fetchId != null && it.fetchId!.isNotEmpty)) {
             // Re-fetch using validated fetcher and re-save via store (which will normalize)
             final data = await AttachmentFetcher.fetchByFetchId(
@@ -343,18 +439,22 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
             );
             if (data != null && data.isNotEmpty) {
               final mailService = MailService.instance;
-              final newPath = await MessageContentStore.instance.saveAttachmentBytes(
-                accountEmail: mailService.account.email,
-                mailboxPath: widget.mailbox.encodedPath.isNotEmpty ? widget.mailbox.encodedPath : widget.mailbox.path,
-                uidValidity: widget.mailbox.uidValidity ?? 0,
-                uid: widget.message.uid ?? -1,
-                fileName: it.name,
-                bytes: data,
-                uniquePartId: it.fetchId,
-                contentId: it.contentId,
-                mimeType: it.mimeType,
-                size: it.size > 0 ? it.size : data.length,
-              );
+              final newPath = await MessageContentStore.instance
+                  .saveAttachmentBytes(
+                    accountEmail: mailService.account.email,
+                    mailboxPath:
+                        widget.mailbox.encodedPath.isNotEmpty
+                            ? widget.mailbox.encodedPath
+                            : widget.mailbox.path,
+                    uidValidity: widget.mailbox.uidValidity ?? 0,
+                    uid: widget.message.uid ?? -1,
+                    fileName: it.name,
+                    bytes: data,
+                    uniquePartId: it.fetchId,
+                    contentId: it.contentId,
+                    mimeType: it.mimeType,
+                    size: it.size > 0 ? it.size : data.length,
+                  );
               path = newPath;
             }
           }
@@ -371,11 +471,13 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
 
       if (canPreviewInApp) {
         if (!mounted) return;
-        await Get.to(() => AttachmentViewer(
-              title: it.name,
-              mimeType: it.mimeType,
-              filePath: path!,
-            ));
+        await Get.to(
+          () => AttachmentViewer(
+            title: it.name,
+            mimeType: it.mimeType,
+            filePath: path!,
+          ),
+        );
         return;
       }
 
@@ -451,7 +553,8 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
           if ((it.filePath ?? '').isNotEmpty) continue; // already on disk
           final fid = it.fetchId ?? '';
           if (fid.isEmpty) continue;
-          if (it.size <= 0 || it.size > _thumbPreviewMaxBytes) continue; // respect preview policy
+          if (it.size <= 0 || it.size > _thumbPreviewMaxBytes)
+            continue; // respect preview policy
           if (!_thumbFetching.add(fid)) continue; // already in-flight
           final idKey = it.identityKey;
           () async {
@@ -461,7 +564,9 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
                 fetchId: fid,
                 mailbox: widget.mailbox,
               );
-              if (data != null && data.isNotEmpty && _isLikelyRenderableImageBytes(data)) {
+              if (data != null &&
+                  data.isNotEmpty &&
+                  _isLikelyRenderableImageBytes(data)) {
                 final idx = _items.indexWhere((x) => x.identityKey == idKey);
                 if (idx != -1) {
                   _items[idx] = _items[idx].copyWith(inlineBytes: data);
@@ -479,7 +584,8 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
         } else {
           // Text-like small previews (CSV/JSON/TXT)
           final m = it.mimeType.toLowerCase();
-          final isTextLike = m.startsWith('text/') || m.contains('json') || m.contains('csv');
+          final isTextLike =
+              m.startsWith('text/') || m.contains('json') || m.contains('csv');
           if (isTextLike) {
             if ((it.filePath ?? '').isNotEmpty) continue;
             if (it.size <= 0 || it.size > 128 * 1024) continue; // 128KB cap
@@ -495,17 +601,22 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
                   mailbox: widget.mailbox,
                 );
                 if (data != null && data.isNotEmpty) {
-                  final thumb = await ThumbnailService.instance.getOrCreateTextPreviewFromBytes(
-                    idKey: idKey,
-                    data: data,
-                    mimeType: it.mimeType,
-                    maxWidth: 200,
-                    maxHeight: 200,
-                  );
+                  final thumb = await ThumbnailService.instance
+                      .getOrCreateTextPreviewFromBytes(
+                        idKey: idKey,
+                        data: data,
+                        mimeType: it.mimeType,
+                        maxWidth: 200,
+                        maxHeight: 200,
+                      );
                   if (thumb != null) {
-                    final idx = _items.indexWhere((x) => x.identityKey == idKey);
+                    final idx = _items.indexWhere(
+                      (x) => x.identityKey == idKey,
+                    );
                     if (idx != -1) {
-                      _items[idx] = _items[idx].copyWith(thumbPathOverride: thumb);
+                      _items[idx] = _items[idx].copyWith(
+                        thumbPathOverride: thumb,
+                      );
                       if (mounted) setState(() {});
                     }
                   }
@@ -527,7 +638,9 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
       if (it.fetchId == null || it.fetchId!.isEmpty) return null;
 
       // Per-attachment size bound if known
-      if (widget.maxDownloadBytesPerAttachment > 0 && it.size > 0 && it.size > widget.maxDownloadBytesPerAttachment) {
+      if (widget.maxDownloadBytesPerAttachment > 0 &&
+          it.size > 0 &&
+          it.size > widget.maxDownloadBytesPerAttachment) {
         _toast('Skipped ${it.name}: exceeds per-file limit');
         return null;
       }
@@ -542,11 +655,16 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
 
       // Ensure connection and mailbox
       if (!mailService.client.isConnected) {
-        try { await mailService.connect().timeout(const Duration(seconds: 12)); } catch (_) {}
+        try {
+          await mailService.connect().timeout(const Duration(seconds: 12));
+        } catch (_) {}
       }
       try {
-        if (mailService.client.selectedMailbox?.encodedPath != widget.mailbox.encodedPath) {
-          await mailService.client.selectMailbox(widget.mailbox).timeout(const Duration(seconds: 10));
+        if (mailService.client.selectedMailbox?.encodedPath !=
+            widget.mailbox.encodedPath) {
+          await mailService.client
+              .selectMailbox(widget.mailbox)
+              .timeout(const Duration(seconds: 10));
         }
       } catch (_) {}
 
@@ -562,7 +680,10 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
       // Persist to offline store for reuse (collision-safe)
       final path = await MessageContentStore.instance.saveAttachmentBytes(
         accountEmail: mailService.account.email,
-        mailboxPath: widget.mailbox.encodedPath.isNotEmpty ? widget.mailbox.encodedPath : widget.mailbox.path,
+        mailboxPath:
+            widget.mailbox.encodedPath.isNotEmpty
+                ? widget.mailbox.encodedPath
+                : widget.mailbox.path,
         uidValidity: widget.mailbox.uidValidity ?? 0,
         uid: widget.message.uid ?? -1,
         fileName: it.name,
@@ -578,7 +699,10 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
         final store = MessageContentStore.instance;
         final cached = await store.getContent(
           accountEmail: mailService.account.email,
-          mailboxPath: widget.mailbox.encodedPath.isNotEmpty ? widget.mailbox.encodedPath : widget.mailbox.path,
+          mailboxPath:
+              widget.mailbox.encodedPath.isNotEmpty
+                  ? widget.mailbox.encodedPath
+                  : widget.mailbox.path,
           uidValidity: widget.mailbox.uidValidity ?? 0,
           uid: widget.message.uid ?? -1,
         );
@@ -587,7 +711,8 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
           final seen = <String>{};
           for (final a in cached.attachments) {
             final cid = (a.contentId ?? '').trim().toLowerCase();
-            final fk = '${a.fileName}|${a.sizeBytes}|${a.mimeType}'.toLowerCase();
+            final fk =
+                '${a.fileName}|${a.sizeBytes}|${a.mimeType}'.toLowerCase();
             final k = cid.isNotEmpty ? 'cid:$cid' : fk;
             if (seen.add(k)) atts.add(a);
           }
@@ -602,18 +727,23 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
           return k == newKey;
         });
         if (!exists) {
-          atts.add(CachedAttachment(
-            contentId: it.contentId,
-            fileName: it.name,
-            mimeType: it.mimeType,
-            sizeBytes: it.size > 0 ? it.size : data.length,
-            isInline: widget.includeInline,
-            filePath: path,
-          ));
+          atts.add(
+            CachedAttachment(
+              contentId: it.contentId,
+              fileName: it.name,
+              mimeType: it.mimeType,
+              sizeBytes: it.size > 0 ? it.size : data.length,
+              isInline: widget.includeInline,
+              filePath: path,
+            ),
+          );
         }
         await store.upsertContent(
           accountEmail: mailService.account.email,
-          mailboxPath: widget.mailbox.encodedPath.isNotEmpty ? widget.mailbox.encodedPath : widget.mailbox.path,
+          mailboxPath:
+              widget.mailbox.encodedPath.isNotEmpty
+                  ? widget.mailbox.encodedPath
+                  : widget.mailbox.path,
           uidValidity: widget.mailbox.uidValidity ?? 0,
           uid: widget.message.uid ?? -1,
           plainText: cached?.plainText,
@@ -622,7 +752,12 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
           sanitizedVersion: cached?.sanitizedVersion ?? 2,
           attachments: atts,
         );
-        try { Get.find<MailBoxController>().bumpMessageMeta(widget.mailbox, widget.message); } catch (_) {}
+        try {
+          Get.find<MailBoxController>().bumpMessageMeta(
+            widget.mailbox,
+            widget.message,
+          );
+        } catch (_) {}
       } catch (_) {}
 
       // Update UI with new file path
@@ -647,29 +782,38 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
 
   Future<void> _downloadAllAttachments() async {
     if (_isBulkDownloading) return;
-    setState(() { _isBulkDownloading = true; });
+    setState(() {
+      _isBulkDownloading = true;
+    });
     try {
       int totalBytes = 0;
       int downloaded = 0;
       for (final it in List<_AttachmentItem>.from(_items)) {
         if ((it.filePath ?? '').isNotEmpty) continue;
         if ((it.fetchId ?? '').isEmpty) continue;
-        if (widget.maxDownloadBytesPerAttachment > 0 && it.size > 0 && it.size > widget.maxDownloadBytesPerAttachment) {
+        if (widget.maxDownloadBytesPerAttachment > 0 &&
+            it.size > 0 &&
+            it.size > widget.maxDownloadBytesPerAttachment) {
           continue;
         }
         final est = it.size > 0 ? it.size : 0;
-        if (widget.maxDownloadTotalBytes > 0 && est > 0 && totalBytes + est > widget.maxDownloadTotalBytes) {
+        if (widget.maxDownloadTotalBytes > 0 &&
+            est > 0 &&
+            totalBytes + est > widget.maxDownloadTotalBytes) {
           break;
         }
         final path = await _downloadItemIfNeeded(it);
         if (path != null && path.isNotEmpty) {
           downloaded++;
           if (est == 0) {
-            try { totalBytes += await File(path).length(); } catch (_) {}
+            try {
+              totalBytes += await File(path).length();
+            } catch (_) {}
           } else {
             totalBytes += est;
           }
-          if (widget.maxDownloadTotalBytes > 0 && totalBytes >= widget.maxDownloadTotalBytes) {
+          if (widget.maxDownloadTotalBytes > 0 &&
+              totalBytes >= widget.maxDownloadTotalBytes) {
             break;
           }
         }
@@ -682,18 +826,22 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
     } catch (e) {
       _toast('Download all failed: $e');
     } finally {
-      if (mounted) setState(() { _isBulkDownloading = false; });
+      if (mounted)
+        setState(() {
+          _isBulkDownloading = false;
+        });
     }
   }
 
   bool _looksLikeImage(String name, String mime) {
     final m = (mime).toLowerCase();
     if (m.startsWith('image/')) {
-      if (m.contains('heic') || m.contains('heif') || m.contains('tif')) return false;
+      if (m.contains('heic') || m.contains('heif') || m.contains('tif'))
+        return false;
       return true;
     }
     final ext = name.toLowerCase().split('.').last;
-    const imgExt = {'jpg','jpeg','png','gif','webp'};
+    const imgExt = {'jpg', 'jpeg', 'png', 'gif', 'webp'};
     return imgExt.contains(ext);
   }
 
@@ -757,7 +905,11 @@ class _AttachmentItem {
 }
 
 class _AttachmentThumb extends StatefulWidget {
-  const _AttachmentThumb({required this.item, required this.onOpen, required this.onShare});
+  const _AttachmentThumb({
+    required this.item,
+    required this.onOpen,
+    required this.onShare,
+  });
   final _AttachmentItem item;
   final VoidCallback onOpen;
   final VoidCallback onShare;
@@ -779,7 +931,8 @@ class _AttachmentThumbState extends State<_AttachmentThumb> {
   @override
   void didUpdateWidget(covariant _AttachmentThumb oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.item.filePath != widget.item.filePath || oldWidget.item.mimeType != widget.item.mimeType) {
+    if (oldWidget.item.filePath != widget.item.filePath ||
+        oldWidget.item.mimeType != widget.item.mimeType) {
       _thumbPath = null;
       _maybeGenerateThumb();
     }
@@ -791,11 +944,12 @@ class _AttachmentThumbState extends State<_AttachmentThumb> {
     // If we have a local file, generate a real cached thumbnail; otherwise generate a MIME placeholder thumbnail
     if (path == null || path.isEmpty) {
       // Generate placeholder thumbnail based on MIME so a visual appears before download
-      final pth = await ThumbnailService.instance.getOrCreateMimePlaceholderThumbnail(
-        mimeType: widget.item.mimeType,
-        maxWidth: 200,
-        maxHeight: 200,
-      );
+      final pth = await ThumbnailService.instance
+          .getOrCreateMimePlaceholderThumbnail(
+            mimeType: widget.item.mimeType,
+            maxWidth: 200,
+            maxHeight: 200,
+          );
       if (!mounted) return;
       setState(() {
         _thumbPath = pth;
@@ -806,19 +960,22 @@ class _AttachmentThumbState extends State<_AttachmentThumb> {
 
     // Generate thumbnails for images, pdf, office, and text placeholders
     final mime = widget.item.mimeType.toLowerCase();
-    final canGenerateThumb = mime.startsWith('image/') ||
-                           mime == 'application/pdf' ||
-                           mime.startsWith('text/') ||
-                           mime.contains('json') ||
-                           mime.contains('xml') ||
-                           mime.contains('word') ||
-                           mime.contains('excel') ||
-                           mime.contains('powerpoint') ||
-                           mime.contains('officedocument') ||
-                           mime.contains('spreadsheet') ||
-                           mime.contains('presentation');
+    final canGenerateThumb =
+        mime.startsWith('image/') ||
+        mime == 'application/pdf' ||
+        mime.startsWith('text/') ||
+        mime.contains('json') ||
+        mime.contains('xml') ||
+        mime.contains('word') ||
+        mime.contains('excel') ||
+        mime.contains('powerpoint') ||
+        mime.contains('officedocument') ||
+        mime.contains('spreadsheet') ||
+        mime.contains('presentation');
 
-if (!canGenerateThumb) { return; }
+    if (!canGenerateThumb) {
+      return;
+    }
 
     setState(() => _loadingThumb = true);
     try {
@@ -852,7 +1009,11 @@ if (!canGenerateThumb) { return; }
           border: Border.all(color: theme.dividerColor.withValues(alpha: 0.5)),
           color: theme.colorScheme.surface,
           boxShadow: [
-            BoxShadow(color: theme.shadowColor.withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 2)),
+            BoxShadow(
+              color: theme.shadowColor.withValues(alpha: 0.08),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
         child: Column(
@@ -860,7 +1021,10 @@ if (!canGenerateThumb) { return; }
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(10), topRight: Radius.circular(10)),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  topRight: Radius.circular(10),
+                ),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -870,28 +1034,35 @@ if (!canGenerateThumb) { return; }
                       left: 6,
                       bottom: 6,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.black54,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           _ext(widget.item.name).toUpperCase(),
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
                     // Offline/online badges
-                    Positioned(
-                      right: 6,
-                      top: 6,
-                      child: _buildStatusBadge(),
-                    ),
+                    Positioned(right: 6, top: 6, child: _buildStatusBadge()),
                     if (widget.item.isFetching)
                       Container(
                         color: Colors.black26,
                         child: const Center(
-                          child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)),
+                          child: SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
                         ),
                       ),
                   ],
@@ -912,10 +1083,13 @@ if (!canGenerateThumb) { return; }
                   ),
                   IconButton(
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(maxWidth: 24, maxHeight: 24),
+                    constraints: const BoxConstraints(
+                      maxWidth: 24,
+                      maxHeight: 24,
+                    ),
                     icon: const Icon(Icons.more_vert, size: 16),
                     onPressed: widget.item.isFetching ? null : widget.onShare,
-                  )
+                  ),
                 ],
               ),
             ),
@@ -930,7 +1104,11 @@ if (!canGenerateThumb) { return; }
     final placeholder = Container(
       color: Colors.grey.shade200,
       child: Center(
-        child: Icon(_iconForMime(item.mimeType), size: 28, color: Colors.grey.shade600),
+        child: Icon(
+          _iconForMime(item.mimeType),
+          size: 28,
+          color: Colors.grey.shade600,
+        ),
       ),
     );
 
@@ -938,7 +1116,11 @@ if (!canGenerateThumb) { return; }
       return Container(
         color: Colors.grey.shade200,
         child: const Center(
-          child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
         ),
       );
     }
@@ -1010,9 +1192,12 @@ if (!canGenerateThumb) { return; }
     if (m.contains('zip') || m.contains('compressed')) return Icons.archive;
     if (m.contains('audio')) return Icons.audiotrack;
     if (m.contains('video')) return Icons.videocam;
-    if (m.contains('wordprocessingml') || m.contains('msword')) return Icons.description; // Word
-    if (m.contains('spreadsheetml') || m.contains('excel')) return Icons.table_chart; // Excel
-    if (m.contains('presentationml') || m.contains('powerpoint')) return Icons.slideshow; // PowerPoint
+    if (m.contains('wordprocessingml') || m.contains('msword'))
+      return Icons.description; // Word
+    if (m.contains('spreadsheetml') || m.contains('excel'))
+      return Icons.table_chart; // Excel
+    if (m.contains('presentationml') || m.contains('powerpoint'))
+      return Icons.slideshow; // PowerPoint
     if (m.contains('officedocument')) return Icons.description;
     return Icons.insert_drive_file;
   }
@@ -1027,19 +1212,32 @@ if (!canGenerateThumb) { return; }
     try {
       // Online/offline badge + cached indicator
       final hasFile = (widget.item.filePath ?? '').isNotEmpty;
-      final isOffline = !(Get.isRegistered<InternetService>() ? InternetService.instance.connected : true);
+      final isOffline =
+          !(Get.isRegistered<InternetService>()
+              ? InternetService.instance.connected
+              : true);
       if (hasFile) {
         return Container(
-          decoration: BoxDecoration(color: Colors.white70, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+            color: Colors.white70,
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: const Padding(
             padding: EdgeInsets.all(2),
-            child: Icon(Icons.cloud_done_rounded, size: 16, color: Colors.green),
+            child: Icon(
+              Icons.cloud_done_rounded,
+              size: 16,
+              color: Colors.green,
+            ),
           ),
         );
       }
       if (isOffline) {
         return Container(
-          decoration: BoxDecoration(color: Colors.white70, borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(
+            color: Colors.white70,
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: const Padding(
             padding: EdgeInsets.all(2),
             child: Icon(Icons.wifi_off_rounded, size: 16, color: Colors.red),
@@ -1060,13 +1258,27 @@ bool _isLikelyRenderableImageBytes(Uint8List bytes) {
   const pngSig = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
   bool pngMatch = true;
   for (int i = 0; i < pngSig.length; i++) {
-    if (bytes[i] != pngSig[i]) { pngMatch = false; break; }
+    if (bytes[i] != pngSig[i]) {
+      pngMatch = false;
+      break;
+    }
   }
   if (pngMatch) return true;
   // GIF
-  if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x38) return true;
+  if (bytes[0] == 0x47 &&
+      bytes[1] == 0x49 &&
+      bytes[2] == 0x46 &&
+      bytes[3] == 0x38)
+    return true;
   // WEBP: 'RIFF' .... 'WEBP'
-  if (bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
-      bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) return true;
+  if (bytes[0] == 0x52 &&
+      bytes[1] == 0x49 &&
+      bytes[2] == 0x46 &&
+      bytes[3] == 0x46 &&
+      bytes[8] == 0x57 &&
+      bytes[9] == 0x45 &&
+      bytes[10] == 0x42 &&
+      bytes[11] == 0x50)
+    return true;
   return false;
 }

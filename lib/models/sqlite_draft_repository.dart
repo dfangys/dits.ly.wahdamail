@@ -9,17 +9,20 @@ import 'sqlite_database_helper.dart';
 
 /// Repository for managing draft emails in SQLite
 class SQLiteDraftRepository {
-  static final SQLiteDraftRepository _instance = SQLiteDraftRepository._internal();
+  static final SQLiteDraftRepository _instance =
+      SQLiteDraftRepository._internal();
   static SQLiteDraftRepository get instance => _instance;
 
   SQLiteDraftRepository._internal();
 
   // Stream controller for notifying listeners of changes
-  final _draftsStreamController = StreamController<List<DraftModel>>.broadcast();
+  final _draftsStreamController =
+      StreamController<List<DraftModel>>.broadcast();
   Stream<List<DraftModel>> get draftsStream => _draftsStreamController.stream;
 
   // Value notifier for UI updates
-  final ValueNotifier<List<DraftModel>> draftsNotifier = ValueNotifier<List<DraftModel>>([]);
+  final ValueNotifier<List<DraftModel>> draftsNotifier =
+      ValueNotifier<List<DraftModel>>([]);
 
   /// Initialize the repository
   Future<void> init() async {
@@ -55,10 +58,7 @@ class SQLiteDraftRepository {
       }
 
       // Create updated DraftModel with correct ID and timestamp
-      final updatedDraft = draft.copyWith(
-        id: id,
-        updatedAt: DateTime.now(),
-      );
+      final updatedDraft = draft.copyWith(id: id, updatedAt: DateTime.now());
 
       // Notify listeners
       final drafts = await getAllDrafts();
@@ -73,6 +73,7 @@ class SQLiteDraftRepository {
       rethrow;
     }
   }
+
   /// Get a draft by ID
   Future<DraftModel?> getDraft(int id) async {
     try {
@@ -259,7 +260,8 @@ class SQLiteDraftRepository {
           SQLiteDatabaseHelper.columnIsSynced: 0,
           SQLiteDatabaseHelper.columnIsDirty: 1,
           SQLiteDatabaseHelper.columnLastError: error,
-          SQLiteDatabaseHelper.columnUpdatedAt: DateTime.now().millisecondsSinceEpoch,
+          SQLiteDatabaseHelper.columnUpdatedAt:
+              DateTime.now().millisecondsSinceEpoch,
         },
         where: '${SQLiteDatabaseHelper.columnId} = ?',
         whereArgs: [draftId],
@@ -285,7 +287,8 @@ class SQLiteDraftRepository {
         SQLiteDatabaseHelper.tableDrafts,
         {
           SQLiteDatabaseHelper.columnCategory: category,
-          SQLiteDatabaseHelper.columnUpdatedAt: DateTime.now().millisecondsSinceEpoch,
+          SQLiteDatabaseHelper.columnUpdatedAt:
+              DateTime.now().millisecondsSinceEpoch,
         },
         where: '${SQLiteDatabaseHelper.columnId} = ?',
         whereArgs: [draftId],
@@ -313,7 +316,8 @@ class SQLiteDraftRepository {
           SQLiteDatabaseHelper.columnIsSynced: 1,
           SQLiteDatabaseHelper.columnServerUid: serverUid,
           SQLiteDatabaseHelper.columnIsDirty: 0,
-          SQLiteDatabaseHelper.columnUpdatedAt: DateTime.now().millisecondsSinceEpoch,
+          SQLiteDatabaseHelper.columnUpdatedAt:
+              DateTime.now().millisecondsSinceEpoch,
         },
         where: '${SQLiteDatabaseHelper.columnId} = ?',
         whereArgs: [draftId],
@@ -351,6 +355,7 @@ class SQLiteDraftRepository {
       return null;
     }
   }
+
   /// Dispose resources
   void dispose() {
     _draftsStreamController.close();

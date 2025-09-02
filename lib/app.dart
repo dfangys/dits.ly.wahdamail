@@ -38,7 +38,9 @@ class _MyAppState extends State<MyApp> {
     _initSecurityService();
 
     // Initialize scheduled send foreground service (checks due drafts every minute)
-    try { ScheduledSendService.instance.init(); } catch (_) {}
+    try {
+      ScheduledSendService.instance.init();
+    } catch (_) {}
 
     if (locale == 'ar') {
       timeago.setLocaleMessages('ar', timeago.ArMessages());
@@ -95,10 +97,7 @@ class _MyAppState extends State<MyApp> {
           binding: HomeBinding(),
           middlewares: [AuthMiddleware()],
         ),
-        GetPage(
-          name: '/auth',
-          page: () => AuthScreen(),
-        ),
+        GetPage(name: '/auth', page: () => AuthScreen()),
         // Mobile full-screen compose route used by ComposeModal launcher
         GetPage(
           name: '/compose-full',

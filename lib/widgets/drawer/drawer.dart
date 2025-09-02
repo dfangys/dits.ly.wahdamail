@@ -21,9 +21,10 @@ class Drawer1 extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<MailBoxController>();
     final countController = Get.find<MailCountController>();
-    final settingController = Get.isRegistered<SettingController>()
-        ? Get.find<SettingController>()
-        : Get.put(SettingController(), permanent: true);
+    final settingController =
+        Get.isRegistered<SettingController>()
+            ? Get.find<SettingController>()
+            : Get.put(SettingController(), permanent: true);
     final theme = Theme.of(context);
 
     return Drawer(
@@ -41,7 +42,7 @@ class Drawer1 extends StatelessWidget {
             end: Alignment.bottomCenter,
             colors: [
               theme.primaryColor,
-              theme.primaryColor.withValues(alpha : 0.9),
+              theme.primaryColor.withValues(alpha: 0.9),
             ],
           ),
           borderRadius: const BorderRadius.only(
@@ -50,7 +51,7 @@ class Drawer1 extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha : 0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -65,7 +66,7 @@ class Drawer1 extends StatelessWidget {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha : 0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                   borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(24),
                     topLeft: Radius.circular(24),
@@ -96,7 +97,7 @@ class Drawer1 extends StatelessWidget {
                         child: Text(
                           'mailboxes'.tr,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha : 0.7),
+                            color: Colors.white.withValues(alpha: 0.7),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -105,7 +106,9 @@ class Drawer1 extends StatelessWidget {
                       ),
 
                       // Mailbox list - sorted by priority
-                      for (Mailbox box in _getSortedMailboxes(controller.mailboxes))
+                      for (Mailbox box in _getSortedMailboxes(
+                        controller.mailboxes,
+                      ))
                         WDrawerTile(
                           icon: boxIcon(box.name),
                           text: box.encodedName.toLowerCase().tr,
@@ -115,7 +118,10 @@ class Drawer1 extends StatelessWidget {
                               controller.navigatToMailBox(box);
                             }
                           },
-                          count: countController.counts["${box.name.toLowerCase()}_count"] ?? 0,
+                          count:
+                              countController
+                                  .counts["${box.name.toLowerCase()}_count"] ??
+                              0,
                           isActive: box.isInbox,
                         ),
 
@@ -127,7 +133,7 @@ class Drawer1 extends StatelessWidget {
                         child: Text(
                           'preferences'.tr,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha : 0.7),
+                            color: Colors.white.withValues(alpha: 0.7),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 0.5,
@@ -184,7 +190,10 @@ class Drawer1 extends StatelessWidget {
     );
   }
 
-  Widget _buildDrawerHeader(BuildContext context, SettingController settingController) {
+  Widget _buildDrawerHeader(
+    BuildContext context,
+    SettingController settingController,
+  ) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 48, 20, 16),
       child: Column(
@@ -209,14 +218,10 @@ class Drawer1 extends StatelessWidget {
                 icon: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha : 0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 16,
-                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 16),
                 ),
               ),
             ],
@@ -225,9 +230,10 @@ class Drawer1 extends StatelessWidget {
           Obx(() {
             final name = settingController.userName().trim();
             final email = settingController.userEmail().trim();
-            final displayName = name.isNotEmpty
-                ? name
-                : (email.isNotEmpty ? email.split('@').first : 'User');
+            final displayName =
+                name.isNotEmpty
+                    ? name
+                    : (email.isNotEmpty ? email.split('@').first : 'User');
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -249,7 +255,7 @@ class Drawer1 extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha : 0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                       fontWeight: FontWeight.w400,
                       fontSize: 13,
                       letterSpacing: 0.2,
@@ -264,19 +270,24 @@ class Drawer1 extends StatelessWidget {
     );
   }
 
-  Widget _buildUsageFooter(BuildContext context, SettingController settingController) {
+  Widget _buildUsageFooter(
+    BuildContext context,
+    SettingController settingController,
+  ) {
     final theme = Theme.of(context);
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: Obx(() {
-          final usageLabel = settingController.usageLabel().isNotEmpty
-              ? settingController.usageLabel()
-              : '';
-          final quotaLabel = settingController.quotaLabel().isNotEmpty
-              ? settingController.quotaLabel()
-              : '';
+          final usageLabel =
+              settingController.usageLabel().isNotEmpty
+                  ? settingController.usageLabel()
+                  : '';
+          final quotaLabel =
+              settingController.quotaLabel().isNotEmpty
+                  ? settingController.quotaLabel()
+                  : '';
           final percentRaw = settingController.usagePercent();
           final percent = (percentRaw.isNaN ? 0.0 : percentRaw) / 100.0;
           final percentClamped = percent.clamp(0.0, 1.0);
@@ -286,7 +297,11 @@ class Drawer1 extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.storage_rounded, color: Colors.white, size: 18),
+                  const Icon(
+                    Icons.storage_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -296,7 +311,7 @@ class Drawer1 extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha : 0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -306,7 +321,7 @@ class Drawer1 extends StatelessWidget {
                     Text(
                       '${(percentClamped * 100).toStringAsFixed(0)}%',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha : 0.85),
+                        color: Colors.white.withValues(alpha: 0.85),
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -319,8 +334,10 @@ class Drawer1 extends StatelessWidget {
                 child: LinearProgressIndicator(
                   value: percentClamped,
                   minHeight: 6,
-                  backgroundColor: Colors.white.withValues(alpha : 0.2),
-                  valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.secondary),
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    theme.colorScheme.secondary,
+                  ),
                 ),
               ),
               const SizedBox(height: 6),
@@ -329,7 +346,7 @@ class Drawer1 extends StatelessWidget {
                 child: Text(
                   'v1.0.0',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha : 0.55),
+                    color: Colors.white.withValues(alpha: 0.55),
                     fontSize: 11,
                   ),
                 ),
@@ -354,7 +371,7 @@ class Drawer1 extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha : 0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -363,11 +380,7 @@ class Drawer1 extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Iconsax.edit,
-              color: Colors.blue,
-              size: 20,
-            ),
+            const Icon(Iconsax.edit, color: Colors.blue, size: 20),
             const SizedBox(width: 8),
             Text(
               'compose'.tr,
@@ -398,11 +411,11 @@ class Drawer1 extends StatelessWidget {
     return mailboxes.toList()..sort((a, b) {
       final priorityA = priorityOrder[a.name.toLowerCase()] ?? 999;
       final priorityB = priorityOrder[b.name.toLowerCase()] ?? 999;
-      
+
       if (priorityA != priorityB) {
         return priorityA.compareTo(priorityB);
       }
-      
+
       // If same priority, sort alphabetically
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });

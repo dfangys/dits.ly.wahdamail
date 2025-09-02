@@ -22,15 +22,14 @@ class EnhancedHomeEmailList extends StatefulWidget {
 
 class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
-  
   // Controllers
   late final MailBoxController controller;
   late final SelectionController selectionController;
-  
+
   // Scroll and loading management
   final ScrollController _scrollController = ScrollController();
   final Set<String> _processedUIDs = <String>{};
-  
+
   // State management
   bool _isInitializing = false;
   bool _isLoadingMore = false;
@@ -39,7 +38,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
   int _retryCount = 0;
   static const int _maxRetries = 3;
   static const Duration _retryDelay = Duration(seconds: 2);
-  
+
   // Performance optimization
   @override
   bool get wantKeepAlive => true;
@@ -52,9 +51,13 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     _setupScrollListener();
 
     // Mark inbox visible in UI context
-    try { UiContextService.instance.inboxVisible = true; } catch (_) {}
-    try { UiContextService.instance.isAppForeground = true; } catch (_) {}
-    
+    try {
+      UiContextService.instance.inboxVisible = true;
+    } catch (_) {}
+    try {
+      UiContextService.instance.isAppForeground = true;
+    } catch (_) {}
+
     // Delayed initialization to ensure proper widget tree setup
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _performFirstTimeInitialization();
@@ -66,7 +69,9 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     // Mark inbox no longer visible
-    try { UiContextService.instance.inboxVisible = false; } catch (_) {}
+    try {
+      UiContextService.instance.inboxVisible = false;
+    } catch (_) {}
     super.dispose();
   }
 
@@ -86,7 +91,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
   /// Setup scroll listener for pagination
   void _setupScrollListener() {
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels >= 
+      if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 500) {
         _loadMoreEmails();
       }
@@ -96,7 +101,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
   /// First-time initialization with comprehensive error handling
   Future<void> _performFirstTimeInitialization() async {
     if (_isInitializing || _hasInitialized) return;
-    
+
     setState(() {
       _isInitializing = true;
       _lastError = null;
@@ -104,28 +109,29 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
 
     try {
       debugPrint('🏠 Starting first-time home initialization...');
-      
+
       // Step 1: Ensure inbox is initialized
       await _ensureInboxInitialized();
-      
+
       // Step 2: Load initial emails with retry logic
       await _loadInitialEmailsWithRetry();
-      
+
       // Step 3: Mark as successfully initialized
       _hasInitialized = true;
       _retryCount = 0;
-      
+
       debugPrint('🏠 ✅ First-time initialization completed successfully');
-      
     } catch (e) {
       debugPrint('🏠 ❌ First-time initialization failed: $e');
       _lastError = e.toString();
-      
+
       // Schedule retry if not exceeded max attempts
       if (_retryCount < _maxRetries) {
         _retryCount++;
-        debugPrint('🏠 ⏳ Scheduling retry $_retryCount/$_maxRetries in ${_retryDelay.inSeconds}s');
-        
+        debugPrint(
+          '🏠 ⏳ Scheduling retry $_retryCount/$_maxRetries in ${_retryDelay.inSeconds}s',
+        );
+
         Future.delayed(_retryDelay, () {
           if (mounted && !_hasInitialized) {
             _performFirstTimeInitialization();
@@ -148,18 +154,17 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       if (controller.mailBoxInbox.path.isEmpty) {
         debugPrint('🏠 Initializing inbox...');
         await controller.initInbox();
-        
+
         // Wait for inbox to be properly set up
         await Future.delayed(const Duration(milliseconds: 500));
       }
-      
+
       // Verify inbox is ready
       if (controller.mailBoxInbox.path.isEmpty) {
         throw Exception('Inbox initialization failed - path is empty');
       }
-      
+
       debugPrint('🏠 ✅ Inbox initialized: ${controller.mailBoxInbox.path}');
-      
     } catch (e) {
       debugPrint('🏠 ❌ Inbox initialization error: $e');
       rethrow;
@@ -169,22 +174,22 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
   /// Load initial emails with retry logic and timeout handling
   Future<void> _loadInitialEmailsWithRetry() async {
     const Duration timeout = Duration(seconds: 30);
-    
+
     try {
       debugPrint('🏠 Loading initial emails...');
-      
+
       // Load emails with timeout
-      await controller.loadEmailsForBox(controller.mailBoxInbox)
+      await controller
+          .loadEmailsForBox(controller.mailBoxInbox)
           .timeout(timeout);
-      
+
       // Verify emails were loaded
       final emailCount = controller.boxMails.length;
       debugPrint('🏠 ✅ Loaded $emailCount emails');
-      
+
       if (emailCount == 0) {
         debugPrint('🏠 ⚠️ No emails found in inbox');
       }
-      
     } catch (e) {
       if (e.toString().contains('TimeoutException')) {
         throw Exception('Email loading timeout - server may be slow');
@@ -199,7 +204,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
   /// Load more emails for pagination
   Future<void> _loadMoreEmails() async {
     if (_isLoadingMore || !_hasInitialized) return;
-    
+
     setState(() {
       _isLoadingMore = true;
     });
@@ -208,7 +213,6 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       HapticFeedback.lightImpact();
       await controller.loadMoreEmails(controller.mailBoxInbox, 50);
       debugPrint('🏠 ✅ Loaded more emails');
-      
     } catch (e) {
       debugPrint('🏠 ❌ Error loading more emails: $e');
     } finally {
@@ -229,7 +233,6 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
       // Force a fast top-of-list sync
       await controller.refreshTopNow();
       debugPrint('🏠 ✅ Emails refreshed');
-      
     } catch (e) {
       debugPrint('🏠 ❌ Error refreshing emails: $e');
       if (mounted) {
@@ -290,7 +293,9 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
                 width: 60,
                 child: CircularProgressIndicator(
                   strokeWidth: 4,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppTheme.primaryColor,
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
@@ -304,14 +309,15 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
               ),
               const SizedBox(height: 8),
               Text(
-                _retryCount > 0 
+                _retryCount > 0
                     ? 'Retry attempt $_retryCount/$_maxRetries'
                     : 'This may take a few moments',
                 style: TextStyle(
                   fontSize: 14,
-                  color: isDarkMode 
-                      ? Colors.white.withValues(alpha: 0.7) 
-                      : Colors.grey.shade600,
+                  color:
+                      isDarkMode
+                          ? Colors.white.withValues(alpha: 0.7)
+                          : Colors.grey.shade600,
                 ),
               ),
             ],
@@ -333,11 +339,7 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.error_outline,
-                size: 60,
-                color: Colors.red.shade400,
-              ),
+              Icon(Icons.error_outline, size: 60, color: Colors.red.shade400),
               const SizedBox(height: 24),
               Text(
                 'Setup Failed',
@@ -353,9 +355,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
-                  color: isDarkMode 
-                      ? Colors.white.withValues(alpha: 0.7) 
-                      : Colors.grey.shade600,
+                  color:
+                      isDarkMode
+                          ? Colors.white.withValues(alpha: 0.7)
+                          : Colors.grey.shade600,
                 ),
               ),
               const SizedBox(height: 24),
@@ -366,7 +369,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
                 ),
               ),
             ],
@@ -379,19 +385,18 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
   /// Build main email list
   Widget _buildEmailList(bool isDarkMode) {
     // Include all messages. Unready ones will render as shimmer and update in real-time.
-    final allEmails = controller.boxMails.toList(growable: false)
-      ..sort((a, b) {
-        final ua = a.uid ?? a.sequenceId ?? 0;
-        final ub = b.uid ?? b.sequenceId ?? 0;
-        if (ua != ub) return ub.compareTo(ua);
-        final da = a.decodeDate();
-        final db = b.decodeDate();
-        if (da == null && db == null) return 0;
-        if (da == null) return 1;
-        if (db == null) return -1;
-        return db.compareTo(da);
-      });
-    
+    final allEmails = controller.boxMails.toList(growable: false)..sort((a, b) {
+      final ua = a.uid ?? a.sequenceId ?? 0;
+      final ub = b.uid ?? b.sequenceId ?? 0;
+      if (ua != ub) return ub.compareTo(ua);
+      final da = a.decodeDate();
+      final db = b.decodeDate();
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return db.compareTo(da);
+    });
+
     if (allEmails.isEmpty) {
       return _buildEmptyState(isDarkMode);
     }
@@ -430,9 +435,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
                 Icon(
                   Icons.inbox_outlined,
                   size: 80,
-                  color: isDarkMode 
-                      ? Colors.white.withValues(alpha: 0.3) 
-                      : Colors.grey.shade400,
+                  color:
+                      isDarkMode
+                          ? Colors.white.withValues(alpha: 0.3)
+                          : Colors.grey.shade400,
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -440,9 +446,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
-                    color: isDarkMode 
-                        ? Colors.white.withValues(alpha: 0.7) 
-                        : Colors.grey.shade600,
+                    color:
+                        isDarkMode
+                            ? Colors.white.withValues(alpha: 0.7)
+                            : Colors.grey.shade600,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -450,9 +457,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
                   'Pull down to refresh',
                   style: TextStyle(
                     fontSize: 14,
-                    color: isDarkMode 
-                        ? Colors.white.withValues(alpha: 0.5) 
-                        : Colors.grey.shade500,
+                    color:
+                        isDarkMode
+                            ? Colors.white.withValues(alpha: 0.5)
+                            : Colors.grey.shade500,
                   ),
                 ),
               ],
@@ -483,9 +491,10 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
             'Loading more emails...',
             style: TextStyle(
               fontSize: 14,
-              color: isDarkMode 
-                  ? Colors.white.withValues(alpha: 0.7) 
-                  : Colors.grey.shade600,
+              color:
+                  isDarkMode
+                      ? Colors.white.withValues(alpha: 0.7)
+                      : Colors.grey.shade600,
             ),
           ),
         ],
@@ -495,74 +504,120 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
 
   /// Build message tile
   Widget _buildMessageTile(MimeMessage message) {
-    final meta = controller.getMessageMetaNotifier(controller.mailBoxInbox, message);
+    final meta = controller.getMessageMetaNotifier(
+      controller.mailBoxInbox,
+      message,
+    );
     bool isReady() => message.getHeaderValue('x-ready') == '1';
 
     Widget openHandler(Widget child) => GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            if (selectionController.isSelecting) {
-              selectionController.toggle(message);
-            } else {
-              try {
-                final listRef = controller.emails[controller.mailBoxInbox] ?? const <MimeMessage>[];
-                int index = 0;
-                if (listRef.isNotEmpty) {
-                  index = listRef.indexWhere((m) =>
-                      (message.uid != null && m.uid == message.uid) ||
-                      (message.sequenceId != null && m.sequenceId == message.sequenceId));
-                  if (index < 0) index = 0;
-                }
-                Get.to(() => ShowMessagePager(mailbox: controller.mailBoxInbox, initialMessage: message));
-              } catch (_) {
-                Get.to(() => ShowMessage(message: message, mailbox: controller.mailBoxInbox));
-              }
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (selectionController.isSelecting) {
+          selectionController.toggle(message);
+        } else {
+          try {
+            final listRef =
+                controller.emails[controller.mailBoxInbox] ??
+                const <MimeMessage>[];
+            int index = 0;
+            if (listRef.isNotEmpty) {
+              index = listRef.indexWhere(
+                (m) =>
+                    (message.uid != null && m.uid == message.uid) ||
+                    (message.sequenceId != null &&
+                        m.sequenceId == message.sequenceId),
+              );
+              if (index < 0) index = 0;
             }
-          },
-          child: child,
-        );
+            Get.to(
+              () => ShowMessagePager(
+                mailbox: controller.mailBoxInbox,
+                initialMessage: message,
+              ),
+            );
+          } catch (_) {
+            Get.to(
+              () => ShowMessage(
+                message: message,
+                mailbox: controller.mailBoxInbox,
+              ),
+            );
+          }
+        }
+      },
+      child: child,
+    );
 
     Widget shimmerRow() => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Shimmer.fromColors(
-            baseColor: Colors.grey.shade200,
-            highlightColor: Colors.grey.shade100,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(height: 12, width: 160, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                        const SizedBox(height: 8),
-                        Container(height: 10, width: double.infinity, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                        const SizedBox(height: 6),
-                        Container(height: 10, width: MediaQuery.of(context).size.width * 0.5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(height: 10, width: 40, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6))),
-                ],
-              ),
-            ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Shimmer.fromColors(
+        baseColor: Colors.grey.shade200,
+        highlightColor: Colors.grey.shade100,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
           ),
-        );
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 12,
+                      width: 160,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 10,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 10,
+                      width: MediaQuery.of(context).size.width * 0.5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                height: 10,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
 
     return ValueListenableBuilder<int>(
       valueListenable: meta,
@@ -578,17 +633,32 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
               selectionController.toggle(message);
             } else {
               try {
-                final listRef = controller.emails[controller.mailBoxInbox] ?? const <MimeMessage>[];
+                final listRef =
+                    controller.emails[controller.mailBoxInbox] ??
+                    const <MimeMessage>[];
                 int index = 0;
                 if (listRef.isNotEmpty) {
-                  index = listRef.indexWhere((m) =>
-                      (message.uid != null && m.uid == message.uid) ||
-                      (message.sequenceId != null && m.sequenceId == message.sequenceId));
+                  index = listRef.indexWhere(
+                    (m) =>
+                        (message.uid != null && m.uid == message.uid) ||
+                        (message.sequenceId != null &&
+                            m.sequenceId == message.sequenceId),
+                  );
                   if (index < 0) index = 0;
                 }
-                Get.to(() => ShowMessagePager(mailbox: controller.mailBoxInbox, initialMessage: message));
+                Get.to(
+                  () => ShowMessagePager(
+                    mailbox: controller.mailBoxInbox,
+                    initialMessage: message,
+                  ),
+                );
               } catch (_) {
-                Get.to(() => ShowMessage(message: message, mailbox: controller.mailBoxInbox));
+                Get.to(
+                  () => ShowMessage(
+                    message: message,
+                    mailbox: controller.mailBoxInbox,
+                  ),
+                );
               }
             }
           },
@@ -600,14 +670,18 @@ class _EnhancedHomeEmailListState extends State<EnhancedHomeEmailList>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     // Refresh when app comes to foreground
     if (state == AppLifecycleState.resumed && _hasInitialized) {
-      try { UiContextService.instance.isAppForeground = true; } catch (_) {}
+      try {
+        UiContextService.instance.isAppForeground = true;
+      } catch (_) {}
       _refreshEmails();
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      try { UiContextService.instance.isAppForeground = false; } catch (_) {}
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      try {
+        UiContextService.instance.isAppForeground = false;
+      } catch (_) {}
     }
   }
 }
-

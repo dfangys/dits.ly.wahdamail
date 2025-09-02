@@ -1,5 +1,6 @@
 import 'package:enough_mail/enough_mail.dart' as em;
 import 'package:wahda_bank/shared/error/errors.dart';
+import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.dart' as dom;
 
 /// Infra DTO: header-only data fetched from IMAP
 class HeaderDTO {
@@ -83,6 +84,12 @@ abstract class ImapGateway {
     required String folderId,
     int limit = 50,
     int offset = 0,
+  });
+
+  Future<List<HeaderDTO>> searchHeaders({
+    required String accountId,
+    required String folderId,
+    required dom.SearchQuery q,
   });
 
   Future<BodyDTO> fetchBody({
@@ -183,6 +190,16 @@ class EnoughImapGateway implements ImapGateway {
     } catch (e) {
       throw mapImapError(e);
     }
+  }
+
+  @override
+  Future<List<HeaderDTO>> searchHeaders({
+    required String accountId,
+    required String folderId,
+    required dom.SearchQuery q,
+  }) async {
+    // P6 placeholder: remote search disabled; return empty list
+    return const <HeaderDTO>[];
   }
 
   @override

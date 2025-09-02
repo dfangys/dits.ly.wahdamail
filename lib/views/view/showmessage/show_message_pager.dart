@@ -5,7 +5,11 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 
 class ShowMessagePager extends StatefulWidget {
-  const ShowMessagePager({super.key, required this.mailbox, required this.initialMessage});
+  const ShowMessagePager({
+    super.key,
+    required this.mailbox,
+    required this.initialMessage,
+  });
 
   final Mailbox mailbox;
   final MimeMessage initialMessage;
@@ -30,7 +34,9 @@ class _ShowMessagePagerState extends State<ShowMessagePager> {
   }
 
   List<MimeMessage> _visibleMessages() {
-    final all = List<MimeMessage>.from(_mailBoxController.emails[widget.mailbox] ?? const <MimeMessage>[]);
+    final all = List<MimeMessage>.from(
+      _mailBoxController.emails[widget.mailbox] ?? const <MimeMessage>[],
+    );
     // Filter only ready messages and sort newest-first similar to inbox list
     final ready = all.where((m) => m.getHeaderValue('x-ready') == '1').toList();
     ready.sort((a, b) {
@@ -46,10 +52,13 @@ class _ShowMessagePagerState extends State<ShowMessagePager> {
     });
     // Always include the initially opened message even if it's not yet marked ready
     final target = widget.initialMessage;
-    final exists = ready.indexWhere((m) =>
-      (target.uid != null && m.uid == target.uid) ||
-      (target.sequenceId != null && m.sequenceId == target.sequenceId)
-    ) != -1;
+    final exists =
+        ready.indexWhere(
+          (m) =>
+              (target.uid != null && m.uid == target.uid) ||
+              (target.sequenceId != null && m.sequenceId == target.sequenceId),
+        ) !=
+        -1;
     if (!exists) {
       ready.insert(0, target);
     }
@@ -57,13 +66,14 @@ class _ShowMessagePagerState extends State<ShowMessagePager> {
   }
 
   int _indexOfMessage(List<MimeMessage> list, MimeMessage message) {
-    int idx = list.indexWhere((m) =>
-        (message.uid != null && m.uid == message.uid) ||
-        (message.sequenceId != null && m.sequenceId == message.sequenceId));
+    int idx = list.indexWhere(
+      (m) =>
+          (message.uid != null && m.uid == message.uid) ||
+          (message.sequenceId != null && m.sequenceId == message.sequenceId),
+    );
     if (idx < 0) idx = 0;
     return idx;
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -89,16 +99,28 @@ class _ShowMessagePagerState extends State<ShowMessagePager> {
               try {
                 final messages = _visibleMessages();
                 if (i >= 0 && i < messages.length) {
-                  _mailBoxController.prefetchMessageContent(widget.mailbox, messages[i], quiet: true);
+                  _mailBoxController.prefetchMessageContent(
+                    widget.mailbox,
+                    messages[i],
+                    quiet: true,
+                  );
                 }
                 // Prefetch neighbors opportunistically
                 final next = i + 1;
                 if (next >= 0 && next < messages.length) {
-                  _mailBoxController.prefetchMessageContent(widget.mailbox, messages[next], quiet: true);
+                  _mailBoxController.prefetchMessageContent(
+                    widget.mailbox,
+                    messages[next],
+                    quiet: true,
+                  );
                 }
                 final prev = i - 1;
                 if (prev >= 0 && prev < messages.length) {
-                  _mailBoxController.prefetchMessageContent(widget.mailbox, messages[prev], quiet: true);
+                  _mailBoxController.prefetchMessageContent(
+                    widget.mailbox,
+                    messages[prev],
+                    quiet: true,
+                  );
                 }
               } catch (_) {}
             },
@@ -134,12 +156,9 @@ class _ShowMessagePagerState extends State<ShowMessagePager> {
     );
   }
 
-
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
   }
 }
-
-

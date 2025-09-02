@@ -15,12 +15,15 @@ import 'imap_fetch_pool.dart';
 /// Compatible with enough_mail v2.1.7 API
 class OptimizedIdleService extends GetxService {
   static OptimizedIdleService? _instance;
-  static OptimizedIdleService get instance => _instance ??= OptimizedIdleService._();
-  
+  static OptimizedIdleService get instance =>
+      _instance ??= OptimizedIdleService._();
+
   OptimizedIdleService._();
 
   // Configuration constants for optimal performance
-  static const Duration _idleTimeout = Duration(minutes: 28); // Refresh before 30min server timeout
+  static const Duration _idleTimeout = Duration(
+    minutes: 28,
+  ); // Refresh before 30min server timeout
   static const Duration _initialReconnectDelay = Duration(seconds: 2);
   static const Duration _maxReconnectDelay = Duration(minutes: 5);
   static const Duration _healthCheckInterval = Duration(minutes: 3);
@@ -31,7 +34,8 @@ class OptimizedIdleService extends GetxService {
   Timer? _idleRefreshTimer;
   Timer? _healthCheckTimer;
   Timer? _reconnectTimer;
-  Timer? _pollCheckTimer; // Frequent exists watcher when server events are unreliable
+  Timer?
+  _pollCheckTimer; // Frequent exists watcher when server events are unreliable
   bool _isIdleActive = false;
   bool _shouldKeepRunning = false;
   int _reconnectAttempts = 0;
@@ -118,14 +122,14 @@ class OptimizedIdleService extends GetxService {
     _shouldKeepRunning = true;
     _reconnectAttempts = 0;
     _lastIdleStart = DateTime.now();
-    
+
     if (kDebugMode) {
       print('📧 🚀 Starting optimized IDLE service');
     }
 
     // Start health monitoring
     _startHealthMonitoring();
-    
+
     // Start main IDLE loop
     unawaited(_runIdleLoop());
   }
@@ -145,7 +149,7 @@ class OptimizedIdleService extends GetxService {
     _reconnectTimer?.cancel();
     _pollCheckTimer?.cancel();
     _pollCheckTimer = null;
-    
+
     // Cancel event subscription
     await _eventSubscription?.cancel();
     _eventSubscription = null;
@@ -170,20 +174,19 @@ class OptimizedIdleService extends GetxService {
       try {
         await _ensureConnection();
         await _startIdleSession();
-        
+
         // Reset reconnect attempts on successful session
         _reconnectAttempts = 0;
         _lastSuccessfulConnection = DateTime.now();
-        
+
         if (kDebugMode) {
           print('📧 ✅ IDLE session completed successfully');
         }
-        
       } catch (e) {
         if (kDebugMode) {
           print('📧 ❌ IDLE loop error: $e');
         }
-        
+
         if (_shouldKeepRunning) {
           await _handleConnectionError(e);
         }
@@ -196,7 +199,7 @@ class OptimizedIdleService extends GetxService {
     try {
       // Use connection manager for intelligent connection handling
       final isConnected = await _connectionManager.connect();
-      
+
       if (!isConnected) {
         throw Exception('Failed to establish connection via ConnectionManager');
       }
@@ -213,17 +216,21 @@ class OptimizedIdleService extends GetxService {
           (mb) => mb.isInbox,
           orElse: () => mailService.client.mailboxes!.first,
         );
-        
+
         if (inbox != null) {
-          await ImapCommandQueue.instance.run('selectMailbox(inbox for idle)', () async {
-            await mailService.client.selectMailbox(inbox).timeout(_connectionTimeout);
-          });
+          await ImapCommandQueue.instance.run(
+            'selectMailbox(inbox for idle)',
+            () async {
+              await mailService.client
+                  .selectMailbox(inbox)
+                  .timeout(_connectionTimeout);
+            },
+          );
           if (kDebugMode) {
             print('📧 📥 Selected inbox for IDLE monitoring');
           }
         }
       }
-      
     } catch (e) {
       if (kDebugMode) {
         print('📧 ❌ Connection establishment failed: $e');
@@ -265,7 +272,9 @@ class OptimizedIdleService extends GetxService {
       try {
         final selected = mailService.client.selectedMailbox;
         _lastKnownExists = selected?.messagesExists;
-      } catch (_) { _lastKnownExists = null; }
+      } catch (_) {
+        _lastKnownExists = null;
+      }
 
       // Set up refresh timer to prevent server timeout
       _scheduleIdleRefresh();
@@ -275,7 +284,7 @@ class OptimizedIdleService extends GetxService {
 
       // Start exists watcher to detect new emails proactively (fallback when events are unreliable)
       _startExistWatcher();
-      
+
       // Wait for polling to complete (either by server event or our refresh)
       await _idleCompleter!.future.timeout(
         _idleTimeout + const Duration(seconds: 30), // Extra buffer
@@ -285,7 +294,6 @@ class OptimizedIdleService extends GetxService {
           }
         },
       );
-      
     } catch (e) {
       _isIdleActive = false;
       if (kDebugMode) {
@@ -297,7 +305,7 @@ class OptimizedIdleService extends GetxService {
       _idleRefreshTimer?.cancel();
       _pollCheckTimer?.cancel();
       _pollCheckTimer = null;
-      
+
       // Properly stop polling if it's still active
       try {
         final mailService = _mailService;
@@ -352,18 +360,21 @@ class OptimizedIdleService extends GetxService {
       // Handle different event types based on their string representation
       // This is more compatible with different versions of enough_mail
       final eventType = event.runtimeType.toString();
-      
+
       if (eventType.contains('MessagesAdded') ||
           eventType.contains('NewMessage') ||
           eventType.contains('Exist') || // e.g., ImapMessagesExistEvent/Exists
           eventType.contains('Exists') ||
           eventType.contains('Recent')) {
         await _handleNewMessagesGeneric(event);
-      } else if (eventType.contains('Flags') || eventType.contains('FlagChanged')) {
+      } else if (eventType.contains('Flags') ||
+          eventType.contains('FlagChanged')) {
         await _handleFlagChangesGeneric(event);
-      } else if (eventType.contains('Deleted') || eventType.contains('Expunge')) {
+      } else if (eventType.contains('Deleted') ||
+          eventType.contains('Expunge')) {
         await _handleDeletedMessagesGeneric(event);
-      } else if (eventType.contains('ConnectionLost') || eventType.contains('Disconnect')) {
+      } else if (eventType.contains('ConnectionLost') ||
+          eventType.contains('Disconnect')) {
         await _handleConnectionLost();
       } else {
         if (kDebugMode) {
@@ -381,7 +392,7 @@ class OptimizedIdleService extends GetxService {
   Future<void> _handleNewMessagesGeneric(ImapEvent event) async {
     try {
       _messagesReceived += 1; // Increment counter
-      
+
       if (kDebugMode) {
         print('📧 📬 New message event detected');
       }
@@ -396,9 +407,16 @@ class OptimizedIdleService extends GetxService {
       Mailbox? mailbox = mailService.client.selectedMailbox;
       mailbox ??= mailService.client.mailboxes?.firstWhere(
         (mb) => mb.isInbox,
-        orElse: () => mailService.client.mailboxes?.isNotEmpty == true
-            ? mailService.client.mailboxes!.first
-            : Mailbox(encodedName: 'inbox', encodedPath: 'inbox', flags: [], pathSeparator: '/'),
+        orElse:
+            () =>
+                mailService.client.mailboxes?.isNotEmpty == true
+                    ? mailService.client.mailboxes!.first
+                    : Mailbox(
+                      encodedName: 'inbox',
+                      encodedPath: 'inbox',
+                      flags: [],
+                      pathSeparator: '/',
+                    ),
       );
 
       if (mailbox == null) {
@@ -408,10 +426,16 @@ class OptimizedIdleService extends GetxService {
 
       // Ensure the mailbox is selected before fetching by sequence
       try {
-        if (mailService.client.selectedMailbox?.encodedPath != mailbox.encodedPath) {
-          await ImapCommandQueue.instance.run('selectMailbox(on new msg event)', () async {
-            await mailService.client.selectMailbox(mailbox!).timeout(_connectionTimeout);
-          });
+        if (mailService.client.selectedMailbox?.encodedPath !=
+            mailbox.encodedPath) {
+          await ImapCommandQueue.instance.run(
+            'selectMailbox(on new msg event)',
+            () async {
+              await mailService.client
+                  .selectMailbox(mailbox!)
+                  .timeout(_connectionTimeout);
+            },
+          );
         }
       } catch (_) {}
 
@@ -442,7 +466,8 @@ class OptimizedIdleService extends GetxService {
         // Hydrate minimal metadata and mark display-ready so UI tiles render immediately
         for (final m in newest) {
           try {
-            if ((m.from == null || m.from!.isEmpty) && (m.envelope?.from?.isNotEmpty ?? false)) {
+            if ((m.from == null || m.from!.isEmpty) &&
+                (m.envelope?.from?.isNotEmpty ?? false)) {
               m.from = m.envelope!.from;
             }
             m.setHeader('x-ready', '1');
@@ -460,7 +485,6 @@ class OptimizedIdleService extends GetxService {
         final c = Get.find<MailBoxController>();
         await c.refreshTopNow();
       } catch (_) {}
-      
     } catch (e) {
       if (kDebugMode) {
         print('📧 ❌ Error handling new messages: $e');
@@ -477,7 +501,6 @@ class OptimizedIdleService extends GetxService {
 
       // Trigger a refresh to update message flags
       await _triggerMailboxRefresh();
-      
     } catch (e) {
       if (kDebugMode) {
         print('📧 ❌ Error handling flag changes: $e');
@@ -501,10 +524,12 @@ class OptimizedIdleService extends GetxService {
         if (mailService?.client.selectedMailbox != null) {
           final mb = mailService!.client.selectedMailbox!;
           final c = Get.find<MailBoxController>();
-          await c.reconcileRecentWithServer(mb, window: mb.isDrafts ? 1000 : 300);
+          await c.reconcileRecentWithServer(
+            mb,
+            window: mb.isDrafts ? 1000 : 300,
+          );
         }
       } catch (_) {}
-      
     } catch (e) {
       if (kDebugMode) {
         print('📧 ❌ Error handling deleted messages: $e');
@@ -518,22 +543,30 @@ class OptimizedIdleService extends GetxService {
       if (kDebugMode) {
         print('📧 ✅ Triggered mailbox refresh via notifyNewMessages');
       }
-      
+
       // Determine mailbox if not provided
       final mailService = _mailService;
       Mailbox? mb = targetMailbox;
       if (mb == null && mailService != null) {
-        mb = mailService.client.selectedMailbox ?? mailService.client.mailboxes?.firstWhere(
-          (m) => m.isInbox,
-          orElse: () => mailService.client.mailboxes?.isNotEmpty == true
-              ? mailService.client.mailboxes!.first
-              : Mailbox(encodedName: 'inbox', encodedPath: 'inbox', flags: [], pathSeparator: '/'),
-        );
+        mb =
+            mailService.client.selectedMailbox ??
+            mailService.client.mailboxes?.firstWhere(
+              (m) => m.isInbox,
+              orElse:
+                  () =>
+                      mailService.client.mailboxes?.isNotEmpty == true
+                          ? mailService.client.mailboxes!.first
+                          : Mailbox(
+                            encodedName: 'inbox',
+                            encodedPath: 'inbox',
+                            flags: [],
+                            pathSeparator: '/',
+                          ),
+            );
       }
 
       // Use the public method to notify about potential new messages for the target mailbox
       await _realtimeService.notifyNewMessages([], mailbox: mb);
-      
     } catch (e) {
       if (kDebugMode) {
         print('📧 ❌ Error triggering mailbox refresh: $e');
@@ -546,13 +579,13 @@ class OptimizedIdleService extends GetxService {
     if (kDebugMode) {
       print('📧 🔌 IMAP connection lost, triggering reconnection');
     }
-    
+
     _isIdleActive = false;
     _idleRefreshTimer?.cancel();
-    
+
     // Complete the IDLE session to trigger reconnection
     _idleCompleter?.complete();
-    
+
     // Trigger reconnection by throwing an exception
     throw Exception('Connection lost - will reconnect');
   }
@@ -582,9 +615,14 @@ class OptimizedIdleService extends GetxService {
         final selected = mailService.client.selectedMailbox;
         if (selected == null) return;
         // Re-select mailbox to refresh EXISTS metadata (cheap on most servers)
-        await ImapCommandQueue.instance.run('selectMailbox(existsWatcher:${selected.name})', () async {
-          await mailService.client.selectMailbox(selected).timeout(_connectionTimeout);
-        });
+        await ImapCommandQueue.instance.run(
+          'selectMailbox(existsWatcher:${selected.name})',
+          () async {
+            await mailService.client
+                .selectMailbox(selected)
+                .timeout(_connectionTimeout);
+          },
+        );
         final refreshed = mailService.client.selectedMailbox;
         final existsNow = refreshed?.messagesExists ?? selected.messagesExists;
         if (_lastKnownExists == null) {
@@ -593,11 +631,16 @@ class OptimizedIdleService extends GetxService {
         }
         if (existsNow > _lastKnownExists!) {
           if (kDebugMode) {
-            print('📧 📈 EXISTS increased ${_lastKnownExists} -> $existsNow, triggering fast new-mail path');
+            print(
+              '📧 📈 EXISTS increased $_lastKnownExists -> $existsNow, triggering fast new-mail path',
+            );
           }
           _lastKnownExists = existsNow;
           // Trigger quick path: ask realtime service to load new messages for this mailbox
-          await _realtimeService.notifyNewMessages([], mailbox: refreshed ?? selected);
+          await _realtimeService.notifyNewMessages(
+            [],
+            mailbox: refreshed ?? selected,
+          );
         }
       } catch (e) {
         if (kDebugMode) {
@@ -625,16 +668,21 @@ class OptimizedIdleService extends GetxService {
     // Smart exponential backoff with jitter
     final baseDelay = _initialReconnectDelay.inMilliseconds;
     final exponentialDelay = baseDelay * pow(2, _reconnectAttempts - 1).toInt();
-    final cappedDelay = min(exponentialDelay, _maxReconnectDelay.inMilliseconds);
-    
+    final cappedDelay = min(
+      exponentialDelay,
+      _maxReconnectDelay.inMilliseconds,
+    );
+
     // Add jitter to prevent thundering herd
     final jitter = Random().nextInt(1000); // 0-1 second jitter
     final totalDelay = cappedDelay + jitter;
-    
+
     final delayDuration = Duration(milliseconds: totalDelay);
 
     if (kDebugMode) {
-      print('📧 ⏳ Reconnection attempt $_reconnectAttempts in ${delayDuration.inSeconds}s (error: ${error.toString().substring(0, min(50, error.toString().length))})');
+      print(
+        '📧 ⏳ Reconnection attempt $_reconnectAttempts in ${delayDuration.inSeconds}s (error: ${error.toString().substring(0, min(50, error.toString().length))})',
+      );
     }
 
     await Future.delayed(delayDuration);
@@ -660,7 +708,7 @@ class OptimizedIdleService extends GetxService {
         if (kDebugMode) {
           print('📧 ⚠️ Connection manager reports unhealthy connection');
         }
-        
+
         // Trigger reconnection through connection manager
         await _connectionManager.forceReconnect();
       } else {
@@ -677,10 +725,11 @@ class OptimizedIdleService extends GetxService {
 
   /// Get comprehensive service status and performance metrics
   Map<String, dynamic> getStatus() {
-    final uptime = _lastIdleStart != null 
-        ? _totalUptime + DateTime.now().difference(_lastIdleStart!)
-        : _totalUptime;
-        
+    final uptime =
+        _lastIdleStart != null
+            ? _totalUptime + DateTime.now().difference(_lastIdleStart!)
+            : _totalUptime;
+
     return {
       'isRunning': _shouldKeepRunning,
       'isIdleActive': _isIdleActive,
@@ -695,16 +744,23 @@ class OptimizedIdleService extends GetxService {
 
   /// Get performance statistics
   Map<String, dynamic> _getPerformanceStats() {
-    final uptime = _lastIdleStart != null 
-        ? _totalUptime + DateTime.now().difference(_lastIdleStart!)
-        : _totalUptime;
-        
+    final uptime =
+        _lastIdleStart != null
+            ? _totalUptime + DateTime.now().difference(_lastIdleStart!)
+            : _totalUptime;
+
     return {
       'messagesReceived': _messagesReceived,
       'reconnectionCount': _reconnectionCount,
       'uptimeHours': uptime.inHours,
-      'messagesPerHour': uptime.inHours > 0 ? (_messagesReceived / uptime.inHours).toStringAsFixed(2) : '0',
-'reliability': _reconnectionCount > 0 ? '${(uptime.inMinutes / _reconnectionCount).toStringAsFixed(2)} min/reconnect' : 'Perfect',
+      'messagesPerHour':
+          uptime.inHours > 0
+              ? (_messagesReceived / uptime.inHours).toStringAsFixed(2)
+              : '0',
+      'reliability':
+          _reconnectionCount > 0
+              ? '${(uptime.inMinutes / _reconnectionCount).toStringAsFixed(2)} min/reconnect'
+              : 'Perfect',
     };
   }
 
@@ -713,7 +769,7 @@ class OptimizedIdleService extends GetxService {
     if (kDebugMode) {
       print('📧 🔄 Restarting IDLE service');
     }
-    
+
     await stopOptimizedIdle();
     await Future.delayed(const Duration(seconds: 1));
     await startOptimizedIdle();
@@ -734,4 +790,3 @@ void unawaited(Future<void> future) {
     }
   });
 }
-

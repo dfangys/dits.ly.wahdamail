@@ -2,20 +2,23 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart' as dom;
-import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart' as domain;
+import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as entities;
+import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.dart' as q;
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
 import 'package:wahda_bank/features/sync/infrastructure/sync_service.dart';
 import 'package:wahda_bank/features/sync/infrastructure/jitter_backoff.dart';
 
-class _MockMessageRepo extends Mock implements dom.MessageRepository {}
-class _FakeRng extends Fake {}
+class _MockMessageRepo extends Mock implements domain.MessageRepository {}
 
 class _FakeGateway implements ImapGateway {
   final StreamController<ImapEvent> ctrl = StreamController.broadcast();
 
   @override
   Future<List<HeaderDTO>> fetchHeaders({required String accountId, required String folderId, int limit = 50, int offset = 0}) async => [];
+
+  @override
+  Future<List<HeaderDTO>> searchHeaders({required String accountId, required String folderId, required q.SearchQuery q}) async => [];
 
   @override
   Future<BodyDTO> fetchBody({required String accountId, required String folderId, required String messageUid}) async =>
@@ -33,7 +36,7 @@ class _FakeGateway implements ImapGateway {
 
 void main() {
   setUpAll(() {
-    registerFallbackValue(const dom.Folder(id: 'INBOX', name: 'INBOX', isInbox: true));
+    registerFallbackValue(const entities.Folder(id: 'INBOX', name: 'INBOX', isInbox: true));
   });
   test('SyncService triggers header fetch on IDLE events', () async {
     final gw = _FakeGateway();
@@ -48,7 +51,7 @@ void main() {
     gw.ctrl.add(const ImapEvent(type: ImapEventType.exists, folderId: 'INBOX'));
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
-    verify(() => repo.fetchInbox(folder: dom.Folder(id: 'INBOX', name: 'INBOX'), limit: 50, offset: 0)).called(1);
+    verify(() => repo.fetchInbox(folder: const entities.Folder(id: 'INBOX', name: 'INBOX'), limit: 50, offset: 0)).called(1);
 
     await svc.stop();
   });

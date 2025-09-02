@@ -4,23 +4,27 @@ import '../../../app/controllers/settings_controller.dart';
 
 class AuthScreen extends StatelessWidget {
   final SettingController _settingsController = Get.find<SettingController>();
-  
+
   AuthScreen({super.key});
-  
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
-    
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: isDarkMode
-                ? [Colors.grey.shade900, Colors.black]
-                : [theme.colorScheme.primary.withValues(alpha : 0.1), Colors.white],
+            colors:
+                isDarkMode
+                    ? [Colors.grey.shade900, Colors.black]
+                    : [
+                      theme.colorScheme.primary.withValues(alpha: 0.1),
+                      Colors.white,
+                    ],
           ),
         ),
         child: SafeArea(
@@ -32,7 +36,7 @@ class AuthScreen extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha : 0.1),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -41,9 +45,9 @@ class AuthScreen extends StatelessWidget {
                     color: theme.colorScheme.primary,
                   ),
                 ),
-                
+
                 const SizedBox(height: 32),
-                
+
                 // App locked text
                 Text(
                   'App Locked',
@@ -53,9 +57,9 @@ class AuthScreen extends StatelessWidget {
                     color: isDarkMode ? Colors.white : Colors.black87,
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Instruction text
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -68,9 +72,9 @@ class AuthScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                   ),
                 ),
-                
+
                 const SizedBox(height: 48),
-                
+
                 // Unlock button
                 ElevatedButton.icon(
                   icon: Icon(_getLockMethodIcon()),
@@ -78,7 +82,10 @@ class AuthScreen extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     backgroundColor: theme.colorScheme.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
@@ -86,9 +93,9 @@ class AuthScreen extends StatelessWidget {
                   ),
                   onPressed: _authenticate,
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Help text
                 TextButton(
                   onPressed: () {
@@ -123,7 +130,7 @@ class AuthScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   IconData _getLockMethodIcon() {
     switch (_settingsController.lockMethod.value) {
       case 'biometric':
@@ -135,7 +142,7 @@ class AuthScreen extends StatelessWidget {
         return Icons.pin_rounded;
     }
   }
-  
+
   String _getLockMethodText() {
     switch (_settingsController.lockMethod.value) {
       case 'biometric':
@@ -147,7 +154,7 @@ class AuthScreen extends StatelessWidget {
         return 'PIN';
     }
   }
-  
+
   Future<void> _authenticate() async {
     final authenticated = await _settingsController.unlockApp();
     if (authenticated) {

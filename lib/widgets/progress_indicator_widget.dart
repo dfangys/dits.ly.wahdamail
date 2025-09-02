@@ -35,7 +35,10 @@ class EmailDownloadProgressWidget extends StatelessWidget {
         margin: const EdgeInsets.all(12),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: isDarkMode ? Colors.black.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.95),
+          color:
+              isDarkMode
+                  ? Colors.black.withValues(alpha: 0.8)
+                  : Colors.white.withValues(alpha: 0.95),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -44,7 +47,9 @@ class EmailDownloadProgressWidget extends StatelessWidget {
               offset: const Offset(0, -2),
             ),
           ],
-          border: Border.all(color: isDarkMode ? Colors.white24 : Colors.black12),
+          border: Border.all(
+            color: isDarkMode ? Colors.white24 : Colors.black12,
+          ),
         ),
         child: Row(
           children: [
@@ -72,7 +77,10 @@ class EmailDownloadProgressWidget extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                      color:
+                          isDarkMode
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade700,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -80,34 +88,54 @@ class EmailDownloadProgressWidget extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: isIndeterminate
-                            ? LinearProgressIndicator(
-                                backgroundColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
-                                valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
-                                minHeight: 4,
-                              )
-                            : LinearProgressIndicator(
-                                value: progress?.clamp(0.0, 1.0),
-                                backgroundColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
-                                valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
-                                minHeight: 4,
-                              ),
+                        child:
+                            isIndeterminate
+                                ? LinearProgressIndicator(
+                                  backgroundColor:
+                                      isDarkMode
+                                          ? Colors.grey.shade800
+                                          : Colors.grey.shade300,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    theme.primaryColor,
+                                  ),
+                                  minHeight: 4,
+                                )
+                                : LinearProgressIndicator(
+                                  value: progress?.clamp(0.0, 1.0),
+                                  backgroundColor:
+                                      isDarkMode
+                                          ? Colors.grey.shade800
+                                          : Colors.grey.shade300,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    theme.primaryColor,
+                                  ),
+                                  minHeight: 4,
+                                ),
                       ),
-                      if (!isIndeterminate && currentCount != null && totalCount != null) ...[
+                      if (!isIndeterminate &&
+                          currentCount != null &&
+                          totalCount != null) ...[
                         const SizedBox(width: 10),
                         Text(
                           '$currentCount/$totalCount',
                           style: theme.textTheme.labelSmall?.copyWith(
-                            color: isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700,
+                            color:
+                                isDarkMode
+                                    ? Colors.grey.shade300
+                                    : Colors.grey.shade700,
                           ),
                         ),
                       ],
-                      if (onAction != null && (actionLabel?.isNotEmpty ?? false)) ...[
+                      if (onAction != null &&
+                          (actionLabel?.isNotEmpty ?? false)) ...[
                         const SizedBox(width: 8),
                         TextButton(
                           onPressed: onAction,
                           style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             foregroundColor: theme.primaryColor,
                             minimumSize: const Size(0, 0),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -154,15 +182,11 @@ class EmailDownloadProgressWidget extends StatelessWidget {
               color: theme.primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              Icons.email,
-              size: 32,
-              color: theme.primaryColor,
-            ),
+            child: Icon(Icons.email, size: 32, color: theme.primaryColor),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Title
           Text(
             title,
@@ -172,9 +196,9 @@ class EmailDownloadProgressWidget extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          
+
           const SizedBox(height: 8),
-          
+
           // Subtitle
           Text(
             subtitle,
@@ -183,13 +207,14 @@ class EmailDownloadProgressWidget extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Progress indicator
           if (isIndeterminate)
             LinearProgressIndicator(
-              backgroundColor: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+              backgroundColor:
+                  isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
               valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
             )
           else if (progress != null)
@@ -197,7 +222,8 @@ class EmailDownloadProgressWidget extends StatelessWidget {
               children: [
                 LinearProgressIndicator(
                   value: progress,
-                  backgroundColor: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
+                  backgroundColor:
+                      isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300,
                   valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
                 ),
                 const SizedBox(height: 8),
@@ -205,16 +231,19 @@ class EmailDownloadProgressWidget extends StatelessWidget {
                   Text(
                     '$currentCount / $totalCount emails',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
+                      color:
+                          isDarkMode
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
                     ),
                   ),
               ],
             )
           else
             const CircularProgressIndicator(),
-          
+
           const SizedBox(height: 16),
-          
+
           // Animated dots
           const _AnimatedDots(),
         ],
@@ -293,11 +322,7 @@ class EmailDownloadProgressController extends GetxController {
   bool get isVisible => _isVisible.value;
   bool get isIndeterminate => _isIndeterminate.value;
 
-  void show({
-    String? title,
-    String? subtitle,
-    bool indeterminate = true,
-  }) {
+  void show({String? title, String? subtitle, bool indeterminate = true}) {
     if (title != null) _title.value = title;
     if (subtitle != null) _subtitle.value = subtitle;
     _isIndeterminate.value = indeterminate;
@@ -331,4 +356,3 @@ class EmailDownloadProgressController extends GetxController {
     _isIndeterminate.value = true;
   }
 }
-

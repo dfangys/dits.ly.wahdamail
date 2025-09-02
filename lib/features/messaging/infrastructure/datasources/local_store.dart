@@ -14,6 +14,18 @@ abstract class LocalStore {
   Future<void> upsertHeaders(List<MessageRow> rows);
   Future<List<MessageRow>> getHeaders({required String folderId, int limit = 50, int offset = 0});
 
+  // Search metadata (subject/from/to/flags/date) and optionally cached body
+  Future<List<MessageRow>> searchMetadata({
+    String? text,
+    String? from,
+    String? to,
+    String? subject,
+    int? dateFromEpochMs,
+    int? dateToEpochMs,
+    Set<String>? flags,
+    int? limit,
+  });
+
   // Bodies
   Future<void> upsertBody(BodyRow body);
   Future<BodyRow?> getBody({required String messageUid});
@@ -43,6 +55,65 @@ class InMemoryLocalStore implements LocalStore {
     final start = offset.clamp(0, list.length);
     final end = (start + limit).clamp(0, list.length);
     return list.sublist(start, end);
+  }
+
+  @override
+  Future<List<MessageRow>> searchMetadata({String? text, String? from, String? to, String? subject, int? dateFromEpochMs, int? dateToEpochMs, Set<String>? flags, int? limit}) async {
+    bool containsCI(String haystack, String needle) => haystack.toLowerCase().contains(needle.toLowerCase());
+    final all = _byFolder.values.expand((e) => e).toList();
+    final filtered = all.where((r) {
+      bool ok = true;
+      if (from != null) {
+        ok = ok && (containsCI(r.fromEmail, from) || containsCI(r.fromName, from));
+      }
+      if (to != null) {
+        ok = ok && r.toEmails.any((e) => containsCI(e, to));
+      }
+      if (subject != null) {
+        ok = ok && containsCI(r.subject, subject);
+      }
+      if (text != null) {
+        final body = _bodiesByMessageUid[r.id];
+        final bodyText = body?.plainText ?? '';
+        ok = ok && (containsCI(r.subject, text) || containsCI(r.fromEmail, text) || containsCI(r.fromName, text) || r.toEmails.any((e) => containsCI(e, text)) || containsCI(bodyText, text));
+      }
+      if (dateFromEpochMs != null) {
+        ok = ok && r.dateEpochMs >= dateFromEpochMs;
+      }
+      if (dateToEpochMs != null) {
+        ok = ok && r.dateEpochMs <= dateToEpochMs;
+      }
+      if (flags != null && flags.isNotEmpty) {
+        for (final f in flags) {
+          switch (f) {
+            case 'seen':
+              ok = ok && r.seen;
+              break;
+            case 'answered':
+              ok = ok && r.answered;
+              break;
+            case 'flagged':
+              ok = ok && r.flagged;
+              break;
+            case 'draft':
+              ok = ok && r.draft;
+              break;
+            case 'deleted':
+              ok = ok && r.deleted;
+              break;
+            default:
+              ok = ok && true;
+          }
+        }
+      }
+      return ok;
+    }).toList();
+    // Sort by date DESC
+    filtered.sort((a, b) => b.dateEpochMs.compareTo(a.dateEpochMs));
+    if (limit != null && filtered.length > limit) {
+      return filtered.sublist(0, limit);
+    }
+    return filtered;
   }
 
   @override

@@ -8,16 +8,15 @@ import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ContactUsScreen extends StatelessWidget {
-  final CustomLoadingButtonController emailController = CustomLoadingButtonController();
-  final CustomLoadingButtonController callController = CustomLoadingButtonController();
+  final CustomLoadingButtonController emailController =
+      CustomLoadingButtonController();
+  final CustomLoadingButtonController callController =
+      CustomLoadingButtonController();
 
   ContactUsScreen({super.key});
 
   Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
+    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
     } else {
@@ -48,7 +47,7 @@ class ContactUsScreen extends StatelessWidget {
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha : 0.1),
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -64,7 +63,9 @@ class ContactUsScreen extends StatelessWidget {
                       'We\'re here to help! Reach out to us through any of the following methods.',
                       style: TextStyle(
                         fontSize: 14,
-                        color: theme.colorScheme.onSurface.withValues(alpha : 0.8),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.8,
+                        ),
                       ),
                     ),
                   ),
@@ -79,7 +80,7 @@ class ContactUsScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: theme.dividerColor.withValues(alpha : 0.1),
+                  color: theme.dividerColor.withValues(alpha: 0.1),
                 ),
               ),
               child: Padding(
@@ -92,7 +93,7 @@ class ContactUsScreen extends StatelessWidget {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha : 0.1),
+                        color: Colors.green.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -119,7 +120,9 @@ class ContactUsScreen extends StatelessWidget {
                       "info@wahdabank.com",
                       style: TextStyle(
                         fontSize: 16,
-                        color: theme.colorScheme.onSurface.withValues(alpha : 0.7),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.7,
+                        ),
                       ),
                     ),
 
@@ -133,7 +136,7 @@ class ContactUsScreen extends StatelessWidget {
                         label: const Text("Send Email"),
                         onPressed: () {
                           Get.to(
-                                () => const RedesignedComposeScreen(),
+                            () => const RedesignedComposeScreen(),
                             arguments: {'support': 'info@wahdabank.com'},
                           );
                         },
@@ -160,7 +163,7 @@ class ContactUsScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: theme.dividerColor.withValues(alpha : 0.1),
+                  color: theme.dividerColor.withValues(alpha: 0.1),
                 ),
               ),
               child: Padding(
@@ -173,7 +176,7 @@ class ContactUsScreen extends StatelessWidget {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha : 0.1),
+                        color: Colors.blue.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -200,7 +203,9 @@ class ContactUsScreen extends StatelessWidget {
                       "+218 61 2224256",
                       style: TextStyle(
                         fontSize: 16,
-                        color: theme.colorScheme.onSurface.withValues(alpha : 0.7),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.7,
+                        ),
                       ),
                     ),
 
@@ -238,7 +243,7 @@ class ContactUsScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: theme.dividerColor.withValues(alpha : 0.1),
+                  color: theme.dividerColor.withValues(alpha: 0.1),
                 ),
               ),
               child: Padding(
@@ -251,7 +256,7 @@ class ContactUsScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha : 0.1),
+                            color: Colors.orange.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
@@ -272,7 +277,10 @@ class ContactUsScreen extends StatelessWidget {
 
                     const SizedBox(height: 16),
 
-                    _buildOfficeHoursRow("Sunday - Thursday", "8:00 AM - 3:00 PM"),
+                    _buildOfficeHoursRow(
+                      "Sunday - Thursday",
+                      "8:00 AM - 3:00 PM",
+                    ),
                     _buildOfficeHoursRow("Friday", "Closed"),
                     _buildOfficeHoursRow("Saturday", "9:00 AM - 1:00 PM"),
                   ],
@@ -287,7 +295,7 @@ class ContactUsScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
                 side: BorderSide(
-                  color: theme.dividerColor.withValues(alpha : 0.1),
+                  color: theme.dividerColor.withValues(alpha: 0.1),
                 ),
               ),
               child: Padding(
@@ -300,7 +308,7 @@ class ContactUsScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.purple.withValues(alpha : 0.1),
+                            color: Colors.purple.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
@@ -325,7 +333,9 @@ class ContactUsScreen extends StatelessWidget {
                       "Wahda Bank Headquarters\nTripoli, Libya",
                       style: TextStyle(
                         fontSize: 16,
-                        color: theme.colorScheme.onSurface.withValues(alpha : 0.7),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.7,
+                        ),
                         height: 1.5,
                       ),
                     ),
@@ -371,10 +381,7 @@ class ContactUsScreen extends StatelessWidget {
         children: [
           Text(
             day,
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-              fontSize: 16,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
           ),
           Text(
             hours,

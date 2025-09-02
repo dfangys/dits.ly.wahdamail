@@ -50,7 +50,9 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // External images warning
-          if (widget.blockExternalImages && _hasExternalImages() && !_showImages)
+          if (widget.blockExternalImages &&
+              _hasExternalImages() &&
+              !_showImages)
             _buildExternalImagesWarning(),
 
           // Message content
@@ -64,8 +66,7 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
             ),
 
           // Error message
-          if (_errorMessage != null)
-            _buildErrorMessage(),
+          if (_errorMessage != null) _buildErrorMessage(),
         ],
       );
     } catch (e) {
@@ -80,10 +81,14 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
     try {
       if (kDebugMode) {
         debugPrint('DEBUG: Building message content');
-        debugPrint('DEBUG: Message parts count: ${widget.mimeMessage.parts?.length ?? 0}');
-        debugPrint('DEBUG: Message content type: ${widget.mimeMessage.mediaType}');
+        debugPrint(
+          'DEBUG: Message parts count: ${widget.mimeMessage.parts?.length ?? 0}',
+        );
+        debugPrint(
+          'DEBUG: Message content type: ${widget.mimeMessage.mediaType}',
+        );
       }
-      
+
       // Enhanced MimeMessageViewer with proper configuration
       return MimeMessageViewer(
         mimeMessage: widget.mimeMessage,
@@ -115,9 +120,9 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
           const SizedBox(height: 16),
           Text(
             widget.emptyMessageText,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppTheme.textSecondaryColor,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: AppTheme.textSecondaryColor),
             textAlign: TextAlign.center,
           ),
         ],
@@ -156,10 +161,7 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
                 const SizedBox(height: 4),
                 Text(
                   'This message contains external images that have been blocked for your privacy.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.orange.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.orange.shade600),
                 ),
               ],
             ),
@@ -180,17 +182,13 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
 
   Widget _buildErrorMessage({String? error}) {
     final errorText = error ?? _errorMessage ?? 'Unknown error occurred';
-    
+
     return Container(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.error_outline,
-            size: 48,
-            color: AppTheme.errorColor,
-          ),
+          const Icon(Icons.error_outline, size: 48, color: AppTheme.errorColor),
           const SizedBox(height: 16),
           Text(
             'Error loading message content',
@@ -264,8 +262,8 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
       if (htmlText == null) return false;
 
       // Simple check for external images
-      return htmlText.contains('<img') && 
-             (htmlText.contains('http://') || htmlText.contains('https://'));
+      return htmlText.contains('<img') &&
+          (htmlText.contains('http://') || htmlText.contains('https://'));
     } catch (e) {
       if (kDebugMode) {
         print('Error checking external images: $e');
@@ -274,4 +272,3 @@ class _EnhancedMessageViewerState extends State<EnhancedMessageViewer> {
     }
   }
 }
-
