@@ -1,28 +1,28 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
+import 'package:wahda_bank/shared/error/errors.dart';
 
 void main() {
   group('IMAP gateway error mapping', () {
     test('maps auth errors', () {
       final e = Exception('Authentication failed');
       final ge = mapImapError(e);
-      expect(ge.code, 'auth_error');
+      expect(ge, isA<AuthError>());
     });
 
     test('maps timeouts', () {
       final ge = mapImapError(Exception('Request timeout'));
-      expect(ge.code, 'timeout');
+      expect(ge, isA<TransientNetworkError>());
     });
 
     test('maps rate limit', () {
       final ge = mapImapError(Exception('Maximum number of connections from user+IP exceeded'));
-      expect(ge.code, 'rate_limited');
+      expect(ge, isA<RateLimitError>());
     });
 
-    test('maps network default', () {
+    test('maps default unknown to transient network', () {
       final ge = mapImapError(Exception('Some other error'));
-      expect(ge.code, 'network_error');
+      expect(ge, isA<TransientNetworkError>());
     });
   });
 }
-

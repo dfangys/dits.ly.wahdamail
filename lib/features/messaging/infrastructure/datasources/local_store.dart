@@ -1,6 +1,11 @@
 import 'package:wahda_bank/features/messaging/infrastructure/dtos/message_row.dart';
 
 /// Abstraction over local persistence for message metadata
+/// Indexes required (for persistent store in future phases):
+/// - date DESC
+/// - (from, subject)
+/// - (flags, date)
+/// Bodies/attachments are stored separately from metadata (P3).
 abstract class LocalStore {
   Future<void> upsertHeaders(List<MessageRow> rows);
   Future<List<MessageRow>> getHeaders({required String folderId, int limit = 50, int offset = 0});

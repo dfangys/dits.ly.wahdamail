@@ -4,7 +4,7 @@ import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as do
 import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as dom;
 
 /// Legacy adapter facade used when DDD messaging is disabled.
-/// P2 scope: return empty result; actual legacy behavior remains in legacy services.
+/// unused in P2; kept for DI symmetry. Legacy UI continues to call MailService directly.
 @LazySingleton()
 class LegacyMessagingFacade implements MessagingFacade {
   @override

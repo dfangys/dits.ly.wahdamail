@@ -44,19 +44,20 @@ abstract class ImapGateway {
   });
 }
 
-/// Simple error mapping for IMAP operations
-GatewayException mapImapError(Object e) {
+/// Simple error mapping for IMAP operations to shared error taxonomy.
+AppError mapImapError(Object e) {
   final msg = e.toString().toLowerCase();
   if (msg.contains('authentication') || msg.contains('unauth')) {
-    return GatewayException('auth_error', e.toString());
+    return AuthError(e.toString(), e);
   }
   if (msg.contains('timeout')) {
-    return GatewayException('timeout', e.toString());
+    return TransientNetworkError(e.toString(), e);
   }
-  if (msg.contains('rate') || msg.contains('maximum number of connections')) {
-    return GatewayException('rate_limited', e.toString());
+  if (msg.contains('maximum number of connections') || msg.contains('rate')) {
+    return RateLimitError(e.toString(), e);
   }
-  return GatewayException('network_error', e.toString());
+  // Default to transient network for unknown IMAP errors during fetch
+  return TransientNetworkError(e.toString(), e);
 }
 
 /// Enough Mail-backed implementation (not used in tests). Not wired unless flag is ON.

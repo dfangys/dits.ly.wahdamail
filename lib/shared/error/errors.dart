@@ -1,8 +1,36 @@
-/// Shared error taxonomy (minimal for infra gateways)
-class GatewayException implements Exception {
-  final String code; // e.g., network_error, auth_error, rate_limited
+/// Shared error taxonomy for cross-layer use (infra + domain mapping).
+/// Keep free of Flutter imports.
+sealed class AppError implements Exception {
   final String message;
-  GatewayException(this.code, this.message);
+  final Object? cause;
+  const AppError(this.message, [this.cause]);
   @override
-  String toString() => 'GatewayException($code): $message';
+  String toString() => '${Object.hash(runtimeType, message)}: $message';
+}
+
+class AuthError extends AppError {
+  const AuthError(String message, [Object? cause]) : super(message, cause);
+}
+
+class TransientNetworkError extends AppError {
+  const TransientNetworkError(String message, [Object? cause])
+      : super(message, cause);
+}
+
+class PermanentProtocolError extends AppError {
+  const PermanentProtocolError(String message, [Object? cause])
+      : super(message, cause);
+}
+
+class RateLimitError extends AppError {
+  const RateLimitError(String message, [Object? cause]) : super(message, cause);
+}
+
+class StorageCorruptionError extends AppError {
+  const StorageCorruptionError(String message, [Object? cause])
+      : super(message, cause);
+}
+
+class RenderingError extends AppError {
+  const RenderingError(String message, [Object? cause]) : super(message, cause);
 }
