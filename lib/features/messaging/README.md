@@ -1,41 +1,35 @@
-# Messaging Feature (P2)
+# Messaging Feature (P3)
 
-P2 adds the first infrastructure slice for headers-only messaging with a header-first strategy. No user-visible changes. All DDD flags remain OFF by default and legacy services remain active.
+P3 adds bodies and attachments with lazy load + cache. No user-visible changes. All DDD flags remain OFF by default; legacy services continue to power UI.
 
-Scope (P2)
-- Gateways (headers-only): IMAP adapter over enough_mail, SMTP stub
-- Local store: metadata-only DTOs and an in-memory DAO (indexes defined for future SQLite/Isar)
-- Mappers: DTO ⇄ domain
-- Repository: IMAP message repository (headers path)
-- Facade: DddMailServiceImpl behind a feature flag
-- DI: Chooses legacy unless ddd.messaging.enabled == true (flag remains false by default)
-- Tests: adapter mapping, DTO/domain round-trip, repository behavior (in-memory store + mocked gateway)
+Scope (P3)
+- Gateways (IMAP only): fetchBody, listAttachments, downloadAttachment; map errors to taxonomy; no SDK types leak.
+- Local store: BodyRow and AttachmentRow + blob cache APIs; bodies and attachments stored separately from headers.
+- Repository: cache-first for body; list attachments and idempotent download (no re-download if cached).
+- Mappers: BodyDTO ⇄ BodyRow ⇄ domain BodyContent; AttachmentDTO ⇄ AttachmentRow ⇄ domain Attachment.
+- DI: existing bindings extended for store/repo (flags remain false).
+- Tests: adapter error mapping, repository cache behavior, mappers.
 
-Data flow (P2)
-Gateway (IMAP headers) → Repository (header-first) → Local Store (persist metadata) → Domain models returned
+Data flow (P3)
+Gateway (body/attachments) → Repository (lazy fetch/caching) → Store (persist body/attachments) → Domain models
 
-Files
+Files (added/updated in P3)
 - domain
-  - entities: Message, Folder, (Flags embedded)
-  - repositories (interfaces): MessageRepository
-- application
-  - facade: MessagingFacade (fetchInbox)
+  - entities: BodyContent, Attachment
+  - repositories: MessageRepository (listAttachments, downloadAttachment)
 - infrastructure
-  - gateways: infrastructure/gateways/imap_gateway.dart, smtp_gateway.dart
-  - datasource: infrastructure/datasources/local_store.dart (InMemoryLocalStore)
-  - dtos: infrastructure/dtos/message_row.dart (metadata only)
-  - mappers: infrastructure/mappers/message_mapper.dart
-  - repo: infrastructure/repositories_impl/imap_message_repository.dart
-  - facade: infrastructure/facade/ddd_mail_service_impl.dart, infrastructure/facade/legacy_messaging_facade.dart
-  - di: infrastructure/di/messaging_module.dart (flag-based facade selection)
+  - gateways: infrastructure/gateways/imap_gateway.dart (+ BodyDTO, AttachmentDTO)
+  - datasource: infrastructure/datasources/local_store.dart (+ Body/Attachment APIs)
+  - dtos: infrastructure/dtos/body_row.dart, infrastructure/dtos/attachment_row.dart
+  - mappers: infrastructure/mappers/message_mapper.dart (+ body/attachment mappers)
+  - repo: infrastructure/repositories_impl/imap_message_repository.dart (+ caching paths)
 
-Indexes (for future persistent store)
-- date DESC
-- (from, subject)
-- (flags, date)
+Cache policy (doc-only in P3)
+- Bodies/attachments kept in a simple LRU cache with a global cap (e.g., 20 MB)
+- Idempotent attachment download: re-requests are no-ops if cached
 
 Flags
-- ddd.messaging.enabled: false (do not flip in P2)
+- ddd.messaging.enabled: false (do not flip in P3)
 
 Notes
 - No Flutter or external SDK imports in domain and application layers.
