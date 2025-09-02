@@ -168,11 +168,8 @@ class DddUiWiring {
       }
 
       controller.searchMessages = list;
-      if (list.isEmpty) {
-        controller.change(null, status: RxStatus.empty());
-      } else {
-        controller.change(list, status: RxStatus.success());
-      }
+      // Intentionally do not call controller.change here in P12.2.
+      // The SearchViewModel will own UI state and apply change() after copying results.
       // Intentionally skip setting searchResults to ensure pagination is disabled in DDD path (P6 scope).
       return true;
     } catch (e) {

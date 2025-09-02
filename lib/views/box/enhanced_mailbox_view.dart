@@ -10,6 +10,8 @@ import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
+import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
 
 /// Enhanced Mailbox View with proper first-time initialization
 /// Best practices implementation for mailbox email loading and error handling
@@ -34,6 +36,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
   // Controllers
   late final MailBoxController controller;
   late final SelectionController selectionController;
+  late final MailboxViewModel mailboxVm;
 
   // Scroll and loading management
   final ScrollController _scrollController = ScrollController();
@@ -77,11 +80,13 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
     try {
       controller = Get.find<MailBoxController>();
       selectionController = Get.find<SelectionController>();
+      mailboxVm = Get.find<MailboxViewModel>();
     } catch (e) {
       debugPrint('❌ Error initializing controllers: $e');
       // Fallback: Put controllers if not found
       controller = Get.put(MailBoxController());
       selectionController = Get.put(SelectionController());
+      mailboxVm = Get.put<MailboxViewModel>(getIt<MailboxViewModel>());
     }
   }
 
@@ -711,7 +716,11 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
           try {
             // Use safe navigation that routes drafts to Compose and others to ShowMessage
             final mbc = Get.find<MailBoxController>();
-            mbc.safeNavigateToMessage(message, widget.mailbox);
+            mailboxVm.openMessage(
+              controller: mbc,
+              mailbox: widget.mailbox,
+              message: message,
+            );
           } catch (_) {
             // Fallbacks in case controller lookup or navigation fails
             try {

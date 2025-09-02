@@ -50,6 +50,7 @@ class _LocalDbLoadResult {
   });
 }
 
+@Deprecated('P12.2: Use MailboxViewModel for orchestration; controller remains a thin pass-through. TODO(P12.3) remove')
 class MailBoxController extends GetxController {
   // Retry guard for initial mailbox loading to handle transient connection limits on hot restart
   int _loadMailboxesRetries = 0;

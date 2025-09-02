@@ -7,6 +7,7 @@ import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
 
+@Deprecated('P12.2: Use SearchViewModel for UI state; controller remains entry-telemetry pass-through. TODO(P12.3) remove')
 class MailSearchController extends GetxController with StateMixin {
   final searchController = TextEditingController();
   final searchFocusNode = FocusNode();

@@ -9,6 +9,8 @@ import 'package:wahda_bank/widgets/bottomnavs/selection_botttom_nav.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/box/enhanced_mailbox_view.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
+import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
 
 class MailBoxView extends GetView<MailBoxController> {
   const MailBoxView({
@@ -24,6 +26,9 @@ class MailBoxView extends GetView<MailBoxController> {
     final selectionController = Get.find<SelectionController>();
     final theme = Theme.of(context);
     final isDarkMode = theme.brightness == Brightness.dark;
+    // P12.2: Obtain MailboxViewModel via DI and kick off prefetch orchestration (no UI change)
+    final mailboxVm = Get.put<MailboxViewModel>(getIt<MailboxViewModel>());
+    mailboxVm.prefetchOnMailboxOpen(folderId: mailbox.path);
 
     return PopScope(
       onPopInvokedWithResult:
@@ -559,18 +564,19 @@ class OptimizedDateGroup extends StatelessWidget {
               message: message,
               mailBox: mailBox,
               onTap: () {
-                // CRITICAL FIX: Use safe navigation method with validation
+                // P12.2: Delegate open orchestration to MailboxViewModel (central gating, no UI change)
+                MailboxViewModel vm;
+                try {
+                  vm = Get.find<MailboxViewModel>();
+                } catch (_) {
+                  vm = Get.put<MailboxViewModel>(getIt<MailboxViewModel>());
+                }
                 final mailboxController = Get.find<MailBoxController>();
-
-                debugPrint('=== MAILBOX VIEW EMAIL TAP DEBUG ===');
-                debugPrint('MailBoxView.dart onTap called!');
-                debugPrint('Subject: ${message.decodeSubject()}');
-                debugPrint('Current Mailbox: ${mailBox.name}');
-                debugPrint('Using safe navigation method');
-                debugPrint('====================================');
-
-                // Use the new safe navigation method from the controller
-                mailboxController.safeNavigateToMessage(message, mailBox);
+                vm.openMessage(
+                  controller: mailboxController,
+                  mailbox: mailBox,
+                  message: message,
+                );
               },
             );
           },
