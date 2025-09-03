@@ -1,3 +1,4 @@
+import 'dart:io' as io;
 import 'package:get_it/get_it.dart';
 import 'package:injectable/injectable.dart';
 import 'injection.config.dart';
@@ -10,6 +11,8 @@ import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/features/sync/infrastructure/sync_scheduler.dart';
 import 'package:wahda_bank/shared/flags/remote_flags.dart';
 import 'package:wahda_bank/shared/flags/cohort_service.dart';
+import 'package:wahda_bank/features/sync/infrastructure/bg_fetch_ios.dart';
+import 'package:wahda_bank/features/sync/infrastructure/connectivity_monitor.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -50,4 +53,14 @@ Future<void> configureDependencies({String env = Environment.dev}) async {
       // Do not crash DI on sync start failure in shadow mode.
     }
   }
+
+  // P14: iOS background fetch fallback + connectivity monitor (flags OFF by default)
+  try {
+    if (io.Platform.isIOS && ff.dddIosBgFetchEnabled && !ff.dddKillSwitchEnabled) {
+      // Start connectivity monitor (debounced single refresh on regain)
+      getIt.get<ConnectivityMonitor>().start();
+      // Schedule BG fetch (idempotent)
+      getIt.get<BgFetchIos>().start();
+    }
+  } catch (_) {}
 }
