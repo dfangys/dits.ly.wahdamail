@@ -14,6 +14,10 @@ class MessageRow {
   final bool deleted;
   final bool hasAttachments;
   final String? preview;
+  // Optional RFC 5322 headers for threading
+  final String? messageIdHeader;
+  final String? inReplyTo;
+  final List<String>? references;
 
   const MessageRow({
     required this.id,
@@ -30,5 +34,8 @@ class MessageRow {
     required this.deleted,
     required this.hasAttachments,
     this.preview,
+    this.messageIdHeader,
+    this.inReplyTo,
+    this.references,
   });
 }

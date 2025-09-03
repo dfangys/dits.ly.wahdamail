@@ -40,10 +40,20 @@ import '../../features/messaging/infrastructure/facade/ddd_mail_service_impl.dar
     as _i1039;
 import '../../features/messaging/infrastructure/facade/legacy_messaging_facade.dart'
     as _i61;
+import '../../features/messaging/infrastructure/flags/flag_conflict_resolver.dart'
+    as _i584;
 import '../../features/messaging/infrastructure/gateways/imap_gateway.dart'
     as _i569;
 import '../../features/messaging/infrastructure/gateways/smtp_gateway.dart'
     as _i1033;
+import '../../features/messaging/infrastructure/mime/mime_decoder.dart'
+    as _i1020;
+import '../../features/messaging/infrastructure/special_use_mapper.dart'
+    as _i334;
+import '../../features/messaging/infrastructure/sync/uid_window_sync.dart'
+    as _i118;
+import '../../features/messaging/infrastructure/threading/thread_builder.dart'
+    as _i800;
 import '../../features/messaging/presentation/compose_view_model.dart' as _i390;
 import '../../features/messaging/presentation/mailbox_view_model.dart' as _i77;
 import '../../features/notifications/domain/ports/notification_port.dart'
@@ -102,6 +112,12 @@ _i174.GetIt init(
   gh.lazySingleton<_i450.CircuitBreaker>(
       () => syncModule.provideCircuitBreaker());
   gh.lazySingleton<_i802.LocalStore>(() => messagingModule.provideLocalStore());
+  gh.lazySingleton<_i334.SpecialUseMapper>(
+      () => messagingModule.provideSpecialUseMapper());
+  gh.lazySingleton<_i1020.MimeDecoder>(
+      () => messagingModule.provideMimeDecoder());
+  gh.lazySingleton<_i584.FlagConflictResolver>(
+      () => messagingModule.provideFlagConflictResolver());
   gh.lazySingleton<_i569.ImapGateway>(
       () => messagingModule.provideImapGateway());
   gh.lazySingleton<_i543.OutboxDao>(() => messagingModule.provideOutboxDao());
@@ -144,6 +160,11 @@ _i174.GetIt init(
             gh<_i569.ImapGateway>(),
             gh<_i802.LocalStore>(),
           ));
+  gh.lazySingleton<_i118.UidWindowSync>(
+      () => messagingModule.provideUidWindowSync(
+            gh<_i569.ImapGateway>(),
+            gh<_i802.LocalStore>(),
+          ));
   gh.lazySingleton<_i749.RestGateway>(
       () => enterpriseApiModule.provideRestGateway(
             gh<_i749.MailsysApiClient>(),
@@ -170,6 +191,8 @@ _i174.GetIt init(
             gh<_i906.CidResolver>(),
             gh<_i992.PreviewCache>(),
           ));
+  gh.lazySingleton<_i800.ThreadBuilder>(
+      () => messagingModule.provideThreadBuilder(gh<_i802.LocalStore>()));
   gh.lazySingleton<_i252.NotificationsCoordinator>(() =>
       notificationsModule.provideCoordinator(gh<_i1015.NotificationPort>()));
   gh.lazySingleton<_i723.AccountsRepository>(

@@ -19,6 +19,11 @@ import 'package:wahda_bank/features/messaging/infrastructure/repositories_impl/d
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/smtp_gateway.dart';
 import 'package:wahda_bank/features/messaging/domain/repositories/outbox_repository.dart';
 import 'package:wahda_bank/features/messaging/domain/repositories/draft_repository.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/threading/thread_builder.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/special_use_mapper.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/mime/mime_decoder.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/sync/uid_window_sync.dart';
+import 'package:wahda_bank/features/messaging/infrastructure/flags/flag_conflict_resolver.dart';
 
 @module
 abstract class MessagingModule {
@@ -31,6 +36,22 @@ abstract class MessagingModule {
 
   @LazySingleton()
   LocalStore provideLocalStore() => InMemoryLocalStore();
+
+  // P15 services
+  @LazySingleton()
+  ThreadBuilder provideThreadBuilder(LocalStore store) => ThreadBuilder(store);
+
+  @LazySingleton()
+  SpecialUseMapper provideSpecialUseMapper() => SpecialUseMapper();
+
+  @LazySingleton()
+  MimeDecoder provideMimeDecoder() => MimeDecoder();
+
+  @LazySingleton()
+  UidWindowSync provideUidWindowSync(ImapGateway gateway, LocalStore store) => UidWindowSync(gateway: gateway, store: store);
+
+  @LazySingleton()
+  FlagConflictResolver provideFlagConflictResolver() => FlagConflictResolver();
 
   @LazySingleton()
   ImapGateway provideImapGateway() {

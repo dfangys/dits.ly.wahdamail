@@ -94,9 +94,10 @@ All gateways map errors to sealed classes in `shared/error/errors.dart`:
 
 ### Messaging
 
-* **Domain**: `Message`, `Folder`, `Thread`, flags & addresses VOs; repo interfaces.
+* **Domain**: `Message`, `Folder`, ThreadKey; repo interfaces.
 * **Infra**: IMAP gateway (headers/body/attachments), local store (metadata, bodies, attachments), mapping, repository impl.
 * **Search**: local‑first; remote stub optional; dedupe + sort by date desc; limit.
+* **P15**: ThreadBuilder (RFC 5322) builds threads from headers with subject fallback; SpecialUseMapper maps RFC 6154 flags (tenant overrides via DI); MimeDecoder improves transfer/charset decoding (no network); UidWindowSync computes moving UID windows and persists highest‑seen; FlagConflictResolver enforces last‑writer‑wins with server authority and retry on STORE conflicts. Telemetry ops added at these boundaries.
 
 ### Sync
 

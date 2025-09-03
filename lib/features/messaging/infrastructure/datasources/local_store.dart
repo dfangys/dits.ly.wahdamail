@@ -15,6 +15,10 @@ abstract class LocalStore {
   Future<List<MessageRow>> getHeaders({required String folderId, int limit = 50, int offset = 0});
   Future<MessageRow?> getHeaderById({required String messageUid});
 
+  // UID tracking per folder (highest seen for windowed sync)
+  Future<void> setHighestSeenUid({required String folderId, required int uid});
+  Future<int?> getHighestSeenUid({required String folderId});
+
   // Search metadata (subject/from/to/flags/date) and optionally cached body
   Future<List<MessageRow>> searchMetadata({
     String? text,
@@ -47,6 +51,7 @@ class InMemoryLocalStore implements LocalStore {
   final Map<String, BodyRow> _bodiesByMessageUid = {};
   final Map<String, List<AttachmentRow>> _attachmentsByMessageUid = {};
   final Map<String, List<int>> _attachmentBlobs = {}; // key: msgUid:partId
+  final Map<String, int> _highestUidByFolder = {};
 
   @override
   Future<List<MessageRow>> getHeaders({required String folderId, int limit = 50, int offset = 0}) async {
@@ -181,5 +186,18 @@ class InMemoryLocalStore implements LocalStore {
       if (idx >= 0) return list[idx];
     }
     return null;
+  }
+
+  @override
+  Future<void> setHighestSeenUid({required String folderId, required int uid}) async {
+    final prev = _highestUidByFolder[folderId];
+    if (prev == null || uid > prev) {
+      _highestUidByFolder[folderId] = uid;
+    }
+  }
+
+  @override
+  Future<int?> getHighestSeenUid({required String folderId}) async {
+    return _highestUidByFolder[folderId];
   }
 }
