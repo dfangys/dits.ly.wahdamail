@@ -21,7 +21,9 @@ class Telemetry {
   }
 
   static void event(String name, {Map<String, Object?> props = const {}}) {
-    final merged = {..._baseProps(), ..._redactProps(props)};
+    // Normalize common fields for rollups while preserving provided props
+    final normalized = _normalizeProps(name, props);
+    final merged = {..._baseProps(), ..._redactProps(normalized)};
 
     // Update rollups (best-effort)
     try {
@@ -57,7 +59,7 @@ class Telemetry {
       return f();
     } finally {
       sw.stop();
-      event(name, props: {...props, 'ms': sw.elapsedMilliseconds});
+      event(name, props: {...props, 'latency_ms': sw.elapsedMilliseconds, 'ms': sw.elapsedMilliseconds});
     }
   }
 
@@ -71,7 +73,7 @@ class Telemetry {
       return await f();
     } finally {
       sw.stop();
-      event(name, props: {...props, 'ms': sw.elapsedMilliseconds});
+      event(name, props: {...props, 'latency_ms': sw.elapsedMilliseconds, 'ms': sw.elapsedMilliseconds});
     }
   }
 
@@ -93,6 +95,29 @@ class Telemetry {
     return props;
   }
 
+  static Map<String, Object?> _normalizeProps(String name, Map<String, Object?> props) {
+    final out = Map<String, Object?>.from(props);
+    // op: prefer provided, else use name
+    out['op'] = (props['op'] ?? name).toString();
+    // latency_ms: prefer provided keys in order
+    if (props.containsKey('latency_ms')) {
+      out['latency_ms'] = props['latency_ms'];
+    } else if (props.containsKey('lat_ms')) {
+      out['latency_ms'] = props['lat_ms'];
+    } else if (props.containsKey('ms')) {
+      out['latency_ms'] = props['ms'];
+    }
+    // err_type: alias error_class
+    if (props.containsKey('error_class') && !props.containsKey('err_type')) {
+      out['err_type'] = props['error_class'];
+    }
+    // ok: if not provided, infer from absence of err_type/err_code for known ops (best-effort)
+    if (!props.containsKey('ok')) {
+      out['ok'] = !(out.containsKey('err_type') || out.containsKey('err_code'));
+    }
+    return out;
+  }
+
   // Expose a snapshot of rollups for debugging/QA
   static Map<String, Object?> rollupSnapshot() {
     final out = <String, Object?>{};
@@ -101,7 +126,7 @@ class Telemetry {
     final searchRate = totalSearch == 0 ? 0.0 : (_searchSuccess / totalSearch);
     out['search_success_rate'] = searchRate;
 
-    // Repository/global error rate (events with error_class)
+    // Repository/global error rate (events with err_type)
     int totalWithErrors = 0;
     int totalEvents = 0;
     _stats.forEach((op, s) {
@@ -126,8 +151,8 @@ class Telemetry {
     if (name == 'search_failure') _searchFailure++;
 
     final op = (props['op'] ?? name).toString();
-    final lat = (props['lat_ms'] ?? props['ms']);
-    final err = props['error_class'];
+    final lat = (props['latency_ms'] ?? props['lat_ms'] ?? props['ms']);
+    final err = props['err_type'] ?? props['error_class'];
     final s = _stats.putIfAbsent(op, () => _OpStats(maxSamples: 500));
     s.count += 1;
     if (err != null) s.errors += 1;
