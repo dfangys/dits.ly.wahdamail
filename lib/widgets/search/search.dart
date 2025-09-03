@@ -50,7 +50,7 @@ class SearchView extends StatelessWidget {
                 Container(
                   width: 2,
                   height: 20,
-                  color: Colors.grey.shade400,
+                  color: Theme.of(context).dividerColor,
                   margin: const EdgeInsets.symmetric(horizontal: 5),
                 ),
                 GestureDetector(
@@ -60,9 +60,9 @@ class SearchView extends StatelessWidget {
                       requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
                     );
                   },
-                  child: const Icon(
+                  child: Icon(
                     Icons.search,
-                    color: Colors.black,
+                    color: Theme.of(context).colorScheme.onSurface,
                     size: 20,
                   ),
                 ),
