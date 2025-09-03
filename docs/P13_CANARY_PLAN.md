@@ -126,6 +126,9 @@ Risks
 - Unexpected IMAP load during prefetch: protected by 5% cohort, backoff/jitter remains active.
 - Legacy controller codepaths still present (deprecated) until P12.4; ensure they do not fork behavior.
 
+Related
+- See [P16 — Legacy Decommission & Rollout Plan](./LEGACY_DECOMMISSION.md) for the final decommission checklist and guardrails.
+
 Exit Criteria for P13 → P14
 - p95 latencies within budgets for 3 consecutive days on canary cohort
 - search and prefetch error rates within 1.5x legacy baselines

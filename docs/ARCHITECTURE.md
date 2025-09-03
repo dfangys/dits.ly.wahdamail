@@ -207,6 +207,7 @@ sequenceDiagram
 
 * Remote‑flagged staged rollout (planned): pilot 5% → 25% → 100%; monitor error rate <2% and budgets.
 * **Kill switch**: single remote flag `ddd.kill_switch.enabled` routes everything to **legacy**; persists across restarts.
+* See also: [P16 — Legacy Decommission & Rollout Plan](./LEGACY_DECOMMISSION.md).
 
 ## Legacy → DDD Mapping
 
