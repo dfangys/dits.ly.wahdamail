@@ -37,6 +37,7 @@ class FeatureFlags {
   static const _kDddSearchEnabled = 'ddd.search.enabled';
   static const _kDddNotificationsEnabled = 'ddd.notifications.enabled';
   static const _kDddEnterpriseApiEnabled = 'ddd.enterprise_api.enabled';
+  static const _kDddIosBgFetchEnabled = 'ddd.ios.bg_fetch.enabled';
   static const _kDddKillSwitchLegacy = 'ddd.kill_switch_legacy';
   static const _kDddKillSwitchEnabled = 'ddd.kill_switch.enabled';
 
@@ -122,6 +123,14 @@ class FeatureFlags {
     final remote = rf?.getBool(_kDddEnterpriseApiEnabled);
     if (remote != null) return remote;
     return _box.read(_kDddEnterpriseApiEnabled) ?? false;
+  }
+
+  bool get dddIosBgFetchEnabled {
+    if (dddKillSwitchEnabled) return false;
+    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final remote = rf?.getBool(_kDddIosBgFetchEnabled);
+    if (remote != null) return remote;
+    return _box.read(_kDddIosBgFetchEnabled) ?? false;
   }
 
   bool get dddKillSwitchLegacy => _box.read(_kDddKillSwitchLegacy) ?? false;

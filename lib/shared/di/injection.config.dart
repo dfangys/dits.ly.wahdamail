@@ -71,6 +71,9 @@ import '../../features/security/infrastructure/di/security_module.dart'
     as _i246;
 import '../../features/settings/domain/settings_repository.dart' as _i915;
 import '../../features/sync/application/event_bus.dart' as _i52;
+import '../../features/sync/infrastructure/bg_fetch_ios.dart' as _i1062;
+import '../../features/sync/infrastructure/circuit_breaker.dart' as _i450;
+import '../../features/sync/infrastructure/connectivity_monitor.dart' as _i731;
 import '../../features/sync/infrastructure/di/sync_module.dart' as _i958;
 import '../../features/sync/infrastructure/sync_scheduler.dart' as _i505;
 import '../../features/sync/infrastructure/sync_service.dart' as _i706;
@@ -96,6 +99,8 @@ _i174.GetIt init(
   final notificationsModule = _$NotificationsModule();
   final renderingModule = _$RenderingModule();
   gh.lazySingleton<_i52.SyncEventBus>(() => syncModule.provideSyncEventBus());
+  gh.lazySingleton<_i450.CircuitBreaker>(
+      () => syncModule.provideCircuitBreaker());
   gh.lazySingleton<_i802.LocalStore>(() => messagingModule.provideLocalStore());
   gh.lazySingleton<_i569.ImapGateway>(
       () => messagingModule.provideImapGateway());
@@ -144,6 +149,16 @@ _i174.GetIt init(
             gh<_i749.MailsysApiClient>(),
             gh<_i749.BackoffStrategy>(),
           ));
+  gh.lazySingleton<_i731.ConnectivityMonitor>(
+      () => syncModule.provideConnectivityMonitor(
+            gh<_i898.MessageRepository>(),
+            gh<_i450.CircuitBreaker>(),
+          ));
+  gh.lazySingleton<_i1062.BgFetchIos>(() => syncModule.provideBgFetchIos(
+        gh<_i898.MessageRepository>(),
+        gh<_i450.CircuitBreaker>(),
+        gh<_i52.SyncEventBus>(),
+      ));
   gh.lazySingleton<_i443.DraftRepository>(
       () => messagingModule.provideDraftRepository(gh<_i232.DraftDao>()));
   gh.lazySingleton<_i1039.DddMailServiceImpl>(

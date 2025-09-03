@@ -192,7 +192,7 @@ sequenceDiagram
 
 ## Platform Considerations
 
-* **iOS background**: IMAP IDLE may be throttled. Use BGAppRefresh fallback and coalesce notifications.
+* **iOS background** (P14): IMAP IDLE may be throttled; we schedule BGAppRefresh via Workmanager and perform header-first refresh with a 3–5s coalescing window. A CircuitBreaker guards flaky networks (open→half‑open→closed) with jittered reopen. Connectivity regain resets the breaker and triggers a single debounced refresh. Kill‑switch (`ddd.kill_switch.enabled`) takes absolute precedence.
 * **Network changes**: detect connectivity, re‑establish IMAP sessions with jittered backoff and circuit breaker.
 
 ## Testing Strategy
