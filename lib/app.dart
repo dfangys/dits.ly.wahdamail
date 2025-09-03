@@ -5,9 +5,15 @@ import 'package:get_storage/get_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/view/screens/home/home.dart';
+import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/view/screens/splash.dart';
+import 'package:wahda_bank/views/authantication/screens/auth_screen.dart';
+import 'package:wahda_bank/middleware/auth_middleware.dart';
+import 'package:wahda_bank/services/security_service.dart';
+import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'app/bindings/home_binding.dart';
 import 'services/internet_service.dart';
+import 'package:wahda_bank/services/scheduled_send_service.dart';
 import 'utills/constants/language.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:intl/date_symbol_data_local.dart';
@@ -24,6 +30,18 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     InternetService.instance.init();
+
+    // Initialize SettingController first, before SecurityService
+    Get.put(SettingController());
+
+    // Then initialize SecurityService
+    _initSecurityService();
+
+    // Initialize scheduled send foreground service (checks due drafts every minute)
+    try {
+      ScheduledSendService.instance.init();
+    } catch (_) {}
+
     if (locale == 'ar') {
       timeago.setLocaleMessages('ar', timeago.ArMessages());
       timeago.setDefaultLocale(locale);
@@ -35,6 +53,10 @@ class _MyAppState extends State<MyApp> {
       initializeDateFormatting('en');
     }
     super.initState();
+  }
+
+  Future<void> _initSecurityService() async {
+    await Get.putAsync(() => SecurityService().init());
   }
 
   @override
@@ -63,7 +85,7 @@ class _MyAppState extends State<MyApp> {
           iconTheme: const IconThemeData(color: Colors.black),
           elevation: 0,
           centerTitle: true,
-          color: Colors.transparent,
+          backgroundColor: Colors.transparent,
         ),
       ),
       home: const SplashScreen(),
@@ -73,6 +95,13 @@ class _MyAppState extends State<MyApp> {
           name: '/home',
           page: () => const HomeScreen(),
           binding: HomeBinding(),
+          middlewares: [AuthMiddleware()],
+        ),
+        GetPage(name: '/auth', page: () => AuthScreen()),
+        // Mobile full-screen compose route used by ComposeModal launcher
+        GetPage(
+          name: '/compose-full',
+          page: () => const RedesignedComposeScreen(),
         ),
       ],
     );

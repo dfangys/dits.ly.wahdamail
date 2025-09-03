@@ -1,19 +1,16 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/views/compose/compose.dart';
-import 'package:wahda_bank/utills/constants/image_strings.dart';
+import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 
 class InboxBottomNavBar extends StatelessWidget {
-  const InboxBottomNavBar({
-    super.key,
-  });
+  const InboxBottomNavBar({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 60,
-      color: const Color.fromRGBO(255, 255, 255, 1).withOpacity(0.8),
+      color: const Color.fromRGBO(255, 255, 255, 1).withValues(alpha: 0.8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
@@ -22,22 +19,23 @@ class InboxBottomNavBar extends StatelessWidget {
             onTap: () {
               showCupertinoModalPopup(
                 context: context,
-                builder: (context) => CupertinoActionSheet(
-                  title: Text('are_you_u_wtd'.tr),
-                  actions: [
-                    CupertinoActionSheetAction(
-                      onPressed: () {},
-                      isDestructiveAction: true,
-                      child: Text('delete'.tr),
+                builder:
+                    (context) => CupertinoActionSheet(
+                      title: Text('are_you_u_wtd'.tr),
+                      actions: [
+                        CupertinoActionSheetAction(
+                          onPressed: () {},
+                          isDestructiveAction: true,
+                          child: Text('delete'.tr),
+                        ),
+                      ],
+                      cancelButton: CupertinoActionSheetAction(
+                        onPressed: () {
+                          Get.back();
+                        },
+                        child: Text('cancel'.tr),
+                      ),
                     ),
-                  ],
-                  cancelButton: CupertinoActionSheetAction(
-                    onPressed: () {
-                      Get.back();
-                    },
-                    child: Text('cancel'.tr),
-                  ),
-                ),
               );
             },
           ),
@@ -52,8 +50,8 @@ class InboxBottomNavBar extends StatelessWidget {
           IconButtons(
             icon: CupertinoIcons.pencil_outline,
             isImage: false,
-            onTap: () => Get.to(() => const ComposeScreen()),
-          )
+            onTap: () => Get.to(() => const RedesignedComposeScreen()),
+          ),
         ],
       ),
     );
@@ -69,7 +67,7 @@ Widget bottomButton(VoidCallback onTap, String text, IconData icon) {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         // border: Border.all(),
-        color: Colors.blue.withOpacity(0.4),
+        color: Colors.blue.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -88,8 +86,13 @@ Widget bottomButton(VoidCallback onTap, String text, IconData icon) {
 }
 
 class IconButtons extends StatelessWidget {
-  const IconButtons(
-      {super.key, this.icon, this.isImage = true, this.image, this.onTap});
+  const IconButtons({
+    super.key,
+    this.icon,
+    this.isImage = true,
+    this.image,
+    this.onTap,
+  });
   final IconData? icon;
   final bool isImage;
   final String? image;
@@ -101,15 +104,10 @@ class IconButtons extends StatelessWidget {
       onTap: onTap,
       child: SizedBox(
         height: 25,
-        child: isImage
-            ? Image.asset(
-                image!,
-                color: Colors.blue,
-              )
-            : Icon(
-                icon,
-                color: Colors.blue,
-              ),
+        child:
+            isImage
+                ? Image.asset(image!, color: Colors.blue)
+                : Icon(icon, color: Colors.blue),
       ),
     );
   }

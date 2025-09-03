@@ -1,168 +1,1282 @@
-// import 'dart:async';
+import 'dart:async';
+import 'dart:isolate';
+import 'dart:io';
+import 'dart:ui';
 
-// import 'package:enough_mail/enough_mail.dart';
-// import 'package:flutter/foundation.dart';
+import 'package:enough_mail/enough_mail.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:wahda_bank/models/sqlite_database_helper.dart';
+import 'package:wahda_bank/models/sqlite_mime_storage.dart';
+import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/services/notifications_service.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/services/realtime_update_service.dart';
+import 'package:wahda_bank/services/ui_context_service.dart';
+import 'package:workmanager/workmanager.dart';
+import 'imap_command_queue.dart';
+import 'imap_fetch_pool.dart';
+import 'connection_lease.dart';
 
-// class EmailNotificationService {
-//   // late ImapClient _client;
-//   final String _host =
-//       'wbmail.wahdabank.com.ly'; // Replace with your IMAP server
-//   final String _username = kDebugMode ? "abdullah.salemnaseeb" : "";
-//   final String _password = kDebugMode ? "Aa102030.@" : "";
+/// Service responsible for handling email notifications using IMAP IDLE with SQLite support
+///
+/// This service implements real-time notifications for incoming emails
+/// using IMAP IDLE in foreground and periodic checks in background.
+class EmailNotificationService {
+  static EmailNotificationService? _instance;
+  static EmailNotificationService get instance {
+    return _instance ??= EmailNotificationService._();
+  }
 
-//   // Future<void> connectAndListen({bool useIdle = true}) async {
-//   //   _client = ImapClient(
-//   //     isLogEnabled: true,
-//   //   );
+  EmailNotificationService._();
 
-//   //   try {
-//   //     if (kDebugMode) {
-//   //       print("🔌 Connecting to IMAP server...");
-//   //     }
+  // Notification de-duplication and update tracking
+  final Map<String, int> _notificationIdsByKey = {};
+  final Set<String> _notifiedKeys = {};
+  final Map<String, Timer> _notificationDebouncers = {};
+  final Map<String, Map<String, dynamic>> _pendingNotifications = {};
 
-//   //     // Use standard IMAP SSL port (993)
-//   //     await _client.connectToServer(_host, 993, isSecure: false).then((value) {
-//   //       if (kDebugMode) {
-//   //         print("✅ IMAP Connected successfully");
-//   //       }
-//   //     });
+  // Constants
+  static const String backgroundTaskName = 'com.wahda_bank.emailCheck';
+  static const Duration idleRefreshInterval = Duration(minutes: 28);
+  static const Duration backgroundCheckInterval = Duration(minutes: 15);
+  static const String portName = 'email_notification_port';
+  static const String lastEmailCheckTimeKey = 'last_email_check_time';
+  static const String lastSeenUidKey = 'last_seen_uid';
 
-//   //     // Or use STARTTLS if needed
-//   //     // await _client.connectToServer(_host, 45734, isSecure: false);
-//   //     // await _client.startTls();
+  // State variables
+  bool _isInitialized = false;
+  bool _isListening = false;
+  Timer? _idleRefreshTimer;
+  final List<StreamSubscription> _subscriptions = [];
+  final GetStorage _storage = GetStorage();
 
-//   //     await _client.login(_username, _password);
-//   //     if (kDebugMode) {
-//   //       print("✅ IMAP Logged in successfully");
-//   //     }
+  /// Initialize the email notification service
+  Future<void> initialize() async {
+    if (_isInitialized) return;
 
-//   //     await _client.selectInbox();
-//   //     if (kDebugMode) {
-//   //       print("📩 IMAP Inbox selected");
-//   //     }
+    await NotificationService.instance.setup();
+    await GetStorage.init();
 
-//   //     if (useIdle) {
-//   //       if (kDebugMode) {
-//   //         print("🔄 Listening for new emails (IMAP IDLE mode)...");
-//   //       }
-//   //       _client.enable(['IDLE']);
-//   //       _client.idleStart();
-//   //     }
-//   //   } catch (e) {
-//   //     if (kDebugMode) {
-//   //       print("❌ IMAP Connection Error: $e");
-//   //     }
-//   //   }
-//   // }
+    // Initialize SQLite database
+    await SQLiteDatabaseHelper.instance.database;
 
-//   // void disconnect() {
-//   //   _client.logout();
-//   //   if (kDebugMode) {
-//   //     print("🔌 Disconnected from IMAP server");
-//   //   }
-//   // }
+    // Register port for background to UI communication
+    final receivePort = ReceivePort();
+    IsolateNameServer.registerPortWithName(receivePort.sendPort, portName);
 
-//   Future<void> imapListener() async {
-//     final client = ImapClient(isLogEnabled: false);
-//     try {
-//       await client.connectToServer(_host, 993, isSecure: false);
-//       await client.login(_username, _password);
-//       await client.selectInbox();
+    receivePort.listen((message) {
+      if (message is Map && message['type'] == 'new_email') {
+        _handleNewEmailNotification(message);
+      }
+    });
 
-//       // Initial fetch to get the current message count
-//       int lastMessageCount =
-//           (await client.fetchRecentMessages()).messages.length;
+    // Initialize Workmanager for background tasks
+    if (Platform.isAndroid || Platform.isIOS) {
+      await Workmanager().initialize(
+        backgroundTaskCallback,
+        isInDebugMode: kDebugMode,
+      );
+    }
 
-//       // Polling interval (adjust as needed)
-//       const Duration pollInterval = Duration(seconds: 3);
+    _isInitialized = true;
+  }
 
-//       Timer.periodic(pollInterval, (Timer timer) async {
-//         try {
-//           final currentMessageCount =
-//               (await client.fetchRecentMessages()).messages.length;
+  /// Start listening for new emails
+  Future<void> startListening() async {
+    if (!_isInitialized) {
+      await initialize();
+    }
 
-//           if (currentMessageCount > lastMessageCount) {
-//             // New messages received
-//             final newMessagesCount = currentMessageCount - lastMessageCount;
-//             final fetchResult = await client.fetchRecentMessages(
-//                 messageCount: newMessagesCount, criteria: 'BODY.PEEK[]');
+    if (_isListening) return;
 
-//             for (final message in fetchResult.messages) {
-//               printMessage(message); // Process the new message
-//               // or your notification logic here.
-//             }
-//             lastMessageCount = currentMessageCount; // Update last count
-//           }
-//         } on ImapException catch (e) {
-//           if (kDebugMode) {
-//             print('IMAP poll failed with $e');
-//           }
-//           // Handle potential errors during polling (e.g., reconnect)
-//         }
-//       });
+    // Start IMAP IDLE in foreground
+    await _startImapIdle();
 
-//       // You might want to handle app closure or interruptions here
-//       // by canceling the timer and logging out.
-//     } on ImapException catch (e) {
-//       if (kDebugMode) {
-//         print('IMAP connection failed with $e');
-//       }
-//     }
-//   }
+    // Schedule background checks
+    await _scheduleBackgroundChecks();
 
-//   void printMessage(MimeMessage message) {
-//     if (kDebugMode) {
-//       print('From: ${message.from}');
-//       print('Subject: ${message.body}');
-//       print(
-//           'Body: ${message.decodeTextPlainPart()}'); // Or decodeTextHtmlPart()
-//       print('---');
-//     }
-//   }
-// }
+    _isListening = true;
+  }
 
+  /// Stop listening for new emails
+  void stopListening() {
+    _idleRefreshTimer?.cancel();
 
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
+    }
+    _subscriptions.clear();
 
+    _isListening = false;
+  }
 
-// // Future<void> imapListener() async {
-// //   final client = ImapClient(isLogEnabled: false);
-// //   try {
-// //     await client.connectToServer(imapServerHost, imapServerPort,
-// //         isSecure: isImapServerSecure);
-// //     await client.login(userName, password);
-// //     await client.selectInbox();
+  /// Start IMAP IDLE for real-time notifications in foreground
+  Future<void> _startImapIdle() async {
+    final mailService = MailService.instance;
 
-// //     // Initial fetch to get the current message count
-// //     int lastMessageCount = (await client.fetchMessageCount()) ?? 0;
+    // Ensure mail client is connected
+    if (!mailService.isClientSet) {
+      await mailService.init();
+    }
 
-// //     // Polling interval (adjust as needed)
-// //     const Duration pollInterval = Duration(seconds: 30);
+    if (!mailService.client.isConnected) {
+      await mailService.connect();
+    }
 
-// //     Timer.periodic(pollInterval, (Timer timer) async {
-// //       try {
-// //         final currentMessageCount = (await client.fetchMessageCount()) ?? 0;
+    // Prime lastSeenUid to the current UIDNEXT - 1 so we don't notify for historical unread
+    try {
+      final selected =
+          mailService.client.selectedMailbox ??
+          await mailService.client.selectInbox();
+      final inbox =
+          selected.isInbox
+              ? selected
+              : (await mailService.client.listMailboxes()).firstWhereOrNull(
+                    (mb) => mb.isInbox,
+                  ) ??
+                  selected;
+      if (inbox.uidNext != null) {
+        final target = inbox.uidNext! - 1;
+        final current = _storage.read<int>(lastSeenUidKey) ?? 0;
+        if (current < target) {
+          await _storage.write(lastSeenUidKey, target);
+          if (kDebugMode) {
+            print(
+              '🔔 Primed lastSeenUid to $target (uidNext=${inbox.uidNext}) to avoid notifying historical unread',
+            );
+          }
+        }
+      }
+    } catch (_) {}
 
-// //         if (currentMessageCount > lastMessageCount) {
-// //           // New messages received
-// //           final newMessagesCount = currentMessageCount - lastMessageCount;
-// //           final fetchResult = await client.fetchRecentMessages(
-// //               messageCount: newMessagesCount, criteria: 'BODY.PEEK[]');
+    // Polling/IDLE is centrally managed to avoid conflicts; do not toggle here.
+    // Just ensure we are connected and subscribed to events for notifications.
 
-// //           for (final message in fetchResult.messages) {
-// //             printMessage(message); // Process the new message
-// //             // or your notification logic here.
-// //           }
-// //           lastMessageCount = currentMessageCount; // Update last count
-// //         }
-// //       } on ImapException catch (e) {
-// //         print('IMAP poll failed with $e');
-// //         // Handle potential errors during polling (e.g., reconnect)
-// //       }
-// //     });
+    // Subscribe to mail events
+    _subscribeToMailEvents(mailService);
+  }
 
-// //     // You might want to handle app closure or interruptions here
-// //     // by canceling the timer and logging out.
-// //   } on ImapException catch (e) {
-// //     print('IMAP connection failed with $e');
-// //   }
-// // }
+  /// Subscribe to mail client events for new message notifications
+  void _subscribeToMailEvents(MailService mailService) {
+    // Listen for new messages
+    final loadSubscription = mailService.client.eventBus
+        .on<MailLoadEvent>()
+        .listen(_handleMailLoadEvent);
+
+    // Listen for message updates
+    final updateSubscription = mailService.client.eventBus
+        .on<MailUpdateEvent>()
+        .listen(_handleMailUpdateEvent);
+
+    // Listen for reconnection events
+    final reconnectSubscription = mailService.client.eventBus
+        .on<MailConnectionReEstablishedEvent>()
+        .listen(_handleReconnectionEvent);
+
+    _subscriptions.addAll([
+      loadSubscription,
+      updateSubscription,
+      reconnectSubscription,
+    ]);
+  }
+
+  /// Handle new mail event
+  void _handleMailLoadEvent(MailLoadEvent event) {
+    final message = event.message;
+
+    // Skip if message is already seen
+    if (message.isSeen) return;
+
+    // Process and show notification
+    _processNewMessage(message);
+  }
+
+  /// Handle mail update event
+  void _handleMailUpdateEvent(MailUpdateEvent event) {
+    final message = event.message;
+
+    // Skip if message is already seen
+    if (message.isSeen) return;
+
+    // Process and show notification
+    _processNewMessage(message);
+  }
+
+  /// Handle reconnection event
+  void _handleReconnectionEvent(MailConnectionReEstablishedEvent event) {
+    // Check for new messages since last connection
+    checkForNewMessages();
+  }
+
+  /// Compute a stable key for a message to dedupe/update notifications
+  String _stableKeyForMessage(MimeMessage message, Mailbox mailbox) {
+    final msgId = (message.getHeaderValue('message-id') ?? '').trim();
+    final seq = message.sequenceId?.toString();
+    final date = message.decodeDate()?.millisecondsSinceEpoch.toString();
+    final uid = message.uid?.toString();
+    final boxRaw =
+        mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : mailbox.path;
+    final box = boxRaw.toLowerCase();
+    if (msgId.isNotEmpty) {
+      return 'mb=$box|mid=$msgId';
+    }
+    if (seq != null && date != null) {
+      return 'mb=$box|seq=$seq|d=$date';
+    }
+    if (uid != null && date != null) {
+      return 'mb=$box|uid=$uid|d=$date';
+    }
+    // Fallback: subject + date signature
+    final subj = (message.decodeSubject() ?? '').trim();
+    return 'mb=$box|s=${subj.hashCode}|d=${date ?? '0'}';
+  }
+
+  /// Process a new message and show notification
+  void _processNewMessage(MimeMessage message) async {
+    // Skip if not from inbox (customize this based on requirements)
+    final mailbox = MailService.instance.client.selectedMailbox;
+    if (mailbox == null || !mailbox.isInbox) return;
+
+    // Newness guard 1: UID fence
+    try {
+      final uid = message.uid;
+      if (uid != null) {
+        final lastSeen = _storage.read<int>(lastSeenUidKey) ?? 0;
+        if (uid <= lastSeen) {
+          if (kDebugMode) {
+            print('🔔 Skipping notif for uid=$uid (<= lastSeen=$lastSeen)');
+          }
+          return; // historical or already processed
+        }
+      }
+    } catch (_) {}
+
+    // Build stable key and pick/update a deterministic notification id
+    final key = _stableKeyForMessage(message, mailbox);
+
+    // Newness guard 2: already notified
+    if (_notifiedKeys.contains(key)) {
+      return;
+    }
+
+    // Ensure envelope has usable sender and subject; try a quick envelope fetch if needed
+    String sender;
+    String subject;
+    try {
+      sender =
+          message.from != null && message.from!.isNotEmpty
+              ? (message.from!.first.personalName ?? message.from!.first.email)
+              : (message.envelope?.from?.isNotEmpty == true
+                  ? (message.envelope!.from!.first.personalName ??
+                      message.envelope!.from!.first.email)
+                  : '');
+      subject = message.decodeSubject() ?? (message.envelope?.subject ?? '');
+    } catch (_) {
+      sender = '';
+      subject = '';
+    }
+
+    if (sender.isEmpty || subject.isEmpty) {
+      try {
+        final mailService = MailService.instance;
+        if (!mailService.client.isConnected) {
+          try {
+            await mailService.connect().timeout(const Duration(seconds: 5));
+          } catch (_) {}
+        }
+        if (mailService.client.selectedMailbox?.encodedPath !=
+            mailbox.encodedPath) {
+          try {
+            await mailService.client
+                .selectMailbox(mailbox)
+                .timeout(const Duration(seconds: 5));
+          } catch (_) {}
+        }
+        final envMsgs = await ImapFetchPool.instance.fetchForMessage(
+          base: message,
+          mailboxHint: mailbox,
+          fetchPreference: FetchPreference.envelope,
+          timeout: const Duration(seconds: 3),
+        );
+        if (envMsgs.isNotEmpty) {
+          final env = envMsgs.first.envelope;
+          if (env != null) {
+            message.envelope = env;
+            if ((message.from == null || message.from!.isEmpty) &&
+                env.from?.isNotEmpty == true) {
+              message.from = env.from;
+            }
+            sender =
+                sender.isNotEmpty
+                    ? sender
+                    : (env.from?.isNotEmpty == true
+                        ? (env.from!.first.personalName ??
+                            env.from!.first.email)
+                        : '');
+            subject = subject.isNotEmpty ? subject : (env.subject ?? '');
+          }
+        }
+      } catch (_) {}
+    }
+
+    // Synthesize minimal metadata for immediate tile display (without overwriting later hydration)
+    try {
+      // Stamp subject header if we have it
+      if (subject.isNotEmpty) {
+        final currentSubj = message.getHeaderValue('subject');
+        if (currentSubj == null || currentSubj.trim().isEmpty) {
+          try {
+            message.setHeader('subject', subject);
+          } catch (_) {}
+        }
+      }
+      // Build a minimal from list if needed
+      List<MailAddress>? fromList;
+      if (message.from?.isNotEmpty == true) {
+        fromList = message.from;
+      } else if (message.envelope?.from?.isNotEmpty == true) {
+        fromList = message.envelope!.from;
+      } else {
+        // Try to parse any available From header; else, use a name-only placeholder
+        String rawFrom = '';
+        try {
+          rawFrom = message.getHeaderValue('from') ?? '';
+        } catch (_) {}
+        if (rawFrom.trim().isNotEmpty) {
+          try {
+            fromList = [MailAddress.parse(rawFrom)];
+          } catch (_) {
+            fromList = [MailAddress('', rawFrom.trim())];
+          }
+        } else if (sender.isNotEmpty) {
+          // If sender looks like an email or Name <email>, try to parse
+          if (sender.contains('@') || sender.contains('<')) {
+            try {
+              fromList = [MailAddress.parse(sender)];
+            } catch (_) {
+              fromList = [MailAddress(sender, 'unknown@sender')];
+            }
+          } else {
+            fromList = [MailAddress(sender, 'unknown@sender')];
+          }
+        }
+        if (fromList != null && fromList.isNotEmpty) {
+          try {
+            message.setHeader(
+              'from',
+              fromList.first.email.isNotEmpty
+                  ? '${fromList.first.personalName ?? ''} <${fromList.first.email}>'
+                  : (fromList.first.personalName ?? ''),
+            );
+          } catch (_) {}
+          message.from = fromList;
+        }
+      }
+      // Synthesize a minimal envelope if needed
+      final needEnv =
+          message.envelope == null ||
+          ((message.envelope?.subject ?? '').trim().isEmpty &&
+              subject.isNotEmpty) ||
+          ((message.envelope?.from?.isEmpty ?? true) &&
+              (message.from?.isNotEmpty ?? false));
+      if (needEnv) {
+        message.envelope = Envelope(
+          date: message.decodeDate() ?? DateTime.now(),
+          subject: subject.isNotEmpty ? subject : message.envelope?.subject,
+          from: message.from ?? fromList,
+        );
+      }
+    } catch (_) {}
+
+    // Before showing OS notification, immediately reflect the new mail in the UI tile list.
+    // Mark ready and best-effort attachment hint, then notify realtime service.
+    try {
+      message.setHeader('x-ready', '1');
+      try {
+        final hasAtt = message.hasAttachments();
+        message.setHeader('x-has-attachments', hasAtt ? '1' : '0');
+      } catch (_) {}
+      await RealtimeUpdateService.instance.notifyNewMessages([
+        message,
+      ], mailbox: mailbox);
+      // Nudge tiles to re-render quickly
+      try {
+        if (Get.isRegistered<MailBoxController>()) {
+          Get.find<MailBoxController>().bumpMessageMeta(mailbox, message);
+        }
+      } catch (_) {}
+    } catch (_) {}
+
+    // Schedule a robust envelope backfill within 1–4 seconds to guarantee subject/from
+    try {
+      unawaited(
+        _ensureEnvelopeWithShortDelay(
+          message,
+          mailbox,
+          timeout: const Duration(seconds: 4),
+        ),
+      );
+    } catch (_) {}
+
+    // Store the message UID as last seen (prevents duplicate notifications next time)
+    final uid = message.uid;
+    if (uid != null) {
+      await _storage.write(lastSeenUidKey, uid);
+    }
+
+    // Prepare a pending notif payload; we will debounce to coalesce quick successive events
+    // Capture the best-known values immediately
+    String bestPreview = '';
+    try {
+      final hdr = message.getHeaderValue('x-preview');
+      if (hdr != null && hdr.trim().isNotEmpty) bestPreview = hdr.trim();
+      if (bestPreview.isEmpty) {
+        final plain = message.decodeTextPlainPart();
+        if (plain != null && plain.trim().isNotEmpty) {
+          final t = plain.replaceAll(RegExp(r'\s+'), ' ').trim();
+          bestPreview = t.length > 150 ? '${t.substring(0, 147)}...' : t;
+        }
+      }
+      if (bestPreview.isEmpty) {
+        final html = message.decodeTextHtmlPart();
+        if (html != null && html.trim().isNotEmpty) {
+          final stripped = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
+          final t = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+          bestPreview = t.length > 150 ? '${t.substring(0, 147)}...' : t;
+        }
+      }
+    } catch (_) {}
+
+    _pendingNotifications[key] = {
+      'sender': sender,
+      'subject': subject,
+      'preview': bestPreview,
+      'uid': uid,
+      'mailboxPath': mailbox.path,
+      'message': message,
+    };
+
+    // Debounce window to allow preview/envelope to arrive; resets on repeated events
+    _notificationDebouncers[key]?.cancel();
+    _notificationDebouncers[key] = Timer(
+      const Duration(milliseconds: 1200),
+      () async {
+        try {
+          final pending = _pendingNotifications[key];
+          if (pending == null) return;
+
+          // Try to obtain a better preview just-in-time if still empty
+          String finalPreview = (pending['preview'] as String?) ?? '';
+          if (finalPreview.isEmpty) {
+            finalPreview = await _obtainPreviewWithShortDelay(
+              message,
+              mailbox,
+              timeout: const Duration(seconds: 2),
+            );
+          }
+
+          // Stamp preview and ready on the in-memory message so UI can render immediately
+          try {
+            if (finalPreview.isNotEmpty) {
+              message.setHeader('x-preview', finalPreview);
+            }
+            message.setHeader('x-ready', '1');
+          } catch (_) {}
+
+          // Use a deterministic ID per stable key to ensure updates replace
+          int notifId;
+          if (_notificationIdsByKey.containsKey(key)) {
+            notifId = _notificationIdsByKey[key]!;
+          } else {
+            final rawId = uid ?? key.hashCode;
+            notifId = rawId & 0x7fffffff;
+            _notificationIdsByKey[key] = notifId;
+          }
+
+          final bodyText =
+              (finalPreview.isNotEmpty) ? '$subject — $finalPreview' : subject;
+
+          // If the app is foreground and inbox is visible, prefer an in-app banner instead of OS notification
+          final ui = UiContextService.instance;
+          if (ui.isAppForeground && ui.inboxVisible) {
+            try {
+              // Lightweight in-app banner; avoids OS notification noise while user is in Inbox
+              Get.snackbar(
+                'New email from $sender',
+                bodyText,
+                snackPosition: SnackPosition.TOP,
+                duration: const Duration(seconds: 3),
+                isDismissible: true,
+              );
+            } catch (_) {}
+          } else {
+            // Show/update OS notification
+            NotificationService.instance
+                .showFlutterNotification(sender, bodyText, {
+                  'action': 'view_message',
+                  'message_uid': uid?.toString() ?? '',
+                  'mailbox': mailbox.path,
+                  'preview': finalPreview,
+                }, notifId);
+          }
+
+          _notifiedKeys.add(key);
+        } finally {
+          _notificationDebouncers.remove(key)?.cancel();
+          _pendingNotifications.remove(key);
+        }
+      },
+    );
+
+    // Persist minimal row to SQLite (best-effort) and include preview when available
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      // Get mailbox ID from database
+      final List<Map<String, dynamic>> mailboxResult = await db.query(
+        SQLiteDatabaseHelper.tableMailboxes,
+        columns: [SQLiteDatabaseHelper.columnId],
+        where: '${SQLiteDatabaseHelper.columnPath} = ?',
+        whereArgs: [mailbox.path],
+      );
+
+      if (mailboxResult.isNotEmpty) {
+        final mailboxId =
+            mailboxResult.first[SQLiteDatabaseHelper.columnId] as int;
+
+        // Convert message to map for database (store preview if we have it)
+        final Map<String, dynamic> messageMap = {
+          SQLiteDatabaseHelper.columnMailboxId: mailboxId,
+          SQLiteDatabaseHelper.columnUid: message.uid,
+          SQLiteDatabaseHelper.columnMessageId: message
+              .getHeaderValue('message-id')
+              ?.replaceAll('<', '')
+              .replaceAll('>', ''),
+          SQLiteDatabaseHelper.columnSubject: subject,
+          SQLiteDatabaseHelper.columnFrom: sender,
+          SQLiteDatabaseHelper.columnDate:
+              message.decodeDate()?.millisecondsSinceEpoch,
+          SQLiteDatabaseHelper.columnContent: null,
+          SQLiteDatabaseHelper.columnHtmlContent: null,
+          SQLiteDatabaseHelper.columnIsSeen: SQLiteDatabaseHelper.boolToInt(
+            message.isSeen,
+          ),
+          SQLiteDatabaseHelper.columnIsFlagged: SQLiteDatabaseHelper.boolToInt(
+            message.isFlagged,
+          ),
+          SQLiteDatabaseHelper.columnIsDeleted: SQLiteDatabaseHelper.boolToInt(
+            message.isDeleted,
+          ),
+          SQLiteDatabaseHelper.columnIsAnswered: SQLiteDatabaseHelper.boolToInt(
+            message.isAnswered,
+          ),
+          SQLiteDatabaseHelper.columnIsDraft: SQLiteDatabaseHelper.boolToInt(
+            false,
+          ),
+          SQLiteDatabaseHelper.columnIsRecent: SQLiteDatabaseHelper.boolToInt(
+            false,
+          ),
+          SQLiteDatabaseHelper.columnHasAttachments:
+              SQLiteDatabaseHelper.boolToInt(message.hasAttachments()),
+          SQLiteDatabaseHelper.columnSize: message.size,
+          if (SQLiteDatabaseHelper.columnPreviewText.isNotEmpty)
+            SQLiteDatabaseHelper.columnPreviewText: bestPreview,
+        };
+
+        // Insert or update message in database
+        await db.insert(
+          SQLiteDatabaseHelper.tableEmails,
+          messageMap,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving message to SQLite: $e');
+      }
+    }
+
+    // If the app is running and storage is available, refresh storage-backed views to reflect the change
+    try {
+      if (Get.isRegistered<MailBoxController>()) {
+        final ctrl = Get.find<MailBoxController>();
+        // Find matching storage by encodedPath/name to avoid instance identity issues
+        SQLiteMailboxMimeStorage? storage;
+        for (final entry in ctrl.mailboxStorage.entries) {
+          final mb = entry.key;
+          final samePath =
+              mb.encodedPath.toLowerCase() == mailbox.path.toLowerCase() ||
+              mb.path.toLowerCase() == mailbox.path.toLowerCase();
+          final sameName = mb.name.toLowerCase() == mailbox.name.toLowerCase();
+          if (samePath || sameName || (mb.isInbox && mailbox.isInbox)) {
+            storage = entry.value;
+            break;
+          }
+        }
+        await storage?.refreshFromDatabase();
+      }
+    } catch (_) {}
+
+    // Note: notification display is debounced above; do not show here immediately
+    // Also, do not re-publish to realtime service here to avoid duplicate UI insertions.
+  }
+
+  /// Try to obtain a preview quickly; if not available, wait up to [timeout]
+  /// and attempt a fast fetch to compute it. Also updates UI live when possible.
+  Future<String> _obtainPreviewWithShortDelay(
+    MimeMessage message,
+    Mailbox mailbox, {
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    // 1) Immediate sources: header, plain, html
+    try {
+      final hdr = message.getHeaderValue('x-preview');
+      if (hdr != null && hdr.trim().isNotEmpty) return hdr.trim();
+      final plain = message.decodeTextPlainPart();
+      if (plain != null && plain.trim().isNotEmpty) {
+        final t = plain.replaceAll(RegExp(r'\s+'), ' ').trim();
+        return t.length > 150 ? '${t.substring(0, 147)}...' : t;
+      }
+      final html = message.decodeTextHtmlPart();
+      if (html != null && html.trim().isNotEmpty) {
+        final stripped = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
+        final t = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+        return t.length > 150 ? '${t.substring(0, 147)}...' : t;
+      }
+    } catch (_) {}
+
+    // 2) Check SQLite for persisted preview_text
+    try {
+      final db = await SQLiteDatabaseHelper.instance.database;
+      // Lookup mailbox id
+      final mbRows = await db.query(
+        SQLiteDatabaseHelper.tableMailboxes,
+        columns: [SQLiteDatabaseHelper.columnId],
+        where: '${SQLiteDatabaseHelper.columnPath} = ?',
+        whereArgs: [mailbox.path],
+        limit: 1,
+      );
+      if (mbRows.isNotEmpty) {
+        final mailboxId = mbRows.first[SQLiteDatabaseHelper.columnId] as int;
+        final rows = await db.query(
+          SQLiteDatabaseHelper.tableEmails,
+          columns: [SQLiteDatabaseHelper.columnPreviewText],
+          where:
+              '${SQLiteDatabaseHelper.columnMailboxId} = ? AND ${SQLiteDatabaseHelper.columnUid} = ?',
+          whereArgs: [mailboxId, message.uid],
+          limit: 1,
+        );
+        if (rows.isNotEmpty) {
+          final pv =
+              (rows.first[SQLiteDatabaseHelper.columnPreviewText] ?? '')
+                  .toString();
+          if (pv.trim().isNotEmpty) return pv;
+        }
+      }
+    } catch (_) {}
+
+    // 3) As a last resort, fetch full content quickly within timeout and compute preview
+    try {
+      final mailService = MailService.instance;
+      // Ensure connection and selection (best-effort)
+      if (!mailService.client.isConnected) {
+        try {
+          await mailService.connect().timeout(const Duration(seconds: 5));
+        } catch (_) {}
+      }
+      try {
+        if (mailService.client.selectedMailbox?.encodedPath !=
+            mailbox.encodedPath) {
+          await ImapCommandQueue.instance.run(
+            'selectMailbox(notif:preview)',
+            () async {
+              await mailService.client
+                  .selectMailbox(mailbox)
+                  .timeout(const Duration(seconds: 5));
+            },
+          );
+        }
+      } catch (_) {}
+
+      // Fetch with an overall timeout budget (<= timeout)
+      final msgs = await ImapFetchPool.instance.fetchForMessage(
+        base: message,
+        mailboxHint: mailbox,
+        fetchPreference: FetchPreference.fullWhenWithinSize,
+        timeout: timeout,
+      );
+      if (msgs.isEmpty) return '';
+      final full = msgs.first;
+
+      // Compute preview
+      String preview = '';
+      try {
+        final plain = full.decodeTextPlainPart();
+        if (plain != null && plain.isNotEmpty) {
+          preview = plain.replaceAll(RegExp(r'\s+'), ' ').trim();
+        } else {
+          final html = full.decodeTextHtmlPart();
+          if (html != null && html.isNotEmpty) {
+            final stripped = html.replaceAll(RegExp(r'<[^>]*>'), ' ');
+            preview = stripped.replaceAll(RegExp(r'\s+'), ' ').trim();
+          }
+        }
+        if (preview.length > 150) preview = '${preview.substring(0, 147)}...';
+      } catch (_) {}
+
+      // Persist preview to DB if non-empty and stamp header
+      try {
+        if (preview.isNotEmpty) {
+          final db = await SQLiteDatabaseHelper.instance.database;
+          await db.update(
+            SQLiteDatabaseHelper.tableEmails,
+            {SQLiteDatabaseHelper.columnPreviewText: preview},
+            where: '${SQLiteDatabaseHelper.columnUid} = ?',
+            whereArgs: [full.uid],
+          );
+          try {
+            message.setHeader('x-preview', preview);
+          } catch (_) {}
+        }
+      } catch (_) {}
+
+      // Notify UI live if possible
+      try {
+        if (Get.isRegistered<MailBoxController>()) {
+          Get.find<MailBoxController>().bumpMessageMeta(mailbox, message);
+        }
+      } catch (_) {}
+
+      return preview;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Ensure envelope is available; fetch and persist within a short deadline.
+  Future<void> _ensureEnvelopeWithShortDelay(
+    MimeMessage message,
+    Mailbox mailbox, {
+    Duration timeout = const Duration(seconds: 4),
+  }) async {
+    try {
+      // If we already have both subject and from, nothing to do
+      final hasFrom =
+          (message.from?.isNotEmpty ?? false) ||
+          (message.envelope?.from?.isNotEmpty ?? false);
+      final hasSubject =
+          (() {
+            try {
+              final s = message.decodeSubject();
+              return s != null && s.trim().isNotEmpty;
+            } catch (_) {
+              return (message.envelope?.subject ?? '').trim().isNotEmpty;
+            }
+          })();
+      if (hasFrom && hasSubject) return;
+
+      final mailService = MailService.instance;
+      if (!mailService.client.isConnected) {
+        try {
+          await mailService.connect().timeout(const Duration(seconds: 5));
+        } catch (_) {}
+      }
+      // Ensure correct mailbox is selected to avoid bad FETCH
+      try {
+        if (mailService.client.selectedMailbox?.encodedPath !=
+            mailbox.encodedPath) {
+          await ImapCommandQueue.instance.run(
+            'selectMailbox(notif:ensureEnv)',
+            () async {
+              await mailService.client
+                  .selectMailbox(mailbox)
+                  .timeout(const Duration(seconds: 5));
+            },
+          );
+        }
+      } catch (_) {}
+
+      // Fetch ENVELOPE with a strict timeout
+      List<MimeMessage> fetched = [];
+      try {
+        fetched = await ImapFetchPool.instance.fetchForMessage(
+          base: message,
+          mailboxHint: mailbox,
+          fetchPreference: FetchPreference.envelope,
+          timeout: timeout,
+        );
+      } catch (_) {}
+      if (fetched.isEmpty) return;
+      final envMsg = fetched.first;
+      if (envMsg.envelope == null) return;
+
+      // Merge into in-memory message
+      try {
+        message.envelope = envMsg.envelope;
+        if ((message.from == null || message.from!.isEmpty) &&
+            (envMsg.envelope?.from?.isNotEmpty ?? false)) {
+          message.from = envMsg.envelope!.from;
+        }
+      } catch (_) {}
+
+      // Persist non-destructively to DB
+      try {
+        if (Get.isRegistered<MailBoxController>()) {
+          final ctrl = Get.find<MailBoxController>();
+          SQLiteMailboxMimeStorage? storage;
+          for (final entry in ctrl.mailboxStorage.entries) {
+            final mb = entry.key;
+            final samePath =
+                mb.encodedPath.toLowerCase() ==
+                    mailbox.encodedPath.toLowerCase() ||
+                mb.path.toLowerCase() == mailbox.path.toLowerCase();
+            final sameName =
+                mb.name.toLowerCase() == mailbox.name.toLowerCase();
+            if (samePath || sameName || (mb.isInbox && mailbox.isInbox)) {
+              storage = entry.value;
+              break;
+            }
+          }
+          await storage?.updateEnvelopeFromMessage(message);
+          await storage?.refreshFromDatabase();
+          // Bump meta to force rebuild of any visible tiles
+          try {
+            ctrl.bumpMessageMeta(mailbox, message);
+          } catch (_) {}
+        }
+      } catch (_) {}
+    } catch (_) {}
+  }
+
+  /// Schedule periodic background checks for new emails
+  Future<void> _scheduleBackgroundChecks() async {
+    // Only attempt scheduling on Android; iOS has limited background execution and Workmanager may not implement periodic tasks.
+    if (!Platform.isAndroid) {
+      if (kDebugMode) {
+        print(
+          'Background email checks: skipping scheduling on non-Android platform',
+        );
+      }
+      return;
+    }
+
+    try {
+      // Cancel any existing tasks
+      await Workmanager().cancelByUniqueName(backgroundTaskName);
+
+      // Schedule periodic task with error handling
+      await Workmanager().registerPeriodicTask(
+        backgroundTaskName,
+        backgroundTaskName,
+        frequency: backgroundCheckInterval,
+        constraints: Constraints(networkType: NetworkType.connected),
+        existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+        backoffPolicy: BackoffPolicy.linear,
+        backoffPolicyDelay: const Duration(minutes: 5),
+      );
+
+      if (kDebugMode) {
+        print('Background email checks scheduled successfully (Android)');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to schedule background email checks: $e');
+        print(
+          'Background notifications will not be available, but foreground IDLE will still work',
+        );
+      }
+      // Don't throw the error - the app should continue working without background tasks
+    }
+  }
+
+  /// Check for new messages since last check
+  Future<void> checkForNewMessages() async {
+    try {
+      final mailService = MailService.instance;
+
+      // Ensure mail client is connected
+      if (!mailService.isClientSet) {
+        await mailService.init();
+      }
+
+      if (!mailService.client.isConnected) {
+        await mailService.connect();
+      }
+
+      // Select inbox
+      final inbox = await mailService.client.selectInbox();
+
+      // Get last seen UID
+      final lastSeenUid = _storage.read<int>(lastSeenUidKey) ?? 0;
+
+      // If no messages or no new messages, return
+      if (inbox.messagesExists == 0 ||
+          inbox.uidNext == null ||
+          inbox.uidNext! <= lastSeenUid) {
+        return;
+      }
+
+      // Create sequence for new messages
+      final sequence = MessageSequence.fromRangeToLast(
+        lastSeenUid + 1,
+        isUidSequence: true,
+      );
+
+      // Fetch new messages
+      final messages = await mailService.client.fetchMessageSequence(
+        sequence,
+        fetchPreference: FetchPreference.envelope,
+      );
+
+      // Process new messages
+      for (final message in messages) {
+        if (!message.isSeen) {
+          _processNewMessage(message);
+        }
+      }
+
+      // Update last check time
+      await _storage.write(
+        lastEmailCheckTimeKey,
+        DateTime.now().toIso8601String(),
+      );
+
+      // Update last seen UID if we have new messages
+      if (messages.isNotEmpty && inbox.uidNext != null) {
+        await _storage.write(lastSeenUidKey, inbox.uidNext! - 1);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error checking for new messages: $e');
+      }
+    }
+  }
+
+  /// Handle new email notification from background task
+  Future<void> _handleNewEmailNotification(Map message) async {
+    final from = message['from'] as String? ?? 'New Email';
+    final subject = message['subject'] as String? ?? '';
+    final preview = message['preview'] as String? ?? '';
+    final uid = message['uid'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+
+    final bodyText = (preview.isNotEmpty) ? '$subject — $preview' : subject;
+
+    NotificationService.instance.showFlutterNotification(from, bodyText, {
+      'action': 'view_message',
+      'message_uid': uid.toString(),
+      'mailbox': 'INBOX',
+      'preview': preview,
+      'sender': from,
+      'subject': subject,
+    }, uid);
+
+    // Also reflect the new mail immediately in the on-screen list (if app is running)
+    try {
+      // Construct a minimal message for instant UI display
+      final m = MimeMessage();
+      m.uid = uid;
+      // Try to derive an email address from the 'from' text
+      MailAddress fromAddr;
+      if (from.contains('@') || from.contains('<')) {
+        try {
+          fromAddr = MailAddress.parse(from);
+        } catch (_) {
+          fromAddr = MailAddress(from, 'unknown@sender');
+        }
+      } else {
+        fromAddr = MailAddress(from, 'unknown@sender');
+      }
+      m.envelope = Envelope(
+        date: DateTime.now(),
+        subject: subject,
+        from: [fromAddr],
+      );
+      m.from = [fromAddr];
+      if (preview.isNotEmpty) {
+        try {
+          m.setHeader('x-preview', preview);
+          m.setHeader('x-ready', '1');
+        } catch (_) {}
+      }
+
+      // Identify the Inbox mailbox object to route the update correctly
+      Mailbox? inbox;
+      try {
+        final svc = MailService.instance;
+        if (svc.client.isConnected) {
+          final selected = svc.client.selectedMailbox;
+          if (selected?.isInbox == true) {
+            inbox = selected;
+          } else {
+            final boxes = await svc.client.listMailboxes();
+            inbox =
+                boxes.firstWhereOrNull((mb) => mb.isInbox) ??
+                selected ??
+                (boxes.isNotEmpty ? boxes.first : null);
+          }
+        }
+      } catch (_) {}
+
+      // Fallback mailbox if none resolved
+      inbox ??= (Mailbox(
+        encodedName: 'INBOX',
+        encodedPath: 'INBOX',
+        flags: [],
+        pathSeparator: '/',
+      )..name = 'INBOX');
+
+      await RealtimeUpdateService.instance.notifyNewMessages([
+        m,
+      ], mailbox: inbox);
+    } catch (_) {}
+  }
+
+  /// Request battery optimization exemption
+  Future<void> requestBatteryOptimizationExemption() async {
+    if (Platform.isAndroid) {
+      try {
+        // For now, just show a notification guiding the user
+        NotificationService.instance.showFlutterNotification(
+          'Battery Optimization',
+          'Please disable battery optimization for this app to receive email notifications reliably.',
+          {'action': 'battery_optimization'},
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error requesting battery optimization exemption: $e');
+        }
+      }
+    }
+  }
+}
+
+/// Background task callback for Workmanager
+@pragma('vm:entry-point')
+void backgroundTaskCallback() {
+  WidgetsFlutterBinding.ensureInitialized();
+  DartPluginRegistrant.ensureInitialized();
+
+  Workmanager().executeTask((taskName, inputData) async {
+    try {
+      // Initialize required services
+      await GetStorage.init();
+      await SQLiteDatabaseHelper.instance.database;
+      await NotificationService.instance.setup();
+
+      // Check for new emails
+      await _backgroundCheckForNewEmails();
+
+      return true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Background task error: $e');
+      }
+      return false;
+    }
+  });
+}
+
+/// Check for new emails in background
+Future<void> _backgroundCheckForNewEmails() async {
+  try {
+    // If a recent heartbeat exists, the foreground app is connected; skip to avoid extra IMAP sessions
+    try {
+      if (ConnectionLease.shouldSkipBackgroundConnect()) {
+        if (kDebugMode) {
+          print(
+            'Background check: skipping connect due to active foreground heartbeat',
+          );
+        }
+        return;
+      }
+    } catch (_) {}
+
+    final storage = GetStorage();
+
+    // Get last seen UID
+    final lastSeenUid =
+        storage.read<int>(EmailNotificationService.lastSeenUidKey) ?? 0;
+
+    // Initialize mail service
+    await MailService.instance.init();
+    if (!MailService.instance.client.isConnected) {
+      await MailService.instance.connect();
+    }
+
+    // Select inbox
+    final inbox = await MailService.instance.client.selectInbox();
+
+    // If no messages or no new messages, return
+    if (inbox.messagesExists == 0 ||
+        inbox.uidNext == null ||
+        inbox.uidNext! <= lastSeenUid) {
+      return;
+    }
+
+    // Create sequence for new messages
+    final sequence = MessageSequence.fromRangeToLast(
+      lastSeenUid + 1,
+      isUidSequence: true,
+    );
+
+    // Fetch new messages
+    final messages = await MailService.instance.client.fetchMessageSequence(
+      sequence,
+      fetchPreference: FetchPreference.envelope,
+    );
+
+    // Process new messages
+    for (final message in messages) {
+      if (!message.isSeen) {
+        // Extract message details
+        final from =
+            message.from != null && message.from!.isNotEmpty
+                ? message.from!.first.personalName ?? message.from!.first.email
+                : 'Unknown Sender';
+
+        final subject = message.decodeSubject() ?? 'No Subject';
+
+        // Get message preview
+        String preview = '';
+        try {
+          final textPlain = message.decodeTextPlainPart();
+          if (textPlain != null && textPlain.isNotEmpty) {
+            preview = textPlain.trim();
+            if (preview.length > 150) {
+              preview = '${preview.substring(0, 147)}...';
+            }
+          }
+        } catch (e) {
+          // Ignore errors in preview generation
+        }
+
+        // Save message to SQLite database
+        try {
+          // Get mailbox ID from database
+          final db = await SQLiteDatabaseHelper.instance.database;
+          final List<Map<String, dynamic>> mailboxResult = await db.query(
+            SQLiteDatabaseHelper.tableMailboxes,
+            columns: [SQLiteDatabaseHelper.columnId],
+            where: '${SQLiteDatabaseHelper.columnPath} = ?',
+            whereArgs: [inbox.path],
+          );
+
+          if (mailboxResult.isNotEmpty) {
+            final mailboxId =
+                mailboxResult.first[SQLiteDatabaseHelper.columnId] as int;
+
+            // Convert message to map for database
+            final Map<String, dynamic> messageMap = {
+              SQLiteDatabaseHelper.columnMailboxId: mailboxId,
+              SQLiteDatabaseHelper.columnUid: message.uid,
+              SQLiteDatabaseHelper.columnMessageId: message
+                  .getHeaderValue('message-id')
+                  ?.replaceAll('<', '')
+                  .replaceAll('>', ''),
+              SQLiteDatabaseHelper.columnSubject: message.decodeSubject(),
+              SQLiteDatabaseHelper.columnFrom: from,
+              SQLiteDatabaseHelper.columnDate:
+                  message.decodeDate()?.millisecondsSinceEpoch,
+              SQLiteDatabaseHelper.columnContent: message.decodeTextPlainPart(),
+              SQLiteDatabaseHelper.columnHtmlContent:
+                  message.decodeTextHtmlPart(),
+              SQLiteDatabaseHelper.columnIsSeen: SQLiteDatabaseHelper.boolToInt(
+                message.isSeen,
+              ),
+              SQLiteDatabaseHelper.columnIsFlagged:
+                  SQLiteDatabaseHelper.boolToInt(message.isFlagged),
+              SQLiteDatabaseHelper.columnIsDeleted:
+                  SQLiteDatabaseHelper.boolToInt(message.isDeleted),
+              SQLiteDatabaseHelper.columnIsAnswered:
+                  SQLiteDatabaseHelper.boolToInt(message.isAnswered),
+              SQLiteDatabaseHelper
+                  .columnIsDraft: SQLiteDatabaseHelper.boolToInt(false),
+              SQLiteDatabaseHelper
+                  .columnIsRecent: SQLiteDatabaseHelper.boolToInt(false),
+              SQLiteDatabaseHelper.columnHasAttachments:
+                  SQLiteDatabaseHelper.boolToInt(message.hasAttachments()),
+              SQLiteDatabaseHelper.columnSize: message.size,
+            };
+
+            // Insert or update message in database
+            await db.insert(
+              SQLiteDatabaseHelper.tableEmails,
+              messageMap,
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('Error saving message to SQLite: $e');
+          }
+        }
+
+        // Build notification body as subject + preview
+        final bodyText = (preview.isNotEmpty) ? '$subject — $preview' : subject;
+
+        // Show notification
+        NotificationService.instance.showFlutterNotification(
+          from,
+          bodyText,
+          {
+            'action': 'view_message',
+            'message_uid': message.uid?.toString() ?? '',
+            'mailbox': inbox.path,
+            'preview': preview,
+          },
+          // Use message UID as notification ID to prevent duplicates
+          message.uid?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+        );
+      }
+    }
+
+    // Update last check time
+    await storage.write(
+      EmailNotificationService.lastEmailCheckTimeKey,
+      DateTime.now().toIso8601String(),
+    );
+
+    // Update last seen UID if we have new messages
+    if (messages.isNotEmpty && inbox.uidNext != null) {
+      await storage.write(
+        EmailNotificationService.lastSeenUidKey,
+        inbox.uidNext! - 1,
+      );
+    }
+
+    // Try to send notification to UI if app is running
+    final sendPort = IsolateNameServer.lookupPortByName(
+      EmailNotificationService.portName,
+    );
+    if (sendPort != null && messages.isNotEmpty) {
+      for (final message in messages) {
+        if (!message.isSeen) {
+          sendPort.send({
+            'type': 'new_email',
+            'from':
+                message.from != null && message.from!.isNotEmpty
+                    ? message.from!.first.personalName ??
+                        message.from!.first.email
+                    : 'Unknown Sender',
+            'subject': message.decodeSubject() ?? 'No Subject',
+            'preview': message.decodeTextPlainPart()?.substring(0, 150) ?? '',
+            'uid':
+                message.uid?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+          });
+        }
+      }
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error in background email check: $e');
+    }
+  } finally {
+    // Always disconnect background IMAP session promptly to free server slots
+    try {
+      MailService.instance.client.disconnect();
+    } catch (_) {}
+  }
+}

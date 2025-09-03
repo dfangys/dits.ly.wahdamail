@@ -43,9 +43,12 @@ class _SendOtpViewState extends State<SendOtpView> {
           Padding(
             padding: const EdgeInsets.all(WSizes.defaultSpace),
             child: SvgPicture.asset(
-              WImages.logo,
+              WImages.logoWhite,
               fit: BoxFit.cover,
-              theme: const SvgTheme(currentColor: Colors.white),
+              colorFilter: const ColorFilter.mode(
+                Colors.white,
+                BlendMode.srcIn,
+              ),
               width: Get.width * 0.7,
             ),
           ),
@@ -67,16 +70,18 @@ class _SendOtpViewState extends State<SendOtpView> {
                       isError
                           ? "error_in_sending_otp".tr
                           : isSuccess
-                              ? "msg_otp_sent_successfully".tr
-                              : "msg_sending_otp".tr,
-                      style:
-                          Theme.of(context).textTheme.headlineSmall!.copyWith(
-                                color: isError
-                                    ? Colors.red
-                                    : isSuccess
-                                        ? Colors.green
-                                        : Colors.black,
-                              ),
+                          ? "msg_otp_sent_successfully".tr
+                          : "msg_sending_otp".tr,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineSmall!.copyWith(
+                        color:
+                            isError
+                                ? Colors.red
+                                : isSuccess
+                                ? Colors.green
+                                : Colors.black,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     if (!isError) const CircularProgressIndicator.adaptive(),
@@ -85,17 +90,24 @@ class _SendOtpViewState extends State<SendOtpView> {
                       SizedBox(
                         height: 50,
                         width: MediaQuery.of(context).size.width - 50,
-                        child: OutlinedButton(
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                        child: Obx(() {
+                          final secs = controller.resendSeconds.value;
+                          final busy = controller.isRequestingOtp.value;
+                          final canResend = secs == 0 && !busy;
+                          final label =
+                              secs == 0
+                                  ? 'resend'.tr
+                                  : '${'resend'.tr} (${secs}s)';
+                          return OutlinedButton(
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
-                          ),
-                          onPressed: () {
-                            controller.requestOtp();
-                          },
-                          child: Text('resend'.tr),
-                        ),
+                            onPressed: canResend ? controller.resendOtp : null,
+                            child: Text(label),
+                          );
+                        }),
                       ),
                     if (isError || isSuccess)
                       Container(

@@ -1,0 +1,4343 @@
+{
+	"info": {
+		"_postman_id": "a863759e-8489-4edf-b7a6-058759741389",
+		"name": "MailSys API (Enterprise)",
+		"description": "Enterprise-grade Postman collection for the MailSys API.\n\nNotes:\n- Use the provided environment file (MailSys.postman_environment.json).\n- Collection-level Bearer auth uses {{auth_token}}. Run Auth > Login (and Verify OTP if required) to populate it.\n- Some endpoints are currently mismatched or unimplemented in the codebase; those requests are disabled and documented.\n- All requests include tests for status codes and basic response validation.\n",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "23837635",
+		"_collection_link": "https://galactic-station-613140.postman.co/workspace/dcaca260-116d-4ec0-894e-432d241a70fe/collection/23837635-a863759e-8489-4edf-b7a6-058759741389?action=share&source=collection_link&creator=23837635"
+	},
+	"item": [
+		{
+			"name": "Docs",
+			"item": [
+				{
+					"name": "Get API Docs",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+									"pm.test('JSON content', function(){ pm.response.to.have.header('Content-Type'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/docs",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"docs"
+							]
+						},
+						"description": "Public API documentation endpoint."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const json = pm.response.json();",
+									"pm.test('Status is 200 on success', function(){ pm.expect([200,401,404,409,422,500]).to.include(pm.response.code); });",
+									"if (pm.response.code === 200) {",
+									"  pm.test('Login success or requires OTP', function(){",
+									"    pm.expect(json.status).to.eql('success');",
+									"    pm.expect(json.data).to.be.an('object');",
+									"    pm.expect(json.data.requires_otp).to.be.a('boolean');",
+									"  });",
+									"  if (json.data.token) {",
+									"    pm.environment.set('auth_token', json.data.token);",
+									"  }",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"login"
+							]
+						},
+						"description": "Login with email/password. If 2FA is disabled, returns token. If 2FA is enabled, returns requires_otp=true and sends OTP via SMS."
+					},
+					"response": [
+						{
+							"name": "Login",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/login",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"login"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 00:50:27 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"OTP code sent\",\n    \"data\": {\n        \"email\": \"abdullah@isend.ly\",\n        \"requires_otp\": true\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Verify OTP",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function(){ pm.response.to.have.status(200); });",
+									"const json = pm.response.json();",
+									"pm.test('Token present', function(){ pm.expect(json.data.token, 'token').to.be.a('string').and.not.empty; });",
+									"pm.environment.set('auth_token', json.data.token);"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/verify-otp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"verify-otp"
+							]
+						},
+						"description": "Verify a 5-digit OTP to receive a bearer token."
+					},
+					"response": [
+						{
+							"name": "Verify OTP",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"email\": \"{{email}}\",\n  \"otp\": \"{{otp}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/verify-otp",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"verify-otp"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:14:06 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Authentication successful\",\n    \"data\": {\n        \"token\": \"Xj6dPfkmvZwxqKMvIVYMKT5DmJMmSF85m7gPhhK3NA8hWwjDvau1AkCM7DM1\",\n        \"mailbox\": {\n            \"id\": 90,\n            \"email\": \"abdullah@isend.ly\",\n            \"full_name\": \"Abdullah\"\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Logout",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', function(){ pm.response.to.have.status(200); });",
+									"pm.environment.unset('auth_token');"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"logout"
+							]
+						},
+						"description": "Logs out the current token."
+					},
+					"response": [
+						{
+							"name": "Logout",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"url": {
+									"raw": "{{base_url}}/api/logout",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"logout"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 03:27:13 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Logged out successfully\"\n}"
+						}
+					]
+				},
+				{
+					"name": "Request OTP (not implemented; disabled)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/request-otp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"request-otp"
+							]
+						},
+						"description": "Route exists but controller method is missing in current codebase."
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication and 2FA flow. Login may return a token directly or require OTP verification."
+		},
+		{
+			"name": "User",
+			"item": [
+				{
+					"name": "Get User Profile",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/user/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								""
+							]
+						},
+						"description": "Route exists but AuthController@user is not defined in current codebase."
+					},
+					"response": [
+						{
+							"name": "Get User Profile",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/user",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"user"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 03:03:54 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"name\": \"Abdullah\",\n        \"email\": \"abdullah@isend.ly\",\n        \"phone_number\": \"0915198011\",\n        \"quota\": {\n            \"bytes\": 5368709120,\n            \"gb\": 5,\n            \"label\": \"5 GB\"\n        },\n        \"usage\": {\n            \"bytes\": 4221,\n            \"kb\": 4.12,\n            \"mb\": 0,\n            \"gb\": 0,\n            \"label\": \"4.12 KB\",\n            \"percent\": 0\n        },\n        \"two_factor_enabled\": true\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Two-Factor",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Require auth token",
+									"if (!pm.environment.get('auth_token')) {",
+									"  throw new Error('Missing auth_token. Login first to populate it.');",
+									"}",
+									"",
+									"// Normalize target_2fa (boolean inserted into JSON without quotes)",
+									"let v = pm.environment.get('target_2fa');",
+									"",
+									"// Default to true if not set",
+									"if (v === undefined || v === null || v === '') {",
+									"  pm.environment.set('target_2fa', 'true');",
+									"} else {",
+									"  // Coerce various truthy/falsey strings to 'true' or 'false'",
+									"  const s = String(v).trim().toLowerCase();",
+									"  if (['true', '1', 'yes', 'on'].includes(s)) {",
+									"    pm.environment.set('target_2fa', 'true');",
+									"  } else if (['false', '0', 'no', 'off'].includes(s)) {",
+									"    pm.environment.set('target_2fa', 'false');",
+									"  } else {",
+									"    // fallback default",
+									"    pm.environment.set('target_2fa', 'true');",
+									"  }",
+									"}",
+									"",
+									"// Ensure Accept header (collection-level script may already add this)",
+									"pm.request.headers.upsert({ key: 'Accept', value: 'application/json' });"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"enabled\": {{target_2fa}}\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/user/two-factor",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"two-factor"
+							]
+						},
+						"description": "Route exists but AuthController@user is not defined in current codebase."
+					},
+					"response": [
+						{
+							"name": "Update Two-Factor",
+							"originalRequest": {
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"enabled\": {{target_2fa}}\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{base_url}}/api/user/two-factor",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"user",
+										"two-factor"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 03:14:23 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Two-factor authentication enabled\",\n    \"data\": {\n        \"two_factor_enabled\": true\n    }\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Mailboxes",
+			"item": [
+				{
+					"name": "List Mailboxes",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', function(){ pm.response.to.have.status(200); });",
+									"const json = pm.response.json(); pm.test('Has data array', function(){ pm.expect(json.data).to.be.an('array'); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mailboxes?search={{email}}&page=1&limit=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mailboxes"
+							],
+							"query": [
+								{
+									"key": "search",
+									"value": "{{email}}"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						},
+						"description": "Paged list of mailboxes via aaPanel service proxy."
+					},
+					"response": [
+						{
+							"name": "List Mailboxes",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "https://chase.com.ly/api/mailboxes?search=abdullah@isend.ly&page=1&limit=5",
+									"protocol": "https",
+									"host": [
+										"chase",
+										"com",
+										"ly"
+									],
+									"path": [
+										"api",
+										"mailboxes"
+									],
+									"query": [
+										{
+											"key": "search",
+											"value": "abdullah@isend.ly"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "5"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 00:53:22 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"full_name\": \"Abdullah\",\n            \"username\": \"abdullah@isend.ly\",\n            \"quota\": 5368709120,\n            \"created\": \"2025-08-29 02:39:05\",\n            \"modified\": \"2025-08-29 02:58:19\",\n            \"active\": 1,\n            \"is_admin\": 0,\n            \"domain\": \"isend.ly\",\n            \"current_usage\": 4221,\n            \"quota_active\": 1,\n            \"password\": \"rf8XT]awZYRd^v}K\",\n            \"mx\": \"mail.isend.ly\",\n            \"webmail_url\": false\n        }\n    ],\n    \"meta\": {\n        \"total\": 1,\n        \"page\": 1,\n        \"limit\": 10\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Mailbox",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 or 404', function(){ pm.expect([200,404]).to.include(pm.response.code); });"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mailboxes/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mailboxes",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}}"
+								}
+							]
+						},
+						"description": "Fetch a specific mailbox by email."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Mailbox",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 201 or 422/502', function(){ pm.expect([201,422,502]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"{{new_mailbox_username}}\",\n  \"full_name\": \"{{new_mailbox_full_name}}\",\n  \"password\": \"{{new_mailbox_password}}\",\n  \"quota\": 5368709120,\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mailboxes",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mailboxes"
+							]
+						},
+						"description": "Create a mailbox via aaPanel service."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Mailbox",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404/502/422', function(){ pm.expect([200,404,422,502]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"full_name\": \"Updated Name\",\n  \"quota\": 10737418240,\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mailboxes/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mailboxes",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}"
+								}
+							]
+						},
+						"description": "Update mailbox attributes via aaPanel service."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Mailbox",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404/502', function(){ pm.expect([200,404,502]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/mailboxes/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mailboxes",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}"
+								}
+							]
+						},
+						"description": "Delete a mailbox via aaPanel service."
+					},
+					"response": []
+				},
+				{
+					"name": "Sync Mailboxes",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 422/502', function(){ pm.expect([200,422,502]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"size\": 200,\n  \"search\": \"\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/mailboxes/sync",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"mailboxes",
+								"sync"
+							]
+						},
+						"description": "Trigger reconciliation sync with aaPanel."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Domains",
+			"item": [
+				{
+					"name": "List Domains",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', function(){ pm.response.to.have.status(200); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/domains?page=1&size=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"domains"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								}
+							]
+						},
+						"description": "List domains via aaPanel service."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Domain",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404', function(){ pm.expect([200,404]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/domains/:domain",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"domains",
+								":domain"
+							],
+							"variable": [
+								{
+									"key": "domain",
+									"value": "{{domain}"
+								}
+							]
+						},
+						"description": "Fetch a specific domain."
+					},
+					"response": []
+				},
+				{
+					"name": "Update SSL Certificate",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 422/502/404', function(){ pm.expect([200,422,502,404]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"certificate\": \"-----BEGIN CERTIFICATE-----\\n...\\n-----END CERTIFICATE-----\",\n  \"key\": \"-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/domains/:domain/certificate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"domains",
+								":domain",
+								"certificate"
+							],
+							"variable": [
+								{
+									"key": "domain",
+									"value": "{{domain}"
+								}
+							]
+						},
+						"description": "Update SSL certificate for domain (aaPanel)."
+					},
+					"response": []
+				},
+				{
+					"name": "Check DNS",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404/502', function(){ pm.expect([200,404,502]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/domains/:domain/check-dns",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"domains",
+								":domain",
+								"check-dns"
+							],
+							"variable": [
+								{
+									"key": "domain",
+									"value": "{{domain}"
+								}
+							]
+						},
+						"description": "Check DNS records for domain (aaPanel)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Forwarding",
+			"item": [
+				{
+					"name": "Get Forwarding",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404', function(){ pm.expect([200,404]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/forwarding/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"forwarding",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}"
+								}
+							]
+						},
+						"description": "Get forwarding rule for an address."
+					},
+					"response": []
+				},
+				{
+					"name": "Create/Update Forwarding (upsert)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 201/200 or 422/500', function(){ pm.expect([201,200,422,500]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email}}\",\n  \"forward\": \"{{forward_to}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/forwarding",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"forwarding"
+							]
+						},
+						"description": "Create or update forwarding rule for an address."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Forwarding",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404/422/500', function(){ pm.expect([200,404,422,500]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"forward\": \"{{forward_to}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/forwarding/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"forwarding",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}"
+								}
+							]
+						},
+						"description": "Update forwarding destination for an address."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Forwarding",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404/500', function(){ pm.expect([200,404,500]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/forwarding/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"forwarding",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}"
+								}
+							]
+						},
+						"description": "Delete forwarding rule for an address."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "BCC",
+			"item": [
+				{
+					"name": "List BCC Configurations",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', function(){ pm.response.to.have.status(200); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/bcc",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bcc"
+							]
+						},
+						"description": "Syncs from aaPanel then returns DB BCC configs."
+					},
+					"response": [
+						{
+							"name": "List BCC Configurations",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/bcc",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"bcc"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:58:31 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"id\": 4,\n            \"user\": \"abdullah@isend.ly\",\n            \"domain\": \"isend.ly\",\n            \"forward_user\": \"dfangy@icloud.com\",\n            \"type\": \"sender\",\n            \"active\": true,\n            \"mailbox_id\": 90,\n            \"last_synced_at\": \"2025-08-30T02:58:31.000000Z\",\n            \"created_at\": \"2025-08-29T03:15:50.000000Z\",\n            \"updated_at\": \"2025-08-30T02:58:31.000000Z\",\n            \"deleted_at\": null,\n            \"mailbox\": {\n                \"id\": 90,\n                \"username\": \"abdullah@isend.ly\",\n                \"full_name\": \"Abdullah\",\n                \"phone_number\": \"0915198011\",\n                \"employee_id\": \"2134123\",\n                \"job_title\": \"owner\",\n                \"domain_id\": 9,\n                \"quota\": 5368709120,\n                \"current_usage\": 4221,\n                \"active\": true,\n                \"quota_active\": true,\n                \"is_admin\": false,\n                \"two_factor_enabled\": true,\n                \"bcc_email\": \"dfangy@icloud.com\",\n                \"bcc_type\": \"sender\",\n                \"bcc_status\": 1,\n                \"autoreply_subject\": \"i'm in not there \",\n                \"autoreply_content\": \"contact, I'm on vacation alshareef@dits.ly \",\n                \"autoreply_status\": 1,\n                \"autoreply_interval\": 0,\n                \"autoreply_start_time\": null,\n                \"autoreply_end_time\": null,\n                \"last_synced_at\": \"2025-08-30T00:55:50.000000Z\",\n                \"created_at\": \"2025-08-29T00:39:05.000000Z\",\n                \"updated_at\": \"2025-08-30T02:58:31.000000Z\",\n                \"deleted_at\": null,\n                \"usage_ratio\": \"0.0000\"\n            }\n        },\n        {\n            \"id\": 5,\n            \"user\": \"sales@isend.ly\",\n            \"domain\": \"isend.ly\",\n            \"forward_user\": \"abdullah@dits.ly\",\n            \"type\": \"recipient\",\n            \"active\": true,\n            \"mailbox_id\": 82,\n            \"last_synced_at\": \"2025-08-30T02:58:31.000000Z\",\n            \"created_at\": \"2025-08-29T03:16:25.000000Z\",\n            \"updated_at\": \"2025-08-30T02:58:31.000000Z\",\n            \"deleted_at\": null,\n            \"mailbox\": {\n                \"id\": 82,\n                \"username\": \"sales@isend.ly\",\n                \"full_name\": \"sales\",\n                \"phone_number\": null,\n                \"employee_id\": null,\n                \"job_title\": null,\n                \"domain_id\": 9,\n                \"quota\": 5368709120,\n                \"current_usage\": 1390,\n                \"active\": true,\n                \"quota_active\": true,\n                \"is_admin\": false,\n                \"two_factor_enabled\": false,\n                \"bcc_email\": \"abdullah@dits.ly\",\n                \"bcc_type\": \"recipient\",\n                \"bcc_status\": 1,\n                \"autoreply_subject\": null,\n                \"autoreply_content\": null,\n                \"autoreply_status\": 0,\n                \"autoreply_interval\": null,\n                \"autoreply_start_time\": null,\n                \"autoreply_end_time\": null,\n                \"last_synced_at\": \"2025-08-30T00:55:50.000000Z\",\n                \"created_at\": \"2025-05-28T15:29:08.000000Z\",\n                \"updated_at\": \"2025-08-30T02:58:31.000000Z\",\n                \"deleted_at\": null,\n                \"usage_ratio\": \"0.0000\"\n            }\n        },\n        {\n            \"id\": 6,\n            \"user\": \"abdullah@isend.ly\",\n            \"domain\": \"isend.ly\",\n            \"forward_user\": \"audit@example.com\",\n            \"type\": \"recipient\",\n            \"active\": true,\n            \"mailbox_id\": 90,\n            \"last_synced_at\": \"2025-08-30T02:58:31.000000Z\",\n            \"created_at\": \"2025-08-30T00:58:18.000000Z\",\n            \"updated_at\": \"2025-08-30T02:58:31.000000Z\",\n            \"deleted_at\": null,\n            \"mailbox\": {\n                \"id\": 90,\n                \"username\": \"abdullah@isend.ly\",\n                \"full_name\": \"Abdullah\",\n                \"phone_number\": \"0915198011\",\n                \"employee_id\": \"2134123\",\n                \"job_title\": \"owner\",\n                \"domain_id\": 9,\n                \"quota\": 5368709120,\n                \"current_usage\": 4221,\n                \"active\": true,\n                \"quota_active\": true,\n                \"is_admin\": false,\n                \"two_factor_enabled\": true,\n                \"bcc_email\": \"dfangy@icloud.com\",\n                \"bcc_type\": \"sender\",\n                \"bcc_status\": 1,\n                \"autoreply_subject\": \"i'm in not there \",\n                \"autoreply_content\": \"contact, I'm on vacation alshareef@dits.ly \",\n                \"autoreply_status\": 1,\n                \"autoreply_interval\": 0,\n                \"autoreply_start_time\": null,\n                \"autoreply_end_time\": null,\n                \"last_synced_at\": \"2025-08-30T00:55:50.000000Z\",\n                \"created_at\": \"2025-08-29T00:39:05.000000Z\",\n                \"updated_at\": \"2025-08-30T02:58:31.000000Z\",\n                \"deleted_at\": null,\n                \"usage_ratio\": \"0.0000\"\n            }\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Get BCC by Email",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 or 404/500', function(){ pm.expect([200,404,500]).to.include(pm.response.code); });"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/bcc/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bcc",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}}"
+								}
+							]
+						},
+						"description": "Retrieve BCC config for a given mailbox email."
+					},
+					"response": [
+						{
+							"name": "Get BCC by Email",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/bcc/:email",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"bcc",
+										":email"
+									],
+									"variable": [
+										{
+											"key": "email",
+											"value": "{{email}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:58:43 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"data\": [\n        {\n            \"id\": 6,\n            \"user\": \"abdullah@isend.ly\",\n            \"domain\": \"isend.ly\",\n            \"forward_user\": \"audit@example.com\",\n            \"type\": \"recipient\",\n            \"active\": true,\n            \"mailbox_id\": 90,\n            \"last_synced_at\": \"2025-08-30T02:58:31.000000Z\",\n            \"created_at\": \"2025-08-30T00:58:18.000000Z\",\n            \"updated_at\": \"2025-08-30T02:58:31.000000Z\",\n            \"deleted_at\": null\n        },\n        {\n            \"id\": 4,\n            \"user\": \"abdullah@isend.ly\",\n            \"domain\": \"isend.ly\",\n            \"forward_user\": \"dfangy@icloud.com\",\n            \"type\": \"sender\",\n            \"active\": true,\n            \"mailbox_id\": 90,\n            \"last_synced_at\": \"2025-08-30T02:58:31.000000Z\",\n            \"created_at\": \"2025-08-29T03:15:50.000000Z\",\n            \"updated_at\": \"2025-08-30T02:58:31.000000Z\",\n            \"deleted_at\": null\n        }\n    ]\n}"
+						}
+					]
+				},
+				{
+					"name": "Create BCC Configuration",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 201 or 409/422/500', function(){ pm.expect([201,409,422,500]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"{{email}}\",\n  \"forward_user\": \"{{bcc_forward_user}}\",\n  \"type\": \"recipient\",\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/bcc",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bcc"
+							]
+						},
+						"description": "Create a new BCC configuration."
+					},
+					"response": []
+				},
+				{
+					"name": "Update BCC (disabled; route expects :email but controller expects ID)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"forward_user_new\": \"audit2@example.com\",\n  \"type_new\": \"sender\",\n  \"active_new\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/bcc/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bcc",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}"
+								}
+							]
+						},
+						"description": "Disabled: controller uses ID lookup, but route param is email."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete BCC (disabled; route expects :email but controller expects ID)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/bcc/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"bcc",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}"
+								}
+							]
+						},
+						"description": "Disabled: controller uses ID lookup, but route param is email."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auto-Reply",
+			"item": [
+				{
+					"name": "Get Auto-Reply",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 or 404', function(){ pm.expect([200,404]).to.include(pm.response.code); });"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auto-reply/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auto-reply",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}}"
+								}
+							]
+						},
+						"description": "Fetch auto-reply config for email."
+					},
+					"response": [
+						{
+							"name": "Get Auto-Reply",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/auto-reply/:email",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"auto-reply",
+										":email"
+									],
+									"variable": [
+										{
+											"key": "email",
+											"value": "{{email}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 00:59:45 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"id\": 1,\n        \"username\": \"abdullah@isend.ly\",\n        \"full_name\": \"Abdullah\",\n        \"domain\": \"isend.ly\",\n        \"active\": 1,\n        \"html\": 1,\n        \"subject\": \"i'm in not there \",\n        \"content\": \"contact, I'm on vacation alshareef@dits.ly \",\n        \"interval\": 0,\n        \"start_time\": 0,\n        \"end_time\": -1,\n        \"created\": 1756441938,\n        \"modified\": 1756450379\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create/Update Auto-Reply (upsert)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"// Default start/end time if not set",
+									"if (!pm.variables.get('start_time')) { pm.variables.set('start_time', Math.floor(Date.now()/1000)); }",
+									"if (!pm.variables.get('end_time')) { pm.variables.set('end_time', Math.floor(Date.now()/1000) + 86400); }"
+								]
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 201/200 or 422/500', function(){ pm.expect([201,200,422,500]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"{{email}}\",\n  \"full_name\": \"Full Name\",\n  \"subject\": \"Out of Office\",\n  \"content\": \"I'm currently away.\",\n  \"start_time\": {{start_time}},\n  \"end_time\": {{end_time}},\n  \"interval\": 3600\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auto-reply",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auto-reply"
+							]
+						},
+						"description": "Create or update auto-reply configuration."
+					},
+					"response": [
+						{
+							"name": "Create/Update Auto-Reply (upsert)",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"username\": \"{{email}}\",\n  \"full_name\": \"Full Name\",\n  \"subject\": \"Out of Office\",\n  \"content\": \"I'm currently away.\",\n  \"start_time\": {{start_time}},\n  \"end_time\": {{end_time}},\n  \"interval\": 3600\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/auto-reply",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"auto-reply"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 01:00:17 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Auto-reply configuration updated successfully\",\n    \"data\": []\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Auto-Reply",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404/422/500', function(){ pm.expect([200,404,422,500]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"subject\": \"Updated Subject\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auto-reply/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auto-reply",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}"
+								}
+							]
+						},
+						"description": "Update fields in auto-reply configuration."
+					},
+					"response": [
+						{
+							"name": "Update Auto-Reply",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"subject\": \"Updated Subject\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/auto-reply/:email",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"auto-reply",
+										":email"
+									],
+									"variable": [
+										{
+											"key": "email",
+											"value": "{{email}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 01:02:00 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Auto-reply configuration updated successfully\",\n    \"data\": []\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Auto-Reply",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 or 404/500', function(){ pm.expect([200,404,500]).to.include(pm.response.code); });"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auto-reply/:email",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auto-reply",
+								":email"
+							],
+							"variable": [
+								{
+									"key": "email",
+									"value": "{{email}}"
+								}
+							]
+						},
+						"description": "Delete auto-reply config for email."
+					},
+					"response": [
+						{
+							"name": "Delete Auto-Reply",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/auto-reply/:email",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"auto-reply",
+										":email"
+									],
+									"variable": [
+										{
+											"key": "email",
+											"value": "{{email}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:53:03 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Auto-reply configuration deleted successfully\",\n    \"data\": []\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Signatures",
+			"item": [
+				{
+					"name": "List Signatures",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', function(){ pm.response.to.have.status(200); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/signatures",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"signatures"
+							]
+						},
+						"description": "List signatures for authenticated mailbox."
+					},
+					"response": [
+						{
+							"name": "List Signatures",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/signatures",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"signatures"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:47:05 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"signatures\": [\n            {\n                \"id\": 1,\n                \"username\": \"abdullah@isend.ly\",\n                \"name\": \"Pro Signature\",\n                \"content\": \"--\\nRegards\",\n                \"is_default\": true,\n                \"created_at\": \"2025-08-30T02:45:24.000000Z\",\n                \"updated_at\": \"2025-08-30T02:46:31.000000Z\",\n                \"deleted_at\": null\n            }\n        ]\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Signature",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 201 or 422', function(){ pm.expect([201,422]).to.include(pm.response.code); });",
+									"if (pm.response.code === 201) { const id = pm.response.json().data.signature.id; pm.environment.set('signature_id', id); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Default\",\n  \"content\": \"--\\nRegards\",\n  \"is_default\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/signatures",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"signatures"
+							]
+						},
+						"description": "Create a signature. Sets others to non-default if is_default=true."
+					},
+					"response": [
+						{
+							"name": "Create Signature",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Signature 1 Profisshional\",\n  \"content\": \"--\\nRegards\",\n  \"is_default\": true\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/signatures",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"signatures"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:45:24 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Signature created successfully\",\n    \"data\": {\n        \"signature\": {\n            \"name\": \"Signature 1 Profisshional\",\n            \"content\": \"--\\nRegards\",\n            \"is_default\": true,\n            \"username\": \"abdullah@isend.ly\",\n            \"updated_at\": \"2025-08-30T02:45:24.000000Z\",\n            \"created_at\": \"2025-08-30T02:45:24.000000Z\",\n            \"id\": 1\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Signature",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404', function(){ pm.expect([200,404]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/signatures/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"signatures",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{signature_id}"
+								}
+							]
+						},
+						"description": "Fetch a signature by ID."
+					},
+					"response": [
+						{
+							"name": "Get Signature",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/signatures/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"signatures",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "{{signature_id}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:45:35 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"signature\": {\n            \"id\": 1,\n            \"username\": \"abdullah@isend.ly\",\n            \"name\": \"Signature 1 Profisshional\",\n            \"content\": \"--\\nRegards\",\n            \"is_default\": true,\n            \"created_at\": \"2025-08-30T02:45:24.000000Z\",\n            \"updated_at\": \"2025-08-30T02:45:24.000000Z\",\n            \"deleted_at\": null\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Signature",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404/422', function(){ pm.expect([200,404,422]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/signatures/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"signatures",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{signature_id}"
+								}
+							]
+						},
+						"description": "Update a signature."
+					},
+					"response": [
+						{
+							"name": "Update Signature",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Pro Signature\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/signatures/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"signatures",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "{{signature_id}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:46:31 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Signature updated successfully\",\n    \"data\": {\n        \"signature\": {\n            \"id\": 1,\n            \"username\": \"abdullah@isend.ly\",\n            \"name\": \"Pro Signature\",\n            \"content\": \"--\\nRegards\",\n            \"is_default\": true,\n            \"created_at\": \"2025-08-30T02:45:24.000000Z\",\n            \"updated_at\": \"2025-08-30T02:46:31.000000Z\",\n            \"deleted_at\": null\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Signature",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404/422', function(){ pm.expect([200,404,422]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/signatures/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"signatures",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{signature_id}"
+								}
+							]
+						},
+						"description": "Delete a signature. Prevented if it is the only signature; reassigns default if needed."
+					},
+					"response": [
+						{
+							"name": "Delete Signature",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/signatures/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"signatures",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "{{signature_id}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:48:21 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Signature deleted successfully\"\n}"
+						},
+						{
+							"name": "Error Delete Signature",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/signatures/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"signatures",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "{{signature_id}}"
+										}
+									]
+								}
+							},
+							"status": "Unprocessable Content",
+							"code": 422,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:49:25 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"error\",\n    \"message\": \"Cannot delete the only signature\"\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Contacts",
+			"item": [
+				{
+					"name": "List Contacts",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', function(){ pm.response.to.have.status(200); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/contacts",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"contacts"
+							]
+						},
+						"description": "List contacts for authenticated mailbox."
+					},
+					"response": [
+						{
+							"name": "List Contacts",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/contacts",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"contacts"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:53:22 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"contacts\": [\n            {\n                \"id\": 1,\n                \"email\": \"info@dits.ly\",\n                \"owner_username\": \"abdullah@isend.ly\",\n                \"name\": \"DITS\",\n                \"phone\": \"0926050509\",\n                \"company\": null,\n                \"job_title\": null,\n                \"notes\": \"founder and the CEO of DITS\",\n                \"created_at\": \"2025-08-29T13:53:45.000000Z\",\n                \"updated_at\": \"2025-08-29T20:57:41.000000Z\",\n                \"deleted_at\": null,\n                \"groups\": [\n                    {\n                        \"id\": 1,\n                        \"name\": \"TEST GROUP\",\n                        \"owner_username\": \"abdullah@isend.ly\",\n                        \"description\": \"for api and mobile app integration\",\n                        \"created_at\": \"2025-08-29T13:52:43.000000Z\",\n                        \"updated_at\": \"2025-08-29T13:52:43.000000Z\",\n                        \"deleted_at\": null,\n                        \"pivot\": {\n                            \"contact_id\": 1,\n                            \"contact_group_id\": 1\n                        }\n                    }\n                ]\n            }\n        ]\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Contact",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 201 or 422', function(){ pm.expect([201,422]).to.include(pm.response.code); });",
+									"if (pm.response.code === 201) { const id = pm.response.json().data.contact.id; pm.environment.set('contact_id', id); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Alice\",\n  \"email\": \"alice@example.com\",\n  \"phone\": \"+123\",\n  \"notes\": \"VIP\",\n  \"group_ids\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/contacts",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"contacts"
+							]
+						},
+						"description": "Create a contact (scoped to mailbox)."
+					},
+					"response": [
+						{
+							"name": "Create Contact",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Alice\",\n  \"email\": \"alice@example.com\",\n  \"phone\": \"+123\",\n  \"notes\": \"VIP\",\n  \"group_ids\": [1]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/contacts",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"contacts"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:53:40 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Contact created successfully\",\n    \"data\": {\n        \"contact\": {\n            \"name\": \"Alice\",\n            \"email\": \"alice@example.com\",\n            \"phone\": \"+123\",\n            \"notes\": \"VIP\",\n            \"owner_username\": \"abdullah@isend.ly\",\n            \"updated_at\": \"2025-08-30T02:53:40.000000Z\",\n            \"created_at\": \"2025-08-30T02:53:40.000000Z\",\n            \"id\": 2,\n            \"groups\": [\n                {\n                    \"id\": 1,\n                    \"name\": \"TEST GROUP\",\n                    \"owner_username\": \"abdullah@isend.ly\",\n                    \"description\": \"for api and mobile app integration\",\n                    \"created_at\": \"2025-08-29T13:52:43.000000Z\",\n                    \"updated_at\": \"2025-08-29T13:52:43.000000Z\",\n                    \"deleted_at\": null,\n                    \"pivot\": {\n                        \"contact_id\": 2,\n                        \"contact_group_id\": 1\n                    }\n                }\n            ]\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Contact",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404', function(){ pm.expect([200,404]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/contacts/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"contacts",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{contact_id}"
+								}
+							]
+						},
+						"description": "Fetch a contact by ID (scoped)."
+					},
+					"response": [
+						{
+							"name": "Get Contact",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/contacts/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"contacts",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "{{contact_id}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:53:53 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"contact\": {\n            \"id\": 2,\n            \"email\": \"alice@example.com\",\n            \"owner_username\": \"abdullah@isend.ly\",\n            \"name\": \"Alice\",\n            \"phone\": \"+123\",\n            \"company\": null,\n            \"job_title\": null,\n            \"notes\": \"VIP\",\n            \"created_at\": \"2025-08-30T02:53:40.000000Z\",\n            \"updated_at\": \"2025-08-30T02:53:40.000000Z\",\n            \"deleted_at\": null,\n            \"groups\": [\n                {\n                    \"id\": 1,\n                    \"name\": \"TEST GROUP\",\n                    \"owner_username\": \"abdullah@isend.ly\",\n                    \"description\": \"for api and mobile app integration\",\n                    \"created_at\": \"2025-08-29T13:52:43.000000Z\",\n                    \"updated_at\": \"2025-08-29T13:52:43.000000Z\",\n                    \"deleted_at\": null,\n                    \"pivot\": {\n                        \"contact_id\": 2,\n                        \"contact_group_id\": 1\n                    }\n                }\n            ]\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Contact",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404/422', function(){ pm.expect([200,404,422]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"notes\": \"Updated notes\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/contacts/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"contacts",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{contact_id}"
+								}
+							]
+						},
+						"description": "Update a contact."
+					},
+					"response": [
+						{
+							"name": "Update Contact",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"notes\": \"Updated notes\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/contacts/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"contacts",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "{{contact_id}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:54:26 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Contact updated successfully\",\n    \"data\": {\n        \"contact\": {\n            \"id\": 2,\n            \"email\": \"alice@example.com\",\n            \"owner_username\": \"abdullah@isend.ly\",\n            \"name\": \"Alice\",\n            \"phone\": \"+123\",\n            \"company\": null,\n            \"job_title\": null,\n            \"notes\": \"Updated notes\",\n            \"created_at\": \"2025-08-30T02:53:40.000000Z\",\n            \"updated_at\": \"2025-08-30T02:54:26.000000Z\",\n            \"deleted_at\": null,\n            \"groups\": [\n                {\n                    \"id\": 1,\n                    \"name\": \"TEST GROUP\",\n                    \"owner_username\": \"abdullah@isend.ly\",\n                    \"description\": \"for api and mobile app integration\",\n                    \"created_at\": \"2025-08-29T13:52:43.000000Z\",\n                    \"updated_at\": \"2025-08-29T13:52:43.000000Z\",\n                    \"deleted_at\": null,\n                    \"pivot\": {\n                        \"contact_id\": 2,\n                        \"contact_group_id\": 1\n                    }\n                }\n            ]\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Contact",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 or 404', function(){ pm.expect([200,404]).to.include(pm.response.code); });"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/contacts/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"contacts",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{contact_id}}"
+								}
+							]
+						},
+						"description": "Delete a contact."
+					},
+					"response": [
+						{
+							"name": "Delete Contact",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/contacts/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"contacts",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "{{contact_id}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:54:43 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Contact deleted successfully\"\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Contact Groups",
+			"item": [
+				{
+					"name": "List Groups",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200', function(){ pm.response.to.have.status(200); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/contact-groups",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"contact-groups"
+							]
+						},
+						"description": "List contact groups with counts."
+					},
+					"response": [
+						{
+							"name": "List Groups",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/contact-groups",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"contact-groups"
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:55:06 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"groups\": [\n            {\n                \"id\": 1,\n                \"name\": \"TEST GROUP\",\n                \"owner_username\": \"abdullah@isend.ly\",\n                \"description\": \"for api and mobile app integration\",\n                \"created_at\": \"2025-08-29T13:52:43.000000Z\",\n                \"updated_at\": \"2025-08-29T13:52:43.000000Z\",\n                \"deleted_at\": null,\n                \"contacts_count\": 2\n            }\n        ]\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Create Group",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 201 or 422', function(){ pm.expect([201,422]).to.include(pm.response.code); });",
+									"if (pm.response.code === 201) { const id = pm.response.json().data.group.id; pm.environment.set('group_id', id); }"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Sales\",\n  \"description\": \"Sales team\",\n  \"contact_ids\": []\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/contact-groups",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"contact-groups"
+							]
+						},
+						"description": "Create a contact group."
+					},
+					"response": [
+						{
+							"name": "Create Group",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Sales\",\n  \"description\": \"Sales team\",\n  \"contact_ids\": []\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/contact-groups",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"contact-groups"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:55:21 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Contact group created successfully\",\n    \"data\": {\n        \"group\": {\n            \"name\": \"Sales\",\n            \"description\": \"Sales team\",\n            \"owner_username\": \"abdullah@isend.ly\",\n            \"updated_at\": \"2025-08-30T02:55:21.000000Z\",\n            \"created_at\": \"2025-08-30T02:55:21.000000Z\",\n            \"id\": 2,\n            \"contacts_count\": 0\n        }\n    }\n}"
+						},
+						{
+							"name": "Create Group",
+							"originalRequest": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Support\",\n  \"description\": \"Support team\",\n  \"contact_ids\": [1,3]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/contact-groups",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"contact-groups"
+									]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:55:44 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Contact group created successfully\",\n    \"data\": {\n        \"group\": {\n            \"name\": \"Support\",\n            \"description\": \"Support team\",\n            \"owner_username\": \"abdullah@isend.ly\",\n            \"updated_at\": \"2025-08-30T02:55:44.000000Z\",\n            \"created_at\": \"2025-08-30T02:55:44.000000Z\",\n            \"id\": 3,\n            \"contacts_count\": 2\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get Group",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('Status 200 or 404', function(){ pm.expect([200,404]).to.include(pm.response.code); });"
+								]
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/contact-groups/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"contact-groups",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{group_id}"
+								}
+							]
+						},
+						"description": "Fetch a contact group (with contacts)."
+					},
+					"response": [
+						{
+							"name": "Get Group",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/contact-groups/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"contact-groups",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "{{group_id}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:56:01 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"group\": {\n            \"id\": 3,\n            \"name\": \"Support\",\n            \"owner_username\": \"abdullah@isend.ly\",\n            \"description\": \"Support team\",\n            \"created_at\": \"2025-08-30T02:55:44.000000Z\",\n            \"updated_at\": \"2025-08-30T02:55:44.000000Z\",\n            \"deleted_at\": null,\n            \"contacts\": [\n                {\n                    \"id\": 1,\n                    \"email\": \"info@dits.ly\",\n                    \"owner_username\": \"abdullah@isend.ly\",\n                    \"name\": \"DITS\",\n                    \"phone\": \"0926050509\",\n                    \"company\": null,\n                    \"job_title\": null,\n                    \"notes\": \"founder and the CEO of DITS\",\n                    \"created_at\": \"2025-08-29T13:53:45.000000Z\",\n                    \"updated_at\": \"2025-08-29T20:57:41.000000Z\",\n                    \"deleted_at\": null,\n                    \"pivot\": {\n                        \"contact_group_id\": 3,\n                        \"contact_id\": 1\n                    }\n                },\n                {\n                    \"id\": 3,\n                    \"email\": \"alice@example.com\",\n                    \"owner_username\": \"abdullah@isend.ly\",\n                    \"name\": \"Alice\",\n                    \"phone\": \"+123\",\n                    \"company\": null,\n                    \"job_title\": null,\n                    \"notes\": \"VIP\",\n                    \"created_at\": \"2025-08-30T02:54:54.000000Z\",\n                    \"updated_at\": \"2025-08-30T02:54:54.000000Z\",\n                    \"deleted_at\": null,\n                    \"pivot\": {\n                        \"contact_group_id\": 3,\n                        \"contact_id\": 3\n                    }\n                }\n            ]\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update Group",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 or 404/422', function(){ pm.expect([200,404,422]).to.include(pm.response.code); });"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"Updated\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/contact-groups/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"contact-groups",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{group_id}}"
+								}
+							]
+						},
+						"description": "Update a contact group."
+					},
+					"response": [
+						{
+							"name": "Update Group",
+							"originalRequest": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"description\": \"Updated\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/contact-groups/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"contact-groups",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "{{group_id}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:56:21 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Contact group updated successfully\",\n    \"data\": {\n        \"group\": {\n            \"id\": 3,\n            \"name\": \"Support\",\n            \"owner_username\": \"abdullah@isend.ly\",\n            \"description\": \"Updated\",\n            \"created_at\": \"2025-08-30T02:55:44.000000Z\",\n            \"updated_at\": \"2025-08-30T02:56:21.000000Z\",\n            \"deleted_at\": null,\n            \"contacts\": [\n                {\n                    \"id\": 1,\n                    \"email\": \"info@dits.ly\",\n                    \"owner_username\": \"abdullah@isend.ly\",\n                    \"name\": \"DITS\",\n                    \"phone\": \"0926050509\",\n                    \"company\": null,\n                    \"job_title\": null,\n                    \"notes\": \"founder and the CEO of DITS\",\n                    \"created_at\": \"2025-08-29T13:53:45.000000Z\",\n                    \"updated_at\": \"2025-08-29T20:57:41.000000Z\",\n                    \"deleted_at\": null,\n                    \"pivot\": {\n                        \"contact_group_id\": 3,\n                        \"contact_id\": 1\n                    }\n                },\n                {\n                    \"id\": 3,\n                    \"email\": \"alice@example.com\",\n                    \"owner_username\": \"abdullah@isend.ly\",\n                    \"name\": \"Alice\",\n                    \"phone\": \"+123\",\n                    \"company\": null,\n                    \"job_title\": null,\n                    \"notes\": \"VIP\",\n                    \"created_at\": \"2025-08-30T02:54:54.000000Z\",\n                    \"updated_at\": \"2025-08-30T02:54:54.000000Z\",\n                    \"deleted_at\": null,\n                    \"pivot\": {\n                        \"contact_group_id\": 3,\n                        \"contact_id\": 3\n                    }\n                }\n            ]\n        }\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Delete Group",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200 or 404', function(){ pm.expect([200,404]).to.include(pm.response.code); });"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/contact-groups/:id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"contact-groups",
+								":id"
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "{{group_id}}"
+								}
+							]
+						},
+						"description": "Delete a contact group."
+					},
+					"response": [
+						{
+							"name": "Delete Group",
+							"originalRequest": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/api/contact-groups/:id",
+									"host": [
+										"{{base_url}}"
+									],
+									"path": [
+										"api",
+										"contact-groups",
+										":id"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "{{group_id}}"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": null,
+							"header": [
+								{
+									"key": "Server",
+									"value": "nginx"
+								},
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								},
+								{
+									"key": "Transfer-Encoding",
+									"value": "chunked"
+								},
+								{
+									"key": "Connection",
+									"value": "keep-alive"
+								},
+								{
+									"key": "Cache-Control",
+									"value": "no-cache, private"
+								},
+								{
+									"key": "Date",
+									"value": "Sat, 30 Aug 2025 02:57:38 GMT"
+								},
+								{
+									"key": "Access-Control-Allow-Origin",
+									"value": "*"
+								},
+								{
+									"key": "Strict-Transport-Security",
+									"value": "max-age=31536000"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"Contact group deleted successfully\"\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "SMS (disabled; controller methods missing)",
+			"item": [
+				{
+					"name": "Send SMS (disabled)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"recipient\": \"+123\",\n  \"message\": \"Hello\",\n  \"type\": \"plain\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/send-sms",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"send-sms"
+							]
+						},
+						"description": "Route is present, but SmsApiController lacks sendSms() in current codebase."
+					},
+					"response": []
+				},
+				{
+					"name": "Send OTP (disabled)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{auth_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"recipient\": \"+123\",\n  \"message\": \"Your OTP\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/send-otp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"send-otp"
+							]
+						},
+						"description": "Route is present, but SmsApiController lacks sendOtp() in current codebase."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "MailClient",
+			"request": {
+				"method": "GET",
+				"header": []
+			},
+			"response": [
+				{
+					"name": "New Request",
+					"originalRequest": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/config/mail-servers",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"config",
+								"mail-servers"
+							]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "",
+					"header": [
+						{
+							"key": "Server",
+							"value": "nginx"
+						},
+						{
+							"key": "Content-Type",
+							"value": "application/json"
+						},
+						{
+							"key": "Transfer-Encoding",
+							"value": "chunked"
+						},
+						{
+							"key": "Connection",
+							"value": "keep-alive"
+						},
+						{
+							"key": "Cache-Control",
+							"value": "no-cache, private"
+						},
+						{
+							"key": "Date",
+							"value": "Sat, 30 Aug 2025 21:11:01 GMT"
+						},
+						{
+							"key": "Access-Control-Allow-Origin",
+							"value": "*"
+						},
+						{
+							"key": "Strict-Transport-Security",
+							"value": "max-age=31536000"
+						}
+					],
+					"cookie": [],
+					"body": "{\n    \"status\": \"success\",\n    \"data\": {\n        \"incoming\": {\n            \"host\": \"wbmail.wahdabank.com.ly\",\n            \"port\": 43245,\n            \"security\": \"ssl\",\n            \"type\": \"imap\"\n        },\n        \"outgoing\": {\n            \"host\": \"wbmail.wahdabank.com.ly\",\n            \"port\": 43244,\n            \"security\": \"none\",\n            \"client_domain\": \"wahdabank.com.ly\"\n        }\n    }\n}"
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{auth_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Ensure Accept header is present on all requests",
+					"pm.request.headers.upsert({ key: 'Accept', value: 'application/json' });"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000"
+		},
+		{
+			"key": "email",
+			"value": "user@example.com"
+		},
+		{
+			"key": "password",
+			"value": "CHANGE_ME"
+		},
+		{
+			"key": "otp",
+			"value": "12345"
+		},
+		{
+			"key": "auth_token",
+			"value": ""
+		},
+		{
+			"key": "domain",
+			"value": "example.com"
+		},
+		{
+			"key": "forward_to",
+			"value": "forward@example.com"
+		},
+		{
+			"key": "bcc_forward_user",
+			"value": "audit@example.com"
+		},
+		{
+			"key": "new_mailbox_username",
+			"value": "new.user@example.com"
+		},
+		{
+			"key": "new_mailbox_full_name",
+			"value": "New User"
+		},
+		{
+			"key": "new_mailbox_password",
+			"value": "CHANGE_ME_SECURE"
+		},
+		{
+			"key": "contact_id",
+			"value": "",
+			"type": "default"
+		},
+		{
+			"key": "target_2fa",
+			"value": "",
+			"type": "default"
+		}
+	]
+}

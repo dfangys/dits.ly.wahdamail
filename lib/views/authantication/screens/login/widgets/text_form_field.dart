@@ -3,6 +3,32 @@ import 'package:flutter/services.dart';
 import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
 
+/// Ensures only the username portion is kept when users paste a full email.
+/// - Strips everything after the first '@'
+/// - Removes any characters not in [a-zA-Z0-9.]
+class _UsernameOnlyFormatter extends TextInputFormatter {
+  final RegExp _allowed = RegExp(r'[^a-zA-Z0-9\.]');
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    String text = newValue.text;
+    // Keep only the substring before '@'
+    final atIdx = text.indexOf('@');
+    if (atIdx != -1) {
+      text = text.substring(0, atIdx);
+    }
+    // Remove any disallowed characters (including spaces)
+    text = text.replaceAll(_allowed, '');
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+      composing: TextRange.empty,
+    );
+  }
+}
+
 class WTextFormField extends StatelessWidget {
   const WTextFormField({
     super.key,
@@ -32,12 +58,7 @@ class WTextFormField extends StatelessWidget {
         validator: validator,
         autofocus: true,
         obscureText: obscureText,
-        inputFormatters: [
-          if (domainFix)
-            FilteringTextInputFormatter.allow(
-              RegExp(r'[a-zA-Z0-9.]'),
-            ),
-        ],
+        inputFormatters: [if (domainFix) _UsernameOnlyFormatter()],
         decoration: InputDecoration(
           fillColor: Colors.white,
           filled: true,
@@ -45,7 +66,7 @@ class WTextFormField extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 12),
             height: 2,
             width: 2,
-            child: image != ''?Image.asset(image):icon,
+            child: image != '' ? Image.asset(image) : icon,
           ),
           suffixText: domainFix ? WText.emailSuffix : '',
           contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
@@ -64,10 +85,7 @@ class WTextFormField extends StatelessWidget {
             ),
           ),
         ),
-        style: const TextStyle(
-          fontSize: 16,
-          color: WColors.fieldBlackFont,
-        ),
+        style: const TextStyle(fontSize: 16, color: WColors.fieldBlackFont),
       ),
     );
   }

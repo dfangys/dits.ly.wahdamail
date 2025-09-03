@@ -1,0 +1,1 @@
+enum EncryptionStatus { success, failure }

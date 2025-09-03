@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
 class ShimmerMailLoader extends StatelessWidget {
-  const ShimmerMailLoader({
-    super.key,
-  });
+  const ShimmerMailLoader({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -29,20 +27,20 @@ class ShimmerMailLoader extends StatelessWidget {
           ],
         );
       },
-      separatorBuilder: (context, index) => Divider(
-        color: Colors.grey.shade200,
-      ),
+      separatorBuilder:
+          (context, index) => Divider(color: Colors.grey.shade200),
     );
   }
 }
 
 class TShimmerEffect extends StatelessWidget {
-  const TShimmerEffect(
-      {super.key,
-      required this.width,
-      required this.height,
-      this.radius = 15,
-      this.color});
+  const TShimmerEffect({
+    super.key,
+    required this.width,
+    required this.height,
+    this.radius = 15,
+    this.color,
+  });
   final double width, height, radius;
   final Color? color;
 

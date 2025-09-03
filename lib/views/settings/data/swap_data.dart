@@ -12,80 +12,87 @@ SwapAction getSwapActionFromString(String action) {
 }
 
 class SwapSettingData {
+  // Modern styled swap action widgets with enhanced visual design
   Map<SwapAction, Widget> swapActions = {
     SwapAction.readUnread: const SwapActionTile(
-      icon: CupertinoIcons.check_mark_circled_solid,
+      icon: CupertinoIcons.envelope_open,
       text: 'Mark as read/unread',
-      backgroundColor: Colors.blue,
-      iconColor: Colors.blue,
-      opacity: 0.2,
+      backgroundColor: Color(0xFF4285F4),
+      iconColor: Colors.white,
+      opacity: 0.9,
     ),
     SwapAction.archive: const SwapActionTile(
-      icon: CupertinoIcons.archivebox,
+      icon: CupertinoIcons.archivebox_fill,
       text: 'Archive',
-      backgroundColor: Colors.yellow,
-      iconColor: Colors.red,
-      opacity: 0.3,
+      backgroundColor: Color(0xFFFBBC05),
+      iconColor: Colors.white,
+      opacity: 0.9,
     ),
     SwapAction.delete: const SwapActionTile(
-      icon: CupertinoIcons.delete,
+      icon: CupertinoIcons.trash_fill,
       text: 'Delete',
-      backgroundColor: Colors.red,
-      iconColor: Colors.red,
-      opacity: 0.4,
+      backgroundColor: Color(0xFFEA4335),
+      iconColor: Colors.white,
+      opacity: 0.9,
     ),
     SwapAction.toggleFlag: const SwapActionTile(
-      icon: CupertinoIcons.flag,
+      icon: CupertinoIcons.flag_fill,
       text: 'Toggle Flag',
-      backgroundColor: Colors.green,
-      iconColor: Colors.green,
-      opacity: 0.5,
+      backgroundColor: Color(0xFF34A853),
+      iconColor: Colors.white,
+      opacity: 0.9,
     ),
     SwapAction.markAsJunk: const SwapActionTile(
-      icon: CupertinoIcons.ant_circle,
+      icon: CupertinoIcons.exclamationmark_shield_fill,
       text: 'Mark as junk',
-      backgroundColor: Colors.red,
-      iconColor: Colors.red,
-      opacity: 0.6,
+      backgroundColor: Color(0xFF9C27B0),
+      iconColor: Colors.white,
+      opacity: 0.9,
     ),
   };
 
+  // Enhanced model data with improved colors and icons
   Map<SwapAction, SwapActionModel> swapActionModel = {
     SwapAction.readUnread: SwapActionModel(
-      icon: CupertinoIcons.check_mark_circled_solid,
+      icon: CupertinoIcons.envelope_open,
       text: 'Mark as read/unread',
-      backgroundColor: Colors.blue,
-      iconColor: Colors.blue,
-      opacity: 0.2,
+      backgroundColor: const Color(0xFF4285F4),
+      iconColor: Colors.white,
+      opacity: 0.9,
+      description: 'Toggle read status of emails',
     ),
     SwapAction.archive: SwapActionModel(
-      icon: CupertinoIcons.archivebox,
+      icon: CupertinoIcons.archivebox_fill,
       text: 'Archive',
-      backgroundColor: Colors.yellow,
-      iconColor: Colors.red,
-      opacity: 0.3,
+      backgroundColor: const Color(0xFFFBBC05),
+      iconColor: Colors.white,
+      opacity: 0.9,
+      description: 'Move emails to archive',
     ),
     SwapAction.delete: SwapActionModel(
-      icon: CupertinoIcons.delete,
+      icon: CupertinoIcons.trash_fill,
       text: 'Delete',
-      backgroundColor: Colors.red,
-      iconColor: Colors.red,
-      opacity: 0.4,
+      backgroundColor: const Color(0xFFEA4335),
+      iconColor: Colors.white,
+      opacity: 0.9,
+      description: 'Delete emails',
     ),
     SwapAction.toggleFlag: SwapActionModel(
-      icon: CupertinoIcons.flag,
+      icon: CupertinoIcons.flag_fill,
       text: 'Toggle Flag',
-      backgroundColor: Colors.green,
-      iconColor: Colors.green,
-      opacity: 0.5,
+      backgroundColor: const Color(0xFF34A853),
+      iconColor: Colors.white,
+      opacity: 0.9,
+      description: 'Flag or unflag emails',
     ),
     SwapAction.markAsJunk: SwapActionModel(
-      icon: CupertinoIcons.ant_circle,
+      icon: CupertinoIcons.exclamationmark_shield_fill,
       text: 'Mark as junk',
-      backgroundColor: Colors.red,
-      iconColor: Colors.red,
-      opacity: 0.6,
-    )
+      backgroundColor: const Color(0xFF9C27B0),
+      iconColor: Colors.white,
+      opacity: 0.9,
+      description: 'Move emails to junk folder',
+    ),
   };
 }
 
@@ -95,6 +102,7 @@ class SwapActionModel {
   final Color backgroundColor;
   final Color iconColor;
   final double opacity;
+  final String description; // Added description for better UX
 
   SwapActionModel({
     required this.icon,
@@ -102,5 +110,6 @@ class SwapActionModel {
     required this.backgroundColor,
     required this.iconColor,
     required this.opacity,
+    this.description = '',
   });
 }

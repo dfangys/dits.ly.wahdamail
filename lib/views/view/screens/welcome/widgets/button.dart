@@ -4,9 +4,7 @@ import 'package:wahda_bank/views/authantication/screens/login/login.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 
 class WelcomeButton extends StatelessWidget {
-  const WelcomeButton({
-    super.key,
-  });
+  const WelcomeButton({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +21,7 @@ class WelcomeButton extends StatelessWidget {
           elevation: 5,
         ),
         onPressed: () {
-          Get.to(() => LoginScreen());
+          Get.to(() => const LoginScreen());
         },
         child: const Text(
           "Get Started",

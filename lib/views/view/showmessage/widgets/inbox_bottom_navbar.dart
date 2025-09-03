@@ -2,9 +2,8 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/views/compose/compose.dart';
-import 'package:wahda_bank/utills/constants/image_strings.dart';
-
+import 'package:wahda_bank/views/compose/widgets/compose_modal.dart';
+import 'package:wahda_bank/utills/theme/app_theme.dart';
 import '../../../../app/controllers/mailbox_controller.dart';
 
 class ViewMessageBottomNav extends StatelessWidget {
@@ -20,128 +19,157 @@ class ViewMessageBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.width > 600;
+
     return Container(
-      height: 60,
-      color: const Color.fromRGBO(255, 255, 255, 1).withOpacity(0.8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          IconButtons(
-            isImage:false,
-            icon: CupertinoIcons.trash,
-            onTap: () {
-              showCupertinoModalPopup(
-                context: context,
-                builder: (context) => CupertinoActionSheet(
-                  title: Text('are_you_u_wtd'.tr),
-                  actions: [
-                    CupertinoActionSheetAction(
-                      onPressed: () {
-                        mailController.deleteMails([message], mailbox);
-                        Get.back();
-                        Get.back();
-                      },
-                      isDestructiveAction: true,
-                      child: Text('delete'.tr),
-                    ),
-                  ],
-                  cancelButton: CupertinoActionSheetAction(
-                    onPressed: () {
-                      Get.back();
-                    },
-                    child: Text('cancel'.tr),
-                  ),
-                ),
-              );
-            },
-          ),
-          IconButtons(
-            icon: CupertinoIcons.reply,
-            isImage: false,
-            onTap: () {
-              Get.to(() => const ComposeScreen(), arguments: {
-                'message': message,
-                'type': 'reply',
-              });
-            },
-          ),
-          IconButtons(
-            icon: CupertinoIcons.reply_all,
-            isImage: false,
-            onTap: () {
-              Get.to(() => const ComposeScreen(), arguments: {
-                'message': message,
-                'type': 'reply_all',
-              });
-            },
-          ),
-          IconButtons(
-            icon: CupertinoIcons.forward,
-            isImage: false,
-            onTap: () {
-              Get.to(() => const ComposeScreen(), arguments: {
-                'message': message,
-                'type': 'forward',
-              });
-            },
-          )
-        ],
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+        boxShadow: AppTheme.bottomNavShadow,
+      ),
+      padding: EdgeInsets.only(
+        top: 12,
+        bottom: 12 + MediaQuery.of(context).padding.bottom,
+        left: isTablet ? 24 : 16,
+        right: isTablet ? 24 : 16,
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildActionButton(
+              context: context,
+              icon: Icons.delete_outline_rounded,
+              label: 'Delete',
+              onTap: () => _showDeleteConfirmation(context),
+              destructive: true,
+            ),
+            _buildActionButton(
+              context: context,
+              icon: Icons.reply_rounded,
+              label: 'Reply',
+              onTap: () => _navigateToCompose('reply'),
+            ),
+            // _buildActionButton(
+            //   context: context,
+            //   icon: Icons.mark_email_unread_rounded,
+            //   label: 'Unread',
+            //   onTap: () {
+            //     // controller.markAsUnread([message], mailbox);
+            //     Get.back();
+            //   },
+            // ),
+            _buildActionButton(
+              context: context,
+              icon: Icons.reply_all_rounded,
+              label: 'Reply All',
+              onTap: () => _navigateToCompose('reply_all'),
+            ),
+            _buildActionButton(
+              context: context,
+              icon: Icons.forward_rounded,
+              label: 'Forward',
+              onTap: () => _navigateToCompose('forward'),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
 
-Widget bottomButton(VoidCallback onTap, String text, IconData icon) {
-  return InkWell(
-    onTap: onTap,
-    child: Container(
-      width: 70,
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        // border: Border.all(),
-        color: Colors.blue.withOpacity(0.4),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    ),
-  );
-}
+  Widget _buildActionButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool destructive = false,
+  }) {
+    final isTablet = MediaQuery.of(context).size.width > 600;
 
-class IconButtons extends StatelessWidget {
-  const IconButtons(
-      {super.key, this.icon, this.isImage = true, this.image, this.onTap});
-  final IconData? icon;
-  final bool isImage;
-  final String? image;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: SizedBox(
-        height: 25,
-        child: isImage
-            ? Image.asset(
-                image!,
-                color: Colors.blue,
-              )
-            : Icon(
-                icon,
-                color: Colors.blue,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isTablet ? 12 : 8,
+          vertical: 8,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: isTablet ? 48 : 40,
+              height: isTablet ? 48 : 40,
+              decoration: BoxDecoration(
+                color:
+                    destructive
+                        ? Colors.red.withValues(alpha: 0.1)
+                        : AppTheme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(
+                icon,
+                size: isTablet ? 24 : 20,
+                color: destructive ? Colors.red : AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: destructive ? Colors.red : AppTheme.textPrimaryColor,
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  void _navigateToCompose(String type) {
+    ComposeModal.show(
+      Get.context!,
+      arguments: {'message': message, 'type': type},
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context) {
+    showCupertinoModalPopup(
+      context: context,
+      builder:
+          (context) => CupertinoActionSheet(
+            title: const Text(
+              'Delete Message',
+              style: TextStyle(color: AppTheme.textPrimaryColor),
+            ),
+            message: const Text(
+              'Are you sure you want to delete this message?',
+              style: TextStyle(color: AppTheme.textSecondaryColor),
+            ),
+            actions: [
+              CupertinoActionSheetAction(
+                onPressed: () {
+                  mailController.deleteMails([message], mailbox);
+                  Get.back(); // Close dialog
+                  Get.back(); // Return to inbox
+                },
+                isDestructiveAction: true,
+                child: const Text('Delete'),
+              ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
+              onPressed: () {
+                Get.back();
+              },
+              child: const Text('Cancel'),
+            ),
+          ),
     );
   }
 }

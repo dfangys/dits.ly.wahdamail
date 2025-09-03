@@ -25,13 +25,10 @@ class InboxController extends GetxController {
   );
 
   Map<DateTime, List<AppMail>> get mailGroups => groupBy<AppMail, DateTime>(
-        mails.toList(),
-        (item) => DateTime(
-          item.createdAt.year,
-          item.createdAt.month,
-          item.createdAt.day,
-        ),
-      );
+    mails.toList(),
+    (item) =>
+        DateTime(item.createdAt.year, item.createdAt.month, item.createdAt.day),
+  );
 }
 
 enum Actions { share, delete, archieve }
@@ -52,18 +49,18 @@ class AppMail {
   });
 
   factory AppMail.fromJson(Map<String, dynamic> json) => AppMail(
-        from: json["from"],
-        email: json["email"],
-        sumjet: json["sumjet"],
-        message: json["message"],
-        createdAt: DateTime.parse(json["created_at"]),
-      );
+    from: json["from"],
+    email: json["email"],
+    sumjet: json["sumjet"],
+    message: json["message"],
+    createdAt: DateTime.parse(json["created_at"]),
+  );
 
   Map<String, dynamic> toJson() => {
-        "from": from,
-        "email": email,
-        "sumjet": sumjet,
-        "message": message,
-        "created_at": createdAt.toIso8601String(),
-      };
+    "from": from,
+    "email": email,
+    "sumjet": sumjet,
+    "message": message,
+    "created_at": createdAt.toIso8601String(),
+  };
 }

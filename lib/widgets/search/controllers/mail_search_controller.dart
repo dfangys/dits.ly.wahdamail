@@ -2,7 +2,12 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/shared/logging/telemetry.dart';
+import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
+import 'dart:math' as math;
 
+@Deprecated('Replaced by ViewModels. Will be removed in P12.4')
 class MailSearchController extends GetxController with StateMixin {
   final searchController = TextEditingController();
   final searchFocusNode = FocusNode();
@@ -20,10 +25,7 @@ class MailSearchController extends GetxController with StateMixin {
     if (Get.arguments != null) {
       searchController.text = Get.arguments['terms'];
     }
-    change(
-      null,
-      status: RxStatus.error('serach:${'enter_search_text'.tr}'),
-    );
+    change(null, status: RxStatus.error('serach:${'enter_search_text'.tr}'));
     scrollController.addListener(() {
       if (scrollController.position.pixels ==
           scrollController.position.maxScrollExtent) {
@@ -49,22 +51,22 @@ class MailSearchController extends GetxController with StateMixin {
   Future onSearch() async {
     if (searchController.text.isEmpty) return;
     change(null, status: RxStatus.loading());
-    searchResults = await client.searchMessages(
-      MailSearch(
-        searchController.text,
-        SearchQueryType.allTextHeaders,
-        messageType: SearchMessageType.all,
-      ),
-    );
-    searchMessages.clear();
-    if (searchResults != null) {
-      searchMessages = searchResults!.messages;
-      if (searchMessages.isEmpty) {
-        change(null, status: RxStatus.empty());
-      } else {
-        change(searchMessages, status: RxStatus.success());
-      }
-    }
+
+    // Telemetry: search attempt with request id
+    final _req = 'req-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(0x7fffffff)}';
+    try {
+      Telemetry.event('search_attempt', props: {
+        'request_id': _req,
+        'op': 'search',
+        'q_len': searchController.text.length,
+        'lat_ms': 0,
+      });
+    } catch (_) {}
+
+    // Delegate orchestration to presentation ViewModel (handles DDD/legacy + operation telemetry)
+    final vm = getIt<SearchViewModel>();
+    await vm.runSearch(this, requestId: _req);
+    return;
   }
 
   Future onMoreScroll() async {

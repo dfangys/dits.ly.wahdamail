@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:wahda_bank/views/view/controllers/inbox_controller.dart';
 import 'package:wahda_bank/views/view/new_message/widgets/to_text_field.dart';
-import 'package:wahda_bank/utills/constants/image_strings.dart';
 
 class NewMessageScreen extends StatelessWidget {
   NewMessageScreen({super.key});
@@ -19,21 +18,24 @@ class NewMessageScreen extends StatelessWidget {
         slivers: [
           SliverAppBar.medium(
             leading: IconButton(
-                onPressed: () {}, icon: const Icon(CupertinoIcons.back)),
+              onPressed: () {},
+              icon: const Icon(CupertinoIcons.back),
+            ),
             title: Text(
               'New message',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             actions: [
               IconButton(
-                  onPressed: () {},
-                  icon: const Icon(
-                    CupertinoIcons.add,
-                    color: Colors.green,
-                  )),
+                onPressed: () {},
+                icon: const Icon(CupertinoIcons.add, color: Colors.green),
+              ),
               IconButton(
-                onPressed: () => showCupertinoDialog(
-                    context: context, builder: createDialog),
+                onPressed:
+                    () => showCupertinoDialog(
+                      context: context,
+                      builder: createDialog,
+                    ),
                 icon: const Icon(
                   CupertinoIcons.paperplane,
                   color: Colors.green,
@@ -63,25 +65,23 @@ class NewMessageScreen extends StatelessWidget {
                         children: [
                           Text(
                             '"${user.name}" <${user.email}>',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyLarge!
-                                .apply(color: Colors.green),
-                          )
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyLarge!.apply(color: Colors.green),
+                          ),
                         ],
                       ),
                     ),
                     WToTextField(),
-                    const SizedBox(
-                      height: 10,
-                    ),
+                    const SizedBox(height: 10),
                     const Text('Subject'),
                     Container(
                       height: 45,
                       padding: const EdgeInsets.only(left: 10, right: 10),
                       decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.grey)),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.grey),
+                      ),
                       child: TextFormField(
                         controller: subjectController,
                         decoration: InputDecoration(
@@ -90,23 +90,19 @@ class NewMessageScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(
-                      height: 10,
-                    ),
+                    const SizedBox(height: 10),
                     HtmlEditor(
                       controller: htmlController,
                       htmlEditorOptions: const HtmlEditorOptions(
                         hint: "Your message here...",
                       ),
                     ),
-                    Container(
-                      height: 100,
-                    )
+                    Container(height: 100),
                   ],
                 ),
               ),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -114,24 +110,21 @@ class NewMessageScreen extends StatelessWidget {
 }
 
 Widget createDialog(BuildContext context) => CupertinoAlertDialog(
-      actions: [
-        CupertinoDialogAction(
-          child: const Text('Save as draft'),
-          onPressed: () {},
-        ),
-        CupertinoDialogAction(
-          child: const Text('Request read reciept'),
-          onPressed: () {},
-        ),
-        CupertinoDialogAction(
-          child: const Text('Convert to plain text'),
-          onPressed: () {},
-        ),
-        CupertinoDialogAction(
-          child: const Text('Cancel'),
-          onPressed: () {
-            Get.back();
-          },
-        ),
-      ],
-    );
+  actions: [
+    CupertinoDialogAction(child: const Text('Save as draft'), onPressed: () {}),
+    CupertinoDialogAction(
+      child: const Text('Request read reciept'),
+      onPressed: () {},
+    ),
+    CupertinoDialogAction(
+      child: const Text('Convert to plain text'),
+      onPressed: () {},
+    ),
+    CupertinoDialogAction(
+      child: const Text('Cancel'),
+      onPressed: () {
+        Get.back();
+      },
+    ),
+  ],
+);
