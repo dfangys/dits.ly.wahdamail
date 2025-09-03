@@ -31,6 +31,7 @@ This document is the **authoritative replacement** for the legacy Architecture G
 * [Rollout & Kill Switch](#rollout--kill-switch)
 * [Legacy → DDD Mapping](#legacy--ddd-mapping)
 * [Design System](#design-system)
+  * [P18.3 Hardening](#p183-hardening)
 
 ---
 
@@ -211,6 +212,10 @@ sequenceDiagram
 * See also: [P16 — Legacy Decommission & Rollout Plan](./LEGACY_DECOMMISSION.md).
 
 ## Design System
+
+### P18.3 Hardening
+- DS tokens/components adopted across key presentation/views with 1:1 visuals; legacy AppTheme references removed where covered by DS.
+- Import enforcer now hard-fails on newly added raw Colors.* in presentation/views (DS/theme excluded). Existing raw colors remain for parity and will be addressed in P19 visual polish.
 
 The shared design system provides 1:1 parity with the current app visuals while introducing tokens and feature-scoped presentation primitives. See docs/design_system/README.md. No behavioral/UI changes in P18.0.
 

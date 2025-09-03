@@ -7,7 +7,6 @@ import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
-import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
@@ -368,19 +367,19 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
       child: Card(
         margin: const EdgeInsets.all(24),
         elevation: 8,
-        shadowColor: AppTheme.primaryColor.withValues(alpha: 0.3),
+shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(
+              SizedBox(
                 height: 60,
                 width: 60,
                 child: CircularProgressIndicator(
                   strokeWidth: 4,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    AppTheme.primaryColor,
+                    Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ),
@@ -433,7 +432,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
                 icon: const Icon(Icons.refresh),
                 label: Text(_retryCount >= _maxRetries ? 'Try Again' : 'Retry'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -484,7 +483,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
 
     return RefreshIndicator(
       onRefresh: _refreshEmails,
-      color: AppTheme.primaryColor,
+      color: Theme.of(context).colorScheme.primary,
       child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
@@ -521,7 +520,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
     final pc = Get.find<EmailDownloadProgressController>();
     return RefreshIndicator(
       onRefresh: _refreshEmails,
-      color: AppTheme.primaryColor,
+      color: Theme.of(context).colorScheme.primary,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
@@ -578,13 +577,13 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(
+              SizedBox(
                 height: 20,
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    AppTheme.primaryColor,
+                    Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ),

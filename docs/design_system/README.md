@@ -19,3 +19,10 @@ Guardrails (soft nudge)
 
 No flags changed; kill-switch precedence remains intact. No dependency or pin changes.
 
+---
+
+P18.3: DS hardening & cleanup (no UI change)
+- Replaced legacy AppTheme usages in presentation/views with DS-backed Theme.of(context) and Tokens where safe to maintain 1:1 visuals.
+- Kept Empty/Error components from DS; mailbox/search/compose already on AppScaffold.
+- Import enforcer upgraded to ERROR on newly added raw Colors.* lines in presentation/views (git-diff scoped); DS/theme excluded. Existing Colors.* remain until P19 polish.
+

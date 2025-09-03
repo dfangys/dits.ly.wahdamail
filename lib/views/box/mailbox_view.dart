@@ -7,7 +7,6 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/app/controllers/selection_controller.dart';
 import 'package:wahda_bank/widgets/bottomnavs/selection_botttom_nav.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
-import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/box/enhanced_mailbox_view.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
@@ -543,15 +542,15 @@ class OptimizedDateGroup extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
               _formatDate(date),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.primaryColor,
+                color: theme.colorScheme.primary,
               ),
             ),
           ),
