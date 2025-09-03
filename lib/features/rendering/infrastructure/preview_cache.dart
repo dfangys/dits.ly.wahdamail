@@ -43,7 +43,7 @@ class PreviewCache {
   }
 
   void put(String key, RenderedContent value) {
-    final size = (value.sanitizedHtml.length) + (value.plainText?.length ?? 0);
+    // Size computed on hit/evict events; not needed on put
     if (_map.containsKey(key)) {
       _map.remove(key);
     } else if (_map.length >= capacity && _map.isNotEmpty) {

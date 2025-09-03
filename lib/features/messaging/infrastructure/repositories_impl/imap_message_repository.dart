@@ -207,6 +207,7 @@ class ImapMessageRepository implements MessageRepository {
     const bool remoteEnabled = false;
     List<dom.SearchResult> merged = localResults;
     // TODO(P7+): retained for future sync/search path; unused in P6.
+    // ignore: dead_code
     if (remoteEnabled) {
       try {
         // If a specific folder filter exists, search that; else skip for now

@@ -3,7 +3,6 @@ import 'package:wahda_bank/features/security/domain/services/crypto_engine.dart'
 import 'package:wahda_bank/features/security/domain/value_objects/email_identity.dart';
 import 'package:wahda_bank/features/security/domain/value_objects/encryption_status.dart';
 import 'package:wahda_bank/features/security/domain/value_objects/signature_status.dart';
-import 'package:wahda_bank/features/security/domain/value_objects/key_id.dart';
 import 'package:wahda_bank/shared/error/index.dart';
 
 class DecryptResult {

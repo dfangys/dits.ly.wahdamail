@@ -1,0 +1,101 @@
+# Core
+# This file is a reference. The installer renders /etc/kannel/kannel.conf from .env
+
+group = core
+admin-port = 13000
+admin-password = ${KANNEL_ADMIN_PASS}
+status-password = ${KANNEL_STATUS_PASS}
+admin-deny-ip = "0.0.0.0/0"
+admin-allow-ip = "127.0.0.1;${ADMIN_ALLOWED_IPS}"
+smsbox-port = 13001
+box-deny-ip = "0.0.0.0/0"
+box-allow-ip = "127.0.0.1"
+store-type = file
+store-file = /var/spool/kannel/kannel.store
+access-log = /var/log/kannel/access.log
+log-file = /var/log/kannel/bearerbox.log
+log-level = 1
+pidfile = /var/run/kannel/kannel.pid
+
+dlr-storage = mysql
+dlr-url = "http://127.0.0.1/playsms/index.php?app=call&cat=gateway&plugin=kannel&access=callback&smsc=%p&to=%T&ts=%t&status=%d&id=%i"
+dlr-msg-id = true
+
+group = mysql-connection
+id = dlr-db
+host = 127.0.0.1
+username = ${KANNEL_DLR_USER}
+password = ${KANNEL_DLR_PASS}
+database = ${KANNEL_DLR_DB}
+max-connections = 2
+
+group = smsbox
+bearerbox-host = 127.0.0.1
+sendsms-port = 13001
+sendsms-chars = "0123456789 +-"
+global-charset = UTF-8
+log-file = /var/log/kannel/smsbox.log
+access-log = /var/log/kannel/smsbox-access.log
+smsbox-port = 13001
+smsbox-bind-addr = 127.0.0.1
+
+group = sendsms-user
+username = ${KANNEL_SENDSMS_USER}
+password = ${KANNEL_SENDSMS_PASS}
+user-deny-ip = "0.0.0.0/0"
+user-allow-ip = "127.0.0.1"
+max-messages = 10
+concatenation = true
+default-dlr-mask = 31
+
+group = smsc
+smsc = smpp
+smsc-id = almadar
+host = ${ALMADAR_HOST}
+port = ${ALMADAR_PORT}
+system-type =
+system-id = ${ALMADAR_SYSTEM_ID}
+password = ${ALMADAR_PASSWORD}
+interface-version = 34
+transceiver-mode = ${ALMADAR_BIND_MODE}
+connections = ${ALMADAR_MAX_BINDS}
+throughput = ${ALMADAR_TPS_PER_BIND}
+window-size = ${ALMADAR_WINDOW_SIZE}
+enquire-link-interval = ${ALMADAR_ENQUIRE_LINK}
+smpp-ack-timeout = ${ALMADAR_SUBMIT_TIMEOUT}
+reconnect-delay = 5
+keepalive = 1
+source-addr-ton = ${ALMADAR_SRC_TON}
+source-addr-npi = ${ALMADAR_SRC_NPI}
+dest-addr-ton = ${ALMADAR_DST_TON}
+dest-addr-npi = ${ALMADAR_DST_NPI}
+allowed-prefix = +21891,+21893,21891,21893,0021891,0021893,091,093
+
+# use-ssl = true
+# ssl-ca-file = /etc/kannel/certs/ca.pem
+# ssl-cert-file = /etc/kannel/certs/client.crt
+# ssl-key-file = /etc/kannel/certs/client.key
+
+group = smsc
+smsc = smpp
+smsc-id = libyana
+host = ${LIBYANA_HOST}
+port = ${LIBYANA_PORT}
+system-type =
+system-id = ${LIBYANA_SYSTEM_ID}
+password = ${LIBYANA_PASSWORD}
+interface-version = 34
+transceiver-mode = ${LIBYANA_BIND_MODE}
+connections = ${LIBYANA_MAX_BINDS}
+throughput = ${LIBYANA_TPS_PER_BIND}
+window-size = ${LIBYANA_WINDOW_SIZE}
+enquire-link-interval = ${LIBYANA_ENQUIRE_LINK}
+smpp-ack-timeout = ${LIBYANA_SUBMIT_TIMEOUT}
+reconnect-delay = 5
+keepalive = 1
+source-addr-ton = ${LIBYANA_SRC_TON}
+source-addr-npi = ${LIBYANA_SRC_NPI}
+dest-addr-ton = ${LIBYANA_DST_TON}
+dest-addr-npi = ${LIBYANA_DST_NPI}
+allowed-prefix = +21892,+21894,21892,21894,0021892,0021894,092,094
+

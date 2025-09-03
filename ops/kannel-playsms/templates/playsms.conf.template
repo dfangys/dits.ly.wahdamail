@@ -1,0 +1,12 @@
+<VirtualHost *:80>
+    ServerName ${PLAYSMS_VHOST_SERVERNAME}
+    DocumentRoot ${PLAYSMS_WEBROOT}
+    <Directory ${PLAYSMS_WEBROOT}>
+        AllowOverride All
+        Options FollowSymLinks
+        Require all granted
+    </Directory>
+    ErrorLog /var/log/httpd/playsms_error.log
+    CustomLog /var/log/httpd/playsms_access.log combined
+</VirtualHost>
+
