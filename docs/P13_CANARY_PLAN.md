@@ -122,6 +122,14 @@ Rollout Steps
 - T+3 days: Expand to 10% internal if stable; otherwise kill-switch.
 - Do not enable ddd.send.enabled in P13.
 
+Execution Log (P16b)
+- 2025-09-03T15:08:00Z: Planned enable via remote flags only (no app default changes)
+  - ddd.search.enabled: 5% internal cohort (djb2(email)%100 < 5)
+  - ddd.messaging.enabled (prefetch only): 5% internal cohort (djb2(email)%100 < 5)
+  - ddd.send.enabled: OFF (0%)
+  - Kill-switch highlighted: flip ddd.kill_switch.enabled=true for immediate rollback
+  - Script reference: scripts/canary/enable_internal_5_percent.sh (illustrative, replace with real API)
+
 Risks
 - Unexpected IMAP load during prefetch: protected by 5% cohort, backoff/jitter remains active.
 - Legacy controller codepaths still present (deprecated) until P12.4; ensure they do not fork behavior.
