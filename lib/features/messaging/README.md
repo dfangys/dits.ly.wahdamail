@@ -41,3 +41,11 @@ Search (P6)
 - Local-first strategy: LocalStore.searchMetadata; optional remote search via ImapGateway.searchHeaders (stubbed, disabled by default). Results are merged with local, de-duplicated, sorted by date DESC, then limited.
 - No DB schema/FTS changes in P6; FTS may come later
 
+P15: Mail domain edges (flags OFF; no UI)
+- Threading (RFC 5322): ThreadBuilder aggregates messages by Message-ID/In-Reply-To/References; falls back to normalized subject only when headers are missing. ThreadKey is deterministic.
+- Special-use folders (RFC 6154): SpecialUseMapper maps \Inbox, \Sent, \Trash, \Junk, \Archive, \Drafts; tenant overrides supported via DI.
+- MIME robustness: MimeDecoder handles quoted-printable, base64, and common charsets (UTF-8, ISO-8859-1, windows-1252/1256 best-effort). CID links preserved; no remote fetch.
+- UID window sync: UidWindowSync computes moving UID ranges and persists highest-seen per folder via LocalStore; resumes safely without duplicates.
+- Flag conflict resolution: last-writer-wins with server authority; on STORE conflicts retry using server snapshot.
+- Telemetry ops: ThreadBuild, SpecialUseMap, MimeDecode, UidWindowSync, FlagConflictResolve with fields {request_id, op, folder_id, count?, lat_ms, error_class?}.
+
