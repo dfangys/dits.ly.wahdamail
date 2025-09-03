@@ -31,6 +31,16 @@ bool isInCohort(String email, int rolloutPercent) {
 }
 ```
 
+Copy-paste cohort snippet (standalone):
+```dart
+int djb2Hash(String s) {
+  var h = 5381;
+  for (final c in s.codeUnits) { h = ((h << 5) + h) + c; } // h*33 + c
+  return h & 0x7fffffff;
+}
+bool inCohort(String email, int percent) => djb2Hash(email) % 100 < percent;
+```
+
 Cohort Strategy (internal only)
 - Limit by tester list (hashed account IDs) or by deterministic percent above, and/or by internal build flavor.
 - Example approach (app reads GetStorage):
