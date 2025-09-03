@@ -34,3 +34,20 @@ Flags
 - ddd.ios.bg_fetch.enabled must be true AND kill-switch false to start BG fallback (P14)
 - Defaults remain false; no flag flips
 
+24h iOS BG fallback check (P17 doc)
+- Goal: Validate that, over 24h, BG fetch coalesces and does not exceed battery/db budgets.
+- How to capture:
+  1) Enable BG fallback (internal build; do not flip in prod). Ensure telemetry is collected locally.
+  2) Collect logs for 24h and export to a text file (e.g., device syslog or app log output with telemetry lines).
+  3) Run: `dart run scripts/observability/sample_budget_check.dart < logs.txt`
+- Expected result format:
+  - search_success_rate: float in [0,1]
+  - inbox_open p50/p95 ms
+  - fetch_body p50/p95 ms
+  - search p50/p95 ms
+- Evaluation:
+  - inbox_open_ms_p50 ≤ 600ms
+  - message_open_ms_p50_cached ≤ 200ms (approximate via fetch_body cache hits)
+  - sync_cycle_ms_p50 ≤ 1500ms (from Sync telemetry if available)
+  - db_size_mb_cap ≤ 800MB (from storage tools)
+

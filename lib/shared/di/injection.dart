@@ -10,7 +10,6 @@ import 'package:wahda_bank/features/messaging/infrastructure/facade/legacy_messa
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/features/sync/infrastructure/sync_scheduler.dart';
 import 'package:wahda_bank/shared/flags/remote_flags.dart';
-import 'package:wahda_bank/shared/flags/cohort_service.dart';
 import 'package:wahda_bank/features/sync/infrastructure/bg_fetch_ios.dart';
 import 'package:wahda_bank/features/sync/infrastructure/connectivity_monitor.dart';
 
