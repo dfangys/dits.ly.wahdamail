@@ -9,9 +9,9 @@ import 'package:wahda_bank/features/messaging/application/usecases/search_messag
 import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.dart' as dom;
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:wahda_bank/services/search_legacy_adapter.dart';
 
 /// Presentation adapter for search orchestrations.
 /// - Respects kill-switch precedence and P12 routing
@@ -21,7 +21,7 @@ class SearchViewModel extends GetxController with StateMixin<List<MimeMessage>> 
   // State owned by the ViewModel in P12.2
   final List<MimeMessage> searchMessages = <MimeMessage>[];
   MailSearchResult? searchResults;
-  final MailClient client = MailService.instance.client;
+  // Legacy client access handled via SearchLegacyAdapter to avoid direct service import.
 
   Future<void> runSearch(MailSearchController controller, {required String requestId}) async {
     final sw = Stopwatch()..start();
@@ -79,12 +79,8 @@ class SearchViewModel extends GetxController with StateMixin<List<MimeMessage>> 
 
     // Legacy fallback handled directly by VM
     try {
-      final results = await client.searchMessages(
-        MailSearch(
-          controller.searchController.text,
-          SearchQueryType.allTextHeaders,
-          messageType: SearchMessageType.all,
-        ),
+      final results = await SearchLegacyAdapter.searchText(
+        controller.searchController.text,
       );
       searchResults = results;
       searchMessages

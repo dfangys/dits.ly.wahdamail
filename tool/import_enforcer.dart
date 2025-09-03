@@ -17,6 +17,13 @@ void main() {
   for (final entity in Directory('lib').listSync(recursive: true)) {
     if (entity is File && entity.path.endsWith('.dart')) {
       final content = entity.readAsStringSync();
+
+      // Global ban: retired shim must not be referenced anywhere
+      if (content.contains("import 'package:wahda_bank/shared/ddd_ui_wiring.dart'") ||
+          content.contains('import "package:wahda_bank/shared/ddd_ui_wiring.dart"')) {
+        violations.add('Global ban: ddd_ui_wiring.dart is retired → ${entity.path}');
+      }
+
       if (domainPath.hasMatch(entity.path)) {
         for (final ban in domainBans) {
           if (content.contains("import '$ban") ||
@@ -37,12 +44,18 @@ void main() {
           }
         }
       }
-      if (presentationPath.hasMatch(entity.path) &&
-          content.contains('import ') &&
-          content.contains('/infrastructure/')) {
-        violations.add(
-          'Presentation->Infrastructure import violation: ${entity.path}',
-        );
+
+      // Presentation may not depend directly on infrastructure or legacy MailService
+      if (presentationPath.hasMatch(entity.path)) {
+        if (content.contains('import ') && content.contains('/infrastructure/')) {
+          violations.add(
+            'Presentation->Infrastructure import violation: ${entity.path}',
+          );
+        }
+        if (content.contains("import 'package:wahda_bank/services/mail_service.dart'") ||
+            content.contains('import "package:wahda_bank/services/mail_service.dart"')) {
+          violations.add('Presentation cannot import legacy MailService → ${entity.path}');
+        }
       }
     }
   }
