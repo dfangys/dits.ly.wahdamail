@@ -189,7 +189,9 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
           await _handleBackPress();
         }
       },
-      child: Shortcuts(
+      child: FocusTraversalGroup(
+        policy: ReadingOrderTraversalPolicy(),
+        child: Shortcuts(
         shortcuts: <LogicalKeySet, Intent>{
           // Cmd/Ctrl + Enter to send
           LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.enter):
@@ -222,7 +224,7 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
           },
             child: Focus(
               autofocus: true,
-              child: AppScaffold(
+      child: AppScaffold(
                 backgroundColor: theme.colorScheme.surface,
                 appBar: _buildAppBar(theme),
                 body: SlideTransition(
@@ -237,6 +239,7 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
               ),
             ),
         ),
+        ),
       ),
     );
   }
@@ -246,12 +249,16 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
       elevation: 0,
       backgroundColor: theme.colorScheme.surface,
       surfaceTintColor: Colors.transparent,
-      leading: IconButton(
-        icon: Icon(
-          Icons.arrow_back_ios_rounded,
-          color: theme.colorScheme.onSurface,
+      leading: Semantics(
+        button: true,
+        label: 'Back',
+        child: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios_rounded,
+            color: theme.colorScheme.onSurface,
+          ),
+          onPressed: _handleBackPress,
         ),
-        onPressed: _handleBackPress,
       ),
       title: Text(
         widget.draft != null ? 'edit_draft'.tr : 'new_message'.tr,
@@ -340,25 +347,33 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
         ),
 
         // Attachment button
-        IconButton(
-          onPressed: _showAttachmentOptions,
-          icon: Icon(
-            Icons.attach_file_rounded,
-            color: theme.colorScheme.onSurfaceVariant,
-            size: 22,
+        Semantics(
+          button: true,
+          label: 'attach_file'.tr,
+          child: IconButton(
+            onPressed: _showAttachmentOptions,
+            icon: Icon(
+              Icons.attach_file_rounded,
+              color: theme.colorScheme.onSurfaceVariant,
+              size: 22,
+            ),
+            tooltip: 'attach_file'.tr,
           ),
-          tooltip: 'attach_file'.tr,
         ),
 
         // More options button
-        IconButton(
-          onPressed: _showMoreOptions,
-          icon: Icon(
-            Icons.more_vert_rounded,
-            color: theme.colorScheme.onSurfaceVariant,
-            size: 22,
+        Semantics(
+          button: true,
+          label: 'more_options'.tr,
+          child: IconButton(
+            onPressed: _showMoreOptions,
+            icon: Icon(
+              Icons.more_vert_rounded,
+              color: theme.colorScheme.onSurfaceVariant,
+              size: 22,
+            ),
+            tooltip: 'more_options'.tr,
           ),
-          tooltip: 'more_options'.tr,
         ),
       ],
     );
