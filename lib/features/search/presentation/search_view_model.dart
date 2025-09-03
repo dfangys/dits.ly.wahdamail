@@ -12,6 +12,7 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:wahda_bank/shared/telemetry/tracing.dart';
 
 /// Presentation adapter for search orchestrations.
 /// - Respects kill-switch precedence and P12 routing
@@ -30,6 +31,7 @@ class SearchViewModel extends GetxController with StateMixin<List<MimeMessage>> 
     if (!FeatureFlags.instance.dddKillSwitchEnabled &&
         FeatureFlags.instance.dddSearchEnabled) {
       try {
+        final span = Tracing.startSpan('Search', attrs: {'request_id': requestId});
         final repo = getIt<MessageRepository>();
         final search = uc.SearchMessages(repo);
         final q = dom.SearchQuery(text: controller.searchController.text, limit: 50);
@@ -58,6 +60,7 @@ class SearchViewModel extends GetxController with StateMixin<List<MimeMessage>> 
         } else {
           change(searchMessages, status: RxStatus.success());
         }
+        Tracing.end(span);
         Telemetry.event('search_success', props: {
           'request_id': requestId,
           'op': 'search',
@@ -79,6 +82,7 @@ class SearchViewModel extends GetxController with StateMixin<List<MimeMessage>> 
 
     // Legacy fallback handled directly by VM
     try {
+      final span2 = Tracing.startSpan('Search', attrs: {'request_id': requestId});
       final results = await client.searchMessages(
         MailSearch(
           controller.searchController.text,
@@ -95,6 +99,7 @@ class SearchViewModel extends GetxController with StateMixin<List<MimeMessage>> 
       } else {
         change(searchMessages, status: RxStatus.success());
       }
+      Tracing.end(span2);
       Telemetry.event('search_success', props: {
         'request_id': requestId,
         'op': 'search',

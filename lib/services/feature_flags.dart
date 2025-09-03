@@ -1,4 +1,6 @@
 import 'package:get_storage/get_storage.dart';
+import 'package:get_it/get_it.dart';
+import 'package:wahda_bank/shared/flags/remote_flags.dart';
 
 /// Simple feature flags for staged rollout of performance features.
 /// Defaults are enabled, can be overridden via GetStorage keys or env.
@@ -70,16 +72,59 @@ class FeatureFlags {
       (_box.read(_kDraftKeepRecentCount) as int?) ?? 1;
 
   // DDD getters
-  bool get dddMessagingEnabled => _box.read(_kDddMessagingEnabled) ?? false;
-  bool get dddSendEnabled => _box.read(_kDddSendEnabled) ?? false;
-  bool get dddSyncShadowMode => _box.read(_kDddSyncShadowMode) ?? false;
-  bool get dddSearchEnabled => _box.read(_kDddSearchEnabled) ?? false;
-  bool get dddNotificationsEnabled =>
-      _box.read(_kDddNotificationsEnabled) ?? false;
-  bool get dddEnterpriseApiEnabled =>
-      _box.read(_kDddEnterpriseApiEnabled) ?? false;
+  bool get dddKillSwitchEnabled {
+    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final remote = rf?.getBool(_kDddKillSwitchEnabled);
+    if (remote != null) return remote;
+    return _box.read(_kDddKillSwitchEnabled) ?? false;
+  }
+
+  bool get dddMessagingEnabled {
+    if (dddKillSwitchEnabled) return false;
+    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final remote = rf?.getBool(_kDddMessagingEnabled);
+    if (remote != null) return remote;
+    return _box.read(_kDddMessagingEnabled) ?? false;
+  }
+
+  bool get dddSendEnabled {
+    if (dddKillSwitchEnabled) return false;
+    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final remote = rf?.getBool(_kDddSendEnabled);
+    if (remote != null) return remote;
+    return _box.read(_kDddSendEnabled) ?? false;
+  }
+
+  bool get dddSyncShadowMode {
+    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final remote = rf?.getBool(_kDddSyncShadowMode);
+    if (remote != null) return remote;
+    return _box.read(_kDddSyncShadowMode) ?? false;
+  }
+
+  bool get dddSearchEnabled {
+    if (dddKillSwitchEnabled) return false;
+    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final remote = rf?.getBool(_kDddSearchEnabled);
+    if (remote != null) return remote;
+    return _box.read(_kDddSearchEnabled) ?? false;
+  }
+
+  bool get dddNotificationsEnabled {
+    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final remote = rf?.getBool(_kDddNotificationsEnabled);
+    if (remote != null) return remote;
+    return _box.read(_kDddNotificationsEnabled) ?? false;
+  }
+
+  bool get dddEnterpriseApiEnabled {
+    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final remote = rf?.getBool(_kDddEnterpriseApiEnabled);
+    if (remote != null) return remote;
+    return _box.read(_kDddEnterpriseApiEnabled) ?? false;
+  }
+
   bool get dddKillSwitchLegacy => _box.read(_kDddKillSwitchLegacy) ?? false;
-  bool get dddKillSwitchEnabled => _box.read(_kDddKillSwitchEnabled) ?? false;
 
   // Telemetry path helper
   static String get telemetryPath {
