@@ -217,6 +217,16 @@ class AttachmentFetcher {
     return null;
   }
 
+  /// Ensure full message content by fetching from server if needed (legacy path).
+  static Future<MimeMessage> ensureFullMessage(MimeMessage message) async {
+    try {
+      final fetched = await MailService.instance.client.fetchMessageContents(message);
+      return fetched;
+    } catch (_) {
+      return message;
+    }
+  }
+
   /// Validate attachment data integrity
   static bool _validateAttachmentData(Uint8List data, ContentInfo content) {
     if (data.isEmpty) return false;

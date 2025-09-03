@@ -10,7 +10,6 @@ import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/services/attachment_fetcher.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 
@@ -72,16 +71,14 @@ class MailboxViewModel {
   }
 
   /// UI helper: ensure full message content is available (body/parts) before attachment operations.
-  /// For P12.3 this delegates to the legacy MailService client; routing is owned by the VM (UI should not call services directly).
+  /// Delegates to AttachmentFetcher to avoid direct service imports in presentation.
   Future<MimeMessage> ensureFullMessage({
     required MimeMessage message,
     Mailbox? mailbox,
   }) async {
     try {
-      if (!message.hasAttachments()) {
-        final fetched = await MailService.instance.client.fetchMessageContents(message);
-        return fetched;
-      }
+      final fetched = await AttachmentFetcher.ensureFullMessage(message);
+      return fetched;
     } catch (_) {}
     return message;
   }
