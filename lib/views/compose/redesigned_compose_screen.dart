@@ -10,6 +10,7 @@ import 'package:wahda_bank/views/compose/models/draft_model.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
+import 'package:wahda_bank/design_system/components/app_scaffold.dart';
 
 /// Redesigned compose screen with enhanced UX and modern design
 class RedesignedComposeScreen extends StatefulWidget {
@@ -219,23 +220,22 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
               },
             ),
           },
-          child: Focus(
-            autofocus: true,
-            child: Scaffold(
-              backgroundColor: theme.colorScheme.surface,
-              appBar: _buildAppBar(theme),
-              body: SlideTransition(
-                position: _slideAnimation,
-                child: Form(
-                  key: composeFormKey,
-                  child: RedesignedComposeView(),
+            child: Focus(
+              autofocus: true,
+              child: AppScaffold(
+                backgroundColor: theme.colorScheme.surface,
+                appBar: _buildAppBar(theme),
+                body: SlideTransition(
+                  position: _slideAnimation,
+                  child: Form(
+                    key: composeFormKey,
+                    child: RedesignedComposeView(),
+                  ),
                 ),
+                floatingActionButton: _buildFloatingActionButton(theme),
+                bottomNavigationBar: null,
               ),
-              floatingActionButton: _buildFloatingActionButton(theme),
-              floatingActionButtonLocation:
-                  FloatingActionButtonLocation.endFloat,
             ),
-          ),
         ),
       ),
     );
