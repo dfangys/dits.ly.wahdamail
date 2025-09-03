@@ -1,6 +1,6 @@
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 
-/// Resolver for message flag conflicts (\Seen, \Flagged, \Answered) in multi-device scenarios.
+/// Resolver for message flag conflicts (\\Seen, \\Flagged, \\Answered) in multi-device scenarios.
 class FlagConflictResolver {
   /// Decide final flags given local desired and server authoritative snapshot.
   /// Policy: last-writer-wins with server authority. If local differs, we attempt STORE; on conflict we retry using server snapshot.
@@ -13,7 +13,8 @@ class FlagConflictResolver {
     }
     Telemetry.event('operation', props: {
       'op': 'FlagConflictResolve',
-      'lat_ms': sw.elapsedMilliseconds,
+      'ok': true,
+      'latency_ms': sw.elapsedMilliseconds,
       if (requestId != null) 'request_id': requestId,
     });
     return merged;
@@ -24,9 +25,10 @@ class FlagConflictResolver {
     final sw = Stopwatch()..start();
     Telemetry.event('operation', props: {
       'op': 'FlagConflictResolve',
-      'lat_ms': sw.elapsedMilliseconds,
+      'ok': false,
+      'latency_ms': sw.elapsedMilliseconds,
       if (requestId != null) 'request_id': requestId,
-      'error_class': 'StoreConflict',
+      'err_type': 'StoreConflict',
     });
     return Map<String, bool>.from(serverFlags);
   }

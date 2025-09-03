@@ -63,18 +63,22 @@ class ImapMessageRepository implements MessageRepository {
     if (body != null) {
       final size = (body.html?.length ?? 0) + (body.plainText?.length ?? 0);
       Telemetry.event('cache_hit', props: {
+        'op': 'cache_hit',
+        'ok': true,
         'cache': 'bodies',
         'key_hash': Hashing.djb2(messageId).toString(),
         'size_bytes': size,
-        'ms': sw.elapsedMilliseconds,
+        'latency_ms': sw.elapsedMilliseconds,
       });
       _bodyCache.touch(messageId);
     }
     if (body == null) {
       Telemetry.event('cache_miss', props: {
+        'op': 'cache_miss',
+        'ok': true,
         'cache': 'bodies',
         'key_hash': Hashing.djb2(messageId).toString(),
-        'ms': sw.elapsedMilliseconds,
+        'latency_ms': sw.elapsedMilliseconds,
       });
       final span2 = Tracing.startSpan('FetchBody', attrs: {'folderId': folder.id});
       final dto = await Telemetry.timeAsync('fetch_body', () async {
@@ -155,18 +159,22 @@ class ImapMessageRepository implements MessageRepository {
     if (cached != null) {
       _attachmentCache.touch(messageId, partId);
       Telemetry.event('cache_hit', props: {
+        'op': 'cache_hit',
+        'ok': true,
         'cache': 'attachments',
         'key_hash': Hashing.djb2('$messageId:$partId').toString(),
         'size_bytes': cached.length,
-        'ms': sw.elapsedMilliseconds,
+        'latency_ms': sw.elapsedMilliseconds,
       });
       return cached;
     }
 
     Telemetry.event('cache_miss', props: {
+      'op': 'cache_miss',
+      'ok': true,
       'cache': 'attachments',
       'key_hash': Hashing.djb2('$messageId:$partId').toString(),
-      'ms': sw.elapsedMilliseconds,
+      'latency_ms': sw.elapsedMilliseconds,
     });
 
     final span4 = Tracing.startSpan('DownloadAttachment', attrs: {'folderId': folder.id});

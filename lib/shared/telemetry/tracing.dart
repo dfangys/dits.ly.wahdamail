@@ -23,9 +23,10 @@ class Tracing {
     final props = <String, Object?>{
       ...span.attrs,
       ...attrs,
-      if (errorClass != null) 'error_class': errorClass,
-      'lat_ms': ms,
+      if (errorClass != null) 'err_type': errorClass,
+      'latency_ms': ms,
       'span': span.name,
+      'op': 'span',
     };
     Telemetry.event('span', props: props);
   }
