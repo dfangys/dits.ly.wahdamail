@@ -35,7 +35,6 @@ import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/app/constants/app_constants.dart';
 import '../../views/authantication/screens/login/login.dart';
 import 'package:wahda_bank/services/imap_command_queue.dart';
-import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
 
@@ -50,7 +49,7 @@ class _LocalDbLoadResult {
   });
 }
 
-@Deprecated('P12.2: Use MailboxViewModel for orchestration; controller remains a thin pass-through. TODO(P12.3) remove')
+@Deprecated('Replaced by ViewModels. Will be removed in P12.4')
 class MailBoxController extends GetxController {
   // Retry guard for initial mailbox loading to handle transient connection limits on hot restart
   int _loadMailboxesRetries = 0;
@@ -1303,7 +1302,7 @@ class MailBoxController extends GetxController {
     } catch (_) {}
     // Telemetry: time inbox open end-to-end (controllers keep entry-point telemetry)
     final _tSw = Stopwatch()..start();
-    final _req = DddUiWiring.newRequestId();
+    final _req = 'req-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(0x7fffffff)}';
     try {
       // Ensure we're working with the correct mailbox
       if (currentMailbox != mailbox) {

@@ -229,9 +229,8 @@ class HomeBinding extends Bindings {
 Get.lazyPut<MailService>(() => MailService());
 
 // Check if service is registered
-if (Get.isRegistered<MailService>()) {
-  final service = Get.find<MailService>();
-}
+// Access the service via its singleton instance
+final service = MailService.instance;
 ```
 
 #### Problem: Circular dependency

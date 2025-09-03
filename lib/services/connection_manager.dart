@@ -45,11 +45,8 @@ class ConnectionManager extends GetxService {
   final RxBool isReconnecting = false.obs;
 
   MailService? get _mailService {
-    try {
-      return Get.find<MailService>();
-    } catch (e) {
-      return null;
-    }
+    // Use singleton instance; avoid runtime DI lookups in services
+    return MailService.instance;
   }
 
   @override

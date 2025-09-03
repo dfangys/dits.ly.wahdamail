@@ -36,14 +36,8 @@ class IncomingEmailService extends GetxService {
   final Set<String> _processedMessageIds = {};
 
   MailService? get _mailService {
-    try {
-      return Get.find<MailService>();
-    } catch (e) {
-      if (kDebugMode) {
-        print('MailService not available: $e');
-      }
-      return null;
-    }
+    // Use singleton instance; avoid runtime DI lookups in services
+    return MailService.instance;
   }
 
   @override

@@ -71,8 +71,8 @@ lib/
 - **DI**: `get_it` + `injectable`. Bootstrap in `shared/di/injection.dart`.
 - **Feature flags** (GetStorage‑backed):
   - `ddd.messaging.enabled`, `ddd.send.enabled`, `ddd.search.enabled`, `ddd.notifications.enabled`, `ddd.enterprise_api.enabled`, `ddd.sync.shadow_mode`.
-  - **Kill switch**: `ddd.kill_switch.enabled` — **overrides all** and forces **legacy** routing.
-- **P12 controller gating** (centralized): `shared/ddd_ui_wiring.dart` decides legacy vs DDD per operation; controllers *call and bail* if DDD handled.
+  - **Kill switch**: `ddd.kill_switch.enabled` — overrides all and forces legacy routing.
+- **P12.3**: Presentation ViewModels own UI orchestration; legacy controllers are deprecated thin adapters (entry‑telemetry + delegation) and will be removed in P12.4. The legacy routing shim has been retired.
 
 ## Error Taxonomy
 
@@ -222,5 +222,5 @@ sequenceDiagram
 | Notifications in UI              | `features/notifications` domain + no‑op adapter (flag‑gated)      |
 | Security service                 | `features/security` keyring/trust + `CryptoEngine` stub           |
 
-> **Note:** P12 routes controllers through `shared/ddd_ui_wiring.dart`; behavior is unchanged by default because all flags remain OFF and the kill switch takes precedence.
+> **Note:** P12.3 retired the legacy routing shim. UI binds directly to presentation ViewModels; legacy controllers are deprecated thin adapters. The kill switch still takes precedence and can force legacy paths.
 
