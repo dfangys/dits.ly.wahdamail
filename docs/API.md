@@ -31,7 +31,7 @@ class MailService extends GetxService {
 #### Usage Example
 
 ```dart
-final mailService = Get.find<MailService>();
+final mailService = MailService.instance;
 
 // Connect to email server
 await mailService.connect();

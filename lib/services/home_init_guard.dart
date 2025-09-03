@@ -26,7 +26,7 @@ class HomeInitGuard extends GetxService {
 
     // Ensure MailService is initialized and connected before touching mailboxes to avoid LateInitializationError.
     try {
-      final mailService = Get.find<MailService>();
+      final mailService = MailService.instance;
       if (!mailService.isClientSet) {
         await mailService.init();
       }

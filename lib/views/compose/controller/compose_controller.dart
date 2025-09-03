@@ -30,7 +30,6 @@ import 'package:wahda_bank/services/imap_command_queue.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
-import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
 import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 
@@ -44,7 +43,7 @@ extension EmailValidator on String {
 
 enum DraftSyncState { idle, syncing, synced, failed }
 
-@Deprecated('P12.2: Use ComposeViewModel for orchestration; controller remains a thin pass-through. TODO(P12.3) remove')
+@Deprecated('Replaced by ViewModels. Will be removed in P12.4')
 class ComposeController extends GetxController {
   // Compose session identifier to correlate all server-side draft versions for this editor lifecycle
   // Used to reliably purge superseded drafts and avoid duplicates
@@ -1220,7 +1219,7 @@ class ComposeController extends GetxController {
   Future<void> sendEmail() async {
     if (isBusy.value || isSending.value) return;
 
-    final _req = DddUiWiring.newRequestId();
+    final _req = 'req-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(0x7fffffff)}';
     final _sw = Stopwatch()..start();
     try {
       // Telemetry: send attempt

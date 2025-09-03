@@ -5,9 +5,9 @@ import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
-import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
+import 'dart:math' as math;
 
-@Deprecated('P12.2: Use SearchViewModel for UI state; controller remains entry-telemetry pass-through. TODO(P12.3) remove')
+@Deprecated('Replaced by ViewModels. Will be removed in P12.4')
 class MailSearchController extends GetxController with StateMixin {
   final searchController = TextEditingController();
   final searchFocusNode = FocusNode();
@@ -53,7 +53,7 @@ class MailSearchController extends GetxController with StateMixin {
     change(null, status: RxStatus.loading());
 
     // Telemetry: search attempt with request id
-    final _req = DddUiWiring.newRequestId();
+    final _req = 'req-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(0x7fffffff)}';
     try {
       Telemetry.event('search_attempt', props: {
         'request_id': _req,

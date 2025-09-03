@@ -2,9 +2,9 @@ import 'dart:typed_data';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/services/mail_service.dart';
-import 'package:wahda_bank/services/attachment_fetcher.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
+import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
 
 class OptimizedMailAttachments extends StatefulWidget {
   const OptimizedMailAttachments({
@@ -31,13 +31,19 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
   static final Map<String, List<ContentInfo>> _attachmentCache = {};
   static final Map<String, Uint8List> _attachmentDataCache = {};
 
-  // Services
-  final MailService _mailService = Get.find<MailService>();
+  // ViewModel for attachment operations
+  late MailboxViewModel _mailboxVm;
 
   @override
   void initState() {
     super.initState();
     _messageKey = _generateMessageKey();
+    // Obtain MailboxViewModel via DI (fallback to get_it if not registered in Get)
+    try {
+      _mailboxVm = Get.find<MailboxViewModel>();
+    } catch (_) {
+      _mailboxVm = Get.put<MailboxViewModel>(getIt<MailboxViewModel>());
+    }
     _loadAttachments();
   }
 
@@ -61,19 +67,11 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
         return;
       }
 
-      // Ensure we have the full message content
-      MimeMessage messageContent = widget.message;
-      if (!widget.message.hasAttachments()) {
-        // Try to fetch full content if not available
-        try {
-          messageContent = await _mailService.client.fetchMessageContents(
-            widget.message,
-          );
-        } catch (e) {
-          // If fetch fails, use original message
-          messageContent = widget.message;
-        }
-      }
+      // Ensure we have the full message content via VM
+      MimeMessage messageContent = await _mailboxVm.ensureFullMessage(
+        message: widget.message,
+        mailbox: widget.mailbox,
+      );
 
       // Extract attachments
       _attachments = messageContent.findContentInfo(
@@ -115,7 +113,7 @@ class _OptimizedMailAttachmentsState extends State<OptimizedMailAttachments> {
         return _attachmentDataCache[cacheKey];
       }
 
-      final data = await AttachmentFetcher.fetchBytes(
+      final data = await _mailboxVm.fetchAttachmentBytes(
         message: widget.message,
         content: attachment,
         mailbox: widget.mailbox,

@@ -23,14 +23,8 @@ class RealtimeUpdateService extends GetxService {
   RealtimeUpdateService._();
 
   MailService? get _mailService {
-    try {
-      return Get.find<MailService>();
-    } catch (e) {
-      if (kDebugMode) {
-        print('Connection check failed: $e');
-      }
-      return null;
-    }
+    // Use singleton instance; avoid runtime DI lookups in services
+    return MailService.instance;
   }
 
   CacheManager get _cacheManager => CacheManager.instance;

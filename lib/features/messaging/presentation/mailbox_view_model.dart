@@ -1,11 +1,18 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:injectable/injectable.dart';
-import 'package:wahda_bank/shared/ddd_ui_wiring.dart';
+// P12.3: inline prefetch (remove shim)
+import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart';
+import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as dom_msg;
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/services/attachment_fetcher.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 
 /// Presentation adapter for the mailbox feature.
 ///
@@ -16,9 +23,15 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 class MailboxViewModel {
   Future<void> prefetchOnMailboxOpen({required String folderId, String? requestId}) async {
     if (FeatureFlags.instance.dddKillSwitchEnabled) return;
-    // Delegate to centralized routing helper (same precedence as controllers)
+    if (!FeatureFlags.instance.dddMessagingEnabled) return;
     try {
-      await DddUiWiring.maybeFetchInbox(folderId: folderId);
+      final repo = getIt<MessageRepository>();
+      // Fire-and-forget prime (non-blocking)
+      unawaited(
+        repo
+            .fetchInbox(folder: dom.Folder(id: folderId, name: folderId), limit: 10)
+            .catchError((_) => <dom_msg.Message>[]),
+      );
     } catch (_) {}
   }
 
@@ -56,6 +69,35 @@ class MailboxViewModel {
       }
     } catch (_) {}
     await controller.safeNavigateToMessageLegacy(message, mailbox);
+  }
+
+  /// UI helper: ensure full message content is available (body/parts) before attachment operations.
+  /// For P12.3 this delegates to the legacy MailService client; routing is owned by the VM (UI should not call services directly).
+  Future<MimeMessage> ensureFullMessage({
+    required MimeMessage message,
+    Mailbox? mailbox,
+  }) async {
+    try {
+      if (!message.hasAttachments()) {
+        final fetched = await MailService.instance.client.fetchMessageContents(message);
+        return fetched;
+      }
+    } catch (_) {}
+    return message;
+  }
+
+  /// UI helper: fetch attachment bytes for a given ContentInfo.
+  /// Delegates to AttachmentFetcher for robust decoding and server fallback.
+  Future<Uint8List?> fetchAttachmentBytes({
+    required MimeMessage message,
+    required ContentInfo content,
+    Mailbox? mailbox,
+  }) async {
+    return await AttachmentFetcher.fetchBytes(
+      message: message,
+      content: content,
+      mailbox: mailbox,
+    );
   }
 }
 
