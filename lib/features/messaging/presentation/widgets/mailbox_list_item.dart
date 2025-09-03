@@ -1,5 +1,6 @@
 // lib/features/messaging/presentation/widgets/mailbox_list_item.dart
 import 'package:flutter/material.dart';
+import 'package:wahda_bank/design_system/theme/tokens.dart';
 
 class MailboxListItem extends StatelessWidget {
   final Widget leading;
@@ -31,8 +32,11 @@ class MailboxListItem extends StatelessWidget {
                   ),
         trailing: trailing,
         onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        minVerticalPadding: 8,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: Tokens.space5,
+          vertical: Tokens.space4,
+        ),
+        minVerticalPadding: Tokens.space4,
       ),
     );
   }

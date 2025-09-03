@@ -11,6 +11,7 @@ import 'controllers/mail_search_controller.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
 import 'package:wahda_bank/design_system/components/app_scaffold.dart';
+import 'package:wahda_bank/design_system/theme/tokens.dart';
 import 'package:wahda_bank/design_system/components/empty_state.dart';
 import 'package:wahda_bank/design_system/components/error_state.dart';
 
@@ -36,8 +37,8 @@ class SearchView extends StatelessWidget {
             fillColor: WColors.fieldbackground,
             filled: true,
             contentPadding: const EdgeInsets.symmetric(
-              vertical: 8,
-              horizontal: 10,
+              vertical: Tokens.space3,
+              horizontal: Tokens.space4,
             ),
             hintText: "search".tr,
             isDense: true,

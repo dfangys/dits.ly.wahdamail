@@ -11,6 +11,7 @@ import 'package:wahda_bank/views/box/enhanced_mailbox_view.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
 import 'package:wahda_bank/design_system/components/app_scaffold.dart';
+import 'package:wahda_bank/design_system/components/empty_state.dart';
 
 class MailBoxView extends GetView<MailBoxController> {
   const MailBoxView({
@@ -319,19 +320,10 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.inbox_outlined,
-                  size: 64,
-                  color: Colors.grey.shade400,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Whoops! Box is empty',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade600,
-                  ),
+                EmptyState(
+                  title: 'Whoops! Box is empty',
+                  message: null,
+                  icon: Icons.inbox_outlined,
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton(

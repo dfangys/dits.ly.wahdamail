@@ -1,5 +1,6 @@
 // lib/features/messaging/presentation/widgets/section_header.dart
 import 'package:flutter/material.dart';
+import 'package:wahda_bank/design_system/theme/tokens.dart';
 
 class SectionHeader extends StatelessWidget {
   final String title;
@@ -12,7 +13,10 @@ class SectionHeader extends StatelessWidget {
       header: true,
       label: 'Section: $title',
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Tokens.space5,
+          vertical: Tokens.space4,
+        ),
         child: Text(
           title,
           maxLines: 1,
