@@ -30,6 +30,7 @@ This document is the **authoritative replacement** for the legacy Architecture G
 * [Testing Strategy](#testing-strategy)
 * [Rollout & Kill Switch](#rollout--kill-switch)
 * [Legacy → DDD Mapping](#legacy--ddd-mapping)
+* [Design System](#design-system)
 
 ---
 
@@ -208,6 +209,10 @@ sequenceDiagram
 * Remote‑flagged staged rollout (planned): pilot 5% → 25% → 100%; monitor error rate <2% and budgets.
 * **Kill switch**: single remote flag `ddd.kill_switch.enabled` routes everything to **legacy**; persists across restarts.
 * See also: [P16 — Legacy Decommission & Rollout Plan](./LEGACY_DECOMMISSION.md).
+
+## Design System
+
+The shared design system provides 1:1 parity with the current app visuals while introducing tokens and feature-scoped presentation primitives. See docs/design_system/README.md. No behavioral/UI changes in P18.0.
 
 ## Legacy → DDD Mapping
 

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
+import 'package:wahda_bank/design_system/theme/app_theme.dart' as ds;
 import 'package:wahda_bank/views/view/screens/home/home.dart';
 import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
 import 'package:wahda_bank/views/view/screens/splash.dart';
@@ -67,25 +68,15 @@ class _MyAppState extends State<MyApp> {
       title: 'Wahda Mail',
       translations: Lang(),
       locale: Locale(locale),
-      theme: ThemeData(
-        fontFamily: locale == 'en' ? 'sfp' : 'arb',
-        // textTheme: GoogleFonts.poppinsTextTheme(),
-        primaryColor: AppTheme.primaryColor,
-        colorScheme: ColorScheme.fromSwatch(
-          primarySwatch: AppTheme.primaryColor,
-          // accentColor: AppTheme.primaryColor.shade300,
+      theme: ds.AppThemeDS.light.copyWith(
+        // Keep locale-specific font selection
+        textTheme: ds.AppThemeDS.light.textTheme.apply(
+          fontFamily: locale == 'en' ? 'sfp' : 'arb',
         ),
-        useMaterial3: false,
-        scaffoldBackgroundColor: const Color(0xFFF2F7FA),
-        appBarTheme: AppBarTheme(
-          titleTextStyle: TextStyle(
-            color: Colors.black,
-            fontFamily: locale == 'en' ? 'sfp' : 'arb',
-          ),
-          iconTheme: const IconThemeData(color: Colors.black),
-          elevation: 0,
-          centerTitle: true,
-          backgroundColor: Colors.transparent,
+      ),
+      darkTheme: ds.AppThemeDS.dark.copyWith(
+        textTheme: ds.AppThemeDS.dark.textTheme.apply(
+          fontFamily: locale == 'en' ? 'sfp' : 'arb',
         ),
       ),
       home: const SplashScreen(),

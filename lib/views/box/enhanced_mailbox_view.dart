@@ -257,7 +257,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to refresh emails: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }

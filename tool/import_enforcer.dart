@@ -66,7 +66,12 @@ void main() {
         final mailSvcImportDouble = 'import "package:wahda_bank/services/mail_service.dart"';
         final usesMailSvc = content.contains(mailSvcImportSingle) || content.contains(mailSvcImportDouble);
         if (usesMailSvc) {
-          final warningsForFile = warnOnlyImports[entity.path] ?? const <String>[];
+          // Allowlist by exact path or endsWith fallback (platform differences)
+          final allowlistKey = warnOnlyImports.keys.firstWhere(
+            (k) => entity.path == k || entity.path.endsWith(k),
+            orElse: () => '',
+          );
+          final warningsForFile = warnOnlyImports[allowlistKey] ?? const <String>[];
           if (warningsForFile.contains('package:wahda_bank/services/mail_service.dart')) {
             softWarnings.add('Soft warn: transitional import (MailService) in ${entity.path}');
           } else {
@@ -89,7 +94,6 @@ void main() {
     exit(1);
   } else {
     if (softWarnings.isNotEmpty) {
-      // Print soft warnings but do not fail
       stdout.writeln('Import enforcer soft warnings:\n${softWarnings.join('\n')}');
     }
     print('Import enforcer: OK');

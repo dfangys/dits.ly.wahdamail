@@ -46,10 +46,7 @@ class MailBoxView extends GetView<MailBoxController> {
           ),
           centerTitle: true,
           elevation: 0,
-          backgroundColor:
-              isDarkMode
-                  ? Colors.black.withValues(alpha: 0.7)
-                  : Colors.white.withValues(alpha: 0.9),
+          backgroundColor: theme.colorScheme.surface.withValues(alpha: isDarkMode ? 0.7 : 0.9),
           flexibleSpace: ClipRect(
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
