@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
+import 'package:wahda_bank/design_system/components/toolbar_spacer.dart';
+import 'package:wahda_bank/design_system/theme/tokens.dart';
 
 /// Enhanced compose toolbar with improved design and functionality
 class ComposeToolbar extends StatelessWidget {
@@ -13,61 +15,52 @@ class ComposeToolbar extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: Tokens.space5,
+        vertical: Tokens.space4,
+      ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            // Format toggle
-            Obx(
-              () => _buildToolbarButton(
-                context,
-                icon: controller.isHtml.isTrue ? Icons.code_off : Icons.code,
-                label:
-                    controller.isHtml.isTrue ? 'plain_text'.tr : 'rich_text'.tr,
-                onTap: () => controller.togglePlainHtml(),
-                isActive: controller.isHtml.isTrue,
+        child: FocusTraversalGroup(
+          policy: ReadingOrderTraversalPolicy(),
+          child: Row(
+            children: <Widget>[
+              Obx(
+                () => _buildToolbarButton(
+                  context,
+                  icon: controller.isHtml.isTrue ? Icons.code_off : Icons.code,
+                  label: controller.isHtml.isTrue ? 'plain_text'.tr : 'rich_text'.tr,
+                  onTap: () => controller.togglePlainHtml(),
+                  isActive: controller.isHtml.isTrue,
+                ),
               ),
-            ),
-
-            const SizedBox(width: 8),
-
-            // Attachment button
-            _buildToolbarButton(
-              context,
-              icon: Icons.attach_file_outlined,
-              label: 'attach'.tr,
-              onTap: () => _showAttachmentOptions(context),
-            ),
-
-            const SizedBox(width: 8),
-
-            // Priority button
-            Obx(
-              () => _buildToolbarButton(
+              const ToolbarSpacer.xs(),
+              _buildToolbarButton(
                 context,
-                icon: Icons.flag_outlined,
-                label: 'priority'.tr,
-                onTap: () => _showPriorityOptions(context),
-                isActive: controller.priority.value > 0,
+                icon: Icons.attach_file_outlined,
+                label: 'attach'.tr,
+                onTap: () => _showAttachmentOptions(context),
               ),
-            ),
-
-            const SizedBox(width: 16),
-
-            // Draft indicator
-            Obx(
-              () =>
-                  controller.hasUnsavedChanges
-                      ? Container(
+              const ToolbarSpacer.xs(),
+              Obx(
+                () => _buildToolbarButton(
+                  context,
+                  icon: Icons.flag_outlined,
+                  label: 'priority'.tr,
+                  onTap: () => _showPriorityOptions(context),
+                  isActive: controller.priority.value > 0,
+                ),
+              ),
+              const ToolbarSpacer.md(),
+              Obx(
+                () => controller.hasUnsavedChanges
+                    ? Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.secondary.withValues(
-                            alpha: 0.2,
-                          ),
+                          color: theme.colorScheme.secondary.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -90,9 +83,10 @@ class ComposeToolbar extends StatelessWidget {
                           ],
                         ),
                       )
-                      : const SizedBox(),
-            ),
-          ],
+                    : const SizedBox(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -107,49 +101,50 @@ class ComposeToolbar extends StatelessWidget {
   }) {
     final theme = Theme.of(context);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color:
-              isActive
+    return Semantics(
+      button: true,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Tokens.radiusSm),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: Tokens.space4, vertical: Tokens.space3),
+            decoration: BoxDecoration(
+              color: isActive
                   ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                  : theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.5,
-                  ),
-          borderRadius: BorderRadius.circular(8),
-          border:
-              isActive
+                  : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(Tokens.radiusSm),
+              border: isActive
                   ? Border.all(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                  )
+                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                    )
                   : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color:
-                  isActive
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isActive
                       ? theme.colorScheme.primary
                       : theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color:
-                    isActive
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: isActive
                         ? theme.colorScheme.primary
                         : theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
