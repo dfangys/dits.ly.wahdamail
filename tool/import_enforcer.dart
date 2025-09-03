@@ -9,8 +9,10 @@ final domainBans = [
 final applicationBans = ['package:enough_mail', 'package:enough_mail_flutter'];
 final infraPath = RegExp(r'lib/features/.+/infrastructure/');
 final presentationPath = RegExp(r'lib/features/.+/presentation/');
+final viewsPath = RegExp(r'lib/views/');
 final domainPath = RegExp(r'lib/features/.+/domain/');
 final applicationPath = RegExp(r'lib/features/.+/application/');
+final dsThemePath = RegExp(r'lib/design_system/theme/');
 
 // Soft warnings (do not fail)
 final softWarnings = <String>[];
@@ -24,6 +26,54 @@ final warnOnlyImports = <String, List<String>>{
 
 void main() {
   final violations = <String>[];
+
+  // Determine changed lines for this branch (to gate stricter checks)
+  final addedLinesByFile = <String, List<String>>{};
+  try {
+    // Ensure we're inside a git work tree
+    final isGit = Process.runSync('git', ['rev-parse', '--is-inside-work-tree']);
+    if ((isGit.stdout as String).trim() == 'true') {
+      // Determine a suitable base ref
+      String base = 'origin/main';
+      bool hasBase(String ref) {
+        final res = Process.runSync('git', ['rev-parse', '--verify', ref]);
+        return (res.exitCode == 0);
+      }
+      if (!hasBase(base)) {
+        if (hasBase('main')) {
+          base = 'main';
+        } else if (hasBase('master')) {
+          base = 'master';
+        } else {
+          // Fallback to previous commit
+          base = 'HEAD~1';
+        }
+      }
+      final diff = Process.runSync(
+        'git',
+        ['diff', '--unified=0', '--no-color', '$base...', '--', 'lib/views', 'lib/features'],
+      );
+      if (diff.exitCode == 0) {
+        final lines = (diff.stdout as String).split('\n');
+        String currentFile = '';
+        for (final line in lines) {
+          if (line.startsWith('diff --git')) {
+            currentFile = '';
+          } else if (line.startsWith('+++ b/')) {
+            currentFile = line.substring(6).trim();
+            addedLinesByFile.putIfAbsent(currentFile, () => <String>[]);
+          } else if (line.startsWith('+') && !line.startsWith('+++')) {
+            if (currentFile.isNotEmpty) {
+              addedLinesByFile[currentFile]!.add(line.substring(1));
+            }
+          }
+        }
+      }
+    }
+  } catch (_) {
+    // If git parsing fails, proceed without gating
+  }
+
   for (final entity in Directory('lib').listSync(recursive: true)) {
     if (entity is File && entity.path.endsWith('.dart')) {
       final content = entity.readAsStringSync();
@@ -79,8 +129,29 @@ void main() {
           }
         }
 
-        // Soft nudge: discourage raw Colors.* in feature UIs in favor of tokens
-        if (content.contains('Colors.')) {
+        // Hardened rule: discourage raw Colors.* in feature UIs in favor of tokens/theme
+        // Now treated as violation ONLY for newly added lines in this branch.
+        final added = addedLinesByFile[entity.path] ?? const <String>[];
+        final hasNewRawColors = added.any(
+          (l) => l.contains('Colors.') && !l.contains('Colors.transparent'),
+        );
+        if (hasNewRawColors && !dsThemePath.hasMatch(entity.path)) {
+          violations.add('Presentation: raw Colors.* introduced in ${entity.path} — prefer tokens/theme.');
+        } else if (content.contains('Colors.') && !dsThemePath.hasMatch(entity.path)) {
+          // Keep as soft warn for existing lines
+          softWarnings.add('Soft warn: raw Colors.* usage in ${entity.path} — prefer tokens/theme.');
+        }
+      }
+
+      // Apply the same Colors.* rule to lib/views/* files
+      if (viewsPath.hasMatch(entity.path) && !dsThemePath.hasMatch(entity.path)) {
+        final added = addedLinesByFile[entity.path] ?? const <String>[];
+        final hasNewRawColors = added.any(
+          (l) => l.contains('Colors.') && !l.contains('Colors.transparent'),
+        );
+        if (hasNewRawColors) {
+          violations.add('Views: raw Colors.* introduced in ${entity.path} — prefer tokens/theme.');
+        } else if (content.contains('Colors.')) {
           softWarnings.add('Soft warn: raw Colors.* usage in ${entity.path} — prefer tokens/theme.');
         }
       }

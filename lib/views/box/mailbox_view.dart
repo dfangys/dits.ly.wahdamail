@@ -34,7 +34,9 @@ class MailBoxView extends GetView<MailBoxController> {
     return PopScope(
       onPopInvokedWithResult:
           (didPop, result) => selectionController.selected.clear(),
-      child: AppScaffold(
+      child: FocusTraversalGroup(
+        policy: ReadingOrderTraversalPolicy(),
+        child: AppScaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           title: Text(
@@ -66,6 +68,7 @@ class MailBoxView extends GetView<MailBoxController> {
               ? SelectionBottomNav(box: mailbox)
               : const SizedBox.shrink();
         }),
+      ),
       ),
     );
   }

@@ -23,7 +23,9 @@ class SearchView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
+    return FocusTraversalGroup(
+      policy: ReadingOrderTraversalPolicy(),
+      child: AppScaffold(
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -56,17 +58,28 @@ class SearchView extends StatelessWidget {
                   color: Theme.of(context).dividerColor,
                   margin: const EdgeInsets.symmetric(horizontal: 5),
                 ),
-                GestureDetector(
-                  onTap: () {
-                    vm.runSearch(
-                      controller,
-                      requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
-                    );
-                  },
-                  child: Icon(
-                    Icons.search,
-                    color: Theme.of(context).colorScheme.onSurface,
-                    size: 20,
+                Semantics(
+                  button: true,
+                  label: 'Search',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      vm.runSearch(
+                        controller,
+                        requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
+                      );
+                    },
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Center(
+                        child: Icon(
+                          Icons.search,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -130,6 +143,7 @@ class SearchView extends StatelessWidget {
           message: error?.toString(),
           icon: Icons.error_outline,
         ),
+      ),
       ),
     );
   }

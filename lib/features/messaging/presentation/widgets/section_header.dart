@@ -8,9 +8,19 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Text(title, style: theme.textTheme.titleSmall?.copyWith(color: theme.textTheme.bodySmall?.color)),
+    return Semantics(
+      header: true,
+      label: 'Section: $title',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
+          style: theme.textTheme.titleSmall?.copyWith(color: theme.textTheme.bodySmall?.color),
+        ),
+      ),
     );
   }
 }
