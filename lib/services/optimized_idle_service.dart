@@ -10,6 +10,7 @@ import 'connection_manager.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'imap_command_queue.dart';
 import 'imap_fetch_pool.dart';
+import 'package:wahda_bank/shared/telemetry/tracing.dart';
 
 /// Optimized IMAP IDLE service for high-performance real-time email updates
 /// Compatible with enough_mail v2.1.7 API
@@ -165,9 +166,11 @@ class OptimizedIdleService extends GetxService {
   /// Main IDLE loop with intelligent reconnection and error handling
   Future<void> _runIdleLoop() async {
     while (_shouldKeepRunning) {
+      final _span = Tracing.startSpan('IdleLoop');
       try {
         await _ensureConnection();
         await _startIdleSession();
+        Tracing.end(_span);
 
         // Reset reconnect attempts on successful session
         _reconnectAttempts = 0;
@@ -184,6 +187,7 @@ class OptimizedIdleService extends GetxService {
         if (_shouldKeepRunning) {
           await _handleConnectionError(e);
         }
+        Tracing.end(_span, errorClass: e.runtimeType.toString());
       }
     }
   }

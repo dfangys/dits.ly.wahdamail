@@ -8,6 +8,8 @@ import 'package:wahda_bank/features/messaging/infrastructure/facade/ddd_mail_ser
 import 'package:wahda_bank/features/messaging/infrastructure/facade/legacy_messaging_facade.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/features/sync/infrastructure/sync_scheduler.dart';
+import 'package:wahda_bank/shared/flags/remote_flags.dart';
+import 'package:wahda_bank/shared/flags/cohort_service.dart';
 
 final GetIt getIt = GetIt.instance;
 
@@ -28,6 +30,14 @@ Future<void> configureDependencies({String env = Environment.dev}) async {
       getIt.registerLazySingleton<MessagingFacade>(() => getIt<LegacyMessagingFacade>());
     }
   }
+
+  // Kick off non-blocking remote flags load.
+  try {
+    if (getIt.isRegistered<RemoteFlags>()) {
+      // ignore: discarded_futures
+      getIt<RemoteFlags>().load();
+    }
+  } catch (_) {}
 
   // P5: Start sync in shadow mode only if explicitly enabled and DDD messaging is off.
   final ff = FeatureFlags.instance;

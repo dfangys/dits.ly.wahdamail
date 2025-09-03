@@ -1,4 +1,6 @@
 import 'package:wahda_bank/shared/error/errors.dart';
+import 'package:wahda_bank/shared/utils/hashing.dart';
+import 'package:wahda_bank/shared/telemetry/tracing.dart';
 
 abstract class SmtpGateway {
   /// Send raw RFC822 bytes. Returns Message-Id if available.
@@ -19,8 +21,13 @@ AppError mapSmtpError(Object e) {
 class EnoughSmtpGateway implements SmtpGateway {
   @override
   Future<String?> send({required String accountId, required List<int> rawBytes}) async {
-    // P4 scope: infra-only; real SMTP handled in later phase or via SDK integration.
-    // Here we simulate a success and return a synthetic Message-Id.
-    return '<sent-${DateTime.now().millisecondsSinceEpoch}@wahda.local>';
+    final span = Tracing.startSpan('SendSmtp', attrs: {'accountId_hash': Hashing.djb2(accountId).toString()});
+    try {
+      // P4 scope: infra-only; real SMTP handled in later phase or via SDK integration.
+      // Here we simulate a success and return a synthetic Message-Id.
+      return '<sent-${DateTime.now().millisecondsSinceEpoch}@wahda.local>';
+    } finally {
+      Tracing.end(span);
+    }
   }
 }

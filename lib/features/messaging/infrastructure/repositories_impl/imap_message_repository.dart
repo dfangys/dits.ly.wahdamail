@@ -11,6 +11,7 @@ import 'package:wahda_bank/features/messaging/infrastructure/dtos/message_row.da
 import 'package:wahda_bank/features/messaging/infrastructure/dtos/body_row.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
+import 'package:wahda_bank/shared/telemetry/tracing.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/cache/cache_managers.dart';
 
 class ImapMessageRepository implements MessageRepository {
@@ -38,6 +39,7 @@ class ImapMessageRepository implements MessageRepository {
   @override
   Future<List<dom.Message>> fetchInbox({required dom.Folder folder, int limit = 50, int offset = 0}) async {
     // header-first
+    final span1 = Tracing.startSpan('FetchHeaders', attrs: {'folderId': folder.id});
     final headers = await Telemetry.timeAsync('fetch_headers', () async {
       return await gateway.fetchHeaders(
         accountId: accountId,
@@ -46,6 +48,7 @@ class ImapMessageRepository implements MessageRepository {
         offset: offset,
       );
     }, props: {'folderId': folder.id});
+    Tracing.end(span1);
     final rows = headers.map(MessageMapper.fromHeaderDTO).toList();
     await store.upsertHeaders(rows);
     final persisted = await store.getHeaders(folderId: folder.id, limit: limit, offset: offset);
@@ -73,6 +76,7 @@ class ImapMessageRepository implements MessageRepository {
         'key_hash': Hashing.djb2(messageId).toString(),
         'ms': sw.elapsedMilliseconds,
       });
+      final span2 = Tracing.startSpan('FetchBody', attrs: {'folderId': folder.id});
       final dto = await Telemetry.timeAsync('fetch_body', () async {
         return await gateway.fetchBody(
           accountId: accountId,
@@ -80,6 +84,7 @@ class ImapMessageRepository implements MessageRepository {
           messageUid: messageId,
         );
       }, props: {'folderId': folder.id});
+      Tracing.end(span2);
       body = MessageMapper.bodyRowFromDTO(dto);
       await store.upsertBody(body);
       _bodyCache.touch(messageId);
@@ -127,6 +132,7 @@ class ImapMessageRepository implements MessageRepository {
     // Cache-miss → gateway list → store
     var rows = await store.listAttachments(messageUid: messageId);
     if (rows.isEmpty) {
+      final span3 = Tracing.startSpan('ListAttachments', attrs: {'folderId': folder.id});
       final dtos = await Telemetry.timeAsync('list_attachments', () async {
         return await gateway.listAttachments(
           accountId: accountId,
@@ -134,6 +140,7 @@ class ImapMessageRepository implements MessageRepository {
           messageUid: messageId,
         );
       }, props: {'folderId': folder.id});
+      Tracing.end(span3);
       rows = dtos.map(MessageMapper.attachmentRowFromDTO).toList();
       await store.upsertAttachments(rows);
     }
@@ -162,6 +169,7 @@ class ImapMessageRepository implements MessageRepository {
       'ms': sw.elapsedMilliseconds,
     });
 
+    final span4 = Tracing.startSpan('DownloadAttachment', attrs: {'folderId': folder.id});
     final bytes = await Telemetry.timeAsync('download_attachment', () async {
       return await gateway.downloadAttachment(
         accountId: accountId,
@@ -170,6 +178,7 @@ class ImapMessageRepository implements MessageRepository {
         partId: partId,
       );
     }, props: {'folderId': folder.id});
+    Tracing.end(span4);
     // Store only if allowed by cache manager
     if (await _attachmentCache.canStore(messageId, partId, bytes)) {
       await store.putAttachmentBlob(messageUid: messageId, partId: partId, bytes: bytes);
@@ -180,6 +189,7 @@ class ImapMessageRepository implements MessageRepository {
   }
   @override
   Future<List<dom.SearchResult>> search({required String accountId, required dom.SearchQuery q}) async {
+    final span5 = Tracing.startSpan('Search', attrs: {'accountId_hash': Hashing.djb2(accountId).toString()});
     // Local-first search using LocalStore
     final rows = await store.searchMetadata(
       text: q.text,
@@ -224,6 +234,7 @@ class ImapMessageRepository implements MessageRepository {
     if (q.limit != null && merged.length > q.limit!) {
       merged = merged.sublist(0, q.limit!);
     }
+    Tracing.end(span5);
     return merged;
   }
 }

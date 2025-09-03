@@ -13,7 +13,7 @@ import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
-
+import 'package:wahda_bank/shared/telemetry/tracing.dart';
 /// Presentation adapter for compose/send orchestration.
 /// - Respects P12 routing and kill-switch precedence
 /// - Delegates to DDD via DddUiWiring when enabled
@@ -31,6 +31,7 @@ class ComposeViewModel {
     if (!FeatureFlags.instance.dddKillSwitchEnabled &&
         FeatureFlags.instance.dddSendEnabled) {
       try {
+        final span = Tracing.startSpan('SendSmtp', attrs: {'request_id': requestId});
         // Prepare SendEmail use-case
         final drafts = getIt<DraftRepository>();
         final outbox = getIt<OutboxRepository>();
@@ -68,6 +69,7 @@ class ComposeViewModel {
           rawBytes: rawBytes,
         );
 
+        Tracing.end(span);
         // Telemetry success
         try {
           final acct = controller.account.email;

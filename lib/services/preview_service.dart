@@ -7,6 +7,7 @@ import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/services/imap_fetch_pool.dart';
+import 'package:wahda_bank/shared/telemetry/tracing.dart';
 
 /// Background preview generation service with a bounded queue.
 ///
@@ -128,7 +129,9 @@ class PreviewService extends GetxService {
         } else {
           final html = full.decodeTextHtmlPart();
           if (html != null && html.isNotEmpty) {
+            final _span = Tracing.startSpan('RenderHtml');
             preview = await compute(_stripAndNormalize, html);
+            Tracing.end(_span);
           }
         }
       } catch (_) {}
