@@ -26,17 +26,21 @@ class PreviewCache {
       _map[key] = v; // re-insert to update recency
       final size = (v.sanitizedHtml.length) + (v.plainText?.length ?? 0);
       Telemetry.event('cache_hit', props: {
+        'op': 'cache_hit',
+        'ok': true,
         'cache': 'preview',
         'key_hash': Hashing.djb2(key).toString(),
         'size_bytes': size,
-        'ms': sw.elapsedMilliseconds,
+        'latency_ms': sw.elapsedMilliseconds,
       });
     } else {
       misses++;
       Telemetry.event('cache_miss', props: {
+        'op': 'cache_miss',
+        'ok': true,
         'cache': 'preview',
         'key_hash': Hashing.djb2(key).toString(),
-        'ms': sw.elapsedMilliseconds,
+        'latency_ms': sw.elapsedMilliseconds,
       });
     }
     return v;
@@ -52,6 +56,8 @@ class PreviewCache {
       final evicted = _map.remove(evictedKey);
       evicts++;
       Telemetry.event('cache_evict', props: {
+        'op': 'cache_evict',
+        'ok': true,
         'cache': 'preview',
         'key_hash': Hashing.djb2(evictedKey).toString(),
         'size_bytes': evicted != null ? (evicted.sanitizedHtml.length + (evicted.plainText?.length ?? 0)) : 0,

@@ -25,7 +25,12 @@ run() { echo "+ $*"; eval "$*"; }
 # Defaults
 ADMIN_ALLOWED_IPS=${ADMIN_ALLOWED_IPS:-127.0.0.1/32}
 TLS_POLICY=${TLS_POLICY:-none}
-PLAYSMS_WEBROOT=${PLAYSMS_WEBROOT:-/var/www/playsms}
+WEB_SERVER=${WEB_SERVER:-nginx}  # nginx|apache
+if [[ "$WEB_SERVER" == "nginx" ]]; then
+  PLAYSMS_WEBROOT=${PLAYSMS_WEBROOT:-/www/wwwroot/playsms}
+else
+  PLAYSMS_WEBROOT=${PLAYSMS_WEBROOT:-/var/www/playsms}
+fi
 PLAYSMS_VERSION=${PLAYSMS_VERSION:-1.4.5}
 DB_BACKUP_RETENTION_DAYS=${DB_BACKUP_RETENTION_DAYS:-7}
 TIMEZONE=${TIMEZONE:-Africa/Tripoli}
@@ -61,20 +66,26 @@ if ! rpm -q remi-release >/dev/null 2>&1; then
 fi
 run "yum-config-manager --enable remi-php74"
 
-# MariaDB 10.5 repo
+# MariaDB 10.5 repo (archived channel for CentOS 7)
 cat >/etc/yum.repos.d/MariaDB.repo <<'EOF'
 [mariadb]
 name = MariaDB
-baseurl = http://mirror.mariadb.org/yum/10.5/centos7-amd64
-gpgkey=https://mariadb.org/mariadb_release_signing_key.asc
+baseurl = http://archive.mariadb.org/mariadb-10.5/yum/centos7-amd64
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
 gpgcheck=1
 EOF
 
-log "Install packages: httpd, PHP, MariaDB, Kannel"
-yum -y install httpd \
-  php php-cli php-common php-mysqlnd php-gd php-mbstring php-xml php-curl php-zip php-intl php-json \
-  MariaDB-server MariaDB-client \
-  kannel kannel-mysql || true
+log "Install packages (skip Apache/PHP if WEB_SERVER=nginx)"
+if [[ "$WEB_SERVER" == "apache" ]]; then
+  yum -y install httpd \
+    php php-cli php-common php-mysqlnd php-gd php-mbstring php-xml php-curl php-zip php-intl php-json || true
+else
+  echo "Skipping Apache/PHP packages because WEB_SERVER=$WEB_SERVER (aaPanel/nginx assumed)"
+fi
+# Always install MariaDB client/server (from MariaDB repo)
+yum -y install MariaDB-server MariaDB-client galera-4 || true
+# Try to install Kannel from repos if available (often not in CentOS 7)
+yum -y install kannel kannel-mysql || true
 
 # 2) Database: start MariaDB; if creds provided, secure and create DBs/users
 run "systemctl enable --now mariadb"
@@ -103,10 +114,11 @@ else
   log "DB credentials not provided. Skipping DB hardening and schema creation."
 fi
 
-# 3) Apache + playSMS deployment (files only; complete via web installer)
-log "Configure Apache vhost for playSMS"
+# 3) Web server vhost + playSMS deployment (files only; complete via web installer)
 mkdir -p "$PLAYSMS_WEBROOT"
-cat >/etc/httpd/conf.d/playsms.conf <<EOF
+if [[ "$WEB_SERVER" == "apache" ]]; then
+  log "Configure Apache vhost for playSMS"
+  cat >/etc/httpd/conf.d/playsms.conf <<EOF
 <VirtualHost *:80>
     ServerName ${PLAYSMS_VHOST_SERVERNAME}
     DocumentRoot ${PLAYSMS_WEBROOT}
@@ -119,8 +131,48 @@ cat >/etc/httpd/conf.d/playsms.conf <<EOF
     CustomLog /var/log/httpd/playsms_access.log combined
 </VirtualHost>
 EOF
+  run "systemctl enable --now httpd"
+else
+  log "Configure Nginx server block for playSMS"
+  # Detect php-fpm socket/port (aaPanel typical paths). Fallback to 127.0.0.1:9000
+  PHP_FPM_SOCK_CANDIDATE=$(grep -R "^listen\s*=\s*" /www/server/php/*/etc/php-fpm.d/www.conf 2>/dev/null | awk -F= '{gsub(/ /,""); print $2}' | head -n1 || true)
+  if [[ -z "$PHP_FPM_SOCK_CANDIDATE" ]]; then PHP_FPM_SOCK_CANDIDATE="127.0.0.1:9000"; fi
+  # Choose vhost dir
+  NGINX_VHOST_DIR="/etc/nginx/conf.d"
+  if [[ -d "/www/server/panel/vhost/nginx" ]]; then NGINX_VHOST_DIR="/www/server/panel/vhost/nginx"; fi
+  if [[ ! -d "$NGINX_VHOST_DIR" ]]; then mkdir -p "$NGINX_VHOST_DIR"; fi
+  cat >"$NGINX_VHOST_DIR/playsms.conf" <<EOF
+server {
+    listen 80;
+    server_name ${PLAYSMS_VHOST_SERVERNAME};
+    root ${PLAYSMS_WEBROOT};
+    index index.php index.html;
+    client_max_body_size 20m;
 
-run "systemctl enable --now httpd"
+    location / {
+        try_files \$uri \$uri/ /index.php?\$args;
+    }
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_pass ${PHP_FPM_SOCK_CANDIDATE};
+        fastcgi_read_timeout 300;
+    }
+
+    location ~* \.(?:css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf)$ {
+        expires 7d;
+        access_log off;
+    }
+
+    access_log /var/log/nginx/playsms_access.log;
+    error_log /var/log/nginx/playsms_error.log;
+}
+EOF
+  # Reload nginx if present
+  (nginx -t && systemctl reload nginx) || true
+fi
+
 firewall-cmd --permanent --add-service=http || true
 firewall-cmd --permanent --add-service=https || true
 firewall-cmd --reload || true
@@ -156,7 +208,24 @@ setsebool -P httpd_can_network_connect_db on || true
 semanage fcontext -a -t httpd_sys_rw_content_t "${PLAYSMS_WEBROOT}/(var|storage|uploads)(/.*)?" || true
 restorecon -Rv "$PLAYSMS_WEBROOT" || true
 
-# 4) Kannel configuration and services
+# 4) Kannel installation (fallback to source build if binaries missing) and configuration
+# If bearerbox not present, try to build from source
+if ! command -v bearerbox >/dev/null 2>&1; then
+  log "Kannel not found in repos; building from source"
+  yum -y groupinstall "Development Tools" || true
+  yum -y install libxml2-devel openssl-devel pam-devel pcre-devel mariadb-devel zlib-devel || true
+  SRC_DIR=/usr/local/src
+  mkdir -p "$SRC_DIR"
+  if [[ ! -d "$SRC_DIR/gateway-1.4.5" ]]; then
+    curl -fsSL -o "$SRC_DIR/kannel.tar.gz" https://www.kannel.org/download/1.4.5/gateway-1.4.5.tar.gz || true
+    tar -xf "$SRC_DIR/kannel.tar.gz" -d "$SRC_DIR" || tar -xf "$SRC_DIR/kannel.tar.gz" -C "$SRC_DIR"
+  fi
+  cd "$SRC_DIR/gateway-1.4.5" 2>/dev/null || cd "$SRC_DIR/gateway-1.4.5"
+  ./configure --prefix=/usr --sysconfdir=/etc/kannel --with-mysql --with-openssl || true
+  make -j$(nproc) || true
+  make install || true
+fi
+
 log "Create Kannel config and directories"
 useradd --system --home-dir /var/lib/kannel --shell /sbin/nologin kannel || true
 mkdir -p /etc/kannel /var/log/kannel /var/spool/kannel /etc/kannel/certs
@@ -378,6 +447,36 @@ sysctl --system || true
 grep -q '^kannel' /etc/security/limits.conf || cat >>/etc/security/limits.conf <<'EOF'
 kannel soft nofile 65536
 kannel hard nofile 65536
+EOF
+
+# 8) Firewall rules for 13000 (admin) and ensure 13001 stays local
+log "Configure firewalld for Kannel admin port"
+# Remove any broad open rule for 13000 if exists
+firewall-cmd --permanent --remove-port=13000/tcp || true
+# Allow only from ADMIN_ALLOWED_IPS
+IFS=';' read -r -a CIDRS <<<"${ADMIN_ALLOWED_IPS}"
+for cidr in "${CIDRS[@]}"; do
+  [[ -z "$cidr" ]] && continue
+  firewall-cmd --permanent --add-rich-rule="rule family='ipv4' source address='${cidr}' port protocol='tcp' port='13000' accept" || true
+done
+firewall-cmd --permanent --add-rich-rule="rule family='ipv4' port protocol='tcp' port='13000' drop" || true
+firewall-cmd --reload || true
+
+# 9) Start Kannel if SMPP is configured; otherwise skip
+if [[ "$HAS_SMPP" -eq 1 ]]; then
+  log "Start Kannel services"
+  systemctl restart kannel-bearerbox kannel-smsbox
+  sleep 2
+  log "Kannel status (local query)"
+  curl -s "http://127.0.0.1:13000/status?password=${KANNEL_ADMIN_PASS}" | sed -n '1,60p' || true
+else
+  log "SMPP not configured yet. Kannel services not started. After updating /etc/kannel/kannel.conf, run: systemctl restart kannel-bearerbox kannel-smsbox"
+fi
+
+echo "\nDone. Next steps:"
+echo "1) Complete playSMS web installer at http://<server-ip>/ or ${PLAYSMS_FQDN}"
+echo "2) In playSMS, configure Kannel gateway (127.0.0.1:13001, user ${KANNEL_SENDSMS_USER})"
+echo "3) Run tests: /root/kannel-setup/scripts/test_sendsms.sh"
 EOF
 
 # 8) Firewall rules for 13000 (admin) and ensure 13001 stays local

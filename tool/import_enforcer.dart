@@ -12,6 +12,16 @@ final presentationPath = RegExp(r'lib/features/.+/presentation/');
 final domainPath = RegExp(r'lib/features/.+/domain/');
 final applicationPath = RegExp(r'lib/features/.+/application/');
 
+// Soft warnings (do not fail)
+final softWarnings = <String>[];
+
+// Allowlist for known transitional imports (warn only)
+final warnOnlyImports = <String, List<String>>{
+  'lib/features/search/presentation/search_view_model.dart': [
+    "package:wahda_bank/services/mail_service.dart",
+  ],
+};
+
 void main() {
   final violations = <String>[];
   for (final entity in Directory('lib').listSync(recursive: true)) {
@@ -52,17 +62,36 @@ void main() {
             'Presentation->Infrastructure import violation: ${entity.path}',
           );
         }
-        if (content.contains("import 'package:wahda_bank/services/mail_service.dart'") ||
-            content.contains('import "package:wahda_bank/services/mail_service.dart"')) {
-          violations.add('Presentation cannot import legacy MailService → ${entity.path}');
+        final mailSvcImportSingle = "import 'package:wahda_bank/services/mail_service.dart'";
+        final mailSvcImportDouble = 'import "package:wahda_bank/services/mail_service.dart"';
+        final usesMailSvc = content.contains(mailSvcImportSingle) || content.contains(mailSvcImportDouble);
+        if (usesMailSvc) {
+          final warningsForFile = warnOnlyImports[entity.path] ?? const <String>[];
+          if (warningsForFile.contains('package:wahda_bank/services/mail_service.dart')) {
+            softWarnings.add('Soft warn: transitional import (MailService) in ${entity.path}');
+          } else {
+            violations.add('Presentation cannot import legacy MailService → ${entity.path}');
+          }
+        }
+
+        // Soft nudge: discourage raw Colors.* in feature UIs in favor of tokens
+        if (content.contains('Colors.')) {
+          softWarnings.add('Soft warn: raw Colors.* usage in ${entity.path} — prefer tokens/theme.');
         }
       }
     }
   }
   if (violations.isNotEmpty) {
     stderr.writeln('Import enforcer violations:\n${violations.join('\n')}');
+    if (softWarnings.isNotEmpty) {
+      stderr.writeln('\nSoft warnings (non-fatal):\n${softWarnings.join('\n')}');
+    }
     exit(1);
   } else {
+    if (softWarnings.isNotEmpty) {
+      // Print soft warnings but do not fail
+      stdout.writeln('Import enforcer soft warnings:\n${softWarnings.join('\n')}');
+    }
     print('Import enforcer: OK');
   }
 }

@@ -79,17 +79,21 @@ class BgFetchIos {
         );
         circuitBreaker.recordSuccess();
         Telemetry.event('bg_fetch', props: {
+          'op': 'bg_fetch',
+          'ok': true,
           'folder_id': folderId,
           'fetched_count': list.length,
-          'lat_ms': sw.elapsedMilliseconds,
+          'latency_ms': sw.elapsedMilliseconds,
           'coalesced': _pendingTicks,
         });
       } catch (e) {
         circuitBreaker.recordFailure();
         Telemetry.event('bg_fetch', props: {
+          'op': 'bg_fetch',
+          'ok': false,
           'folder_id': folderId,
-          'lat_ms': sw.elapsedMilliseconds,
-          'error_class': e.runtimeType.toString(),
+          'latency_ms': sw.elapsedMilliseconds,
+          'err_type': e.runtimeType.toString(),
           'coalesced': _pendingTicks,
         });
       } finally {
