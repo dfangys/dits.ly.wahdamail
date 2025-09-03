@@ -10,6 +10,9 @@ import '../empty_box.dart';
 import 'controllers/mail_search_controller.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
+import 'package:wahda_bank/design_system/components/app_scaffold.dart';
+import 'package:wahda_bank/design_system/components/empty_state.dart';
+import 'package:wahda_bank/design_system/components/error_state.dart';
 
 class SearchView extends StatelessWidget {
   SearchView({super.key});
@@ -20,7 +23,7 @@ class SearchView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -116,45 +119,17 @@ class SearchView extends StatelessWidget {
           },
           itemCount: vm.searchMessages.length,
         ),
-        onEmpty: TAnimationLoaderWidget(
-          text: 'Whoops! Box is empty',
-          animation: 'assets/lottie/empty.json',
-          showAction: true,
-          actionText: 'try_again'.tr,
-          onActionPressed: () {
-            vm.runSearch(
-              controller,
-              requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
-            );
-          },
+        onEmpty: EmptyState(
+          title: 'Whoops! Box is empty',
+          message: null,
+          icon: Icons.inbox,
         ),
         onLoading: const Center(child: CircularProgressIndicator()),
-        onError: (error) =>
-            error.toString().startsWith('serach:')
-                ? TAnimationLoaderWidget(
-                    text: error.toString().split('serach:')[1],
-                    animation: 'assets/lottie/search.json',
-                    showAction: true,
-                    actionText: 'search'.tr,
-                    onActionPressed: () {
-                      vm.runSearch(
-                        controller,
-                        requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
-                      );
-                    },
-                  )
-                : TAnimationLoaderWidget(
-                    text: error.toString(),
-                    animation: 'assets/lottie/error.json',
-                    showAction: true,
-                    actionText: 'search'.tr,
-                    onActionPressed: () {
-                      vm.runSearch(
-                        controller,
-                        requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
-                      );
-                    },
-                  ),
+        onError: (error) => ErrorState(
+          title: 'Error',
+          message: error?.toString(),
+          icon: Icons.error_outline,
+        ),
       ),
     );
   }

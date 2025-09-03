@@ -12,6 +12,8 @@ import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
+import 'package:wahda_bank/design_system/components/empty_state.dart';
+import 'package:wahda_bank/design_system/components/error_state.dart';
 
 /// Enhanced Mailbox View with proper first-time initialization
 /// Best practices implementation for mailbox email loading and error handling
@@ -424,30 +426,8 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 60, color: Colors.red.shade400),
-              const SizedBox(height: 24),
-              Text(
-                'Loading Failed',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color:
-                      widget.isDarkMode ? Colors.white : Colors.grey.shade800,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _lastError ?? 'Unknown error occurred',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color:
-                      widget.isDarkMode
-                          ? Colors.white.withValues(alpha: 0.7)
-                          : Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(height: 24),
+              ErrorState(title: 'Loading Failed', message: _lastError),
+              const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _retryInitialization,
                 icon: const Icon(Icons.refresh),
@@ -549,33 +529,14 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
           Center(
             child: Column(
               children: [
-                Icon(
-                  Icons.inbox,
-                  size: 80,
-                  color:
-                      widget.isDarkMode
-                          ? Colors.white.withValues(alpha: 0.3)
-                          : Colors.grey.shade400,
-                ),
-                const SizedBox(height: 16),
                 Obx(() {
                   final preparing =
                       pc.isVisible ||
                       controller.isLoadingEmails.value ||
                       controller.isPrefetching.value;
-                  return Text(
-                    preparing
-                        ? 'Preparing messages…'
-                        : 'No emails in ${widget.mailbox.name}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color:
-                          widget.isDarkMode
-                              ? Colors.white.withValues(alpha: 0.7)
-                              : Colors.grey.shade600,
-                    ),
-                  );
+                  return preparing
+                      ? const EmptyState(title: 'Preparing messages…')
+                      : EmptyState(title: 'No emails in ${widget.mailbox.name}');
                 }),
                 const SizedBox(height: 8),
                 Text(

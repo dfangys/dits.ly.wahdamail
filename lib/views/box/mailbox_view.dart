@@ -11,6 +11,7 @@ import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/views/box/enhanced_mailbox_view.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
+import 'package:wahda_bank/design_system/components/app_scaffold.dart';
 
 class MailBoxView extends GetView<MailBoxController> {
   const MailBoxView({
@@ -33,7 +34,7 @@ class MailBoxView extends GetView<MailBoxController> {
     return PopScope(
       onPopInvokedWithResult:
           (didPop, result) => selectionController.selected.clear(),
-      child: Scaffold(
+      child: AppScaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           title: Text(
