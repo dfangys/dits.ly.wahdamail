@@ -88,11 +88,14 @@ class _ComposeModalState extends State<ComposeModal>
       child: Row(
         children: [
           // Close
-          IconButton(
-            tooltip: 'Close',
-            icon: const Icon(Icons.close_rounded, size: 18),
-            color: theme.colorScheme.onSurface,
-            onPressed: () async {
+          Semantics(
+            button: true,
+            label: 'Back',
+            child: IconButton(
+              tooltip: 'Close',
+              icon: const Icon(Icons.close_rounded, size: 18),
+              color: theme.colorScheme.onSurface,
+              onPressed: () async {
               if (controller.hasUnsavedChanges) {
                 // Prompt to save
                 final res = await _confirmClose();
@@ -107,15 +110,20 @@ class _ComposeModalState extends State<ComposeModal>
               }
             },
           ),
+          ),
           // Minimize toggle
-          IconButton(
-            tooltip: minimized ? 'Expand' : 'Minimize',
-            icon: Icon(
-              minimized ? Icons.open_in_full_rounded : Icons.minimize_rounded,
-              size: 18,
+          Semantics(
+            button: true,
+            label: minimized ? 'Expand' : 'Minimize',
+            child: IconButton(
+              tooltip: minimized ? 'Expand' : 'Minimize',
+              icon: Icon(
+                minimized ? Icons.open_in_full_rounded : Icons.minimize_rounded,
+                size: 18,
+              ),
+              color: theme.colorScheme.onSurfaceVariant,
+              onPressed: () => setState(() => minimized = !minimized),
             ),
-            color: theme.colorScheme.onSurfaceVariant,
-            onPressed: () => setState(() => minimized = !minimized),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -129,20 +137,27 @@ class _ComposeModalState extends State<ComposeModal>
           ),
           const SizedBox(width: 12),
           // Save draft
-          TextButton.icon(
-            onPressed:
-                controller.isBusy.value ? null : () => controller.saveAsDraft(),
-            icon: const Icon(Icons.save_outlined, size: 18),
-            label: Text('save_draft'.tr),
+          Semantics(
+            button: true,
+            label: 'Save',
+            child: TextButton.icon(
+              onPressed:
+                  controller.isBusy.value ? null : () => controller.saveAsDraft(),
+              icon: const Icon(Icons.save_outlined, size: 18),
+              label: Text('save_draft'.tr),
+            ),
           ),
           const SizedBox(width: 8),
           // Send (primary)
           Obx(
-            () => FilledButton.icon(
-              onPressed:
-                  controller.isSending.value
-                      ? null
-                      : () async {
+            () => Semantics(
+              button: true,
+              label: 'Send',
+              child: FilledButton.icon(
+                onPressed:
+                    controller.isSending.value
+                        ? null
+                        : () async {
                         // Basic validations happen inside controller
                         await controller.sendEmail();
                         // controller will close view on success; this dialog will pop due to Get.back()
@@ -160,7 +175,8 @@ class _ComposeModalState extends State<ComposeModal>
                         ),
                       )
                       : const Icon(Icons.send_rounded, size: 18),
-              label: Text('send'.tr),
+                label: Text('send'.tr),
+              ),
             ),
           ),
         ],
