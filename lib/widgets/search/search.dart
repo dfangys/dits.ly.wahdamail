@@ -5,7 +5,6 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
-import '../empty_box.dart';
 import 'controllers/mail_search_controller.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
@@ -29,10 +28,13 @@ class SearchView extends StatelessWidget {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
-        title: TextFormField(
-          controller: controller.searchController,
-          onChanged: (String txt) {},
-          decoration: InputDecoration(
+        title: Semantics(
+          textField: true,
+          label: 'Search field',
+          child: TextFormField(
+            controller: controller.searchController,
+            onChanged: (String txt) {},
+            decoration: InputDecoration(
             fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             filled: true,
             contentPadding: const EdgeInsets.symmetric(
@@ -52,33 +54,43 @@ class SearchView extends StatelessWidget {
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Clear button
+                Semantics(
+                  button: true,
+                  label: 'Clear',
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    child: IconButton(
+                      tooltip: 'Clear',
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        controller.searchController.clear();
+                      },
+                    ),
+                  ),
+                ),
+                // Divider between clear and search
                 Container(
                   width: 2,
                   height: 20,
                   color: Theme.of(context).dividerColor,
                   margin: const EdgeInsets.symmetric(horizontal: 5),
                 ),
+                // Submit/Search button
                 Semantics(
                   button: true,
                   label: 'Search',
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      vm.runSearch(
-                        controller,
-                        requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
-                      );
-                    },
-                    child: SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: Center(
-                        child: Icon(
-                          Icons.search,
-                          size: 20,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    child: IconButton(
+                      tooltip: 'Search',
+                      icon: const Icon(Icons.search, size: 20),
+                      onPressed: () {
+                        vm.runSearch(
+                          controller,
+                          requestId: 'search_${DateTime.now().millisecondsSinceEpoch}',
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -86,6 +98,7 @@ class SearchView extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
       body: vm.obx(
         (state) => ListView.separated(
