@@ -1,5 +1,6 @@
 // lib/features/messaging/presentation/widgets/message_meta_row.dart
 import 'package:flutter/material.dart';
+import 'package:wahda_bank/design_system/theme/tokens.dart';
 
 class MessageMetaRow extends StatelessWidget {
   final Widget leading;
@@ -13,11 +14,11 @@ class MessageMetaRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         leading,
-        const SizedBox(height: 0, width: 8),
+        const SizedBox(height: 0, width: Tokens.space3),
         Expanded(
           child: DefaultTextStyle.merge(
             style: theme.textTheme.bodySmall!,
-            child: Wrap(spacing: 8, runSpacing: 4, children: children),
+            child: Wrap(spacing: Tokens.space3, runSpacing: Tokens.space2, children: children),
           ),
         ),
       ],

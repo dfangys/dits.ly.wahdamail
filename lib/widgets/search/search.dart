@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import 'package:wahda_bank/utills/constants/colors.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message_pager.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
@@ -34,7 +33,7 @@ class SearchView extends StatelessWidget {
           controller: controller.searchController,
           onChanged: (String txt) {},
           decoration: InputDecoration(
-            fillColor: WColors.fieldbackground,
+            fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             filled: true,
             contentPadding: const EdgeInsets.symmetric(
               vertical: Tokens.space3,
