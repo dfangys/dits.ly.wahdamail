@@ -55,5 +55,23 @@ void main() {
       matchesGoldenFile('goldens/mailbox_list_dark.png'),
     );
   });
+
+  testWidgets('Mailbox list golden - light @1.3x', (tester) async {
+    tester.binding.window.devicePixelRatioTestValue = 1.0;
+    tester.binding.window.physicalSizeTestValue = const Size(800, 1200);
+
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaleFactor: 1.3),
+        child: _mailboxListHarness(AppThemeDS.light),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/mailbox_list_1_3x.png'),
+    );
+  });
 }
 

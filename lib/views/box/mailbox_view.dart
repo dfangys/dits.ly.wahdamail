@@ -362,10 +362,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                                   children: [
                                     Icon(
                                       Icons.check_circle_outline,
-                                      color:
-                                          widget.isDarkMode
-                                              ? Colors.green.shade300
-                                              : Colors.green.shade600,
+                                      color: Theme.of(context).colorScheme.tertiary,
                                       size: 24,
                                     ),
                                     const SizedBox(height: 8),
@@ -373,10 +370,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                                       'All emails loaded',
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color:
-                                            widget.isDarkMode
-                                                ? Colors.green.shade300
-                                                : Colors.green.shade600,
+                                        color: Theme.of(context).colorScheme.tertiary,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
@@ -385,10 +379,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                                       '${_processedUIDs.length} emails total',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color:
-                                            widget.isDarkMode
-                                                ? Colors.green.shade400
-                                                : Colors.green.shade700,
+                                        color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.9),
                                       ),
                                     ),
                                   ],
@@ -403,17 +394,16 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                                 decoration: BoxDecoration(
                                   color:
                                       widget.isDarkMode
-                                          ? Colors.grey.shade800.withValues(
-                                            alpha: 0.3,
-                                          )
-                                          : Colors.grey.shade100,
+                                          ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(
+                                              alpha: 0.3,
+                                            )
+                                          : Theme.of(context).colorScheme.surfaceContainerHighest,
                                   borderRadius: BorderRadius.circular(12),
                                   boxShadow: [
                                     BoxShadow(
-                                      color:
-                                          widget.isDarkMode
-                                              ? Colors.black26
-                                              : Colors.grey.shade300,
+                                      color: widget.isDarkMode
+                                          ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.16)
+                                          : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.12),
                                       blurRadius: 8,
                                       offset: const Offset(0, 2),
                                     ),
@@ -427,10 +417,9 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                                       height: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2.5,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              widget.theme.primaryColor,
-                                            ),
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          Theme.of(context).colorScheme.primary,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 16),
@@ -444,12 +433,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w500,
-                                            color:
-                                                widget.isDarkMode
-                                                    ? Colors.white.withValues(
-                                                      alpha: 0.87,
-                                                    )
-                                                    : Colors.grey.shade700,
+                                            color: Theme.of(context).colorScheme.onSurface,
                                           ),
                                         ),
                                         const SizedBox(height: 2),
@@ -457,10 +441,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                                           'Fetching from server',
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color:
-                                                widget.isDarkMode
-                                                    ? Colors.white60
-                                                    : Colors.grey.shade600,
+                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                           ),
                                         ),
                                         const SizedBox(height: 1),
@@ -468,12 +449,7 @@ class _OptimizedEmailListState extends State<OptimizedEmailList> {
                                           '${_processedUIDs.length} emails loaded',
                                           style: TextStyle(
                                             fontSize: 11,
-                                            color:
-                                                widget.isDarkMode
-                                                    ? Colors.white.withValues(
-                                                      alpha: 0.5,
-                                                    )
-                                                    : Colors.grey.shade500,
+                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                                           ),
                                         ),
                                       ],
