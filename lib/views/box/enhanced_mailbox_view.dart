@@ -389,8 +389,7 @@ shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color:
-                      widget.isDarkMode ? Colors.white : Colors.grey.shade800,
+                  color: Theme.of(context).colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
@@ -400,10 +399,7 @@ shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                     : 'This may take a few moments',
                 style: TextStyle(
                   fontSize: 14,
-                  color:
-                      widget.isDarkMode
-                          ? Colors.white.withValues(alpha: 0.7)
-                          : Colors.grey.shade600,
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -419,7 +415,7 @@ shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
       child: Card(
         margin: const EdgeInsets.all(24),
         elevation: 8,
-        shadowColor: Colors.red.withValues(alpha: 0.3),
+        shadowColor: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
@@ -433,7 +429,7 @@ shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                 label: Text(_retryCount >= _maxRetries ? 'Try Again' : 'Retry'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,
@@ -542,10 +538,7 @@ shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                   'Pull down to refresh',
                   style: TextStyle(
                     fontSize: 14,
-                    color:
-                        widget.isDarkMode
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : Colors.grey.shade500,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -597,10 +590,7 @@ shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w500,
-                      color:
-                          widget.isDarkMode
-                              ? Colors.white.withValues(alpha: 0.87)
-                              : Colors.grey.shade700,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -608,10 +598,7 @@ shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                     'Fetching from server',
                     style: TextStyle(
                       fontSize: 8,
-                      color:
-                          widget.isDarkMode
-                              ? Colors.white60
-                              : Colors.grey.shade600,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                   const SizedBox(height: 1),
@@ -619,10 +606,7 @@ shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
                     '${_processedUIDs.length} emails loaded',
                     style: TextStyle(
                       fontSize: 8,
-                      color:
-                          widget.isDarkMode
-                              ? Colors.white.withValues(alpha: 0.5)
-                              : Colors.grey.shade500,
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                 ],
