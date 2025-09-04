@@ -12,13 +12,41 @@ import 'package:wahda_bank/design_system/components/app_scaffold.dart';
 import 'package:wahda_bank/design_system/theme/tokens.dart';
 import 'package:wahda_bank/design_system/components/empty_state.dart';
 import 'package:wahda_bank/design_system/components/error_state.dart';
+import 'package:wahda_bank/observability/perf/list_perf_sampler.dart';
 
-class SearchView extends StatelessWidget {
-  SearchView({super.key});
-  final controller = Get.put(MailSearchController());
-  final mailboxController = Get.find<MailBoxController>();
-  // P12.2: bind UI to the ViewModel state
-  final SearchViewModel vm = Get.put<SearchViewModel>(getIt<SearchViewModel>());
+class SearchView extends StatefulWidget {
+  const SearchView({super.key});
+
+  @override
+  State<SearchView> createState() => _SearchViewState();
+}
+
+class _SearchViewState extends State<SearchView> {
+  late final MailSearchController controller;
+  late final MailBoxController mailboxController;
+  late final SearchViewModel vm;
+  ListPerfSampler? _perf;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = Get.put(MailSearchController());
+    mailboxController = Get.find<MailBoxController>();
+    vm = Get.put<SearchViewModel>(getIt<SearchViewModel>());
+    // Start perf sampler after first frame to ensure controller wired
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _perf = ListPerfSampler(
+        opName: 'search_list_scroll',
+        scrollController: controller.scrollController,
+      )..start();
+    });
+  }
+
+  @override
+  void dispose() {
+    try { _perf?.stop(); } catch (_) {}
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +131,7 @@ class SearchView extends StatelessWidget {
       body: vm.obx(
         (state) => ListView.separated(
           controller: controller.scrollController,
+          cacheExtent: 360.0, // ~3 rows prefetch; conservative, no layout change
           itemBuilder: (context, index) {
             return MailTile(
               onTap: () {
