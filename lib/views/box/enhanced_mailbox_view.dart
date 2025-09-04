@@ -13,6 +13,7 @@ import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
 import 'package:wahda_bank/design_system/components/empty_state.dart';
 import 'package:wahda_bank/design_system/components/error_state.dart';
+import 'package:wahda_bank/observability/perf/list_perf_sampler.dart';
 
 /// Enhanced Mailbox View with proper first-time initialization
 /// Best practices implementation for mailbox email loading and error handling
@@ -41,6 +42,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
 
   // Scroll and loading management
   final ScrollController _scrollController = ScrollController();
+  ListPerfSampler? _perf;
   final Set<String> _processedUIDs = <String>{};
 
   // State management
@@ -63,8 +65,12 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
     _initializeControllers();
     _setupScrollListener();
 
-    // Delayed initialization to ensure proper widget tree setup
+    // Start perf sampler after first frame to ensure ScrollController attached
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _perf = ListPerfSampler(
+        opName: 'mailbox_list_scroll',
+        scrollController: _scrollController,
+      )..start();
       _performFirstTimeInitialization();
     });
   }
@@ -72,6 +78,7 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    try { _perf?.stop(); } catch (_) {}
     _scrollController.dispose();
     super.dispose();
   }
@@ -489,7 +496,7 @@ shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
         addSemanticIndexes: false,
         cacheExtent:
             FeatureFlags.instance.virtualizationTuningEnabled
-                ? 6 * 120.0
+                ? 3 * 120.0 // ~2–3 rows ahead conservatively
                 : null,
         prototypeItem:
             (FeatureFlags.instance.virtualizationTuningEnabled &&
