@@ -11,6 +11,7 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 import 'package:wahda_bank/design_system/components/app_scaffold.dart';
+import 'package:wahda_bank/observability/perf/compose_perf_sampler.dart';
 
 /// Redesigned compose screen with enhanced UX and modern design
 class RedesignedComposeScreen extends StatefulWidget {
@@ -38,6 +39,10 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
   late Animation<double> _fabScaleAnimation;
   late AnimationController _slideAnimationController;
   late Animation<Offset> _slideAnimation;
+
+  // P26 perf sampling
+  ComposePerfSampler? _editorPerf;
+  ComposePerfSampler? _attachmentsPerf;
 
   @override
   void initState() {
@@ -85,6 +90,14 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
         _fabAnimationController.forward();
       });
 
+      // P26: start editor perf sampling for the compose screen lifetime
+      _editorPerf = ComposePerfSampler(opName: 'compose_editor_interaction')..start();
+      // P26: start attachments-scroll perf sampling tied to the route's primary scroll controller (whole compose surface)
+      final primary = PrimaryScrollController.of(context);
+      if (primary != null) {
+        _attachmentsPerf = ComposePerfSampler(opName: 'compose_attachments_scroll')..start();
+      }
+
       // Load draft if provided
       if (widget.draft != null) {
         _loadDraft(widget.draft!);
@@ -101,6 +114,8 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
 
   @override
   void dispose() {
+    try { _editorPerf?.stop(); } catch (_) {}
+    try { _attachmentsPerf?.stop(); } catch (_) {}
     _fabAnimationController.dispose();
     _slideAnimationController.dispose();
     super.dispose();
