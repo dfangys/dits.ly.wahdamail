@@ -6,6 +6,7 @@ import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gatew
 import 'package:wahda_bank/features/sync/infrastructure/jitter_backoff.dart';
 import 'package:wahda_bank/shared/error/errors.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
+import 'package:wahda_bank/observability/perf/bg_perf_sampler.dart';
 
 /// Sync service (shadow mode): consumes ImapGateway.idleStream and triggers header fetches.
 class SyncService {
@@ -18,6 +19,7 @@ class SyncService {
   Timer? _debounce;
   static const _window = Duration(milliseconds: 300);
   Stopwatch? _idleLoopSw;
+  BgPerfSampler? _idleSampler;
 
   SyncService({required this.gateway, required this.messages, JitterBackoff? backoff})
       : backoff = backoff ?? JitterBackoff();
@@ -25,6 +27,7 @@ class SyncService {
   Future<void> start({required String accountId, required String folderId}) async {
     await stop();
     _idleLoopSw = Stopwatch()..start();
+    _idleSampler = BgPerfSampler(opName: 'idle_loop')..start();
     _sub = gateway
         .idleStream(accountId: accountId, folderId: folderId)
         .listen((event) async {
@@ -35,13 +38,24 @@ class SyncService {
         // Coalesce burst events within a window
         _debounce?.cancel();
         _debounce = Timer(_window, () async {
-          await messages.fetchInbox(folder: dom.Folder(id: folderId, name: folderId), limit: 50, offset: 0);
+          final _batchSampler = BgPerfSampler(opName: 'fetch_headers_batch')..start();
+          try {
+            await messages.fetchInbox(
+              folder: dom.Folder(id: folderId, name: folderId),
+              limit: 50,
+              offset: 0,
+            );
+          } finally {
+            _batchSampler.stop();
+          }
         });
       }
     }, onError: (e, st) {
       // Classify and schedule retry with jitter
       final appErr = e is AppError ? e : mapImapError(e);
       final ms = _idleLoopSw?.elapsedMilliseconds ?? 0;
+      try { _idleSampler?.stop(); } catch (_) {}
+      try { _idleSampler?.stop(); } catch (_) {}
       Telemetry.event('operation', props: {
         'op': 'IdleLoop',
         'lat_ms': ms,

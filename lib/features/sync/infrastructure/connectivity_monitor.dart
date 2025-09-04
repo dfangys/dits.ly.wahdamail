@@ -6,6 +6,7 @@ import 'package:wahda_bank/features/messaging/domain/repositories/message_reposi
 import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as dom;
 import 'package:wahda_bank/features/sync/infrastructure/circuit_breaker.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
+import 'package:wahda_bank/observability/perf/bg_perf_sampler.dart';
 
 /// Lightweight connectivity monitor (no deps beyond existing connectivity_plus).
 /// On regain, reset circuit breaker and trigger one header refresh (debounced).
@@ -29,6 +30,7 @@ class ConnectivityMonitor {
         _debounce = Timer(const Duration(seconds: 2), () async {
           circuitBreaker.recordSuccess(); // reset CB
           final sw = Stopwatch()..start();
+          final _sampler = BgPerfSampler(opName: 'reconnect_window')..start();
           try {
             final list = await messages.fetchInbox(
               folder: dom.Folder(id: folderId, name: folderId),
@@ -50,6 +52,8 @@ class ConnectivityMonitor {
               'latency_ms': sw.elapsedMilliseconds,
               'err_type': e.runtimeType.toString(),
             });
+          } finally {
+            try { _sampler.stop(); } catch (_) {}
           }
         });
       }

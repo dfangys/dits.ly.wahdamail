@@ -85,3 +85,23 @@ P27: Message detail render & scroll (no feature change)
 - How to run:
   flutter run -d <device> | dart run scripts/perf/parse_frame_timings.dart
 
+---
+
+P28: Background perf sampling — sync/idle & bg_fetch (no feature change)
+- Sampler: lib/observability/perf/bg_perf_sampler.dart
+  - Ops: idle_loop (IMAP IDLE alive), fetch_headers_batch (header batch), bg_fetch_ios_cycle (iOS BG fallback), reconnect_window (connectivity regain coalesced refresh)
+  - Fields: op, latency_ms, jank_frames, total_frames, dropped_pct, request_id (optional)
+- Hooks:
+  - SyncService: start idle_loop on IDLE subscribe; stop on error/done. Wrap header batch fetches with fetch_headers_batch.
+  - BgFetchIos: start bg_fetch_ios_cycle on coalesced run; stop in finally.
+  - ConnectivityMonitor: start reconnect_window on regain; stop after refresh completes.
+- How to run:
+  flutter run -d <device> | \
+    dart run scripts/perf/sample_sync.dart | \
+    dart run scripts/perf/parse_frame_timings.dart
+- Budgets (observe only):
+  - idle_loop_dropped_pct_p50 <= 5%
+  - fetch_headers_batch_dropped_pct_p50 <= 5%
+  - bg_fetch_ios_cycle_dropped_pct_p50 <= 5%
+  - reconnect_window_dropped_pct_p50 <= 5%
+

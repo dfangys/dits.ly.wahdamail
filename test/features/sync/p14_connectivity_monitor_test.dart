@@ -38,6 +38,7 @@ class _FakeRepo implements dom.MessageRepository {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   test('Connectivity regain triggers single refresh (debounced)', () async {
     final repo = _FakeRepo();
     final cb = CircuitBreaker();

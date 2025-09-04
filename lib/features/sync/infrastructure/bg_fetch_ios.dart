@@ -8,6 +8,7 @@ import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as do
 import 'package:wahda_bank/features/sync/infrastructure/circuit_breaker.dart';
 import 'package:wahda_bank/features/sync/application/event_bus.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
+import 'package:wahda_bank/observability/perf/bg_perf_sampler.dart';
 
 /// iOS background fetch fallback (P14): coalesced header refresh with circuit breaker.
 class BgFetchIos {
@@ -70,6 +71,7 @@ class BgFetchIos {
     _timer?.cancel();
     _timer = Timer(coalesceWindow, () async {
       final sw = Stopwatch()..start();
+      final _sampler = BgPerfSampler(opName: 'bg_fetch_ios_cycle')..start();
       try {
         if (!circuitBreaker.allowExecution()) return;
         final list = await messages.fetchInbox(
@@ -97,6 +99,7 @@ class BgFetchIos {
           'coalesced': _pendingTicks,
         });
       } finally {
+        try { _sampler.stop(); } catch (_) {}
         _pendingTicks = 0;
       }
     });
