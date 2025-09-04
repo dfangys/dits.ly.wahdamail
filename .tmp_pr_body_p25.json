@@ -1,0 +1,42 @@
+{
+  "phase": "P25",
+  "title": "Performance sampling — mailbox/search lists (no feature change)",
+  "branch": "feat/ddd-p25-perf-sampling-lists",
+  "goal": "Instrument mailbox/search lists with lightweight frame/scroll telemetry and safe list tuning with 1:1 visuals.",
+  "create_files": [
+    "lib/observability/perf/list_perf_sampler.dart",
+    "scripts/perf/parse_frame_timings.dart",
+    "scripts/perf/sample_mailbox_scroll.dart",
+    "docs/P25_PERF_SAMPLING.md"
+  ],
+  "refactor_files": [
+    "lib/views/box/mailbox_view.dart",
+    "lib/views/box/enhanced_mailbox_view.dart",
+    "lib/widgets/search/search.dart"
+  ],
+  "telemetry_fields": [
+    "op", "latency_ms", "jank_frames", "total_frames", "dropped_pct",
+    "scroll_velocity_px_s", "request_id"
+  ],
+  "tuning": {
+    "cacheExtent": "2-3 rows worth",
+    "itemExtent_or_prototypeItem": "where safe; no layout change"
+  ],
+  "guardrails": [
+    "No behavior/UI changes",
+    "No new dependencies",
+    "Import enforcer hard-fails new Colors.* in presentation/views (DS/theme excluded)",
+    "Flags OFF; kill-switch > flags"
+  ],
+  "tests": [
+    "unit: list_perf_sampler aggregates p50/p95 and dropped_pct correctly",
+    "widget: mailbox/search list still renders and scrolls with tuning applied (smoke)"
+  ],
+  "acceptance": [
+    "dart run tool/import_enforcer.dart passes",
+    "dart analyze: 0 errors (warnings OK)",
+    "flutter test --no-pub test: PASS",
+    "Visuals unchanged; budgets reported in logs"
+  ]
+}
+

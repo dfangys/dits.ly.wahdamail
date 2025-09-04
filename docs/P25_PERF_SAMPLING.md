@@ -52,3 +52,21 @@ Notes
 - Dropped frame percentage is a best-effort proxy using frame total span vs a 60Hz budget.
 - The sampler emits one event per view lifetime; capture enough samples to stabilize p50/p95.
 
+---
+
+P26: Compose editor & attachments (no feature change)
+- Sampler: lib/observability/perf/compose_perf_sampler.dart
+  - Emits ops compose_editor_interaction (screen visible) and compose_attachments_scroll (using route’s primary scroll controller).
+  - Fields: op, latency_ms, jank_frames, total_frames, dropped_pct, request_id (optional)
+- Hooks:
+  - Start on appear; stop on dispose in the compose shell.
+- Dev script:
+  - scripts/perf/sample_compose.dart
+- Budgets (observe only):
+  - compose_editor_dropped_pct_p50 <= 5%
+  - attachments_scroll_dropped_pct_p50 <= 5%
+- How to run:
+  flutter run -d <device> | \
+    dart run scripts/perf/sample_compose.dart | \
+    dart run scripts/perf/parse_frame_timings.dart
+
