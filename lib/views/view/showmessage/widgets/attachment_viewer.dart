@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:wahda_bank/services/mime_utils.dart';
 import 'package:archive/archive.dart' as z;
 import 'package:xml/xml.dart' as xml;
+import 'package:wahda_bank/design_system/components/app_scaffold.dart';
 
 class AttachmentViewer extends StatefulWidget {
   const AttachmentViewer({
@@ -213,7 +214,7 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
   @override
   Widget build(BuildContext context) {
     if (_isProcessing) {
-      return Scaffold(
+      return AppScaffold(
         appBar: AppBar(
           title: Text(widget.title, overflow: TextOverflow.ellipsis),
         ),
@@ -231,7 +232,7 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
     }
 
     if (_errorMessage != null) {
-      return Scaffold(
+      return AppScaffold(
         appBar: AppBar(
           title: Text(widget.title, overflow: TextOverflow.ellipsis),
         ),
@@ -239,7 +240,11 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Theme.of(context).colorScheme.error,
+              ),
               const SizedBox(height: 16),
               Text(_errorMessage!, textAlign: TextAlign.center),
               const SizedBox(height: 16),
@@ -264,29 +269,43 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
         widget.filePath.toLowerCase().endsWith('.pdf');
     final isTextLike = _isTextBasedContent(mime);
 
-    return Scaffold(
+    return AppScaffold(
       appBar: AppBar(
         title: Text(widget.title, overflow: TextOverflow.ellipsis),
         actions: [
-          IconButton(
-            tooltip: 'Save',
-            icon: const Icon(Icons.download_rounded),
-            onPressed: () async {
+          Semantics(
+            button: true,
+            label: 'Save',
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              child: IconButton(
+                tooltip: 'Save',
+                icon: const Icon(Icons.download_rounded),
+                onPressed: () async {
               try {
                 await _showSaveMenu();
               } catch (_) {}
             },
+              ),
+            ),
           ),
-          IconButton(
-            tooltip: 'Share',
-            icon: const Icon(Icons.ios_share),
-            onPressed: () async {
+          Semantics(
+            button: true,
+            label: 'Share',
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              child: IconButton(
+                tooltip: 'Share',
+                icon: const Icon(Icons.ios_share),
+                onPressed: () async {
               try {
                 await Share.shareXFiles([
                   XFile(widget.filePath),
                 ], text: widget.title);
               } catch (_) {}
-            },
+                },
+              ),
+            ),
           ),
         ],
       ),
@@ -339,7 +358,11 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.broken_image, size: 64, color: Colors.grey),
+        Icon(
+          Icons.broken_image,
+          size: 64,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(height: 16),
         const Text('Unable to display image'),
         const SizedBox(height: 8),
@@ -416,7 +439,11 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.text_snippet_outlined, size: 64, color: Colors.grey),
+          Icon(
+            Icons.text_snippet_outlined,
+            size: 64,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 16),
           const Text('Unable to display text content'),
           const SizedBox(height: 8),
@@ -692,7 +719,11 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.description, size: 80, color: Colors.blue),
+          Icon(
+            Icons.description,
+            size: 80,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(height: 24),
           Text(
             'Office Document',
