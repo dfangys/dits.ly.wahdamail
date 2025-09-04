@@ -56,12 +56,14 @@ class _InbocAppBarState extends State<InbocAppBar>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return AppBar(
-      backgroundColor: AppTheme.surfaceColor,
+      backgroundColor: colorScheme.surface,
       elevation: 0,
       scrolledUnderElevation: 2,
       centerTitle: false,
       leading: IconButton(
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
         icon: const Icon(Icons.arrow_back_ios_new_rounded),
         onPressed: Get.back,
         tooltip: 'Back',
@@ -73,13 +75,14 @@ class _InbocAppBarState extends State<InbocAppBar>
             return Transform.scale(
               scale: _starAnimation.value,
               child: IconButton(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
                 padding: EdgeInsets.zero,
                 icon: Icon(
                   isStarred ? Icons.star_rounded : Icons.star_outline_rounded,
                   color:
                       isStarred
-                          ? AppTheme.starColor
-                          : AppTheme.textSecondaryColor,
+                          ? Theme.of(context).colorScheme.secondary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 tooltip: isStarred ? 'Unstar' : 'Star',
                 onPressed: _toggleStar,
@@ -88,6 +91,7 @@ class _InbocAppBarState extends State<InbocAppBar>
           },
         ),
         IconButton(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
           icon: const Icon(Icons.reply_rounded),
           onPressed: () {
             ComposeModal.show(
@@ -129,15 +133,15 @@ class _InbocAppBarState extends State<InbocAppBar>
       itemBuilder:
           (context) => [
             PopupMenuItem(
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(
                     Icons.forward_rounded,
-                    color: AppTheme.primaryColor,
+                    color: Theme.of(context).colorScheme.primary,
                     size: 20,
                   ),
-                  SizedBox(width: 12),
-                  Text('Forward'),
+                  const SizedBox(width: 12),
+                  const Text('Forward'),
                 ],
               ),
               onTap: () {
@@ -150,15 +154,15 @@ class _InbocAppBarState extends State<InbocAppBar>
               },
             ),
             PopupMenuItem(
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(
                     Icons.print_rounded,
-                    color: AppTheme.primaryColor,
+                    color: Theme.of(context).colorScheme.primary,
                     size: 20,
                   ),
-                  SizedBox(width: 12),
-                  Text('Print'),
+                  const SizedBox(width: 12),
+                  const Text('Print'),
                 ],
               ),
               onTap: () {
@@ -166,15 +170,15 @@ class _InbocAppBarState extends State<InbocAppBar>
               },
             ),
             PopupMenuItem(
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(
                     Icons.move_to_inbox_rounded,
-                    color: AppTheme.primaryColor,
+                    color: Theme.of(context).colorScheme.primary,
                     size: 20,
                   ),
-                  SizedBox(width: 12),
-                  Text('Move to'),
+                  const SizedBox(width: 12),
+                  const Text('Move to'),
                 ],
               ),
               onTap: () {
@@ -184,15 +188,15 @@ class _InbocAppBarState extends State<InbocAppBar>
               },
             ),
             PopupMenuItem(
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(
                     Icons.delete_outline_rounded,
-                    color: AppTheme.errorColor,
+                    color: Theme.of(context).colorScheme.error,
                     size: 20,
                   ),
-                  SizedBox(width: 12),
-                  Text('Delete', style: TextStyle(color: AppTheme.errorColor)),
+                  const SizedBox(width: 12),
+                  Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
                 ],
               ),
               onTap: () {
@@ -210,13 +214,13 @@ class _InbocAppBarState extends State<InbocAppBar>
       context: context,
       builder:
           (context) => CupertinoActionSheet(
-            title: const Text(
+            title: Text(
               'Move message',
-              style: TextStyle(color: AppTheme.textPrimaryColor),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
-            message: const Text(
+            message: Text(
               'Select a folder to move this message to',
-              style: TextStyle(color: AppTheme.textSecondaryColor),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             actions: [
               for (var box
@@ -231,7 +235,7 @@ class _InbocAppBarState extends State<InbocAppBar>
                   },
                   child: Text(
                     box.name,
-                    style: const TextStyle(color: AppTheme.primaryColor),
+                    style: TextStyle(color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
             ],

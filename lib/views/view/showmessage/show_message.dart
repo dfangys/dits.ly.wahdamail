@@ -20,6 +20,7 @@ import 'package:wahda_bank/services/sender_trust.dart';
 import 'package:wahda_bank/services/offline_http_server.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
+import 'package:wahda_bank/design_system/components/app_scaffold.dart';
 
 class ShowMessage extends StatefulWidget {
   const ShowMessage({super.key, required this.message, required this.mailbox});
@@ -843,8 +844,9 @@ class _ShowMessageState extends State<ShowMessage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+    final colorScheme = Theme.of(context).colorScheme;
+    return AppScaffold(
+      backgroundColor: colorScheme.surface,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(60),
         child: InbocAppBar(message: message, mailbox: mailbox),
@@ -929,8 +931,8 @@ class _ShowMessageState extends State<ShowMessage> {
                                 radius: 24.0,
                                 child: Text(
                                   initials,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onPrimary,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -958,9 +960,9 @@ class _ShowMessageState extends State<ShowMessage> {
                                         ),
                                         Text(
                                           detailedDate,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 12,
-                                            color: AppTheme.textSecondaryColor,
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                                           ),
                                         ),
 
@@ -978,44 +980,42 @@ class _ShowMessageState extends State<ShowMessage> {
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
                                                 if (isFlagged)
-                                                  const Icon(
+                                                  Icon(
                                                     Icons.flag,
                                                     size: 14,
-                                                    color: Colors.orange,
+                                                    color: Theme.of(context).colorScheme.secondary,
                                                   ),
                                                 if (hasAttachments)
-                                                  const Padding(
-                                                    padding: EdgeInsets.only(
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(
                                                       left: 4,
                                                     ),
                                                     child: Icon(
                                                       Icons.attach_file,
                                                       size: 14,
-                                                      color:
-                                                          AppTheme
-                                                              .textSecondaryColor,
+                                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                                     ),
                                                   ),
                                                 if (isAnswered)
-                                                  const Padding(
-                                                    padding: EdgeInsets.only(
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(
                                                       left: 4,
                                                     ),
                                                     child: Icon(
                                                       Icons.reply,
                                                       size: 14,
-                                                      color: Colors.blue,
+                                                      color: Theme.of(context).colorScheme.primary,
                                                     ),
                                                   ),
                                                 if (isForwarded)
-                                                  const Padding(
-                                                    padding: EdgeInsets.only(
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(
                                                       left: 4,
                                                     ),
                                                     child: Icon(
                                                       Icons.forward,
                                                       size: 14,
-                                                      color: Colors.green,
+                                                      color: Theme.of(context).colorScheme.secondary,
                                                     ),
                                                   ),
                                                 if (threadLength > 0)
@@ -1031,9 +1031,7 @@ class _ShowMessageState extends State<ShowMessage> {
                                                             vertical: 2,
                                                           ),
                                                       decoration: BoxDecoration(
-                                                        color:
-                                                            AppTheme
-                                                                .primaryColor,
+                                                        color: Theme.of(context).colorScheme.primary,
                                                         borderRadius:
                                                             BorderRadius.circular(
                                                               8,
@@ -1041,9 +1039,9 @@ class _ShowMessageState extends State<ShowMessage> {
                                                       ),
                                                       child: Text(
                                                         threadLength.toString(),
-                                                        style: const TextStyle(
+                                                        style: TextStyle(
                                                           fontSize: 10,
-                                                          color: Colors.white,
+                                                          color: Theme.of(context).colorScheme.onPrimary,
                                                           fontWeight:
                                                               FontWeight.bold,
                                                         ),
@@ -1058,9 +1056,9 @@ class _ShowMessageState extends State<ShowMessage> {
                                     const SizedBox(height: 4),
                                     Text(
                                       email,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 14,
-                                        color: AppTheme.textSecondaryColor,
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
@@ -1077,7 +1075,7 @@ class _ShowMessageState extends State<ShowMessage> {
                                       isExpanded
                                           ? Icons.keyboard_arrow_up
                                           : Icons.keyboard_arrow_down,
-                                      color: AppTheme.textSecondaryColor,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     ),
                               ),
                             ],

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/views/view/showmessage/show_message.dart';
+import 'package:wahda_bank/design_system/components/app_scaffold.dart';
 
 class ShowMessagePager extends StatefulWidget {
   const ShowMessagePager({
@@ -86,7 +87,7 @@ class _ShowMessagePagerState extends State<ShowMessagePager> {
       );
     }
 
-    return Scaffold(
+    return AppScaffold(
       // No outer AppBar: rely on inner ShowMessage AppBar for consistent look
       backgroundColor: Colors.transparent,
       body: Stack(
@@ -141,7 +142,7 @@ class _ShowMessagePagerState extends State<ShowMessagePager> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
