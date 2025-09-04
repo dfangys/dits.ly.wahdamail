@@ -70,3 +70,18 @@ P26: Compose editor & attachments (no feature change)
     dart run scripts/perf/sample_compose.dart | \
     dart run scripts/perf/parse_frame_timings.dart
 
+---
+
+P27: Message detail render & scroll (no feature change)
+- Sampler: lib/observability/perf/message_detail_perf_sampler.dart
+  - Ops: message_detail_render (screen visible) and message_detail_body_scroll (primary ScrollController).
+  - Fields: op, latency_ms, jank_frames, total_frames, dropped_pct, request_id (optional)
+- Hooks:
+  - Start render op on first frame; stop on dispose.
+  - Attach scroll op to primary scroll; stop on dispose.
+- Budgets (observe only):
+  - message_detail_render_dropped_pct_p50 <= 5%
+  - message_detail_body_scroll_dropped_pct_p50 <= 5%
+- How to run:
+  flutter run -d <device> | dart run scripts/perf/parse_frame_timings.dart
+
