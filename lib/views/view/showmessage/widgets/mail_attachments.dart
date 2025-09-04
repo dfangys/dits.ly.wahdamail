@@ -689,29 +689,36 @@ class MailAttachments extends StatelessWidget {
                 );
               }
               // No cached content -> show error UI
-              return Center(
+      return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.error_outline,
-                        color: AppTheme.errorColor,
+                        color: Theme.of(context).colorScheme.error,
                         size: 48,
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Error loading message content: ${snapshot.error}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.errorColor,
+                          color: Theme.of(context).colorScheme.error,
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () => Get.forceAppUpdate(),
-                        child: const Text('Retry'),
+                      Semantics(
+                        label: 'Retry',
+                        button: true,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minWidth: 88, minHeight: 44),
+                          child: ElevatedButton(
+                            onPressed: () => Get.forceAppUpdate(),
+                            child: const Text('Retry'),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -847,17 +854,18 @@ class MailAttachments extends StatelessWidget {
   }
 
   Widget _offlineBanner(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        border: Border.all(color: Colors.blue.shade200),
+        color: theme.colorScheme.primary.withValues(alpha: 0.05),
+        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Icon(Icons.wifi_off_rounded, color: Colors.blue.shade700, size: 20),
+          Icon(Icons.wifi_off_rounded, color: theme.colorScheme.primary, size: 20),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
@@ -897,15 +905,16 @@ class _AttachmentTileState extends State<AttachmentTile> {
             ? _formatFileSize(widget.contentInfo.size!)
             : '';
 
+    final theme = Theme.of(context);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-        side: const BorderSide(color: AppTheme.dividerColor),
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.dividerColor),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+        borderRadius: BorderRadius.circular(12),
         onTap: _isLoading ? null : () => _handleAttachmentTap(context),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
@@ -915,15 +924,13 @@ class _AttachmentTileState extends State<AttachmentTile> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
-                  borderRadius: BorderRadius.circular(
-                    AppTheme.smallBorderRadius,
-                  ),
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
                   child: Icon(
                     getAttachmentIcon(fileName),
-                    color: AppTheme.primaryColor,
+                    color: theme.colorScheme.primary,
                     size: 28,
                   ),
                 ),
@@ -943,9 +950,9 @@ class _AttachmentTileState extends State<AttachmentTile> {
                       const SizedBox(height: 4),
                       Text(
                         fileSize,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.textSecondaryColor,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -953,9 +960,9 @@ class _AttachmentTileState extends State<AttachmentTile> {
                       const SizedBox(height: 4),
                       Text(
                         _error!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppTheme.errorColor,
+                          color: theme.colorScheme.error,
                         ),
                       ),
                     ],
@@ -972,21 +979,33 @@ class _AttachmentTileState extends State<AttachmentTile> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.download_rounded),
-                      onPressed: () => _handleAttachmentTap(context),
-                      tooltip: 'Download',
-                      color: AppTheme.primaryColor,
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(8),
+                    Semantics(
+                      label: 'Open/Preview',
+                      button: true,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                        child: IconButton(
+                          icon: const Icon(Icons.download_rounded),
+                          onPressed: () => _handleAttachmentTap(context),
+                          tooltip: 'Open/Preview',
+                          color: theme.colorScheme.primary,
+                          padding: const EdgeInsets.all(8),
+                        ),
+                      ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.share_rounded),
-                      onPressed: () => _handleShareAttachment(context),
-                      tooltip: 'Share',
-                      color: AppTheme.primaryColor,
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(8),
+                    Semantics(
+                      label: 'Share',
+                      button: true,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                        child: IconButton(
+                          icon: const Icon(Icons.share_rounded),
+                          onPressed: () => _handleShareAttachment(context),
+                          tooltip: 'Share',
+                          color: theme.colorScheme.primary,
+                          padding: const EdgeInsets.all(8),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1147,11 +1166,10 @@ class _AttachmentTileState extends State<AttachmentTile> {
         await OpenAppFile.open(cacheFile.path);
 
         // Show success message
-        if (context.mounted) {
+      if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Opening $fileName'),
-              backgroundColor: AppTheme.successColor,
             ),
           );
         }
@@ -1191,7 +1209,6 @@ class _AttachmentTileState extends State<AttachmentTile> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('Opening $fileName from Downloads'),
-                    backgroundColor: AppTheme.successColor,
                   ),
                 );
               }
@@ -1204,11 +1221,9 @@ class _AttachmentTileState extends State<AttachmentTile> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('File saved to ${downloadFile.path}'),
-                    backgroundColor: AppTheme.infoColor,
                     duration: const Duration(seconds: 5),
                     action: SnackBarAction(
                       label: 'OK',
-                      textColor: Colors.white,
                       onPressed: () {},
                     ),
                   ),

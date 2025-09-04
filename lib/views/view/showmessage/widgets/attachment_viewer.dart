@@ -255,9 +255,16 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
               const SizedBox(height: 16),
               Text(_errorMessage!, textAlign: TextAlign.center),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => _preprocessAttachment(),
-                child: const Text('Retry'),
+              Semantics(
+                button: true,
+                label: 'Retry',
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 88, minHeight: 44),
+                  child: ElevatedButton(
+                    onPressed: () => _preprocessAttachment(),
+                    child: const Text('Retry'),
+                  ),
+                ),
               ),
             ],
           ),
@@ -990,7 +997,11 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.insert_drive_file, size: 80, color: Colors.grey),
+          Icon(
+            Icons.insert_drive_file,
+            size: 80,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 24),
           Text(
             'Preview Not Available',
