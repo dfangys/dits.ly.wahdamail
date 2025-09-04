@@ -21,9 +21,10 @@ class ViewMessageBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
 
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: colorScheme.surface,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16),
           topRight: Radius.circular(16),
@@ -89,44 +90,49 @@ class ViewMessageBottomNav extends StatelessWidget {
     bool destructive = false,
   }) {
     final isTablet = MediaQuery.of(context).size.width > 600;
+    final colorScheme = Theme.of(context).colorScheme;
+    final containerSize = isTablet ? 48.0 : 44.0;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: isTablet ? 12 : 8,
-          vertical: 8,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: isTablet ? 48 : 40,
-              height: isTablet ? 48 : 40,
-              decoration: BoxDecoration(
-                color:
-                    destructive
-                        ? Colors.red.withValues(alpha: 0.1)
-                        : AppTheme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+    return Semantics(
+      label: label,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isTablet ? 12 : 8,
+            vertical: 8,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: containerSize,
+                height: containerSize,
+                decoration: BoxDecoration(
+                  color: destructive
+                      ? colorScheme.error.withValues(alpha: 0.1)
+                      : colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  size: isTablet ? 24 : 20,
+                  color: destructive ? colorScheme.error : colorScheme.primary,
+                ),
               ),
-              child: Icon(
-                icon,
-                size: isTablet ? 24 : 20,
-                color: destructive ? Colors.red : AppTheme.primaryColor,
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: destructive ? colorScheme.error : colorScheme.onSurface,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: destructive ? Colors.red : AppTheme.textPrimaryColor,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -144,13 +150,13 @@ class ViewMessageBottomNav extends StatelessWidget {
       context: context,
       builder:
           (context) => CupertinoActionSheet(
-            title: const Text(
+            title: Text(
               'Delete Message',
-              style: TextStyle(color: AppTheme.textPrimaryColor),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
             ),
-            message: const Text(
+            message: Text(
               'Are you sure you want to delete this message?',
-              style: TextStyle(color: AppTheme.textSecondaryColor),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
             actions: [
               CupertinoActionSheetAction(
