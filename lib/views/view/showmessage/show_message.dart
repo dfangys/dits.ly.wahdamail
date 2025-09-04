@@ -21,6 +21,7 @@ import 'package:wahda_bank/services/offline_http_server.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
 import 'package:wahda_bank/design_system/components/app_scaffold.dart';
+import 'package:wahda_bank/observability/perf/message_detail_perf_sampler.dart';
 
 class ShowMessage extends StatefulWidget {
   const ShowMessage({super.key, required this.message, required this.mailbox});
@@ -37,6 +38,10 @@ class _ShowMessageState extends State<ShowMessage> {
 
   DateTime? _telemetryStart;
   bool _telemetrySent = false;
+
+  // P27 perf sampling
+  MessageDetailPerfSampler? _renderPerf;
+  MessageDetailPerfSampler? _scrollPerf;
 
   // Offline-first content from store
   String? _initialHtml;
@@ -62,6 +67,15 @@ class _ShowMessageState extends State<ShowMessage> {
         ctrl.markAsReadUnread([message], mailbox, true);
       }
     } catch (_) {}
+
+    // Start perf sampling on first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _renderPerf = MessageDetailPerfSampler(opName: 'message_detail_render')..start();
+      final primary = PrimaryScrollController.of(context);
+      if (primary != null) {
+        _scrollPerf = MessageDetailPerfSampler(opName: 'message_detail_body_scroll')..start();
+      }
+    });
 
     // Listen for meta updates (preview/x-ready/etc.) to refresh content
     try {
@@ -1148,6 +1162,8 @@ class _ShowMessageState extends State<ShowMessage> {
       _metaNotifier?.removeListener(_loadCachedContent);
     } catch (_) {}
     _metaNotifier = null;
+    try { _renderPerf?.stop(); } catch (_) {}
+    try { _scrollPerf?.stop(); } catch (_) {}
     super.dispose();
   }
 

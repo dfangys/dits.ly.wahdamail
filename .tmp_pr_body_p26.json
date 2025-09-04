@@ -1,0 +1,39 @@
+{
+  "phase": "P26",
+  "title": "Performance sampling — compose editor & attachments (no feature change)",
+  "branch": "feat/ddd-p26-perf-sampling-compose",
+  "goal": "Instrument compose editor and attachments with lightweight frame telemetry; keep visuals/behavior 1:1.",
+  "create_files": [
+    "lib/observability/perf/compose_perf_sampler.dart",
+    "scripts/perf/sample_compose.dart"
+  ],
+  "refactor_files": [
+    "lib/views/compose/redesigned_compose_screen.dart",
+    "lib/views/compose/widgets/compose_toolbar.dart",
+    "lib/views/compose/widgets/compose_attachments.dart"
+  ],
+  "telemetry_fields": [
+    "op", "latency_ms", "jank_frames", "total_frames", "dropped_pct", "request_id"
+  ],
+  "guardrails": [
+    "No behavior/UI changes",
+    "No new dependencies",
+    "Import enforcer rules unchanged",
+    "Flags OFF; kill-switch > flags"
+  ],
+  "tests": [
+    "unit: compose_perf_sampler aggregates dropped_pct",
+    "widget: compose screen smoke with sampler attached"
+  ],
+  "acceptance": [
+    "Import enforcer passes",
+    "Analyze: 0 errors",
+    "Tests: PASS",
+    "Visuals unchanged; budgets reported in logs"
+  ],
+  "budgets_observe_only": {
+    "compose_editor_dropped_pct_p50": "<= 5%",
+    "attachments_scroll_dropped_pct_p50": "<= 5%"
+  }
+}
+
