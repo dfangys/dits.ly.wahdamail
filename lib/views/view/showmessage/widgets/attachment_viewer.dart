@@ -18,11 +18,13 @@ class AttachmentViewer extends StatefulWidget {
     required this.mimeType,
     required this.filePath,
     this.originalBytes,
+    this.skipPreprocess = false, // Test-only: skip preprocessing to avoid plugin init in headless CI
   });
   final String title;
   final String mimeType;
   final String filePath;
   final Uint8List? originalBytes; // Original attachment bytes for validation
+  final bool skipPreprocess;
 
   @override
   State<AttachmentViewer> createState() => _AttachmentViewerState();
@@ -40,6 +42,11 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
   @override
   void initState() {
     super.initState();
+    if (widget.skipPreprocess) {
+      // In tests, we can skip preprocessing to avoid flakiness due to plugin initializers.
+      _isProcessing = false;
+      return;
+    }
     _preprocessAttachment();
   }
 
