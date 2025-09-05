@@ -62,11 +62,15 @@ class _InbocAppBarState extends State<InbocAppBar>
       elevation: 0,
       scrolledUnderElevation: 2,
       centerTitle: false,
-      leading: IconButton(
-        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-        icon: const Icon(Icons.arrow_back_ios_new_rounded),
-        onPressed: Get.back,
-        tooltip: 'Back',
+      leading: Semantics(
+        button: true,
+        label: 'Back',
+        child: IconButton(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: Get.back,
+          tooltip: 'Back',
+        ),
       ),
       actions: [
         AnimatedBuilder(
@@ -74,32 +78,40 @@ class _InbocAppBarState extends State<InbocAppBar>
           builder: (context, child) {
             return Transform.scale(
               scale: _starAnimation.value,
-              child: IconButton(
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                padding: EdgeInsets.zero,
-                icon: Icon(
-                  isStarred ? Icons.star_rounded : Icons.star_outline_rounded,
-                  color:
-                      isStarred
-                          ? Theme.of(context).colorScheme.secondary
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
+              child: Semantics(
+                button: true,
+                label: isStarred ? 'Unstar' : 'Star',
+                child: IconButton(
+                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  padding: EdgeInsets.zero,
+                  icon: Icon(
+                    isStarred ? Icons.star_rounded : Icons.star_outline_rounded,
+                    color:
+                        isStarred
+                            ? Theme.of(context).colorScheme.secondary
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  tooltip: isStarred ? 'Unstar' : 'Star',
+                  onPressed: _toggleStar,
                 ),
-                tooltip: isStarred ? 'Unstar' : 'Star',
-                onPressed: _toggleStar,
               ),
             );
           },
         ),
-        IconButton(
-          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-          icon: const Icon(Icons.reply_rounded),
-          onPressed: () {
-            ComposeModal.show(
-              context,
-              arguments: {'message': widget.message, 'type': 'reply'},
-            );
-          },
-          tooltip: 'Reply',
+        Semantics(
+          button: true,
+          label: 'Reply',
+          child: IconButton(
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            icon: const Icon(Icons.reply_rounded),
+            onPressed: () {
+              ComposeModal.show(
+                context,
+                arguments: {'message': widget.message, 'type': 'reply'},
+              );
+            },
+            tooltip: 'Reply',
+          ),
         ),
         _buildMoreOptionsButton(),
       ],
@@ -124,14 +136,19 @@ class _InbocAppBarState extends State<InbocAppBar>
   }
 
   Widget _buildMoreOptionsButton() {
-    return PopupMenuButton(
-      icon: const Icon(Icons.more_vert_rounded),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-      ),
-      position: PopupMenuPosition.under,
-      itemBuilder:
-          (context) => [
+    return Semantics(
+      button: true,
+      label: 'More options',
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        child: PopupMenuButton(
+          icon: const Icon(Icons.more_vert_rounded),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+          ),
+          position: PopupMenuPosition.under,
+          itemBuilder:
+              (context) => [
             PopupMenuItem(
               child: Row(
                 children: [
@@ -211,6 +228,8 @@ class _InbocAppBarState extends State<InbocAppBar>
               },
             ),
           ],
+        ),
+      ),
     );
   }
 
