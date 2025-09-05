@@ -54,7 +54,7 @@ void main(List<String> args) async {
       }
     }
     if (dropped != null) {
-      droppedByOp.putIfAbsent(op, () => <double>[]).add(dropped!);
+      droppedByOp.putIfAbsent(op, () => <double>[]).add(dropped);
     }
   }
 

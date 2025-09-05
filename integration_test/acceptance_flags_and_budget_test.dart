@@ -8,7 +8,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/memory_budget.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
-import 'package:wahda_bank/views/settings/pages/performance_flags_page.dart';
+import 'package:wahda_bank/features/settings/presentation/screens/settings/performance_flags_page.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

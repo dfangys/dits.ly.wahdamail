@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:injectable/injectable.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 // P12.3: inline DDD routing (remove shim)
 import 'package:get_storage/get_storage.dart';

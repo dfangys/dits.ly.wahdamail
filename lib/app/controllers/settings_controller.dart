@@ -1,7 +1,7 @@
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 
-import '../../views/settings/data/swap_data.dart';
+import 'package:wahda_bank/features/settings/presentation/data/swap_data.dart';
 import '../../services/security_service.dart';
 import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
 

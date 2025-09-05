@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/utills/constants/language.dart';
-import 'package:wahda_bank/views/compose/widgets/pending_draft_attachment_tile.dart';
-import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/compose/widgets/pending_draft_attachment_tile.dart';
+import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

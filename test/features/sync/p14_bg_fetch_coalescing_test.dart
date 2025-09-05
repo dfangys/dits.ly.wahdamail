@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wahda_bank/features/sync/infrastructure/bg_fetch_ios.dart';
 import 'package:wahda_bank/features/sync/infrastructure/circuit_breaker.dart';

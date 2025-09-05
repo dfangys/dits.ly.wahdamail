@@ -7,11 +7,11 @@ import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import 'package:wahda_bank/views/view/showmessage/widgets/inbox_app_bar.dart';
-import 'package:wahda_bank/views/view/showmessage/widgets/inbox_bottom_navbar.dart';
-import 'package:wahda_bank/views/view/showmessage/widgets/mail_meta_tile.dart';
-import 'package:wahda_bank/views/view/showmessage/widgets/attachment_carousel.dart';
-import 'package:wahda_bank/views/view/showmessage/widgets/thread_viewer.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/widgets/inbox_app_bar.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/widgets/inbox_bottom_navbar.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/widgets/mail_meta_tile.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/widgets/attachment_carousel.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/widgets/thread_viewer.dart';
 import 'package:wahda_bank/widgets/enterprise_message_viewer.dart';
 import 'package:wahda_bank/services/message_content_store.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
@@ -71,12 +71,9 @@ class _ShowMessageState extends State<ShowMessage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _renderPerf = MessageDetailPerfSampler(opName: 'message_detail_render')
         ..start();
-      final primary = PrimaryScrollController.of(context);
-      if (primary != null) {
-        _scrollPerf = MessageDetailPerfSampler(
-          opName: 'message_detail_body_scroll',
-        )..start();
-      }
+      _scrollPerf = MessageDetailPerfSampler(
+        opName: 'message_detail_body_scroll',
+      )..start();
     });
 
     // Listen for meta updates (preview/x-ready/etc.) to refresh content

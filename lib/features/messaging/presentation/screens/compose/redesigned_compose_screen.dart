@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
-import 'package:wahda_bank/views/compose/widgets/redesigned_compose_view.dart';
-import 'package:wahda_bank/views/compose/widgets/modern_draft_options_sheet.dart';
-import 'package:wahda_bank/views/compose/models/draft_model.dart';
+import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/compose/redesigned_compose_view.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/compose/modern_draft_options_sheet.dart';
+import 'package:wahda_bank/features/messaging/presentation/models/draft_model.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
@@ -94,12 +94,9 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
       _editorPerf = ComposePerfSampler(opName: 'compose_editor_interaction')
         ..start();
       // P26: start attachments-scroll perf sampling tied to the route's primary scroll controller (whole compose surface)
-      final primary = PrimaryScrollController.of(context);
-      if (primary != null) {
-        _attachmentsPerf = ComposePerfSampler(
-          opName: 'compose_attachments_scroll',
-        )..start();
-      }
+      _attachmentsPerf = ComposePerfSampler(
+        opName: 'compose_attachments_scroll',
+      )..start();
 
       // Load draft if provided
       if (widget.draft != null) {

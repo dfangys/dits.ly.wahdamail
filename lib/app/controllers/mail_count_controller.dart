@@ -1,7 +1,7 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
-import '../../views/view/models/box_model.dart';
+import 'package:wahda_bank/features/home/presentation/models/box_model.dart';
 
 class MailCountController extends GetxController {
   GetStorage storage = GetStorage();

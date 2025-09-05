@@ -11,7 +11,7 @@ import 'package:wahda_bank/services/realtime_update_service.dart';
 import '../services/cache_manager.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/services/draft_sync_service.dart';
-import 'package:wahda_bank/views/settings/data/swap_data.dart';
+import 'package:wahda_bank/features/settings/presentation/data/swap_data.dart';
 
 class MailTile extends StatefulWidget {
   const MailTile({

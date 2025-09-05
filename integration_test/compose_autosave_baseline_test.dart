@@ -11,7 +11,7 @@ import 'package:wahda_bank/models/sqlite_draft_repository.dart';
 import 'package:wahda_bank/models/sqlite_mime_storage.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/services/mail_service.dart';
-import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
 
 class _LiteMailBoxController extends MailBoxController {
   @override

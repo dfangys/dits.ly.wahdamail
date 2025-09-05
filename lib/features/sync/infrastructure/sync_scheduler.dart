@@ -1,4 +1,3 @@
-/// Simple scheduler abstraction to start/stop sync in shadow mode (no WorkManager).
 import 'package:wahda_bank/features/sync/infrastructure/sync_service.dart';
 
 class SyncScheduler {

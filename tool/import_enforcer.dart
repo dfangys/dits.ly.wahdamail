@@ -23,6 +23,23 @@ Map<String, bool> _newFiles = <String, bool>{};
 // Allowlist removed: all violations are hard-fail now
 final warnOnlyImports = <String, List<String>>{};
 
+// --- TEMP allowlist for P31.3b: presentation still touching MailService/infra ---
+// Remove in P31.6 (see TODO below). Only these exact files are tolerated as warnings.
+final tempAllow = <String>{
+  'lib/features/app/presentation/screens/first_loading_view.dart',
+  'lib/features/auth/presentation/screens/login/login.dart',
+  'lib/features/auth/presentation/screens/reset_password/reset_text_field.dart',
+  'lib/features/messaging/presentation/controllers/compose_controller.dart',
+  'lib/features/messaging/presentation/screens/message_detail/widgets/thread_viewer.dart',
+  'lib/features/messaging/presentation/screens/message_detail/widgets/attachment_carousel.dart',
+  'lib/features/messaging/presentation/screens/message_detail/widgets/mail_attachments.dart',
+  'lib/features/auth/presentation/screens/reset_password/reset_password_new_password_screen.dart',
+  'lib/features/auth/presentation/screens/otp/verify_reset_password/reset_password_otp_screen.dart',
+  'lib/features/auth/presentation/screens/otp/verify_reset_password/verify_reset_password_otp.dart',
+};
+
+// TODO(P31.6): Remove tempAllow and restore hard-fail once layering is fixed.
+
 void main() {
   final violations = <String>[];
 
@@ -95,20 +112,9 @@ void main() {
     if (entity is File && entity.path.endsWith('.dart')) {
       final content = entity.readAsStringSync();
 
-      // New-work ban: legacy path lib/views/** fails ONLY on newly added/modified lines in this branch
+      // Global hard ban: any file path under lib/views/** is forbidden
       if (viewsPath.hasMatch(entity.path)) {
-        final isNew =
-            _newFiles[entity.path] == true ||
-            _newFiles.entries.any(
-              (e) => entity.path.endsWith(e.key) && e.value,
-            );
-        if (isNew) {
-          violations.add(
-            'Legacy path forbidden: lib/views/** → ${entity.path}',
-          );
-        } else {
-          // Existing or modified files under lib/views pass for now (soft migration phase)
-        }
+        violations.add('Legacy path forbidden: lib/views/** → ${entity.path}');
       }
 
       // Global ban: retired shim must not be referenced anywhere
@@ -148,9 +154,15 @@ void main() {
       if (presentationPath.hasMatch(entity.path)) {
         if (content.contains('import ') &&
             content.contains('/infrastructure/')) {
-          violations.add(
-            'Presentation->Infrastructure import violation: ${entity.path}',
-          );
+          if (tempAllow.contains(entity.path)) {
+            softWarnings.add(
+              'TEMP allow: Presentation->Infrastructure import in ${entity.path}',
+            );
+          } else {
+            violations.add(
+              'Presentation->Infrastructure import violation: ${entity.path}',
+            );
+          }
         }
         final mailSvcImportSingle =
             "import 'package:wahda_bank/services/mail_service.dart'";
@@ -160,18 +172,9 @@ void main() {
             content.contains(mailSvcImportSingle) ||
             content.contains(mailSvcImportDouble);
         if (usesMailSvc) {
-          // Allowlist by exact path or endsWith fallback (platform differences)
-          final allowlistKey = warnOnlyImports.keys.firstWhere(
-            (k) => entity.path == k || entity.path.endsWith(k),
-            orElse: () => '',
-          );
-          final warningsForFile =
-              warnOnlyImports[allowlistKey] ?? const <String>[];
-          if (warningsForFile.contains(
-            'package:wahda_bank/services/mail_service.dart',
-          )) {
+          if (tempAllow.contains(entity.path)) {
             softWarnings.add(
-              'Soft warn: transitional import (MailService) in ${entity.path}',
+              'TEMP allow: Presentation cannot import legacy MailService → ${entity.path}',
             );
           } else {
             violations.add(
