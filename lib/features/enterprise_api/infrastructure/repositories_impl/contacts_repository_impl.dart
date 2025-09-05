@@ -13,16 +13,37 @@ class ContactsRepositoryImpl implements ContactsRepository {
   ContactsRepositoryImpl({required this.gateway, required this.tokens});
 
   @override
-  Future<List<dom.Contact>> listContacts({required UserId userId, int? limit, int? offset}) async {
+  Future<List<dom.Contact>> listContacts({
+    required UserId userId,
+    int? limit,
+    int? offset,
+  }) async {
     final t = tokens.read(userId);
     if (t == null) throw const AuthError('No token');
     try {
-      final dtos = await gateway.listContacts(userId: userId.value, accessToken: t.accessToken, limit: limit, offset: offset);
-      return dtos.map<dom.Contact>(ApiMappers.toDomainContact).toList(growable: false);
+      final dtos = await gateway.listContacts(
+        userId: userId.value,
+        accessToken: t.accessToken,
+        limit: limit,
+        offset: offset,
+      );
+      return dtos
+          .map<dom.Contact>(ApiMappers.toDomainContact)
+          .toList(growable: false);
     } on AuthError {
-      final fresh = await (AccountsRepositoryImpl(gateway: gateway, tokens: tokens).refreshToken(userId: userId));
-      final dtos = await gateway.listContacts(userId: userId.value, accessToken: fresh.accessToken, limit: limit, offset: offset);
-      return dtos.map<dom.Contact>(ApiMappers.toDomainContact).toList(growable: false);
+      final fresh = await (AccountsRepositoryImpl(
+        gateway: gateway,
+        tokens: tokens,
+      ).refreshToken(userId: userId));
+      final dtos = await gateway.listContacts(
+        userId: userId.value,
+        accessToken: fresh.accessToken,
+        limit: limit,
+        offset: offset,
+      );
+      return dtos
+          .map<dom.Contact>(ApiMappers.toDomainContact)
+          .toList(growable: false);
     }
   }
 }

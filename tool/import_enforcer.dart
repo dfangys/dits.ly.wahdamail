@@ -31,7 +31,10 @@ void main() {
   final addedLinesByFile = <String, List<String>>{};
   try {
     // Ensure we're inside a git work tree
-    final isGit = Process.runSync('git', ['rev-parse', '--is-inside-work-tree']);
+    final isGit = Process.runSync('git', [
+      'rev-parse',
+      '--is-inside-work-tree',
+    ]);
     if ((isGit.stdout as String).trim() == 'true') {
       // Determine a suitable base ref
       String base = 'origin/main';
@@ -39,6 +42,7 @@ void main() {
         final res = Process.runSync('git', ['rev-parse', '--verify', ref]);
         return (res.exitCode == 0);
       }
+
       if (!hasBase(base)) {
         if (hasBase('main')) {
           base = 'main';
@@ -49,10 +53,15 @@ void main() {
           base = 'HEAD~1';
         }
       }
-      final diff = Process.runSync(
-        'git',
-        ['diff', '--unified=0', '--no-color', '$base...', '--', 'lib/views', 'lib/features'],
-      );
+      final diff = Process.runSync('git', [
+        'diff',
+        '--unified=0',
+        '--no-color',
+        '$base...',
+        '--',
+        'lib/views',
+        'lib/features',
+      ]);
       if (diff.exitCode == 0) {
         final lines = (diff.stdout as String).split('\n');
         String currentFile = '';
@@ -79,9 +88,15 @@ void main() {
       final content = entity.readAsStringSync();
 
       // Global ban: retired shim must not be referenced anywhere
-      if (content.contains("import 'package:wahda_bank/shared/ddd_ui_wiring.dart'") ||
-          content.contains('import "package:wahda_bank/shared/ddd_ui_wiring.dart"')) {
-        violations.add('Global ban: ddd_ui_wiring.dart is retired → ${entity.path}');
+      if (content.contains(
+            "import 'package:wahda_bank/shared/ddd_ui_wiring.dart'",
+          ) ||
+          content.contains(
+            'import "package:wahda_bank/shared/ddd_ui_wiring.dart"',
+          )) {
+        violations.add(
+          'Global ban: ddd_ui_wiring.dart is retired → ${entity.path}',
+        );
       }
 
       if (domainPath.hasMatch(entity.path)) {
@@ -107,25 +122,37 @@ void main() {
 
       // Presentation may not depend directly on infrastructure or legacy MailService
       if (presentationPath.hasMatch(entity.path)) {
-        if (content.contains('import ') && content.contains('/infrastructure/')) {
+        if (content.contains('import ') &&
+            content.contains('/infrastructure/')) {
           violations.add(
             'Presentation->Infrastructure import violation: ${entity.path}',
           );
         }
-        final mailSvcImportSingle = "import 'package:wahda_bank/services/mail_service.dart'";
-        final mailSvcImportDouble = 'import "package:wahda_bank/services/mail_service.dart"';
-        final usesMailSvc = content.contains(mailSvcImportSingle) || content.contains(mailSvcImportDouble);
+        final mailSvcImportSingle =
+            "import 'package:wahda_bank/services/mail_service.dart'";
+        final mailSvcImportDouble =
+            'import "package:wahda_bank/services/mail_service.dart"';
+        final usesMailSvc =
+            content.contains(mailSvcImportSingle) ||
+            content.contains(mailSvcImportDouble);
         if (usesMailSvc) {
           // Allowlist by exact path or endsWith fallback (platform differences)
           final allowlistKey = warnOnlyImports.keys.firstWhere(
             (k) => entity.path == k || entity.path.endsWith(k),
             orElse: () => '',
           );
-          final warningsForFile = warnOnlyImports[allowlistKey] ?? const <String>[];
-          if (warningsForFile.contains('package:wahda_bank/services/mail_service.dart')) {
-            softWarnings.add('Soft warn: transitional import (MailService) in ${entity.path}');
+          final warningsForFile =
+              warnOnlyImports[allowlistKey] ?? const <String>[];
+          if (warningsForFile.contains(
+            'package:wahda_bank/services/mail_service.dart',
+          )) {
+            softWarnings.add(
+              'Soft warn: transitional import (MailService) in ${entity.path}',
+            );
           } else {
-            violations.add('Presentation cannot import legacy MailService → ${entity.path}');
+            violations.add(
+              'Presentation cannot import legacy MailService → ${entity.path}',
+            );
           }
         }
 
@@ -136,23 +163,33 @@ void main() {
           (l) => l.contains('Colors.') && !l.contains('Colors.transparent'),
         );
         if (hasNewRawColors && !dsThemePath.hasMatch(entity.path)) {
-          violations.add('Presentation: raw Colors.* introduced in ${entity.path} — prefer tokens/theme.');
-        } else if (content.contains('Colors.') && !dsThemePath.hasMatch(entity.path)) {
+          violations.add(
+            'Presentation: raw Colors.* introduced in ${entity.path} — prefer tokens/theme.',
+          );
+        } else if (content.contains('Colors.') &&
+            !dsThemePath.hasMatch(entity.path)) {
           // Keep as soft warn for existing lines
-          softWarnings.add('Soft warn: raw Colors.* usage in ${entity.path} — prefer tokens/theme.');
+          softWarnings.add(
+            'Soft warn: raw Colors.* usage in ${entity.path} — prefer tokens/theme.',
+          );
         }
       }
 
       // Apply the same Colors.* rule to lib/views/* files
-      if (viewsPath.hasMatch(entity.path) && !dsThemePath.hasMatch(entity.path)) {
+      if (viewsPath.hasMatch(entity.path) &&
+          !dsThemePath.hasMatch(entity.path)) {
         final added = addedLinesByFile[entity.path] ?? const <String>[];
         final hasNewRawColors = added.any(
           (l) => l.contains('Colors.') && !l.contains('Colors.transparent'),
         );
         if (hasNewRawColors) {
-          violations.add('Views: raw Colors.* introduced in ${entity.path} — prefer tokens/theme.');
+          violations.add(
+            'Views: raw Colors.* introduced in ${entity.path} — prefer tokens/theme.',
+          );
         } else if (content.contains('Colors.')) {
-          softWarnings.add('Soft warn: raw Colors.* usage in ${entity.path} — prefer tokens/theme.');
+          softWarnings.add(
+            'Soft warn: raw Colors.* usage in ${entity.path} — prefer tokens/theme.',
+          );
         }
       }
     }
@@ -160,12 +197,16 @@ void main() {
   if (violations.isNotEmpty) {
     stderr.writeln('Import enforcer violations:\n${violations.join('\n')}');
     if (softWarnings.isNotEmpty) {
-      stderr.writeln('\nSoft warnings (non-fatal):\n${softWarnings.join('\n')}');
+      stderr.writeln(
+        '\nSoft warnings (non-fatal):\n${softWarnings.join('\n')}',
+      );
     }
     exit(1);
   } else {
     if (softWarnings.isNotEmpty) {
-      stdout.writeln('Import enforcer soft warnings:\n${softWarnings.join('\n')}');
+      stdout.writeln(
+        'Import enforcer soft warnings:\n${softWarnings.join('\n')}',
+      );
     }
     print('Import enforcer: OK');
   }

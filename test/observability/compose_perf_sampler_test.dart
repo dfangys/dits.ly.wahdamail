@@ -7,7 +7,12 @@ void main() {
   test('ComposePerfSampler aggregates dropped_pct from synthetic frames', () {
     final sampler = ComposePerfSampler(opName: 'compose_editor_interaction');
     sampler.start();
-    sampler.ingestSyntheticFrameDurations([10.0, 12.0, 22.0, 30.0]); // 2 janky of 4
+    sampler.ingestSyntheticFrameDurations([
+      10.0,
+      12.0,
+      22.0,
+      30.0,
+    ]); // 2 janky of 4
     final summary = sampler.buildSummary();
     expect(summary['op'], 'compose_editor_interaction');
     expect(summary['total_frames'], 4);
@@ -17,4 +22,3 @@ void main() {
     sampler.stop();
   });
 }
-

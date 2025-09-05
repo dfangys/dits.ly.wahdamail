@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Search bar has explicit semantics labels and 44dp targets', (tester) async {
+  testWidgets('Search bar has explicit semantics labels and 44dp targets', (
+    tester,
+  ) async {
     // Minimal harness reproducing the search bar semantics without GetX deps
     await tester.pumpWidget(
       MaterialApp(
@@ -20,7 +22,10 @@ void main() {
                 button: true,
                 label: 'Clear',
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
                   child: IconButton(
                     tooltip: 'Clear',
                     icon: const Icon(Icons.clear),
@@ -32,7 +37,10 @@ void main() {
                 button: true,
                 label: 'Search',
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
                   child: IconButton(
                     tooltip: 'Search',
                     icon: const Icon(Icons.search),
@@ -60,4 +68,3 @@ void main() {
     expect(tester.getSize(find.byTooltip('Search')).height >= 44, isTrue);
   });
 }
-

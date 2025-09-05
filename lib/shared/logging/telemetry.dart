@@ -15,9 +15,7 @@ class Telemetry {
 
   static Map<String, Object?> _baseProps() {
     // For P11 scope and tests, route path as 'legacy' (flags off). No GetStorage dependencies here.
-    return {
-      'path': 'legacy',
-    };
+    return {'path': 'legacy'};
   }
 
   static void event(String name, {Map<String, Object?> props = const {}}) {
@@ -59,7 +57,14 @@ class Telemetry {
       return f();
     } finally {
       sw.stop();
-      event(name, props: {...props, 'latency_ms': sw.elapsedMilliseconds, 'ms': sw.elapsedMilliseconds});
+      event(
+        name,
+        props: {
+          ...props,
+          'latency_ms': sw.elapsedMilliseconds,
+          'ms': sw.elapsedMilliseconds,
+        },
+      );
     }
   }
 
@@ -73,7 +78,14 @@ class Telemetry {
       return await f();
     } finally {
       sw.stop();
-      event(name, props: {...props, 'latency_ms': sw.elapsedMilliseconds, 'ms': sw.elapsedMilliseconds});
+      event(
+        name,
+        props: {
+          ...props,
+          'latency_ms': sw.elapsedMilliseconds,
+          'ms': sw.elapsedMilliseconds,
+        },
+      );
     }
   }
 
@@ -95,7 +107,10 @@ class Telemetry {
     return props;
   }
 
-  static Map<String, Object?> _normalizeProps(String name, Map<String, Object?> props) {
+  static Map<String, Object?> _normalizeProps(
+    String name,
+    Map<String, Object?> props,
+  ) {
     final out = Map<String, Object?>.from(props);
     // op: prefer provided, else use name
     out['op'] = (props['op'] ?? name).toString();
@@ -135,7 +150,8 @@ class Telemetry {
       out['${op}_p50_ms'] = s.percentile(50);
       out['${op}_p95_ms'] = s.percentile(95);
     });
-    out['repository_error_rate'] = totalEvents == 0 ? 0.0 : (totalWithErrors / totalEvents);
+    out['repository_error_rate'] =
+        totalEvents == 0 ? 0.0 : (totalWithErrors / totalEvents);
     return out;
   }
 
@@ -173,6 +189,7 @@ class _OpStats {
       _latencies.removeAt(0);
     }
   }
+
   int percentile(int p) {
     if (_latencies.isEmpty) return 0;
     final copy = List<int>.from(_latencies)..sort();

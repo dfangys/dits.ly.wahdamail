@@ -31,7 +31,8 @@ class CircuitBreaker {
 
   bool allowExecution() {
     if (isOpen) return false;
-    if (_halfOpenTrialUsed) return true; // After first trial, closed path handles
+    if (_halfOpenTrialUsed)
+      return true; // After first trial, closed path handles
     // When transitioning to half-open, allow exactly one trial.
     if (_failures >= failureThreshold) {
       if (!_halfOpenTrialUsed) {
@@ -53,9 +54,10 @@ class CircuitBreaker {
     if (_failures >= failureThreshold) {
       final jitterMs = (openBase.inMilliseconds * jitter).round();
       final delta = _rng.nextInt(jitterMs + 1);
-      _openUntil = DateTime.now().add(Duration(milliseconds: openBase.inMilliseconds + delta));
+      _openUntil = DateTime.now().add(
+        Duration(milliseconds: openBase.inMilliseconds + delta),
+      );
       _halfOpenTrialUsed = false;
     }
   }
 }
-

@@ -28,7 +28,10 @@ Widget _searchBarHarness() {
                       button: true,
                       label: 'Clear',
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
                         child: IconButton(
                           tooltip: 'Clear',
                           icon: const Icon(Icons.clear),
@@ -43,7 +46,10 @@ Widget _searchBarHarness() {
                       button: true,
                       label: 'Search',
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
                         child: IconButton(
                           tooltip: 'Search',
                           icon: const Icon(Icons.search),
@@ -69,7 +75,9 @@ Widget _searchBarHarness() {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Search bar a11y: semantics and 44dp min tap targets', (tester) async {
+  testWidgets('Search bar a11y: semantics and 44dp min tap targets', (
+    tester,
+  ) async {
     await tester.pumpWidget(_searchBarHarness());
     expect(find.bySemanticsLabel('Search field'), findsOneWidget);
     expect(find.bySemanticsLabel('Clear'), findsOneWidget);

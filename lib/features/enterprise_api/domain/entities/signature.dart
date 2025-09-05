@@ -10,8 +10,8 @@ class Signature {
   });
 
   Signature copyWith({String? contentHtml, bool? isDefault}) => Signature(
-        id: id,
-        contentHtml: contentHtml ?? this.contentHtml,
-        isDefault: isDefault ?? this.isDefault,
-      );
+    id: id,
+    contentHtml: contentHtml ?? this.contentHtml,
+    isDefault: isDefault ?? this.isDefault,
+  );
 }

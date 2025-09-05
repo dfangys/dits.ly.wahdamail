@@ -15,8 +15,12 @@ Widget _mailboxListHarness(ThemeData theme) {
             padding: const EdgeInsets.only(bottom: 12),
             child: MailboxListItem(
               leading: const CircleAvatar(child: Text('A')),
-              title: Text('Subject line number ${i + 1} — A longer subject to test ellipsis'),
-              subtitle: const Text('Preview body of the message goes here; it can be long and should ellipsize nicely.'),
+              title: Text(
+                'Subject line number ${i + 1} — A longer subject to test ellipsis',
+              ),
+              subtitle: const Text(
+                'Preview body of the message goes here; it can be long and should ellipsize nicely.',
+              ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {},
             ),
@@ -74,4 +78,3 @@ void main() {
     );
   });
 }
-

@@ -111,9 +111,10 @@ class ViewMessageBottomNav extends StatelessWidget {
                 width: containerSize,
                 height: containerSize,
                 decoration: BoxDecoration(
-                  color: destructive
-                      ? colorScheme.error.withValues(alpha: 0.1)
-                      : colorScheme.primary.withValues(alpha: 0.1),
+                  color:
+                      destructive
+                          ? colorScheme.error.withValues(alpha: 0.1)
+                          : colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -128,7 +129,8 @@ class ViewMessageBottomNav extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: destructive ? colorScheme.error : colorScheme.onSurface,
+                  color:
+                      destructive ? colorScheme.error : colorScheme.onSurface,
                 ),
               ),
             ],
@@ -156,7 +158,9 @@ class ViewMessageBottomNav extends StatelessWidget {
             ),
             message: Text(
               'Are you sure you want to delete this message?',
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             actions: [
               CupertinoActionSheetAction(

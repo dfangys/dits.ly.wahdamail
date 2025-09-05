@@ -74,7 +74,8 @@ class FeatureFlags {
 
   // DDD getters
   bool get dddKillSwitchEnabled {
-    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final rf =
+        GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
     final remote = rf?.getBool(_kDddKillSwitchEnabled);
     if (remote != null) return remote;
     return _box.read(_kDddKillSwitchEnabled) ?? false;
@@ -82,7 +83,8 @@ class FeatureFlags {
 
   bool get dddMessagingEnabled {
     if (dddKillSwitchEnabled) return false;
-    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final rf =
+        GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
     final remote = rf?.getBool(_kDddMessagingEnabled);
     if (remote != null) return remote;
     return _box.read(_kDddMessagingEnabled) ?? false;
@@ -90,14 +92,16 @@ class FeatureFlags {
 
   bool get dddSendEnabled {
     if (dddKillSwitchEnabled) return false;
-    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final rf =
+        GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
     final remote = rf?.getBool(_kDddSendEnabled);
     if (remote != null) return remote;
     return _box.read(_kDddSendEnabled) ?? false;
   }
 
   bool get dddSyncShadowMode {
-    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final rf =
+        GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
     final remote = rf?.getBool(_kDddSyncShadowMode);
     if (remote != null) return remote;
     return _box.read(_kDddSyncShadowMode) ?? false;
@@ -105,21 +109,24 @@ class FeatureFlags {
 
   bool get dddSearchEnabled {
     if (dddKillSwitchEnabled) return false;
-    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final rf =
+        GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
     final remote = rf?.getBool(_kDddSearchEnabled);
     if (remote != null) return remote;
     return _box.read(_kDddSearchEnabled) ?? false;
   }
 
   bool get dddNotificationsEnabled {
-    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final rf =
+        GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
     final remote = rf?.getBool(_kDddNotificationsEnabled);
     if (remote != null) return remote;
     return _box.read(_kDddNotificationsEnabled) ?? false;
   }
 
   bool get dddEnterpriseApiEnabled {
-    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final rf =
+        GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
     final remote = rf?.getBool(_kDddEnterpriseApiEnabled);
     if (remote != null) return remote;
     return _box.read(_kDddEnterpriseApiEnabled) ?? false;
@@ -127,7 +134,8 @@ class FeatureFlags {
 
   bool get dddIosBgFetchEnabled {
     if (dddKillSwitchEnabled) return false;
-    final rf = GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
+    final rf =
+        GetIt.I.isRegistered<RemoteFlags>() ? GetIt.I<RemoteFlags>() : null;
     final remote = rf?.getBool(_kDddIosBgFetchEnabled);
     if (remote != null) return remote;
     return _box.read(_kDddIosBgFetchEnabled) ?? false;

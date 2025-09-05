@@ -12,10 +12,11 @@ void main() async {
   await for (final chunk in stdin.transform(utf8.decoder)) {
     for (final line in chunk.split('\n')) {
       final t = line.trim();
-      if (t.startsWith('[telemetry] operation') && (t.contains('op: mailbox_list_scroll') || t.contains('op: search_list_scroll'))) {
+      if (t.startsWith('[telemetry] operation') &&
+          (t.contains('op: mailbox_list_scroll') ||
+              t.contains('op: search_list_scroll'))) {
         stdout.writeln(t);
       }
     }
   }
 }
-

@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wahda_bank/features/attachments/presentation/widgets/attachment_chip.dart';
 
 void main() {
-  testWidgets('AttachmentChip sets semantics label and min tap size', (tester) async {
+  testWidgets('AttachmentChip sets semantics label and min tap size', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -37,7 +39,9 @@ void main() {
           data: const MediaQueryData(textScaleFactor: 2.0),
           child: const Scaffold(
             body: Center(
-              child: AttachmentChip(label: 'A very very very long file name.pdf'),
+              child: AttachmentChip(
+                label: 'A very very very long file name.pdf',
+              ),
             ),
           ),
         ),
@@ -48,4 +52,3 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
-

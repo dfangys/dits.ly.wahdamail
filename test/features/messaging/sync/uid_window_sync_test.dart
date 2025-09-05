@@ -5,22 +5,42 @@ import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gatew
 
 class _FakeGateway implements ImapGateway {
   @override
-  Future<List<int>> downloadAttachment({required String accountId, required String folderId, required String messageUid, required String partId}) =>
-      throw UnimplementedError();
+  Future<List<int>> downloadAttachment({
+    required String accountId,
+    required String folderId,
+    required String messageUid,
+    required String partId,
+  }) => throw UnimplementedError();
   @override
-  Future<BodyDTO> fetchBody({required String accountId, required String folderId, required String messageUid}) =>
-      throw UnimplementedError();
+  Future<BodyDTO> fetchBody({
+    required String accountId,
+    required String folderId,
+    required String messageUid,
+  }) => throw UnimplementedError();
   @override
-  Future<List<HeaderDTO>> fetchHeaders({required String accountId, required String folderId, int limit = 50, int offset = 0}) =>
-      throw UnimplementedError();
+  Future<List<HeaderDTO>> fetchHeaders({
+    required String accountId,
+    required String folderId,
+    int limit = 50,
+    int offset = 0,
+  }) => throw UnimplementedError();
   @override
-  Stream<ImapEvent> idleStream({required String accountId, required String folderId}) => const Stream.empty();
+  Stream<ImapEvent> idleStream({
+    required String accountId,
+    required String folderId,
+  }) => const Stream.empty();
   @override
-  Future<List<AttachmentDTO>> listAttachments({required String accountId, required String folderId, required String messageUid}) =>
-      throw UnimplementedError();
+  Future<List<AttachmentDTO>> listAttachments({
+    required String accountId,
+    required String folderId,
+    required String messageUid,
+  }) => throw UnimplementedError();
   @override
-  Future<List<HeaderDTO>> searchHeaders({required String accountId, required String folderId, required dynamic q}) =>
-      throw UnimplementedError();
+  Future<List<HeaderDTO>> searchHeaders({
+    required String accountId,
+    required String folderId,
+    required dynamic q,
+  }) => throw UnimplementedError();
 }
 
 void main() {
@@ -40,4 +60,3 @@ void main() {
     expect(ranges.last.end, 350);
   });
 }
-

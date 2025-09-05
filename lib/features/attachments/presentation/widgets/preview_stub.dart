@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 class AttachmentPreviewStub extends StatelessWidget {
   final IconData icon;
   final String label;
-  const AttachmentPreviewStub({super.key, this.icon = Icons.attach_file, required this.label});
+  const AttachmentPreviewStub({
+    super.key,
+    this.icon = Icons.attach_file,
+    required this.label,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -26,4 +30,3 @@ class AttachmentPreviewStub extends StatelessWidget {
     );
   }
 }
-

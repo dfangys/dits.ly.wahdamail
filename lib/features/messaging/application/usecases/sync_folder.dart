@@ -9,4 +9,3 @@ class SyncFolder {
     await Future.value();
   }
 }
-

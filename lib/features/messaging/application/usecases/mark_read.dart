@@ -16,4 +16,3 @@ class MarkRead {
     await repo.markRead(folder: folder, messageId: messageId, read: read);
   }
 }
-

@@ -4,12 +4,12 @@ import 'package:wahda_bank/features/notifications/application/value_objects/noti
 class OnSyncFailed {
   const OnSyncFailed();
   NotificationPayload call(SyncFailed e) => NotificationPayload(
-        title: 'Sync failed',
-        body: e.reason,
-        threadKey: 'sync:${e.accountId}:${e.folderId}',
-        groupKey: e.accountId,
-        deeplink: '/sync/${e.accountId}/${e.folderId}',
-        channelId: 'sync',
-        silent: false,
-      );
+    title: 'Sync failed',
+    body: e.reason,
+    threadKey: 'sync:${e.accountId}:${e.folderId}',
+    groupKey: e.accountId,
+    deeplink: '/sync/${e.accountId}/${e.folderId}',
+    channelId: 'sync',
+    silent: false,
+  );
 }

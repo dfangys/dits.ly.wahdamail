@@ -11,12 +11,26 @@ class NoopNotificationAdapter implements NotificationPort {
   }
 
   @override
-  Future<void> showInboxSummary({required String accountId, required String groupKey, required String title, required String body, bool silent = false}) async {
+  Future<void> showInboxSummary({
+    required String accountId,
+    required String groupKey,
+    required String title,
+    required String body,
+    bool silent = false,
+  }) async {
     log.add('summary:$groupKey:$title:$silent');
   }
 
   @override
-  Future<void> showNewMessage({required String accountId, required String threadKey, required String title, required String body, required String deeplink, String channelId = 'inbox', bool silent = false}) async {
+  Future<void> showNewMessage({
+    required String accountId,
+    required String threadKey,
+    required String title,
+    required String body,
+    required String deeplink,
+    String channelId = 'inbox',
+    bool silent = false,
+  }) async {
     log.add('new:$threadKey:$title:$silent');
   }
 }
@@ -38,7 +52,13 @@ class NotificationsCoordinator {
     _recentThreads.clear();
   }
 
-  Future<void> onNew(String accountId, String threadKey, String title, String body, {required bool silent}) async {
+  Future<void> onNew(
+    String accountId,
+    String threadKey,
+    String title,
+    String body, {
+    required bool silent,
+  }) async {
     if (!_running) return;
     if (_recentThreads.contains(threadKey)) return; // dedupe basic
     _recentThreads.add(threadKey);

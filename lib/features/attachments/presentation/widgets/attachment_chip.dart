@@ -6,7 +6,13 @@ class AttachmentChip extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
   final String? semanticsLabel;
-  const AttachmentChip({super.key, this.icon, required this.label, this.onTap, this.semanticsLabel});
+  const AttachmentChip({
+    super.key,
+    this.icon,
+    required this.label,
+    this.onTap,
+    this.semanticsLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +24,11 @@ class AttachmentChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 44, minWidth: 44, maxWidth: 320),
+          constraints: const BoxConstraints(
+            minHeight: 44,
+            minWidth: 44,
+            maxWidth: 320,
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: DecoratedBox(
@@ -49,4 +59,3 @@ class AttachmentChip extends StatelessWidget {
     );
   }
 }
-

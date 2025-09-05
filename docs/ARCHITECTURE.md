@@ -232,3 +232,13 @@ The shared design system provides 1:1 parity with the current app visuals while 
 | Security service                 | `features/security` keyring/trust + `CryptoEngine` stub           |
 
 > **Note:** Since **P12.3**, controllers are deprecated thin adapters that delegate to **feature/presentation ViewModels**; the `shared/ddd_ui_wiring.dart` shim has been **removed**.
+
+### P31 — View Migration (Stage 1)
+
+- Screens moved under feature presentation:
+  - Mailbox screens: `lib/features/messaging/presentation/screens/mailbox/{mailbox_view.dart, enhanced_mailbox_view.dart}`
+  - Message detail screens: `lib/features/messaging/presentation/screens/message_detail/{show_message.dart, show_message_pager.dart}`
+- Deprecated shim files maintained at legacy paths:
+  - `lib/views/box/{mailbox_view.dart, enhanced_mailbox_view.dart}`
+  - `lib/views/view/showmessage/{show_message.dart, show_message_pager.dart}`
+- No UX/behavior changes; update imports over time to the new paths.

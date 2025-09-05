@@ -5,7 +5,11 @@ import 'package:wahda_bank/design_system/theme/tokens.dart';
 class MessageMetaRow extends StatelessWidget {
   final Widget leading;
   final List<Widget> children;
-  const MessageMetaRow({super.key, required this.leading, required this.children});
+  const MessageMetaRow({
+    super.key,
+    required this.leading,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -18,11 +22,14 @@ class MessageMetaRow extends StatelessWidget {
         Expanded(
           child: DefaultTextStyle.merge(
             style: theme.textTheme.bodySmall!,
-            child: Wrap(spacing: Tokens.space3, runSpacing: Tokens.space2, children: children),
+            child: Wrap(
+              spacing: Tokens.space3,
+              runSpacing: Tokens.space2,
+              children: children,
+            ),
           ),
         ),
       ],
     );
   }
 }
-

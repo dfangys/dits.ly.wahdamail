@@ -17,16 +17,18 @@ class BodyCacheManager {
     required this.store,
     int? maxTotalBytes,
     ProtectPredicate? isProtected,
-  })  : maxTotalBytes = maxTotalBytes ?? DddConfig.bodiesMaxBytes,
-        isProtected = isProtected ?? ((uid) async {
-          // Default protection: starred/flagged (and answered)
-          try {
-            final h = await store.getHeaderById(messageUid: uid);
-            return (h?.flagged ?? false) || (h?.answered ?? false);
-          } catch (_) {
-            return false;
-          }
-        });
+  }) : maxTotalBytes = maxTotalBytes ?? DddConfig.bodiesMaxBytes,
+       isProtected =
+           isProtected ??
+           ((uid) async {
+             // Default protection: starred/flagged (and answered)
+             try {
+               final h = await store.getHeaderById(messageUid: uid);
+               return (h?.flagged ?? false) || (h?.answered ?? false);
+             } catch (_) {
+               return false;
+             }
+           });
 
   void touch(String messageUid) {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -65,13 +67,16 @@ class BodyCacheManager {
         final empty = body.copyWith(html: '', plainText: '');
         await store.upsertBody(empty);
         bytesOver -= s;
-        Telemetry.event('cache_evict', props: {
-          'cache': 'bodies',
-          'key_hash': Hashing.djb2(uid).toString(),
-          'size_bytes': s,
-          'reason': 'lru_cap',
-          'ms': sw.elapsedMilliseconds,
-        });
+        Telemetry.event(
+          'cache_evict',
+          props: {
+            'cache': 'bodies',
+            'key_hash': Hashing.djb2(uid).toString(),
+            'size_bytes': s,
+            'reason': 'lru_cap',
+            'ms': sw.elapsedMilliseconds,
+          },
+        );
       }
     }
   }
@@ -87,8 +92,9 @@ class AttachmentCacheManager {
     required this.store,
     int? maxTotalBytes,
     int? maxPerAttachmentBytes,
-  })  : maxTotalBytes = maxTotalBytes ?? DddConfig.attachmentsMaxBytes,
-        maxPerAttachmentBytes = maxPerAttachmentBytes ?? DddConfig.attachmentsMaxItemBytes;
+  }) : maxTotalBytes = maxTotalBytes ?? DddConfig.attachmentsMaxBytes,
+       maxPerAttachmentBytes =
+           maxPerAttachmentBytes ?? DddConfig.attachmentsMaxItemBytes;
 
   void touch(String messageUid, String partId) {
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -96,14 +102,21 @@ class AttachmentCacheManager {
     _lru['$messageUid:$partId'] = now;
   }
 
-  Future<bool> canStore(String messageUid, String partId, List<int> bytes) async {
+  Future<bool> canStore(
+    String messageUid,
+    String partId,
+    List<int> bytes,
+  ) async {
     if (bytes.length > maxPerAttachmentBytes) {
-      Telemetry.event('cache_miss', props: {
-        'cache': 'attachments',
-        'key_hash': Hashing.djb2('$messageUid:$partId').toString(),
-        'size_bytes': bytes.length,
-        'reason': 'too_large_to_cache',
-      });
+      Telemetry.event(
+        'cache_miss',
+        props: {
+          'cache': 'attachments',
+          'key_hash': Hashing.djb2('$messageUid:$partId').toString(),
+          'size_bytes': bytes.length,
+          'reason': 'too_large_to_cache',
+        },
+      );
       return false;
     }
     return true;
@@ -118,7 +131,10 @@ class AttachmentCacheManager {
       final parts = key.split(':');
       if (parts.length != 2) continue;
       final uid = parts[0], part = parts[1];
-      final blob = await store.getAttachmentBlobRef(messageUid: uid, partId: part);
+      final blob = await store.getAttachmentBlobRef(
+        messageUid: uid,
+        partId: part,
+      );
       final s = blob?.length ?? 0;
       sizes[key] = s;
       total += s;
@@ -135,15 +151,22 @@ class AttachmentCacheManager {
       final uid = parts[0], part = parts[1];
       final s = sizes[key] ?? 0;
       // Evict by storing empty
-      await store.putAttachmentBlob(messageUid: uid, partId: part, bytes: <int>[]);
+      await store.putAttachmentBlob(
+        messageUid: uid,
+        partId: part,
+        bytes: <int>[],
+      );
       total -= s;
-      Telemetry.event('cache_evict', props: {
-        'cache': 'attachments',
-        'key_hash': Hashing.djb2(key).toString(),
-        'size_bytes': s,
-        'reason': 'lru_cap',
-        'ms': sw.elapsedMilliseconds,
-      });
+      Telemetry.event(
+        'cache_evict',
+        props: {
+          'cache': 'attachments',
+          'key_hash': Hashing.djb2(key).toString(),
+          'size_bytes': s,
+          'reason': 'lru_cap',
+          'ms': sw.elapsedMilliseconds,
+        },
+      );
     }
   }
 }

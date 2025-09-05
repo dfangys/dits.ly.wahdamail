@@ -7,7 +7,13 @@ class CidResolver {
     for (final r in rows) {
       final cid = r.contentId;
       if (cid != null && cid.isNotEmpty) {
-        list.add(InlineImageRef(cid: cid, contentType: r.mimeType, sizeBytes: r.sizeBytes));
+        list.add(
+          InlineImageRef(
+            cid: cid,
+            contentType: r.mimeType,
+            sizeBytes: r.sizeBytes,
+          ),
+        );
       }
     }
     return list;

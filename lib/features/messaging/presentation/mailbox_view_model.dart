@@ -3,8 +3,10 @@ import 'dart:typed_data';
 import 'package:injectable/injectable.dart';
 // P12.3: inline prefetch (remove shim)
 import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart';
-import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as dom;
-import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as dom_msg;
+import 'package:wahda_bank/features/messaging/domain/entities/folder.dart'
+    as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/message.dart'
+    as dom_msg;
 import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
@@ -20,7 +22,10 @@ import 'package:wahda_bank/shared/di/injection.dart';
 /// - Non-blocking prefetch via DDD when enabled (no UI change)
 @lazySingleton
 class MailboxViewModel {
-  Future<void> prefetchOnMailboxOpen({required String folderId, String? requestId}) async {
+  Future<void> prefetchOnMailboxOpen({
+    required String folderId,
+    String? requestId,
+  }) async {
     if (FeatureFlags.instance.dddKillSwitchEnabled) return;
     if (!FeatureFlags.instance.dddMessagingEnabled) return;
     try {
@@ -28,7 +33,10 @@ class MailboxViewModel {
       // Fire-and-forget prime (non-blocking)
       unawaited(
         repo
-            .fetchInbox(folder: dom.Folder(id: folderId, name: folderId), limit: 10)
+            .fetchInbox(
+              folder: dom.Folder(id: folderId, name: folderId),
+              limit: 10,
+            )
             .catchError((_) => <dom_msg.Message>[]),
       );
     } catch (_) {}
@@ -40,13 +48,16 @@ class MailboxViewModel {
     required int latencyMs,
   }) {
     try {
-      Telemetry.event('inbox_open_ms', props: {
-        'request_id': requestId,
-        'op': 'inbox_open',
-        'folder_id': folderId,
-        'lat_ms': latencyMs,
-        'mailbox_hash': Hashing.djb2(folderId).toString(),
-      });
+      Telemetry.event(
+        'inbox_open_ms',
+        props: {
+          'request_id': requestId,
+          'op': 'inbox_open',
+          'folder_id': folderId,
+          'lat_ms': latencyMs,
+          'mailbox_hash': Hashing.djb2(folderId).toString(),
+        },
+      );
     } catch (_) {}
   }
 
@@ -97,4 +108,3 @@ class MailboxViewModel {
     );
   }
 }
-

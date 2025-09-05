@@ -29,10 +29,20 @@ Widget _attachmentsHarness(ThemeData theme, {double textScale = 1.0}) {
                     color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.picture_as_pdf, color: theme.colorScheme.primary),
+                  child: Icon(
+                    Icons.picture_as_pdf,
+                    color: theme.colorScheme.primary,
+                  ),
                 ),
-                title: const Text('Quarterly_report_2025_Q2_very_long_name.pdf', maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text('application/pdf • 1.2 MB', style: theme.textTheme.bodySmall),
+                title: const Text(
+                  'Quarterly_report_2025_Q2_very_long_name.pdf',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  'application/pdf • 1.2 MB',
+                  style: theme.textTheme.bodySmall,
+                ),
                 trailing: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -55,9 +65,11 @@ Widget _attachmentsHarness(ThemeData theme, {double textScale = 1.0}) {
     ),
   );
   if (textScale == 1.0) return content;
-  return MediaQuery(data: MediaQueryData(textScaleFactor: textScale), child: content);
+  return MediaQuery(
+    data: MediaQueryData(textScaleFactor: textScale),
+    child: content,
+  );
 }
-
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -92,7 +104,9 @@ void main() {
     tester.binding.window.devicePixelRatioTestValue = 1.0;
     tester.binding.window.physicalSizeTestValue = const Size(800, 1200);
 
-    await tester.pumpWidget(_attachmentsHarness(AppThemeDS.light, textScale: 1.3));
+    await tester.pumpWidget(
+      _attachmentsHarness(AppThemeDS.light, textScale: 1.3),
+    );
     await tester.pumpAndSettle();
 
     await expectLater(
@@ -101,4 +115,3 @@ void main() {
     );
   });
 }
-

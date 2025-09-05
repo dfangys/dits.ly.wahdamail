@@ -44,4 +44,3 @@ class Flags {
   @override
   int get hashCode => Object.hash(seen, answered, flagged, draft, deleted);
 }
-

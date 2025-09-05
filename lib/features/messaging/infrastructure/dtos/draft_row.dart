@@ -13,4 +13,3 @@ class DraftRow {
     required this.rawBytes,
   });
 }
-

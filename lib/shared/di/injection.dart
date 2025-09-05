@@ -27,9 +27,13 @@ Future<void> configureDependencies({String env = Environment.dev}) async {
   // Bind facade behind flag without flipping it.
   if (!getIt.isRegistered<MessagingFacade>()) {
     if (FeatureFlags.instance.dddMessagingEnabled) {
-      getIt.registerLazySingleton<MessagingFacade>(() => getIt<DddMailServiceImpl>());
+      getIt.registerLazySingleton<MessagingFacade>(
+        () => getIt<DddMailServiceImpl>(),
+      );
     } else {
-      getIt.registerLazySingleton<MessagingFacade>(() => getIt<LegacyMessagingFacade>());
+      getIt.registerLazySingleton<MessagingFacade>(
+        () => getIt<LegacyMessagingFacade>(),
+      );
     }
   }
 
@@ -47,7 +51,10 @@ Future<void> configureDependencies({String env = Environment.dev}) async {
     // Use stored email as accountId; monitor INBOX only in P5.
     try {
       final scheduler = getIt<SyncScheduler>();
-      await scheduler.startShadow(accountId: 'default-account', folderId: 'INBOX');
+      await scheduler.startShadow(
+        accountId: 'default-account',
+        folderId: 'INBOX',
+      );
     } catch (_) {
       // Do not crash DI on sync start failure in shadow mode.
     }
@@ -55,7 +62,9 @@ Future<void> configureDependencies({String env = Environment.dev}) async {
 
   // P14: iOS background fetch fallback + connectivity monitor (flags OFF by default)
   try {
-    if (io.Platform.isIOS && ff.dddIosBgFetchEnabled && !ff.dddKillSwitchEnabled) {
+    if (io.Platform.isIOS &&
+        ff.dddIosBgFetchEnabled &&
+        !ff.dddKillSwitchEnabled) {
       // Start connectivity monitor (debounced single refresh on regain)
       getIt.get<ConnectivityMonitor>().start();
       // Schedule BG fetch (idempotent)

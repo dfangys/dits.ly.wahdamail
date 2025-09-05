@@ -35,16 +35,15 @@ class OutboxRow {
     int? createdAtEpochMs,
     int? updatedAtEpochMs,
   }) => OutboxRow(
-        id: id ?? this.id,
-        accountId: accountId ?? this.accountId,
-        folderId: folderId ?? this.folderId,
-        messageId: messageId ?? this.messageId,
-        attemptCount: attemptCount ?? this.attemptCount,
-        status: status ?? this.status,
-        lastErrorClass: lastErrorClass ?? this.lastErrorClass,
-        retryAtEpochMs: retryAtEpochMs ?? this.retryAtEpochMs,
-        createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
-        updatedAtEpochMs: updatedAtEpochMs ?? this.updatedAtEpochMs,
-      );
+    id: id ?? this.id,
+    accountId: accountId ?? this.accountId,
+    folderId: folderId ?? this.folderId,
+    messageId: messageId ?? this.messageId,
+    attemptCount: attemptCount ?? this.attemptCount,
+    status: status ?? this.status,
+    lastErrorClass: lastErrorClass ?? this.lastErrorClass,
+    retryAtEpochMs: retryAtEpochMs ?? this.retryAtEpochMs,
+    createdAtEpochMs: createdAtEpochMs ?? this.createdAtEpochMs,
+    updatedAtEpochMs: updatedAtEpochMs ?? this.updatedAtEpochMs,
+  );
 }
-

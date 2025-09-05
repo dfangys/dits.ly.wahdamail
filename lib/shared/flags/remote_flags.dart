@@ -40,4 +40,3 @@ class RemoteFlags {
 
   bool get isLoaded => _loaded;
 }
-

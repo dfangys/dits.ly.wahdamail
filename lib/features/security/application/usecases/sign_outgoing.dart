@@ -5,6 +5,8 @@ class SignOutgoing {
   final EncryptionService service;
   const SignOutgoing(this.service);
 
-  Future<List<int>> call({required List<int> data, required EmailIdentity signer}) =>
-      service.sign(data: data, signer: signer);
+  Future<List<int>> call({
+    required List<int> data,
+    required EmailIdentity signer,
+  }) => service.sign(data: data, signer: signer);
 }

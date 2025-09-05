@@ -5,7 +5,12 @@ class LoadingSkeleton extends StatelessWidget {
   final double height;
   final double width;
   final BorderRadius borderRadius;
-  const LoadingSkeleton({super.key, this.height = 16, this.width = double.infinity, this.borderRadius = const BorderRadius.all(Radius.circular(8))});
+  const LoadingSkeleton({
+    super.key,
+    this.height = 16,
+    this.width = double.infinity,
+    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,4 +25,3 @@ class LoadingSkeleton extends StatelessWidget {
     );
   }
 }
-

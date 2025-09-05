@@ -213,7 +213,12 @@ class _InbocAppBarState extends State<InbocAppBar>
                     size: 20,
                   ),
                   const SizedBox(width: 12),
-                  Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  Text(
+                    'Delete',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                 ],
               ),
               onTap: () {
@@ -239,7 +244,9 @@ class _InbocAppBarState extends State<InbocAppBar>
             ),
             message: Text(
               'Select a folder to move this message to',
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             actions: [
               for (var box
@@ -254,7 +261,9 @@ class _InbocAppBarState extends State<InbocAppBar>
                   },
                   child: Text(
                     box.name,
-                    style: TextStyle(color: Theme.of(context).colorScheme.primary),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ),
             ],

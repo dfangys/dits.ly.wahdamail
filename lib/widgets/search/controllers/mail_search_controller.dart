@@ -53,14 +53,18 @@ class MailSearchController extends GetxController with StateMixin {
     change(null, status: RxStatus.loading());
 
     // Telemetry: search attempt with request id
-    final _req = 'req-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(0x7fffffff)}';
+    final _req =
+        'req-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(0x7fffffff)}';
     try {
-      Telemetry.event('search_attempt', props: {
-        'request_id': _req,
-        'op': 'search',
-        'q_len': searchController.text.length,
-        'lat_ms': 0,
-      });
+      Telemetry.event(
+        'search_attempt',
+        props: {
+          'request_id': _req,
+          'op': 'search',
+          'q_len': searchController.text.length,
+          'lat_ms': 0,
+        },
+      );
     } catch (_) {}
 
     // Delegate orchestration to presentation ViewModel (handles DDD/legacy + operation telemetry)

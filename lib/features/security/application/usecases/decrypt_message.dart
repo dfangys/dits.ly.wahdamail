@@ -5,6 +5,8 @@ class DecryptMessage {
   final EncryptionService service;
   const DecryptMessage(this.service);
 
-  Future<DecryptResult> call({required List<int> ciphertext, required EmailIdentity recipient}) =>
-      service.decrypt(ciphertext: ciphertext, recipient: recipient);
+  Future<DecryptResult> call({
+    required List<int> ciphertext,
+    required EmailIdentity recipient,
+  }) => service.decrypt(ciphertext: ciphertext, recipient: recipient);
 }

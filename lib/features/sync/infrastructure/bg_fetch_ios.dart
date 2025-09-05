@@ -3,8 +3,10 @@ import 'dart:io' show Platform;
 
 import 'package:workmanager/workmanager.dart';
 
-import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart' as dom;
-import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart'
+    as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/folder.dart'
+    as dom;
 import 'package:wahda_bank/features/sync/infrastructure/circuit_breaker.dart';
 import 'package:wahda_bank/features/sync/application/event_bus.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
@@ -28,8 +30,8 @@ class BgFetchIos {
     required this.bus,
     Duration? coalesceWindow,
     Future<bool> Function()? registerFn,
-  })  : coalesceWindow = coalesceWindow ?? const Duration(seconds: 3),
-        _registerFn = registerFn ?? _defaultRegister;
+  }) : coalesceWindow = coalesceWindow ?? const Duration(seconds: 3),
+       _registerFn = registerFn ?? _defaultRegister;
 
   static Future<bool> _defaultRegister() async {
     try {
@@ -80,29 +82,36 @@ class BgFetchIos {
           offset: 0,
         );
         circuitBreaker.recordSuccess();
-        Telemetry.event('bg_fetch', props: {
-          'op': 'bg_fetch',
-          'ok': true,
-          'folder_id': folderId,
-          'fetched_count': list.length,
-          'latency_ms': sw.elapsedMilliseconds,
-          'coalesced': _pendingTicks,
-        });
+        Telemetry.event(
+          'bg_fetch',
+          props: {
+            'op': 'bg_fetch',
+            'ok': true,
+            'folder_id': folderId,
+            'fetched_count': list.length,
+            'latency_ms': sw.elapsedMilliseconds,
+            'coalesced': _pendingTicks,
+          },
+        );
       } catch (e) {
         circuitBreaker.recordFailure();
-        Telemetry.event('bg_fetch', props: {
-          'op': 'bg_fetch',
-          'ok': false,
-          'folder_id': folderId,
-          'latency_ms': sw.elapsedMilliseconds,
-          'err_type': e.runtimeType.toString(),
-          'coalesced': _pendingTicks,
-        });
+        Telemetry.event(
+          'bg_fetch',
+          props: {
+            'op': 'bg_fetch',
+            'ok': false,
+            'folder_id': folderId,
+            'latency_ms': sw.elapsedMilliseconds,
+            'err_type': e.runtimeType.toString(),
+            'coalesced': _pendingTicks,
+          },
+        );
       } finally {
-        try { _sampler.stop(); } catch (_) {}
+        try {
+          _sampler.stop();
+        } catch (_) {}
         _pendingTicks = 0;
       }
     });
   }
 }
-

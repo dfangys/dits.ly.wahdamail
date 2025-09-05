@@ -23,13 +23,15 @@ void main() {
     final svc = EncryptionService(engine: engine, keyring: keyring);
     final uid = EmailIdentity.normalized('alice@example.com');
 
-    await keyring.importKeyPair(KeyPair(
-      id: const KeyId('k1'),
-      fingerprint: const Fingerprint('ABCDEF'),
-      owner: uid,
-      hasPrivate: true,
-      createdAt: DateTime.now(),
-    ));
+    await keyring.importKeyPair(
+      KeyPair(
+        id: const KeyId('k1'),
+        fingerprint: const Fingerprint('ABCDEF'),
+        owner: uid,
+        hasPrivate: true,
+        createdAt: DateTime.now(),
+      ),
+    );
 
     final decrypt = DecryptMessage(svc);
     final resOk = await decrypt(ciphertext: [42], recipient: uid);
@@ -45,19 +47,36 @@ void main() {
     final svc = EncryptionService(engine: StubCryptoEngine(), keyring: keyring);
     final decrypt = DecryptMessage(svc);
     expect(
-      () => decrypt(ciphertext: [1, 2], recipient: EmailIdentity.normalized('bob@example.com')),
+      () => decrypt(
+        ciphertext: [1, 2],
+        recipient: EmailIdentity.normalized('bob@example.com'),
+      ),
       throwsA(isA<KeyNotFoundError>()),
     );
   });
 
   test('VerifySignature valid/invalid maps to SignatureStatus', () async {
-    final svc = EncryptionService(engine: StubCryptoEngine(verifyReturn: true), keyring: InMemoryKeyringRepository());
+    final svc = EncryptionService(
+      engine: StubCryptoEngine(verifyReturn: true),
+      keyring: InMemoryKeyringRepository(),
+    );
     final verify = VerifySignature(svc);
-    var status = await verify(data: [1], signature: [2], signer: EmailIdentity.normalized('a@e'));
+    var status = await verify(
+      data: [1],
+      signature: [2],
+      signer: EmailIdentity.normalized('a@e'),
+    );
     expect(status, SignatureStatus.valid);
     // Now invalid
-    final svc2 = EncryptionService(engine: StubCryptoEngine(verifyReturn: false), keyring: InMemoryKeyringRepository());
-    status = await VerifySignature(svc2)(data: [1], signature: [2], signer: EmailIdentity.normalized('a@e'));
+    final svc2 = EncryptionService(
+      engine: StubCryptoEngine(verifyReturn: false),
+      keyring: InMemoryKeyringRepository(),
+    );
+    status = await VerifySignature(svc2)(
+      data: [1],
+      signature: [2],
+      signer: EmailIdentity.normalized('a@e'),
+    );
     expect(status, SignatureStatus.invalid);
   });
 

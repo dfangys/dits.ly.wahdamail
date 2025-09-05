@@ -38,4 +38,3 @@ class Tokens {
 
   static const Color divider = legacy.AppTheme.dividerColor;
 }
-

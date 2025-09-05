@@ -36,11 +36,14 @@ class InMemoryOutboxDao implements OutboxDao {
 
   @override
   Future<OutboxRow?> nextForSend(DateTime now) async {
-    final values = _byId.values.toList()
-      ..sort((a, b) => a.createdAtEpochMs.compareTo(b.createdAtEpochMs));
+    final values =
+        _byId.values.toList()
+          ..sort((a, b) => a.createdAtEpochMs.compareTo(b.createdAtEpochMs));
     for (final r in values) {
-      final eligible = r.status == 'queued' ||
-          (r.status == 'failed' && (r.retryAtEpochMs ?? 0) <= now.millisecondsSinceEpoch);
+      final eligible =
+          r.status == 'queued' ||
+          (r.status == 'failed' &&
+              (r.retryAtEpochMs ?? 0) <= now.millisecondsSinceEpoch);
       if (eligible) return r;
     }
     return null;
@@ -58,4 +61,3 @@ class InMemoryOutboxDao implements OutboxDao {
     return _byId.values.where((r) => r.status == status).toList();
   }
 }
-

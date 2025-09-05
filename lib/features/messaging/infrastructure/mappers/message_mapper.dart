@@ -1,11 +1,14 @@
-import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/message.dart'
+    as dom;
 import 'package:wahda_bank/features/messaging/infrastructure/dtos/message_row.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/dtos/body_row.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/dtos/attachment_row.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
 import 'package:wahda_bank/features/messaging/domain/entities/body.dart' as dom;
-import 'package:wahda_bank/features/messaging/domain/entities/attachment.dart' as dom;
-import 'package:wahda_bank/features/messaging/domain/entities/search_result.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/attachment.dart'
+    as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/search_result.dart'
+    as dom;
 
 class MessageMapper {
   static MessageRow fromHeaderDTO(HeaderDTO h) {
@@ -48,30 +51,31 @@ class MessageMapper {
   }
 
   static BodyRow bodyRowFromDTO(BodyDTO b) => BodyRow(
-        messageUid: b.messageUid,
-        mimeType: b.mimeType,
-        plainText: b.plainText,
-        html: b.html,
-        fetchedAtEpochMs: DateTime.now().millisecondsSinceEpoch,
-      );
+    messageUid: b.messageUid,
+    mimeType: b.mimeType,
+    plainText: b.plainText,
+    html: b.html,
+    fetchedAtEpochMs: DateTime.now().millisecondsSinceEpoch,
+  );
 
   static AttachmentRow attachmentRowFromDTO(AttachmentDTO a) => AttachmentRow(
-        messageUid: a.messageUid,
-        partId: a.partId,
-        filename: a.filename,
-        sizeBytes: a.sizeBytes,
-        mimeType: a.mimeType,
-        contentId: a.contentId,
-      );
+    messageUid: a.messageUid,
+    partId: a.partId,
+    filename: a.filename,
+    sizeBytes: a.sizeBytes,
+    mimeType: a.mimeType,
+    contentId: a.contentId,
+  );
 
   static dom.BodyContent bodyDomainFromRow(BodyRow r) => dom.BodyContent(
-        mimeType: r.mimeType,
-        plainText: r.plainText,
-        html: r.html,
-        sizeBytesEstimate: null,
-      );
+    mimeType: r.mimeType,
+    plainText: r.plainText,
+    html: r.html,
+    sizeBytesEstimate: null,
+  );
 
-  static dom.Attachment attachmentDomainFromRow(AttachmentRow r) => dom.Attachment(
+  static dom.Attachment attachmentDomainFromRow(AttachmentRow r) =>
+      dom.Attachment(
         messageId: r.messageUid,
         partId: r.partId,
         filename: r.filename,
@@ -81,12 +85,13 @@ class MessageMapper {
       );
 
   static dom.SearchResult searchResultFromRow(MessageRow r) => dom.SearchResult(
-        messageId: r.id,
-        folderId: r.folderId,
-        date: DateTime.fromMillisecondsSinceEpoch(r.dateEpochMs),
-      );
+    messageId: r.id,
+    folderId: r.folderId,
+    date: DateTime.fromMillisecondsSinceEpoch(r.dateEpochMs),
+  );
 
-  static dom.SearchResult searchResultFromHeader(HeaderDTO h) => dom.SearchResult(
+  static dom.SearchResult searchResultFromHeader(HeaderDTO h) =>
+      dom.SearchResult(
         messageId: h.id,
         folderId: h.folderId,
         date: DateTime.fromMillisecondsSinceEpoch(h.dateEpochMs),

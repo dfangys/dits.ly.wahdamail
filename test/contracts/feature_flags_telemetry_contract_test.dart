@@ -5,11 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 
 void main() {
-setUpAll(() async {
+  setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     // Stub path_provider channels for get_storage
     const channel = MethodChannel('plugins.flutter.io/path_provider');
-    const channelMacOS = MethodChannel('plugins.flutter.io/path_provider_macos');
+    const channelMacOS = MethodChannel(
+      'plugins.flutter.io/path_provider_macos',
+    );
     final tmp = Directory.systemTemp.createTempSync('wahda_test_');
     Future<dynamic> handler(MethodCall call) async {
       switch (call.method) {
@@ -26,6 +28,7 @@ setUpAll(() async {
           return tmp.path;
       }
     }
+
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, handler);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

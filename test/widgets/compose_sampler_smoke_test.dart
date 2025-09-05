@@ -5,21 +5,26 @@ import 'package:wahda_bank/observability/perf/compose_perf_sampler.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Compose sampler smoke with PrimaryScrollController', (tester) async {
+  testWidgets('Compose sampler smoke with PrimaryScrollController', (
+    tester,
+  ) async {
     final sampler1 = ComposePerfSampler(opName: 'compose_editor_interaction');
     final sampler2 = ComposePerfSampler(opName: 'compose_attachments_scroll');
 
-    await tester.pumpWidget(MaterialApp(
-      home: PrimaryScrollController(
-        controller: ScrollController(),
-        child: Scaffold(
-          body: ListView.builder(
-            itemCount: 100,
-            itemBuilder: (_, i) => SizedBox(height: 48, child: Text('Row $i')),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PrimaryScrollController(
+          controller: ScrollController(),
+          child: Scaffold(
+            body: ListView.builder(
+              itemCount: 100,
+              itemBuilder:
+                  (_, i) => SizedBox(height: 48, child: Text('Row $i')),
+            ),
           ),
         ),
       ),
-    ));
+    );
 
     sampler1.start();
     sampler2.start();
@@ -33,4 +38,3 @@ void main() {
     expect(find.text('Row 0'), findsNothing);
   });
 }
-

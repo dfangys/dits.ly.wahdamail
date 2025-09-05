@@ -33,12 +33,14 @@ class SettingsStore implements SettingsRepository {
   Future<void> setSoundEnabled(bool v) async => _box.write(_kSound, v);
 
   @override
-  Future<bool> getVibrateEnabled() async => (_box.read(_kVibrate) as bool?) ?? true;
+  Future<bool> getVibrateEnabled() async =>
+      (_box.read(_kVibrate) as bool?) ?? true;
   @override
   Future<void> setVibrateEnabled(bool v) async => _box.write(_kVibrate, v);
 
   @override
-  Future<bool> getGroupByThread() async => (_box.read(_kGroup) as bool?) ?? true;
+  Future<bool> getGroupByThread() async =>
+      (_box.read(_kGroup) as bool?) ?? true;
   @override
   Future<void> setGroupByThread(bool v) async => _box.write(_kGroup, v);
 
@@ -48,7 +50,8 @@ class SettingsStore implements SettingsRepository {
   Future<void> setMaxNotifications(int v) async => _box.write(_kMax, v);
 
   @override
-  Future<bool> getAllowRemoteImages() async => (_box.read(_kRemoteImg) as bool?) ?? false;
+  Future<bool> getAllowRemoteImages() async =>
+      (_box.read(_kRemoteImg) as bool?) ?? false;
   @override
   Future<void> setAllowRemoteImages(bool v) async => _box.write(_kRemoteImg, v);
 }
@@ -97,7 +100,8 @@ class FakeStorageSettings implements SettingsRepository {
   Future<void> setMaxNotifications(int v) async => _m[_kMax] = v;
 
   @override
-  Future<bool> getAllowRemoteImages() async => (_m[_kRemoteImg] as bool?) ?? false;
+  Future<bool> getAllowRemoteImages() async =>
+      (_m[_kRemoteImg] as bool?) ?? false;
   @override
   Future<void> setAllowRemoteImages(bool v) async => _m[_kRemoteImg] = v;
 }

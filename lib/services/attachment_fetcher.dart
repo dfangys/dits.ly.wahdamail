@@ -220,7 +220,9 @@ class AttachmentFetcher {
   /// Ensure full message content by fetching from server if needed (legacy path).
   static Future<MimeMessage> ensureFullMessage(MimeMessage message) async {
     try {
-      final fetched = await MailService.instance.client.fetchMessageContents(message);
+      final fetched = await MailService.instance.client.fetchMessageContents(
+        message,
+      );
       return fetched;
     } catch (_) {
       return message;

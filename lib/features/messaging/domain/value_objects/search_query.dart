@@ -1,6 +1,7 @@
 /// Value Object: Search query for messages (normalized)
 class SearchQuery {
-  final String? text; // general fulltext-like (subject/from/to/body when cached)
+  final String?
+  text; // general fulltext-like (subject/from/to/body when cached)
   final String? from;
   final String? to;
   final String? subject;
@@ -30,8 +31,19 @@ class SearchQuery {
     Set<String>? flags,
     int? limit,
   }) {
-    String? n(String? s) => (s == null) ? null : s.trim().toLowerCase().isEmpty ? null : s.trim().toLowerCase();
-    final f = flags == null ? null : flags.map((e) => e.trim().toLowerCase()).where((e) => e.isNotEmpty).toSet();
+    String? n(String? s) =>
+        (s == null)
+            ? null
+            : s.trim().toLowerCase().isEmpty
+            ? null
+            : s.trim().toLowerCase();
+    final f =
+        flags == null
+            ? null
+            : flags
+                .map((e) => e.trim().toLowerCase())
+                .where((e) => e.isNotEmpty)
+                .toSet();
     return SearchQuery._(
       text: n(text),
       from: n(from),
@@ -44,4 +56,3 @@ class SearchQuery {
     );
   }
 }
-

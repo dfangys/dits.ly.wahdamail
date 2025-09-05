@@ -1297,12 +1297,14 @@ class MailBoxController extends GetxController {
     );
     // P12.1: delegate to presentation ViewModel for optional prefetch (no UI change)
     try {
-      final folderId = mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : mailbox.name;
+      final folderId =
+          mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : mailbox.name;
       await getIt<MailboxViewModel>().prefetchOnMailboxOpen(folderId: folderId);
     } catch (_) {}
     // Telemetry: time inbox open end-to-end (controllers keep entry-point telemetry)
     final _tSw = Stopwatch()..start();
-    final _req = 'req-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(0x7fffffff)}';
+    final _req =
+        'req-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(0x7fffffff)}';
     try {
       // Ensure we're working with the correct mailbox
       if (currentMailbox != mailbox) {
@@ -1467,7 +1469,10 @@ class MailBoxController extends GetxController {
       try {
         _tSw.stop();
         try {
-          final folderId = mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : mailbox.name;
+          final folderId =
+              mailbox.encodedPath.isNotEmpty
+                  ? mailbox.encodedPath
+                  : mailbox.name;
           getIt<MailboxViewModel>().emitInboxOpenCompleted(
             requestId: _req,
             folderId: folderId,

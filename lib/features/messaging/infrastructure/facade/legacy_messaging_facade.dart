@@ -1,7 +1,9 @@
 import 'package:injectable/injectable.dart';
 import 'package:wahda_bank/features/messaging/application/facade/messaging_facade.dart';
-import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as dom;
-import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/folder.dart'
+    as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/message.dart'
+    as dom;
 
 /// Legacy adapter facade used when DDD messaging is disabled.
 /// unused in P2; kept for DI symmetry. Legacy UI continues to call MailService directly.
@@ -16,4 +18,3 @@ class LegacyMessagingFacade implements MessagingFacade {
     return const <dom.Message>[];
   }
 }
-

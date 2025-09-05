@@ -6,5 +6,6 @@ class FetchAccountProfile {
   final AccountsRepository accounts;
   const FetchAccountProfile(this.accounts);
 
-  Future<AccountProfile> call(UserId userId) => accounts.fetchAccountProfile(userId: userId);
+  Future<AccountProfile> call(UserId userId) =>
+      accounts.fetchAccountProfile(userId: userId);
 }

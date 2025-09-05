@@ -7,7 +7,10 @@ class SyncScheduler {
 
   SyncScheduler(this.service);
 
-  Future<void> startShadow({required String accountId, required String folderId}) async {
+  Future<void> startShadow({
+    required String accountId,
+    required String folderId,
+  }) async {
     if (_running) return;
     _running = true;
     await service.start(accountId: accountId, folderId: folderId);
@@ -19,4 +22,3 @@ class SyncScheduler {
     await service.stop();
   }
 }
-

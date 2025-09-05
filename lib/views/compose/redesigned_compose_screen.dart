@@ -91,11 +91,14 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
       });
 
       // P26: start editor perf sampling for the compose screen lifetime
-      _editorPerf = ComposePerfSampler(opName: 'compose_editor_interaction')..start();
+      _editorPerf = ComposePerfSampler(opName: 'compose_editor_interaction')
+        ..start();
       // P26: start attachments-scroll perf sampling tied to the route's primary scroll controller (whole compose surface)
       final primary = PrimaryScrollController.of(context);
       if (primary != null) {
-        _attachmentsPerf = ComposePerfSampler(opName: 'compose_attachments_scroll')..start();
+        _attachmentsPerf = ComposePerfSampler(
+          opName: 'compose_attachments_scroll',
+        )..start();
       }
 
       // Load draft if provided
@@ -114,8 +117,12 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
 
   @override
   void dispose() {
-    try { _editorPerf?.stop(); } catch (_) {}
-    try { _attachmentsPerf?.stop(); } catch (_) {}
+    try {
+      _editorPerf?.stop();
+    } catch (_) {}
+    try {
+      _attachmentsPerf?.stop();
+    } catch (_) {}
     _fabAnimationController.dispose();
     _slideAnimationController.dispose();
     super.dispose();
@@ -207,39 +214,39 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
       child: FocusTraversalGroup(
         policy: ReadingOrderTraversalPolicy(),
         child: Shortcuts(
-        shortcuts: <LogicalKeySet, Intent>{
-          // Cmd/Ctrl + Enter to send
-          LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.enter):
-              const ActivateIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.enter):
-              const ActivateIntent(),
-          // Cmd/Ctrl + S to save draft
-          LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyS):
-              const ActivateIntent(),
-          LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS):
-              const ActivateIntent(),
-        },
-        child: Actions(
-          actions: <Type, Action<Intent>>{
-            ActivateIntent: CallbackAction<ActivateIntent>(
-              onInvoke: (intent) {
-                // Heuristic: if subject or body focused longer, treat as send (Enter shortcut);
-                // otherwise, save draft on S.
-                // We can't differentiate intents easily with shared ActivateIntent,
-                // so default to save on S by checking currently pressed keys.
-                final keysPressed = RawKeyboard.instance.keysPressed;
-                if (keysPressed.contains(LogicalKeyboardKey.enter)) {
-                  _sendEmail();
-                } else if (keysPressed.contains(LogicalKeyboardKey.keyS)) {
-                  _saveDraft();
-                }
-                return null;
-              },
-            ),
+          shortcuts: <LogicalKeySet, Intent>{
+            // Cmd/Ctrl + Enter to send
+            LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.enter):
+                const ActivateIntent(),
+            LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.enter):
+                const ActivateIntent(),
+            // Cmd/Ctrl + S to save draft
+            LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyS):
+                const ActivateIntent(),
+            LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS):
+                const ActivateIntent(),
           },
+          child: Actions(
+            actions: <Type, Action<Intent>>{
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (intent) {
+                  // Heuristic: if subject or body focused longer, treat as send (Enter shortcut);
+                  // otherwise, save draft on S.
+                  // We can't differentiate intents easily with shared ActivateIntent,
+                  // so default to save on S by checking currently pressed keys.
+                  final keysPressed = RawKeyboard.instance.keysPressed;
+                  if (keysPressed.contains(LogicalKeyboardKey.enter)) {
+                    _sendEmail();
+                  } else if (keysPressed.contains(LogicalKeyboardKey.keyS)) {
+                    _saveDraft();
+                  }
+                  return null;
+                },
+              ),
+            },
             child: Focus(
               autofocus: true,
-      child: AppScaffold(
+              child: AppScaffold(
                 backgroundColor: theme.colorScheme.surface,
                 appBar: _buildAppBar(theme),
                 body: SlideTransition(
@@ -253,7 +260,7 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
                 bottomNavigationBar: null,
               ),
             ),
-        ),
+          ),
         ),
       ),
     );

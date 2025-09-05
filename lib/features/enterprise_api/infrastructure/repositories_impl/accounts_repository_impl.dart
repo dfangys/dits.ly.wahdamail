@@ -13,16 +13,24 @@ class AccountsRepositoryImpl implements AccountsRepository {
   AccountsRepositoryImpl({required this.gateway, required this.tokens});
 
   @override
-  Future<dom.AccountProfile> fetchAccountProfile({required UserId userId}) async {
+  Future<dom.AccountProfile> fetchAccountProfile({
+    required UserId userId,
+  }) async {
     final t = tokens.read(userId);
     if (t == null) throw const AuthError('No token');
     try {
-      final dto = await gateway.fetchAccountProfile(userId: userId.value, accessToken: t.accessToken);
+      final dto = await gateway.fetchAccountProfile(
+        userId: userId.value,
+        accessToken: t.accessToken,
+      );
       return ApiMappers.toDomainAccount(dto);
     } on AuthError {
       // Attempt refresh then retry once
       final fresh = await refreshToken(userId: userId);
-      final dto = await gateway.fetchAccountProfile(userId: userId.value, accessToken: fresh.accessToken);
+      final dto = await gateway.fetchAccountProfile(
+        userId: userId.value,
+        accessToken: fresh.accessToken,
+      );
       return ApiMappers.toDomainAccount(dto);
     }
   }

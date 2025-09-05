@@ -3,14 +3,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wahda_bank/features/messaging/presentation/widgets/mailbox_list_item.dart';
 
 void main() {
-  testWidgets('MailboxListItem merges semantics and elides text', (tester) async {
+  testWidgets('MailboxListItem merges semantics and elides text', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: MailboxListItem(
             leading: const Icon(Icons.mail_outline),
-            title: const Text('A very very long subject line that should elide'),
-            subtitle: const Text('A quite long subtitle to verify wrapping with ellipsis as needed'),
+            title: const Text(
+              'A very very long subject line that should elide',
+            ),
+            subtitle: const Text(
+              'A quite long subtitle to verify wrapping with ellipsis as needed',
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {},
           ),
@@ -19,7 +25,10 @@ void main() {
     );
 
     expect(find.byType(MergeSemantics), findsOneWidget);
-    expect(find.textContaining('A very very long subject line'), findsOneWidget);
+    expect(
+      find.textContaining('A very very long subject line'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -43,4 +52,3 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
-

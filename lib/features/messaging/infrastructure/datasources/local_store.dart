@@ -12,7 +12,11 @@ import 'package:wahda_bank/features/messaging/infrastructure/dtos/attachment_row
 abstract class LocalStore {
   // Headers/metadata
   Future<void> upsertHeaders(List<MessageRow> rows);
-  Future<List<MessageRow>> getHeaders({required String folderId, int limit = 50, int offset = 0});
+  Future<List<MessageRow>> getHeaders({
+    required String folderId,
+    int limit = 50,
+    int offset = 0,
+  });
   Future<MessageRow?> getHeaderById({required String messageUid});
 
   // UID tracking per folder (highest seen for windowed sync)
@@ -41,8 +45,15 @@ abstract class LocalStore {
   Future<List<AttachmentRow>> listAttachments({required String messageUid});
 
   // Attachment blob cache (path or in-memory reference)
-  Future<void> putAttachmentBlob({required String messageUid, required String partId, required List<int> bytes});
-  Future<List<int>?> getAttachmentBlobRef({required String messageUid, required String partId});
+  Future<void> putAttachmentBlob({
+    required String messageUid,
+    required String partId,
+    required List<int> bytes,
+  });
+  Future<List<int>?> getAttachmentBlobRef({
+    required String messageUid,
+    required String partId,
+  });
 }
 
 /// In-memory implementation for tests and default (P3 does not wire DB yet).
@@ -54,7 +65,11 @@ class InMemoryLocalStore implements LocalStore {
   final Map<String, int> _highestUidByFolder = {};
 
   @override
-  Future<List<MessageRow>> getHeaders({required String folderId, int limit = 50, int offset = 0}) async {
+  Future<List<MessageRow>> getHeaders({
+    required String folderId,
+    int limit = 50,
+    int offset = 0,
+  }) async {
     final list = List<MessageRow>.from(_byFolder[folderId] ?? const []);
     // Sort by date DESC
     list.sort((a, b) => b.dateEpochMs.compareTo(a.dateEpochMs));
@@ -64,56 +79,75 @@ class InMemoryLocalStore implements LocalStore {
   }
 
   @override
-  Future<List<MessageRow>> searchMetadata({String? text, String? from, String? to, String? subject, int? dateFromEpochMs, int? dateToEpochMs, Set<String>? flags, int? limit}) async {
-    bool containsCI(String haystack, String needle) => haystack.toLowerCase().contains(needle.toLowerCase());
+  Future<List<MessageRow>> searchMetadata({
+    String? text,
+    String? from,
+    String? to,
+    String? subject,
+    int? dateFromEpochMs,
+    int? dateToEpochMs,
+    Set<String>? flags,
+    int? limit,
+  }) async {
+    bool containsCI(String haystack, String needle) =>
+        haystack.toLowerCase().contains(needle.toLowerCase());
     final all = _byFolder.values.expand((e) => e).toList();
-    final filtered = all.where((r) {
-      bool ok = true;
-      if (from != null) {
-        ok = ok && (containsCI(r.fromEmail, from) || containsCI(r.fromName, from));
-      }
-      if (to != null) {
-        ok = ok && r.toEmails.any((e) => containsCI(e, to));
-      }
-      if (subject != null) {
-        ok = ok && containsCI(r.subject, subject);
-      }
-      if (text != null) {
-        final body = _bodiesByMessageUid[r.id];
-        final bodyText = body?.plainText ?? '';
-        ok = ok && (containsCI(r.subject, text) || containsCI(r.fromEmail, text) || containsCI(r.fromName, text) || r.toEmails.any((e) => containsCI(e, text)) || containsCI(bodyText, text));
-      }
-      if (dateFromEpochMs != null) {
-        ok = ok && r.dateEpochMs >= dateFromEpochMs;
-      }
-      if (dateToEpochMs != null) {
-        ok = ok && r.dateEpochMs <= dateToEpochMs;
-      }
-      if (flags != null && flags.isNotEmpty) {
-        for (final f in flags) {
-          switch (f) {
-            case 'seen':
-              ok = ok && r.seen;
-              break;
-            case 'answered':
-              ok = ok && r.answered;
-              break;
-            case 'flagged':
-              ok = ok && r.flagged;
-              break;
-            case 'draft':
-              ok = ok && r.draft;
-              break;
-            case 'deleted':
-              ok = ok && r.deleted;
-              break;
-            default:
-              ok = ok && true;
+    final filtered =
+        all.where((r) {
+          bool ok = true;
+          if (from != null) {
+            ok =
+                ok &&
+                (containsCI(r.fromEmail, from) || containsCI(r.fromName, from));
           }
-        }
-      }
-      return ok;
-    }).toList();
+          if (to != null) {
+            ok = ok && r.toEmails.any((e) => containsCI(e, to));
+          }
+          if (subject != null) {
+            ok = ok && containsCI(r.subject, subject);
+          }
+          if (text != null) {
+            final body = _bodiesByMessageUid[r.id];
+            final bodyText = body?.plainText ?? '';
+            ok =
+                ok &&
+                (containsCI(r.subject, text) ||
+                    containsCI(r.fromEmail, text) ||
+                    containsCI(r.fromName, text) ||
+                    r.toEmails.any((e) => containsCI(e, text)) ||
+                    containsCI(bodyText, text));
+          }
+          if (dateFromEpochMs != null) {
+            ok = ok && r.dateEpochMs >= dateFromEpochMs;
+          }
+          if (dateToEpochMs != null) {
+            ok = ok && r.dateEpochMs <= dateToEpochMs;
+          }
+          if (flags != null && flags.isNotEmpty) {
+            for (final f in flags) {
+              switch (f) {
+                case 'seen':
+                  ok = ok && r.seen;
+                  break;
+                case 'answered':
+                  ok = ok && r.answered;
+                  break;
+                case 'flagged':
+                  ok = ok && r.flagged;
+                  break;
+                case 'draft':
+                  ok = ok && r.draft;
+                  break;
+                case 'deleted':
+                  ok = ok && r.deleted;
+                  break;
+                default:
+                  ok = ok && true;
+              }
+            }
+          }
+          return ok;
+        }).toList();
     // Sort by date DESC
     filtered.sort((a, b) => b.dateEpochMs.compareTo(a.dateEpochMs));
     if (limit != null && filtered.length > limit) {
@@ -137,7 +171,10 @@ class InMemoryLocalStore implements LocalStore {
 
   @override
   Future<void> upsertBody(BodyRow body) async {
-    _bodiesByMessageUid[body.messageUid] = body.copyWith(fetchedAtEpochMs: body.fetchedAtEpochMs ?? DateTime.now().millisecondsSinceEpoch);
+    _bodiesByMessageUid[body.messageUid] = body.copyWith(
+      fetchedAtEpochMs:
+          body.fetchedAtEpochMs ?? DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   @override
@@ -153,7 +190,10 @@ class InMemoryLocalStore implements LocalStore {
   @override
   Future<void> upsertAttachments(List<AttachmentRow> rows) async {
     for (final r in rows) {
-      final list = _attachmentsByMessageUid.putIfAbsent(r.messageUid, () => <AttachmentRow>[]);
+      final list = _attachmentsByMessageUid.putIfAbsent(
+        r.messageUid,
+        () => <AttachmentRow>[],
+      );
       final idx = list.indexWhere((x) => x.partId == r.partId);
       if (idx >= 0) {
         list[idx] = r;
@@ -164,21 +204,33 @@ class InMemoryLocalStore implements LocalStore {
   }
 
   @override
-  Future<List<AttachmentRow>> listAttachments({required String messageUid}) async {
-    return List<AttachmentRow>.from(_attachmentsByMessageUid[messageUid] ?? const []);
+  Future<List<AttachmentRow>> listAttachments({
+    required String messageUid,
+  }) async {
+    return List<AttachmentRow>.from(
+      _attachmentsByMessageUid[messageUid] ?? const [],
+    );
   }
 
   String _blobKey(String messageUid, String partId) => '$messageUid:$partId';
 
   @override
-  Future<void> putAttachmentBlob({required String messageUid, required String partId, required List<int> bytes}) async {
+  Future<void> putAttachmentBlob({
+    required String messageUid,
+    required String partId,
+    required List<int> bytes,
+  }) async {
     _attachmentBlobs[_blobKey(messageUid, partId)] = List<int>.from(bytes);
   }
 
   @override
-  Future<List<int>?> getAttachmentBlobRef({required String messageUid, required String partId}) async {
+  Future<List<int>?> getAttachmentBlobRef({
+    required String messageUid,
+    required String partId,
+  }) async {
     return _attachmentBlobs[_blobKey(messageUid, partId)];
   }
+
   @override
   Future<MessageRow?> getHeaderById({required String messageUid}) async {
     for (final list in _byFolder.values) {
@@ -189,7 +241,10 @@ class InMemoryLocalStore implements LocalStore {
   }
 
   @override
-  Future<void> setHighestSeenUid({required String folderId, required int uid}) async {
+  Future<void> setHighestSeenUid({
+    required String folderId,
+    required int uid,
+  }) async {
     final prev = _highestUidByFolder[folderId];
     if (prev == null || uid > prev) {
       _highestUidByFolder[folderId] = uid;

@@ -3,10 +3,11 @@ import 'package:wahda_bank/features/sync/infrastructure/jitter_backoff.dart';
 
 void main() {
   test('JitterBackoff computes bounded delays', () {
-    final backoff = JitterBackoff(baseSchedule: const [
-      Duration(seconds: 10),
-      Duration(seconds: 20),
-    ], maxBackoff: const Duration(seconds: 30), jitter: 0.1);
+    final backoff = JitterBackoff(
+      baseSchedule: const [Duration(seconds: 10), Duration(seconds: 20)],
+      maxBackoff: const Duration(seconds: 30),
+      jitter: 0.1,
+    );
 
     final d0 = backoff.forAttempt(0);
     expect(d0.inMilliseconds, inInclusiveRange(10000, 11000));
@@ -18,4 +19,3 @@ void main() {
     expect(d2.inMilliseconds, inInclusiveRange(20000, 22000));
   });
 }
-

@@ -27,4 +27,3 @@ void main() {
     expect(d.from.email, 'alice@example.com');
   });
 }
-

@@ -5,10 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_storage/get_storage.dart';
 
-
 FutureOr<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
-// Stub method channels used by path_provider implementations.
+  // Stub method channels used by path_provider implementations.
   final tmp = Directory.systemTemp.createTempSync('wahda_test_');
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   // Some platforms use platform-specific channels; stub common ones.
@@ -28,6 +27,7 @@ FutureOr<void> testExecutable(FutureOr<void> Function() testMain) async {
         return tmp.path;
     }
   }
+
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, handler);
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -37,4 +37,3 @@ FutureOr<void> testExecutable(FutureOr<void> Function() testMain) async {
   await GetStorage.init('test');
   await testMain();
 }
-

@@ -7,7 +7,9 @@ import 'package:wahda_bank/design_system/theme/app_theme.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('AttachmentChip exposes semantics and >=44dp tap target', (tester) async {
+  testWidgets('AttachmentChip exposes semantics and >=44dp tap target', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppThemeDS.light,
@@ -35,7 +37,9 @@ void main() {
     expect(size.width >= 44, isTrue);
   });
 
-  testWidgets('AttachmentViewer actions have semantics and >=44dp', (tester) async {
+  testWidgets('AttachmentViewer actions have semantics and >=44dp', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: AppThemeDS.light,
@@ -64,11 +68,14 @@ void main() {
     expect(shareBox.width >= 44, isTrue);
 
     // Semantics labels on specific buttons (use semantics label finder for robustness)
-    final saveLabelFinder = find.bySemanticsLabel(RegExp('save', caseSensitive: false));
+    final saveLabelFinder = find.bySemanticsLabel(
+      RegExp('save', caseSensitive: false),
+    );
     expect(saveLabelFinder, findsWidgets);
 
-    final shareLabelFinder = find.bySemanticsLabel(RegExp('share', caseSensitive: false));
+    final shareLabelFinder = find.bySemanticsLabel(
+      RegExp('share', caseSensitive: false),
+    );
     expect(shareLabelFinder, findsWidgets);
   });
 }
-

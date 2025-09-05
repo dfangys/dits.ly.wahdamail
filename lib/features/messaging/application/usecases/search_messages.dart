@@ -6,15 +6,21 @@ class SearchMessages {
   final MessageRepository repo;
   const SearchMessages(this.repo);
 
-  Future<List<SearchResult>> call({required String accountId, required SearchQuery query}) async {
+  Future<List<SearchResult>> call({
+    required String accountId,
+    required SearchQuery query,
+  }) async {
     final q = query; // already normalized in VO
     var results = await repo.search(accountId: accountId, q: q);
     // Enforce limit and sort by date DESC (defensive)
-    results.sort((a, b) => b.date.millisecondsSinceEpoch.compareTo(a.date.millisecondsSinceEpoch));
+    results.sort(
+      (a, b) => b.date.millisecondsSinceEpoch.compareTo(
+        a.date.millisecondsSinceEpoch,
+      ),
+    );
     if (q.limit != null && results.length > q.limit!) {
       results = results.sublist(0, q.limit!);
     }
     return results;
   }
 }
-

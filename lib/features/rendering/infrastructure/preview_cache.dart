@@ -16,7 +16,8 @@ class PreviewCache {
   int misses = 0;
   int evicts = 0;
 
-  PreviewCache({int? capacity}) : capacity = capacity ?? DddConfig.previewMaxItems;
+  PreviewCache({int? capacity})
+    : capacity = capacity ?? DddConfig.previewMaxItems;
 
   RenderedContent? get(String key) {
     final sw = Stopwatch()..start();
@@ -25,23 +26,29 @@ class PreviewCache {
       hits++;
       _map[key] = v; // re-insert to update recency
       final size = (v.sanitizedHtml.length) + (v.plainText?.length ?? 0);
-      Telemetry.event('cache_hit', props: {
-        'op': 'cache_hit',
-        'ok': true,
-        'cache': 'preview',
-        'key_hash': Hashing.djb2(key).toString(),
-        'size_bytes': size,
-        'latency_ms': sw.elapsedMilliseconds,
-      });
+      Telemetry.event(
+        'cache_hit',
+        props: {
+          'op': 'cache_hit',
+          'ok': true,
+          'cache': 'preview',
+          'key_hash': Hashing.djb2(key).toString(),
+          'size_bytes': size,
+          'latency_ms': sw.elapsedMilliseconds,
+        },
+      );
     } else {
       misses++;
-      Telemetry.event('cache_miss', props: {
-        'op': 'cache_miss',
-        'ok': true,
-        'cache': 'preview',
-        'key_hash': Hashing.djb2(key).toString(),
-        'latency_ms': sw.elapsedMilliseconds,
-      });
+      Telemetry.event(
+        'cache_miss',
+        props: {
+          'op': 'cache_miss',
+          'ok': true,
+          'cache': 'preview',
+          'key_hash': Hashing.djb2(key).toString(),
+          'latency_ms': sw.elapsedMilliseconds,
+        },
+      );
     }
     return v;
   }
@@ -55,14 +62,21 @@ class PreviewCache {
       final evictedKey = _map.keys.first;
       final evicted = _map.remove(evictedKey);
       evicts++;
-      Telemetry.event('cache_evict', props: {
-        'op': 'cache_evict',
-        'ok': true,
-        'cache': 'preview',
-        'key_hash': Hashing.djb2(evictedKey).toString(),
-        'size_bytes': evicted != null ? (evicted.sanitizedHtml.length + (evicted.plainText?.length ?? 0)) : 0,
-        'reason': 'lru_cap',
-      });
+      Telemetry.event(
+        'cache_evict',
+        props: {
+          'op': 'cache_evict',
+          'ok': true,
+          'cache': 'preview',
+          'key_hash': Hashing.djb2(evictedKey).toString(),
+          'size_bytes':
+              evicted != null
+                  ? (evicted.sanitizedHtml.length +
+                      (evicted.plainText?.length ?? 0))
+                  : 0,
+          'reason': 'lru_cap',
+        },
+      );
     }
     _map[key] = value;
     // no event for put; relies on miss/hit/evict

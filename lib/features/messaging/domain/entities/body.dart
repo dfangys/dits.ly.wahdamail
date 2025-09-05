@@ -11,4 +11,3 @@ class BodyContent {
     this.sizeBytesEstimate,
   });
 }
-

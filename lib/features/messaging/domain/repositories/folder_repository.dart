@@ -6,4 +6,3 @@ abstract class FolderRepository {
   Future<Folder?> getById(String id);
   Future<Folder?> getInbox();
 }
-

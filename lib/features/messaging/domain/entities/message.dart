@@ -90,21 +90,21 @@ class Message {
 
   @override
   int get hashCode => Object.hash(
-        id,
-        folderId,
-        subject,
-        from,
-        _hashList(to),
-        _hashList(cc),
-        _hashList(bcc),
-        date.millisecondsSinceEpoch,
-        flags,
-        hasAttachments,
-        previewText,
-        plainBody,
-        htmlBody,
-        threadId,
-      );
+    id,
+    folderId,
+    subject,
+    from,
+    _hashList(to),
+    _hashList(cc),
+    _hashList(bcc),
+    date.millisecondsSinceEpoch,
+    flags,
+    hasAttachments,
+    previewText,
+    plainBody,
+    htmlBody,
+    threadId,
+  );
 
   static bool _listEq<T>(List<T> a, List<T> b) {
     if (identical(a, b)) return true;
@@ -133,8 +133,7 @@ class EmailAddress {
   final String name; // display name; may be empty
   final String email; // normalized lowercase email
 
-  EmailAddress(this.name, String email)
-      : email = email.trim().toLowerCase() {
+  EmailAddress(this.name, String email) : email = email.trim().toLowerCase() {
     if (!_isValidEmail(this.email)) {
       throw ArgumentError('Invalid email address: $email');
     }
@@ -201,4 +200,3 @@ class Flags {
   @override
   int get hashCode => Object.hash(seen, answered, flagged, draft, deleted);
 }
-

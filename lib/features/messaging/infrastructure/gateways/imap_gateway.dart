@@ -1,6 +1,7 @@
 import 'package:enough_mail/enough_mail.dart' as em;
 import 'package:wahda_bank/shared/error/errors.dart';
-import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.dart'
+    as dom;
 
 /// Infra DTO: header-only data fetched from IMAP
 class HeaderDTO {
@@ -75,7 +76,11 @@ class ImapEvent {
   final ImapEventType type;
   final String folderId;
   final String? messageUid;
-  const ImapEvent({required this.type, required this.folderId, this.messageUid});
+  const ImapEvent({
+    required this.type,
+    required this.folderId,
+    this.messageUid,
+  });
 }
 
 abstract class ImapGateway {
@@ -142,12 +147,14 @@ class EnoughImapGateway implements ImapGateway {
   Future<void> _ensureMailboxSelected(String folderId) async {
     if (client.selectedMailbox == null ||
         client.selectedMailbox!.encodedPath != folderId) {
-      await client.selectMailbox(em.Mailbox(
-        encodedPath: folderId,
-        encodedName: folderId,
-        pathSeparator: '/',
-        flags: const [],
-      ));
+      await client.selectMailbox(
+        em.Mailbox(
+          encodedPath: folderId,
+          encodedName: folderId,
+          pathSeparator: '/',
+          flags: const [],
+        ),
+      );
     }
   }
 
@@ -165,28 +172,36 @@ class EnoughImapGateway implements ImapGateway {
         em.MessageSequence.fromRange(1, limit),
         fetchPreference: em.FetchPreference.envelope,
       );
-      return res.map((m) {
-        final from = (m.from?.isNotEmpty ?? false) ? m.from!.first : em.MailAddress('', '');
-        final tos = (m.to ?? const <em.MailAddress>[]).map((a) => a.email).toList();
-        final subject = m.decodeSubject() ?? '';
-        return HeaderDTO(
-          id: (m.uid?.toString() ?? m.sequenceId?.toString() ?? ''),
-          folderId: folderId,
-          subject: subject,
-          fromName: from.personalName ?? '',
-          fromEmail: from.email,
-          toEmails: tos,
-          dateEpochMs: (m.decodeDate() ?? DateTime.fromMillisecondsSinceEpoch(0)).millisecondsSinceEpoch,
-          // Keep flags conservative in P2 adapter impl; exact flags from SDK to be refined later.
-          seen: false,
-          answered: false,
-          flagged: false,
-          draft: false,
-          deleted: false,
-          hasAttachments: false,
-          preview: null,
-        );
-      }).toList(growable: false);
+      return res
+          .map((m) {
+            final from =
+                (m.from?.isNotEmpty ?? false)
+                    ? m.from!.first
+                    : em.MailAddress('', '');
+            final tos =
+                (m.to ?? const <em.MailAddress>[]).map((a) => a.email).toList();
+            final subject = m.decodeSubject() ?? '';
+            return HeaderDTO(
+              id: (m.uid?.toString() ?? m.sequenceId?.toString() ?? ''),
+              folderId: folderId,
+              subject: subject,
+              fromName: from.personalName ?? '',
+              fromEmail: from.email,
+              toEmails: tos,
+              dateEpochMs:
+                  (m.decodeDate() ?? DateTime.fromMillisecondsSinceEpoch(0))
+                      .millisecondsSinceEpoch,
+              // Keep flags conservative in P2 adapter impl; exact flags from SDK to be refined later.
+              seen: false,
+              answered: false,
+              flagged: false,
+              draft: false,
+              deleted: false,
+              hasAttachments: false,
+              preview: null,
+            );
+          })
+          .toList(growable: false);
     } catch (e) {
       throw mapImapError(e);
     }
@@ -256,7 +271,10 @@ class EnoughImapGateway implements ImapGateway {
   }
 
   @override
-  Stream<ImapEvent> idleStream({required String accountId, required String folderId}) async* {
+  Stream<ImapEvent> idleStream({
+    required String accountId,
+    required String folderId,
+  }) async* {
     // P5 placeholder: do not open real IDLE; return an empty stream.
     yield* const Stream<ImapEvent>.empty();
   }

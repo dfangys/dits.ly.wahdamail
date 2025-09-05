@@ -14,4 +14,3 @@ class Draft {
     required this.rawBytes,
   });
 }
-

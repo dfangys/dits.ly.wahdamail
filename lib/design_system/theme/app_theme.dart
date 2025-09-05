@@ -28,4 +28,3 @@ class AppThemeDS {
     return light;
   }
 }
-

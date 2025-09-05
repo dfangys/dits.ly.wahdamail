@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as ent;
+import 'package:wahda_bank/features/messaging/domain/entities/message.dart'
+    as ent;
 import 'package:wahda_bank/features/messaging/domain/entities/folder.dart';
 
 void main() {
@@ -31,4 +32,3 @@ void main() {
     });
   });
 }
-

@@ -3,7 +3,11 @@ import 'package:wahda_bank/features/sync/infrastructure/circuit_breaker.dart';
 
 void main() {
   test('Circuit breaker transitions open -> half-open -> closed', () async {
-    final cb = CircuitBreaker(failureThreshold: 2, openBase: const Duration(milliseconds: 200), jitter: 0.0);
+    final cb = CircuitBreaker(
+      failureThreshold: 2,
+      openBase: const Duration(milliseconds: 200),
+      jitter: 0.0,
+    );
 
     // Initially closed
     expect(cb.allowExecution(), true);
@@ -29,4 +33,3 @@ void main() {
     expect(cb.allowExecution(), false);
   });
 }
-
