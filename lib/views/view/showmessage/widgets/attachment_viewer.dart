@@ -221,52 +221,58 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
   @override
   Widget build(BuildContext context) {
     if (_isProcessing) {
-      return AppScaffold(
-        appBar: AppBar(
-          title: Text(widget.title, overflow: TextOverflow.ellipsis),
-        ),
-        body: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Processing attachment...'),
-            ],
+      return FocusTraversalGroup(
+        policy: ReadingOrderTraversalPolicy(),
+        child: AppScaffold(
+          appBar: AppBar(
+            title: Text(widget.title, overflow: TextOverflow.ellipsis),
+          ),
+          body: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Processing attachment...'),
+              ],
+            ),
           ),
         ),
       );
     }
 
     if (_errorMessage != null) {
-      return AppScaffold(
-        appBar: AppBar(
-          title: Text(widget.title, overflow: TextOverflow.ellipsis),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 48,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              const SizedBox(height: 16),
-              Text(_errorMessage!, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              Semantics(
-                button: true,
-                label: 'Retry',
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 88, minHeight: 44),
-                  child: ElevatedButton(
-                    onPressed: () => _preprocessAttachment(),
-                    child: const Text('Retry'),
+      return FocusTraversalGroup(
+        policy: ReadingOrderTraversalPolicy(),
+        child: AppScaffold(
+          appBar: AppBar(
+            title: Text(widget.title, overflow: TextOverflow.ellipsis),
+          ),
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(_errorMessage!, textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                Semantics(
+                  button: true,
+                  label: 'Retry',
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 88, minHeight: 44),
+                    child: ElevatedButton(
+                      onPressed: () => _preprocessAttachment(),
+                      child: const Text('Retry'),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
@@ -283,68 +289,71 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
         widget.filePath.toLowerCase().endsWith('.pdf');
     final isTextLike = _isTextBasedContent(mime);
 
-    return AppScaffold(
-      appBar: AppBar(
-        title: Text(widget.title, overflow: TextOverflow.ellipsis),
-        actions: [
-          Semantics(
-            button: true,
-            label: 'Save',
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              child: IconButton(
-                tooltip: 'Save',
-                icon: const Icon(Icons.download_rounded),
-                onPressed: () async {
-              try {
-                await _showSaveMenu();
-              } catch (_) {}
-            },
+    return FocusTraversalGroup(
+      policy: ReadingOrderTraversalPolicy(),
+      child: AppScaffold(
+        appBar: AppBar(
+          title: Text(widget.title, overflow: TextOverflow.ellipsis),
+          actions: [
+            Semantics(
+              button: true,
+              label: 'Save',
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                child: IconButton(
+                  tooltip: 'Save',
+                  icon: const Icon(Icons.download_rounded),
+                  onPressed: () async {
+                try {
+                  await _showSaveMenu();
+                } catch (_) {}
+              },
+                ),
               ),
             ),
-          ),
-          Semantics(
-            button: true,
-            label: 'Share',
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              child: IconButton(
-                tooltip: 'Share',
-                icon: const Icon(Icons.ios_share),
-                onPressed: () async {
-              try {
-                await Share.shareXFiles([
-                  XFile(widget.filePath),
-                ], text: widget.title);
-              } catch (_) {}
-                },
+            Semantics(
+              button: true,
+              label: 'Share',
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                child: IconButton(
+                  tooltip: 'Share',
+                  icon: const Icon(Icons.ios_share),
+                  onPressed: () async {
+                try {
+                  await Share.shareXFiles([
+                    XFile(widget.filePath),
+                  ], text: widget.title);
+                } catch (_) {}
+                  },
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-      body: Builder(
-        builder: (context) {
-          if (isImage) {
-            return _buildImageView();
-          } else if (isPdf) {
-            return _buildPdfView();
-          } else if (_isDocx(widget.filePath)) {
-            return _buildDocxView();
-          } else if (_isXlsx(widget.filePath)) {
-            return _buildXlsxView();
-          } else if (_looksLikeOffice(widget.filePath)) {
-            // Fallback placeholder for other office formats
-            return _buildOfficePlaceholder(context);
-          } else if (isTextLike) {
-            return _buildTextView();
-          } else {
-            // Try webview for other formats
-            return _webFailed
-                ? _buildGenericPlaceholder(context)
-                : _buildWebView();
-          }
-        },
+          ],
+        ),
+        body: Builder(
+          builder: (context) {
+            if (isImage) {
+              return _buildImageView();
+            } else if (isPdf) {
+              return _buildPdfView();
+            } else if (_isDocx(widget.filePath)) {
+              return _buildDocxView();
+            } else if (_isXlsx(widget.filePath)) {
+              return _buildXlsxView();
+            } else if (_looksLikeOffice(widget.filePath)) {
+              // Fallback placeholder for other office formats
+              return _buildOfficePlaceholder(context);
+            } else if (isTextLike) {
+              return _buildTextView();
+            } else {
+              // Try webview for other formats
+              return _webFailed
+                  ? _buildGenericPlaceholder(context)
+                  : _buildWebView();
+            }
+          },
+        ),
       ),
     );
   }

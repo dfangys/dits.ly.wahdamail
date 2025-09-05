@@ -198,27 +198,36 @@ onChanged: (String txt) {
                 },
                 itemCount: vm.searchMessages.length,
               ),
-              onEmpty: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Tokens.space5,
-                  vertical: Tokens.space6,
-                ),
-                child: EmptyState(
-                  title: 'Whoops! Box is empty',
-                  message: null,
-                  icon: Icons.inbox,
+              onEmpty: Semantics(
+                liveRegion: true,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Tokens.space5,
+                    vertical: Tokens.space6,
+                  ),
+                  child: EmptyState(
+                    title: 'Whoops! Box is empty',
+                    message: null,
+                    icon: Icons.inbox,
+                  ),
                 ),
               ),
-              onLoading: const Center(child: CircularProgressIndicator()),
-              onError: (error) => Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: Tokens.space5,
-                  vertical: Tokens.space6,
-                ),
-                child: ErrorState(
-                  title: 'Error',
-                  message: error?.toString(),
-                  icon: Icons.error_outline,
+              onLoading: Semantics(
+                liveRegion: true,
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+              onError: (error) => Semantics(
+                liveRegion: true,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Tokens.space5,
+                    vertical: Tokens.space6,
+                  ),
+                  child: ErrorState(
+                    title: 'Error',
+                    message: error?.toString(),
+                    icon: Icons.error_outline,
+                  ),
                 ),
               ),
             ),

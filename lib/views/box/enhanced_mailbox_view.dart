@@ -370,46 +370,49 @@ class _EnhancedMailboxViewState extends State<EnhancedMailboxView>
 
   /// Build initialization loading screen
   Widget _buildInitializationLoading() {
-    return Center(
-      child: Card(
-        margin: const EdgeInsets.all(24),
-        elevation: 8,
+    return Semantics(
+      liveRegion: true,
+      child: Center(
+        child: Card(
+          margin: const EdgeInsets.all(24),
+          elevation: 8,
 shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 60,
-                width: 60,
-                child: CircularProgressIndicator(
-                  strokeWidth: 4,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.primary,
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 60,
+                  width: 60,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 4,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).colorScheme.primary,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Loading ${widget.mailbox.name}...',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurface,
+                const SizedBox(height: 24),
+                Text(
+                  'Loading ${widget.mailbox.name}...',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _retryCount > 0
-                    ? 'Retry attempt $_retryCount/$_maxRetries'
-                    : 'This may take a few moments',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                const SizedBox(height: 8),
+                Text(
+                  _retryCount > 0
+                      ? 'Retry attempt $_retryCount/$_maxRetries'
+                      : 'This may take a few moments',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -418,32 +421,35 @@ shadowColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
 
   /// Build initialization error screen
   Widget _buildInitializationError() {
-    return Center(
-      child: Card(
-        margin: const EdgeInsets.all(24),
-        elevation: 8,
-        shadowColor: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ErrorState(title: 'Loading Failed', message: _lastError),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: _retryInitialization,
-                icon: const Icon(Icons.refresh),
-                label: Text(_retryCount >= _maxRetries ? 'Try Again' : 'Retry'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
+    return Semantics(
+      liveRegion: true,
+      child: Center(
+        child: Card(
+          margin: const EdgeInsets.all(24),
+          elevation: 8,
+          shadowColor: Theme.of(context).colorScheme.error.withValues(alpha: 0.3),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ErrorState(title: 'Loading Failed', message: _lastError),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: _retryInitialization,
+                  icon: const Icon(Icons.refresh),
+                  label: Text(_retryCount >= _maxRetries ? 'Try Again' : 'Retry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
