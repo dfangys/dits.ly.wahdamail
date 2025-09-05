@@ -6,7 +6,7 @@ import 'package:get/get.dart';
 import 'package:open_app_file/open_app_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:wahda_bank/views/view/showmessage/widgets/attachment_viewer.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/attachment_viewer.dart';
 import '../../../../services/mail_service.dart';
 import '../../../../services/message_content_store.dart';
 import '../../../../services/thumbnail_service.dart';
