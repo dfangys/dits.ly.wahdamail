@@ -1221,7 +1221,6 @@ class ComposeController extends GetxController {
 
     final _req =
         'req-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(0x7fffffff)}';
-    final _sw = Stopwatch()..start();
     try {
       // Telemetry: send attempt
       try {

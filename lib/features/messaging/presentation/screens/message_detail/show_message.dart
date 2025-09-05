@@ -71,12 +71,9 @@ class _ShowMessageState extends State<ShowMessage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _renderPerf = MessageDetailPerfSampler(opName: 'message_detail_render')
         ..start();
-      final primary = PrimaryScrollController.of(context);
-      if (primary != null) {
-        _scrollPerf = MessageDetailPerfSampler(
-          opName: 'message_detail_body_scroll',
-        )..start();
-      }
+      _scrollPerf = MessageDetailPerfSampler(
+        opName: 'message_detail_body_scroll',
+      )..start();
     });
 
     // Listen for meta updates (preview/x-ready/etc.) to refresh content

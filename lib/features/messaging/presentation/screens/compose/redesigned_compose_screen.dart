@@ -94,12 +94,9 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
       _editorPerf = ComposePerfSampler(opName: 'compose_editor_interaction')
         ..start();
       // P26: start attachments-scroll perf sampling tied to the route's primary scroll controller (whole compose surface)
-      final primary = PrimaryScrollController.of(context);
-      if (primary != null) {
-        _attachmentsPerf = ComposePerfSampler(
-          opName: 'compose_attachments_scroll',
-        )..start();
-      }
+      _attachmentsPerf = ComposePerfSampler(
+        opName: 'compose_attachments_scroll',
+      )..start();
 
       // Load draft if provided
       if (widget.draft != null) {

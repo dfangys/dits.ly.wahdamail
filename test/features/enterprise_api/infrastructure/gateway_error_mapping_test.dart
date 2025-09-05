@@ -67,7 +67,7 @@ void main() {
     );
     final dto = await gw.fetchAccountProfile(userId: 'u1', accessToken: 't');
     expect(dto.userId, 'u1');
-    expect((client as _FakeClient).calls, 2);
+    expect(client.calls, 2);
   });
 
   test('5xx maps to TransientNetworkError', () async {

@@ -4,8 +4,6 @@ import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
 import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
-import 'package:get/get.dart';
-import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/widgets/search/controllers/mail_search_controller.dart';
 import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';

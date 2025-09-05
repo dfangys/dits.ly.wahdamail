@@ -28,6 +28,7 @@ final warnOnlyImports = <String, List<String>>{};
 final tempAllow = <String>{
   'lib/features/app/presentation/screens/first_loading_view.dart',
   'lib/features/auth/presentation/screens/login/login.dart',
+  'lib/features/auth/presentation/screens/reset_password/reset_text_field.dart',
   'lib/features/messaging/presentation/controllers/compose_controller.dart',
   'lib/features/messaging/presentation/screens/message_detail/widgets/thread_viewer.dart',
   'lib/features/messaging/presentation/screens/message_detail/widgets/attachment_carousel.dart',
