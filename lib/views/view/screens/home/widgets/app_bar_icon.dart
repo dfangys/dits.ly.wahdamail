@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wahda_bank/views/compose/widgets/compose_modal.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/compose/compose_modal.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 
 class HomeAppBarIcon extends StatelessWidget {

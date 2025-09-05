@@ -97,11 +97,7 @@ _i174.GetIt init(
   String? environment,
   _i526.EnvironmentFilter? environmentFilter,
 }) {
-  final gh = _i526.GetItHelper(
-    getIt,
-    environment,
-    environmentFilter,
-  );
+  final gh = _i526.GetItHelper(getIt, environment, environmentFilter);
   final syncModule = _$SyncModule();
   final messagingModule = _$MessagingModule();
   final enterpriseApiModule = _$EnterpriseApiModule();
@@ -110,43 +106,60 @@ _i174.GetIt init(
   final renderingModule = _$RenderingModule();
   gh.lazySingleton<_i52.SyncEventBus>(() => syncModule.provideSyncEventBus());
   gh.lazySingleton<_i450.CircuitBreaker>(
-      () => syncModule.provideCircuitBreaker());
+    () => syncModule.provideCircuitBreaker(),
+  );
   gh.lazySingleton<_i802.LocalStore>(() => messagingModule.provideLocalStore());
   gh.lazySingleton<_i334.SpecialUseMapper>(
-      () => messagingModule.provideSpecialUseMapper());
+    () => messagingModule.provideSpecialUseMapper(),
+  );
   gh.lazySingleton<_i1020.MimeDecoder>(
-      () => messagingModule.provideMimeDecoder());
+    () => messagingModule.provideMimeDecoder(),
+  );
   gh.lazySingleton<_i584.FlagConflictResolver>(
-      () => messagingModule.provideFlagConflictResolver());
+    () => messagingModule.provideFlagConflictResolver(),
+  );
   gh.lazySingleton<_i569.ImapGateway>(
-      () => messagingModule.provideImapGateway());
+    () => messagingModule.provideImapGateway(),
+  );
   gh.lazySingleton<_i543.OutboxDao>(() => messagingModule.provideOutboxDao());
   gh.lazySingleton<_i232.DraftDao>(() => messagingModule.provideDraftDao());
   gh.lazySingleton<_i1033.SmtpGateway>(
-      () => messagingModule.provideSmtpGateway());
+    () => messagingModule.provideSmtpGateway(),
+  );
   gh.lazySingleton<_i61.LegacyMessagingFacade>(
-      () => _i61.LegacyMessagingFacade());
+    () => _i61.LegacyMessagingFacade(),
+  );
   gh.lazySingleton<_i749.MailsysApiClient>(
-      () => enterpriseApiModule.provideApiClient());
+    () => enterpriseApiModule.provideApiClient(),
+  );
   gh.lazySingleton<_i749.BackoffStrategy>(
-      () => enterpriseApiModule.provideBackoff());
+    () => enterpriseApiModule.provideBackoff(),
+  );
   gh.lazySingleton<_i660.TokenStore>(
-      () => enterpriseApiModule.provideTokenStore());
+    () => enterpriseApiModule.provideTokenStore(),
+  );
   gh.lazySingleton<_i1039.KeyringRepository>(
-      () => securityModule.provideKeyring());
+    () => securityModule.provideKeyring(),
+  );
   gh.lazySingleton<_i310.TrustRepository>(() => securityModule.provideTrust());
   gh.lazySingleton<_i983.CryptoEngine>(
-      () => securityModule.provideCryptoEngine());
+    () => securityModule.provideCryptoEngine(),
+  );
   gh.lazySingleton<_i1015.NotificationPort>(
-      () => notificationsModule.provideNotificationPort());
+    () => notificationsModule.provideNotificationPort(),
+  );
   gh.lazySingleton<_i915.SettingsRepository>(
-      () => notificationsModule.provideSettingsRepository());
+    () => notificationsModule.provideSettingsRepository(),
+  );
   gh.lazySingleton<_i105.HtmlSanitizer>(
-      () => renderingModule.provideSanitizer());
+    () => renderingModule.provideSanitizer(),
+  );
   gh.lazySingleton<_i906.CidResolver>(
-      () => renderingModule.provideCidResolver());
+    () => renderingModule.provideCidResolver(),
+  );
   gh.lazySingleton<_i992.PreviewCache>(
-      () => renderingModule.providePreviewCache());
+    () => renderingModule.providePreviewCache(),
+  );
   gh.lazySingleton<_i961.SearchViewModel>(() => _i961.SearchViewModel());
   gh.lazySingleton<_i77.MailboxViewModel>(() => _i77.MailboxViewModel());
   gh.lazySingleton<_i390.ComposeViewModel>(() => _i390.ComposeViewModel());
@@ -154,73 +167,92 @@ _i174.GetIt init(
   gh.lazySingleton<_i71.CohortService>(() => const _i71.CohortService());
   gh.lazySingleton<_i704.Tracing>(() => _i704.Tracing());
   gh.lazySingleton<_i1018.OutboxRepository>(
-      () => messagingModule.provideOutboxRepository(gh<_i543.OutboxDao>()));
+    () => messagingModule.provideOutboxRepository(gh<_i543.OutboxDao>()),
+  );
   gh.lazySingleton<_i898.MessageRepository>(
-      () => messagingModule.provideMessageRepository(
-            gh<_i569.ImapGateway>(),
-            gh<_i802.LocalStore>(),
-          ));
+    () => messagingModule.provideMessageRepository(
+      gh<_i569.ImapGateway>(),
+      gh<_i802.LocalStore>(),
+    ),
+  );
   gh.lazySingleton<_i118.UidWindowSync>(
-      () => messagingModule.provideUidWindowSync(
-            gh<_i569.ImapGateway>(),
-            gh<_i802.LocalStore>(),
-          ));
+    () => messagingModule.provideUidWindowSync(
+      gh<_i569.ImapGateway>(),
+      gh<_i802.LocalStore>(),
+    ),
+  );
   gh.lazySingleton<_i749.RestGateway>(
-      () => enterpriseApiModule.provideRestGateway(
-            gh<_i749.MailsysApiClient>(),
-            gh<_i749.BackoffStrategy>(),
-          ));
+    () => enterpriseApiModule.provideRestGateway(
+      gh<_i749.MailsysApiClient>(),
+      gh<_i749.BackoffStrategy>(),
+    ),
+  );
   gh.lazySingleton<_i731.ConnectivityMonitor>(
-      () => syncModule.provideConnectivityMonitor(
-            gh<_i898.MessageRepository>(),
-            gh<_i450.CircuitBreaker>(),
-          ));
-  gh.lazySingleton<_i1062.BgFetchIos>(() => syncModule.provideBgFetchIos(
-        gh<_i898.MessageRepository>(),
-        gh<_i450.CircuitBreaker>(),
-        gh<_i52.SyncEventBus>(),
-      ));
+    () => syncModule.provideConnectivityMonitor(
+      gh<_i898.MessageRepository>(),
+      gh<_i450.CircuitBreaker>(),
+    ),
+  );
+  gh.lazySingleton<_i1062.BgFetchIos>(
+    () => syncModule.provideBgFetchIos(
+      gh<_i898.MessageRepository>(),
+      gh<_i450.CircuitBreaker>(),
+      gh<_i52.SyncEventBus>(),
+    ),
+  );
   gh.lazySingleton<_i443.DraftRepository>(
-      () => messagingModule.provideDraftRepository(gh<_i232.DraftDao>()));
+    () => messagingModule.provideDraftRepository(gh<_i232.DraftDao>()),
+  );
   gh.lazySingleton<_i1039.DddMailServiceImpl>(
-      () => _i1039.DddMailServiceImpl(gh<_i898.MessageRepository>()));
+    () => _i1039.DddMailServiceImpl(gh<_i898.MessageRepository>()),
+  );
   gh.lazySingleton<_i762.MessageRenderingService>(
-      () => renderingModule.provideMessageRenderingService(
-            gh<_i802.LocalStore>(),
-            gh<_i105.HtmlSanitizer>(),
-            gh<_i906.CidResolver>(),
-            gh<_i992.PreviewCache>(),
-          ));
+    () => renderingModule.provideMessageRenderingService(
+      gh<_i802.LocalStore>(),
+      gh<_i105.HtmlSanitizer>(),
+      gh<_i906.CidResolver>(),
+      gh<_i992.PreviewCache>(),
+    ),
+  );
   gh.lazySingleton<_i800.ThreadBuilder>(
-      () => messagingModule.provideThreadBuilder(gh<_i802.LocalStore>()));
-  gh.lazySingleton<_i252.NotificationsCoordinator>(() =>
-      notificationsModule.provideCoordinator(gh<_i1015.NotificationPort>()));
+    () => messagingModule.provideThreadBuilder(gh<_i802.LocalStore>()),
+  );
+  gh.lazySingleton<_i252.NotificationsCoordinator>(
+    () => notificationsModule.provideCoordinator(gh<_i1015.NotificationPort>()),
+  );
   gh.lazySingleton<_i723.AccountsRepository>(
-      () => enterpriseApiModule.provideAccountsRepository(
-            gh<_i749.RestGateway>(),
-            gh<_i660.TokenStore>(),
-          ));
+    () => enterpriseApiModule.provideAccountsRepository(
+      gh<_i749.RestGateway>(),
+      gh<_i660.TokenStore>(),
+    ),
+  );
   gh.lazySingleton<_i391.ContactsRepository>(
-      () => enterpriseApiModule.provideContactsRepository(
-            gh<_i749.RestGateway>(),
-            gh<_i660.TokenStore>(),
-          ));
+    () => enterpriseApiModule.provideContactsRepository(
+      gh<_i749.RestGateway>(),
+      gh<_i660.TokenStore>(),
+    ),
+  );
   gh.lazySingleton<_i514.SignaturesRepository>(
-      () => enterpriseApiModule.provideSignaturesRepository(
-            gh<_i749.RestGateway>(),
-            gh<_i660.TokenStore>(),
-          ));
+    () => enterpriseApiModule.provideSignaturesRepository(
+      gh<_i749.RestGateway>(),
+      gh<_i660.TokenStore>(),
+    ),
+  );
   gh.lazySingleton<_i887.EncryptionService>(
-      () => securityModule.provideEncryptionService(
-            gh<_i983.CryptoEngine>(),
-            gh<_i1039.KeyringRepository>(),
-          ));
-  gh.lazySingleton<_i706.SyncService>(() => syncModule.provideSyncService(
-        gh<_i569.ImapGateway>(),
-        gh<_i898.MessageRepository>(),
-      ));
+    () => securityModule.provideEncryptionService(
+      gh<_i983.CryptoEngine>(),
+      gh<_i1039.KeyringRepository>(),
+    ),
+  );
+  gh.lazySingleton<_i706.SyncService>(
+    () => syncModule.provideSyncService(
+      gh<_i569.ImapGateway>(),
+      gh<_i898.MessageRepository>(),
+    ),
+  );
   gh.lazySingleton<_i505.SyncScheduler>(
-      () => syncModule.provideSyncScheduler(gh<_i706.SyncService>()));
+    () => syncModule.provideSyncScheduler(gh<_i706.SyncService>()),
+  );
   return getIt;
 }
 

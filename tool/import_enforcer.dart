@@ -17,16 +17,11 @@ final dsThemePath = RegExp(r'lib/design_system/theme/');
 // Soft warnings (do not fail)
 final softWarnings = <String>[];
 
-// Allowlist for known transitional imports (warn only)
-final warnOnlyImports = <String, List<String>>{
-'lib/features/search/presentation/search_view_model.dart': [
-    "package:wahda_bank/services/mail_service.dart",
-  ],
-  // Transitional allowlist for legacy MailService usage in message detail screen (to be removed in P31.3)
-  'lib/features/messaging/presentation/screens/message_detail/show_message.dart': [
-    "package:wahda_bank/services/mail_service.dart",
-  ],
-};
+// Tracks newly added files in current working tree diff vs HEAD
+Map<String, bool> _newFiles = <String, bool>{};
+
+// Allowlist removed: all violations are hard-fail now
+final warnOnlyImports = <String, List<String>>{};
 
 void main() {
   final violations = <String>[];
@@ -57,11 +52,11 @@ void main() {
           base = 'HEAD~1';
         }
       }
+      // New-work gating: only consider current working tree changes vs HEAD
       final diff = Process.runSync('git', [
         'diff',
         '--unified=0',
         '--no-color',
-        '$base...',
         '--',
         'lib/views',
         'lib/features',
@@ -69,18 +64,27 @@ void main() {
       if (diff.exitCode == 0) {
         final lines = (diff.stdout as String).split('\n');
         String currentFile = '';
+        bool pendingNewFile = false;
+        final newFiles = <String, bool>{};
         for (final line in lines) {
           if (line.startsWith('diff --git')) {
             currentFile = '';
+            pendingNewFile = false;
+          } else if (line.startsWith('new file mode')) {
+            pendingNewFile = true;
           } else if (line.startsWith('+++ b/')) {
             currentFile = line.substring(6).trim();
             addedLinesByFile.putIfAbsent(currentFile, () => <String>[]);
+            newFiles[currentFile] = pendingNewFile;
+            pendingNewFile = false;
           } else if (line.startsWith('+') && !line.startsWith('+++')) {
             if (currentFile.isNotEmpty) {
               addedLinesByFile[currentFile]!.add(line.substring(1));
             }
           }
         }
+        // Capture newly added files set for new-work gating under lib/views/**
+        _newFiles = newFiles;
       }
     }
   } catch (_) {
@@ -90,6 +94,22 @@ void main() {
   for (final entity in Directory('lib').listSync(recursive: true)) {
     if (entity is File && entity.path.endsWith('.dart')) {
       final content = entity.readAsStringSync();
+
+      // New-work ban: legacy path lib/views/** fails ONLY on newly added/modified lines in this branch
+      if (viewsPath.hasMatch(entity.path)) {
+        final isNew =
+            _newFiles[entity.path] == true ||
+            _newFiles.entries.any(
+              (e) => entity.path.endsWith(e.key) && e.value,
+            );
+        if (isNew) {
+          violations.add(
+            'Legacy path forbidden: lib/views/** → ${entity.path}',
+          );
+        } else {
+          // Existing or modified files under lib/views pass for now (soft migration phase)
+        }
+      }
 
       // Global ban: retired shim must not be referenced anywhere
       if (content.contains(

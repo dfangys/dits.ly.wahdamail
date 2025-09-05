@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:wahda_bank/widgets/custom_loading_button.dart';
-import 'package:wahda_bank/views/compose/redesigned_compose_screen.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/compose/redesigned_compose_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ContactUsScreen extends StatelessWidget {

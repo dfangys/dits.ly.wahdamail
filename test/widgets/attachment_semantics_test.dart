@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wahda_bank/features/attachments/presentation/widgets/attachment_chip.dart';
-import 'package:wahda_bank/views/view/showmessage/widgets/attachment_viewer.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/attachment_viewer.dart';
 import 'package:wahda_bank/design_system/theme/app_theme.dart';
 
 void main() {

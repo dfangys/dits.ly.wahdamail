@@ -5,7 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/services/mail_service.dart';
-import 'package:wahda_bank/views/view/showmessage/show_message.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/show_message.dart';
 
 // @pragma('vm:entry-point')
 // Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {

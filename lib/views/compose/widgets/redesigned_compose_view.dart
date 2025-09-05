@@ -7,7 +7,7 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/views/compose/widgets/enhanced_text_field.dart';
 import 'package:wahda_bank/views/compose/widgets/attachment_section.dart';
-import 'package:wahda_bank/views/compose/widgets/compose_toolbar.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/compose/compose_toolbar.dart';
 import 'package:wahda_bank/views/compose/widgets/pending_draft_attachment_tile.dart';
 
 /// Redesigned compose view with enhanced UX and modern design

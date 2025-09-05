@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:wahda_bank/views/compose/widgets/compose_modal.dart';
-import 'package:wahda_bank/widgets/search/search.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/compose/compose_modal.dart';
+import 'package:wahda_bank/features/search/presentation/screens/search/search_view.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 
 class MailMetaTile extends StatelessWidget {

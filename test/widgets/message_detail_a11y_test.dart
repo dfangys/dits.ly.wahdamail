@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('Message detail a11y: app bar actions semantics + 44dp targets', (tester) async {
+  testWidgets('Message detail a11y: app bar actions semantics + 44dp targets', (
+    tester,
+  ) async {
     bool starred = false;
 
     await tester.pumpWidget(
@@ -29,11 +31,18 @@ void main() {
                 button: true,
                 label: starred ? 'Unstar' : 'Star',
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
                   child: IconButton(
                     tooltip: starred ? 'Unstar' : 'Star',
-                    icon: Icon(starred ? Icons.star_rounded : Icons.star_outline_rounded),
-                    onPressed: () { starred = !starred; },
+                    icon: Icon(
+                      starred ? Icons.star_rounded : Icons.star_outline_rounded,
+                    ),
+                    onPressed: () {
+                      starred = !starred;
+                    },
                   ),
                 ),
               ),
@@ -41,7 +50,10 @@ void main() {
                 button: true,
                 label: 'Reply',
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
                   child: IconButton(
                     tooltip: 'Reply',
                     icon: const Icon(Icons.reply_rounded),
@@ -53,7 +65,10 @@ void main() {
                 button: true,
                 label: 'More options',
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
                   child: IconButton(
                     tooltip: 'More options',
                     icon: const Icon(Icons.more_vert_rounded),
@@ -84,4 +99,3 @@ void main() {
     expect(tester.getSize(find.byTooltip('More options')).height >= 44, isTrue);
   });
 }
-

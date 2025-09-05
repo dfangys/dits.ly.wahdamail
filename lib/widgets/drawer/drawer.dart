@@ -7,7 +7,7 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
 import 'package:wahda_bank/views/view/screens/drawer/terms_and_conditions.dart';
 import 'package:wahda_bank/views/view/screens/drawer/contact_us/Contact_us.dart';
-import 'package:wahda_bank/views/compose/widgets/compose_modal.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/compose/compose_modal.dart';
 import 'package:wahda_bank/views/settings/settings_view.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/widgets/drawer/drawer_tile.dart';
