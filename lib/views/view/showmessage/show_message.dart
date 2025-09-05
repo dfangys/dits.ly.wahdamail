@@ -859,146 +859,148 @@ class _ShowMessageState extends State<ShowMessage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return AppScaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: InbocAppBar(message: message, mailbox: mailbox),
-      ),
-      bottomNavigationBar: ViewMessageBottomNav(
-        mailbox: mailbox,
-        message: message,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Email header card
-              Card(
-                margin: const EdgeInsets.all(12),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Enhanced subject with proper fallback handling
-                      Text(
-                        subject,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight:
-                              isSeen ? FontWeight.w600 : FontWeight.w700,
-                          height: 1.2,
-                          color: Theme.of(context).colorScheme.onSurface,
+    return FocusTraversalGroup(
+      policy: ReadingOrderTraversalPolicy(),
+      child: AppScaffold(
+        backgroundColor: colorScheme.surface,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: InbocAppBar(message: message, mailbox: mailbox),
+        ),
+        bottomNavigationBar: ViewMessageBottomNav(
+          mailbox: mailbox,
+          message: message,
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Email header card
+                Card(
+                  margin: const EdgeInsets.all(12),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Enhanced subject with proper fallback handling
+                        Text(
+                          subject,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight:
+                                isSeen ? FontWeight.w600 : FontWeight.w700,
+                            height: 1.2,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Lightweight meta chips for a modern look
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: -6,
-                        children: [
-                          if (threadLength > 0)
-                            Chip(
-                              label: Text('${threadLength + 1} in thread'),
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                              labelStyle:
-                                  Theme.of(context).textTheme.labelSmall,
-                            ),
-                          if (hasAttachments)
-                            const Chip(
-                              label: Text('Attachments'),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          if (isFlagged)
-                            const Chip(
-                              label: Text('Flagged'),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // Sender info with avatar
-                      InkWell(
-                        borderRadius: BorderRadius.circular(
-                          AppTheme.borderRadius,
+                        const SizedBox(height: 8),
+                        // Lightweight meta chips for a modern look
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: -6,
+                          children: [
+                            if (threadLength > 0)
+                              Chip(
+                                label: Text('${threadLength + 1} in thread'),
+                                padding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                                labelStyle:
+                                    Theme.of(context).textTheme.labelSmall,
+                              ),
+                            if (hasAttachments)
+                              const Chip(
+                                label: Text('Attachments'),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            if (isFlagged)
+                              const Chip(
+                                label: Text('Flagged'),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                          ],
                         ),
-                        onTap: () {
-                          showMeta.value = !showMeta.value;
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Row(
-                            children: [
-                              // Avatar
-                              CircleAvatar(
-                                backgroundColor: avatarColor,
-                                radius: 24.0,
-                                child: Text(
-                                  initials,
-                                  style: TextStyle(
-                                    color: Theme.of(context).colorScheme.onPrimary,
-                                    fontWeight: FontWeight.bold,
+
+                        const SizedBox(height: 12),
+
+                        // Sender info with avatar
+                        InkWell(
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.borderRadius,
+                          ),
+                          onTap: () {
+                            showMeta.value = !showMeta.value;
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Row(
+                              children: [
+                                // Avatar
+                                CircleAvatar(
+                                  backgroundColor: avatarColor,
+                                  radius: 24.0,
+                                  child: Text(
+                                    initials,
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onPrimary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
-                              ),
 
-                              const SizedBox(width: 12),
+                                const SizedBox(width: 12),
 
-                              // Sender details
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            name,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
+                                // Sender details
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                        ),
-                                        Text(
-                                          detailedDate,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                          ),
-                                        ),
-
-                                        // Message status indicators (enough_mail best practice)
-                                        if (hasAttachments ||
-                                            isAnswered ||
-                                            isForwarded ||
-                                            isFlagged ||
-                                            threadLength > 0)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 8,
+                                          Text(
+                                            detailedDate,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                                             ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                if (isFlagged)
-                                                  Icon(
-                                                    Icons.flag,
-                                                    size: 14,
-                                                    color: Theme.of(context).colorScheme.secondary,
-                                                  ),
+                                          ),
+
+                                          // Message status indicators (enough_mail best practice)
+                                          if (hasAttachments ||
+                                              isAnswered ||
+                                              isForwarded ||
+                                              isFlagged ||
+                                              threadLength > 0)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 8,
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  if (isFlagged)
+                                                    Icon(
+                                                      Icons.flag,
+                                                      size: 14,
+                                                      color: Theme.of(context).colorScheme.secondary,
+                                                    ),
                                                 if (hasAttachments)
                                                   Padding(
                                                     padding: const EdgeInsets.only(
@@ -1152,6 +1154,7 @@ class _ShowMessageState extends State<ShowMessage> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -87,11 +87,13 @@ class _ShowMessagePagerState extends State<ShowMessagePager> {
       );
     }
 
-    return AppScaffold(
-      // No outer AppBar: rely on inner ShowMessage AppBar for consistent look
-      backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
+    return FocusTraversalGroup(
+      policy: ReadingOrderTraversalPolicy(),
+      child: AppScaffold(
+        // No outer AppBar: rely on inner ShowMessage AppBar for consistent look
+        backgroundColor: Colors.transparent,
+        body: Stack(
+          children: [
           PageView.builder(
             controller: _pageController,
             physics: const ClampingScrollPhysics(),
@@ -153,6 +155,7 @@ class _ShowMessagePagerState extends State<ShowMessagePager> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

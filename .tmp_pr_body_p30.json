@@ -1,0 +1,39 @@
+{
+  "phase": "P30",
+  "title": "Accessibility deep pass — semantics, focus, text-scale & contrast (no behavior change)",
+  "branch": "feat/ddd-p30-a11y-deep-pass",
+  "goal": "System-wide a11y polish with DS tokens/components only; zero behavior changes.",
+  "touch_files": [
+    "lib/views/**",
+    "lib/features/**/presentation/**",
+    "design_system/components/**"
+  ],
+  "a11y": {
+    "semantics_labels": true,
+    "tap_target_min_dp": 44,
+    "focus_traversal": "ReadingOrderTraversalPolicy",
+    "live_regions": "loading/error/empty only (non-spammy)"
+  },
+  "contrast": {
+    "use_tokens_only": true,
+    "pairs": ["primary/onPrimary", "surface/onSurface", "error/onError"]
+  },
+  "guardrails": [
+    "No ViewModel/business logic changes",
+    "No new dependencies",
+    "Import enforcer hard-fails new Colors.* in presentation/views (DS/theme excluded)",
+    "No presentation -> services/mail_service.dart imports",
+    "Flags OFF; kill-switch > flags"
+  ],
+  "tests": [
+    "widget: semantics & 44dp for key actions (Mailbox, Search, Compose, Message Detail, Attachments)",
+    "golden: light/dark @1.0 and 1.3 for touched screens (no intentional visual diffs)"
+  ],
+  "acceptance": [
+    "dart run tool/import_enforcer.dart passes (strict)",
+    "dart analyze: 0 errors (warnings OK)",
+    "flutter test --no-pub test: PASS",
+    "No behavior change; visuals effectively 1:1"
+  ]
+}
+
