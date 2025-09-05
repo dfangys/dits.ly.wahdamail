@@ -95,20 +95,11 @@ void main() {
     if (entity is File && entity.path.endsWith('.dart')) {
       final content = entity.readAsStringSync();
 
-      // New-work ban: legacy path lib/views/** fails ONLY on newly added/modified lines in this branch
+      // Global hard ban: any file path under lib/views/** is forbidden
       if (viewsPath.hasMatch(entity.path)) {
-        final isNew =
-            _newFiles[entity.path] == true ||
-            _newFiles.entries.any(
-              (e) => entity.path.endsWith(e.key) && e.value,
-            );
-        if (isNew) {
-          violations.add(
-            'Legacy path forbidden: lib/views/** → ${entity.path}',
-          );
-        } else {
-          // Existing or modified files under lib/views pass for now (soft migration phase)
-        }
+        violations.add(
+          'Legacy path forbidden: lib/views/** → ${entity.path}',
+        );
       }
 
       // Global ban: retired shim must not be referenced anywhere
