@@ -12,6 +12,7 @@ import 'package:wahda_bank/design_system/components/app_scaffold.dart';
 import 'package:wahda_bank/design_system/theme/tokens.dart';
 import 'package:wahda_bank/design_system/components/empty_state.dart';
 import 'package:wahda_bank/design_system/components/error_state.dart';
+import 'package:wahda_bank/design_system/components/query_chip.dart';
 import 'package:wahda_bank/observability/perf/list_perf_sampler.dart';
 
 class SearchView extends StatefulWidget {
@@ -61,7 +62,10 @@ class _SearchViewState extends State<SearchView> {
           label: 'Search field',
           child: TextFormField(
             controller: controller.searchController,
-            onChanged: (String txt) {},
+onChanged: (String txt) {
+              // UI-only: rebuild to reflect query chip row; no behavior/logics changed
+              setState(() {});
+            },
             decoration: InputDecoration(
             fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
             filled: true,
@@ -128,63 +132,98 @@ class _SearchViewState extends State<SearchView> {
         ),
       ),
       ),
-      body: vm.obx(
-        (state) => ListView.separated(
-          controller: controller.scrollController,
-          cacheExtent: 360.0, // ~3 rows prefetch; conservative, no layout change
-          itemBuilder: (context, index) {
-            return MailTile(
-              onTap: () {
-                try {
-                  final MimeMessage message = vm.searchMessages[index];
-                  final listRef =
-                      mailboxController.emails[mailboxController.mailBoxInbox] ??
-                      const <MimeMessage>[];
-                  int initial = 0;
-                  if (listRef.isNotEmpty) {
-                    initial = listRef.indexWhere(
-                      (m) =>
-                          (message.uid != null && m.uid == message.uid) ||
-                          (message.sequenceId != null &&
-                              m.sequenceId == message.sequenceId),
-                    );
-                    if (initial < 0) initial = 0;
-                  }
-                  Get.to(
-                    () => ShowMessagePager(
-                      mailbox: mailboxController.mailBoxInbox,
-                      initialMessage: message,
-                    ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Query chip row (static UI only)
+          if (controller.searchController.text.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Tokens.space5, Tokens.space4, Tokens.space5, Tokens.space3,
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    QueryChip(label: controller.searchController.text.trim()),
+                  ],
+                ),
+              ),
+            ),
+          Expanded(
+            child: vm.obx(
+              (state) => ListView.separated(
+                controller: controller.scrollController,
+                cacheExtent: 360.0, // ~3 rows
+                padding: const EdgeInsets.symmetric(horizontal: Tokens.space5),
+                itemBuilder: (context, index) {
+                  return MailTile(
+                    onTap: () {
+                      try {
+                        final MimeMessage message = vm.searchMessages[index];
+                        final listRef =
+                            mailboxController.emails[mailboxController.mailBoxInbox] ??
+                            const <MimeMessage>[];
+                        int initial = 0;
+                        if (listRef.isNotEmpty) {
+                          initial = listRef.indexWhere(
+                            (m) =>
+                                (message.uid != null && m.uid == message.uid) ||
+                                (message.sequenceId != null &&
+                                    m.sequenceId == message.sequenceId),
+                          );
+                          if (initial < 0) initial = 0;
+                        }
+                        Get.to(
+                          () => ShowMessagePager(
+                            mailbox: mailboxController.mailBoxInbox,
+                            initialMessage: message,
+                          ),
+                        );
+                      } catch (_) {
+                        Get.to(
+                          () => ShowMessage(
+                            message: vm.searchMessages[index],
+                            mailbox: mailboxController.mailBoxInbox,
+                          ),
+                        );
+                      }
+                    },
+                    message: vm.searchMessages[index],
+                    mailBox: mailboxController.mailBoxInbox,
                   );
-                } catch (_) {
-                  Get.to(
-                    () => ShowMessage(
-                      message: vm.searchMessages[index],
-                      mailbox: mailboxController.mailBoxInbox,
-                    ),
-                  );
-                }
-              },
-              message: vm.searchMessages[index],
-              mailBox: mailboxController.mailBoxInbox,
-            );
-          },
-          separatorBuilder: (context, index) {
-            return const Divider();
-          },
-          itemCount: vm.searchMessages.length,
-        ),
-        onEmpty: EmptyState(
-          title: 'Whoops! Box is empty',
-          message: null,
-          icon: Icons.inbox,
-        ),
-        onLoading: const Center(child: CircularProgressIndicator()),
-        onError: (error) => ErrorState(
-          title: 'Error',
-          message: error?.toString(),
-          icon: Icons.error_outline,
-        ),
+                },
+                separatorBuilder: (context, index) {
+                  return const Divider(height: 1);
+                },
+                itemCount: vm.searchMessages.length,
+              ),
+              onEmpty: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Tokens.space5,
+                  vertical: Tokens.space6,
+                ),
+                child: EmptyState(
+                  title: 'Whoops! Box is empty',
+                  message: null,
+                  icon: Icons.inbox,
+                ),
+              ),
+              onLoading: const Center(child: CircularProgressIndicator()),
+              onError: (error) => Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Tokens.space5,
+                  vertical: Tokens.space6,
+                ),
+                child: ErrorState(
+                  title: 'Error',
+                  message: error?.toString(),
+                  icon: Icons.error_outline,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       ),
     );
