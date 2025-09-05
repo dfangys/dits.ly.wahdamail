@@ -19,7 +19,11 @@ final softWarnings = <String>[];
 
 // Allowlist for known transitional imports (warn only)
 final warnOnlyImports = <String, List<String>>{
-  'lib/features/search/presentation/search_view_model.dart': [
+'lib/features/search/presentation/search_view_model.dart': [
+    "package:wahda_bank/services/mail_service.dart",
+  ],
+  // Transitional allowlist for legacy MailService usage in message detail screen (to be removed in P31.3)
+  'lib/features/messaging/presentation/screens/message_detail/show_message.dart': [
     "package:wahda_bank/services/mail_service.dart",
   ],
 };
