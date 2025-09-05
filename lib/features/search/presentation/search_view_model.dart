@@ -11,7 +11,7 @@ import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.
     as dom;
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/shared/telemetry/tracing.dart';
@@ -25,7 +25,8 @@ class SearchViewModel extends GetxController
   // State owned by the ViewModel in P12.2
   final List<MimeMessage> searchMessages = <MimeMessage>[];
   MailSearchResult? searchResults;
-  final MailClient client = MailService.instance.client;
+  late final MailClient client =
+      Get.find<MailBoxController>().mailService.client;
 
   Future<void> runSearch(
     MailSearchController controller, {

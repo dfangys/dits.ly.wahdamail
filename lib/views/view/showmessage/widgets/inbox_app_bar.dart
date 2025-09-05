@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
-import 'package:wahda_bank/views/compose/widgets/compose_modal.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/compose/compose_modal.dart';
 
 class InbocAppBar extends StatefulWidget {
   const InbocAppBar({super.key, required this.message, required this.mailbox});
@@ -82,7 +82,10 @@ class _InbocAppBarState extends State<InbocAppBar>
                 button: true,
                 label: isStarred ? 'Unstar' : 'Star',
                 child: IconButton(
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
                   padding: EdgeInsets.zero,
                   icon: Icon(
                     isStarred ? Icons.star_rounded : Icons.star_outline_rounded,
@@ -149,85 +152,88 @@ class _InbocAppBarState extends State<InbocAppBar>
           position: PopupMenuPosition.under,
           itemBuilder:
               (context) => [
-            PopupMenuItem(
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.forward_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
+                PopupMenuItem(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.forward_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Forward'),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  const Text('Forward'),
-                ],
-              ),
-              onTap: () {
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  ComposeModal.show(
-                    context,
-                    arguments: {'message': widget.message, 'type': 'forward'},
-                  );
-                });
-              },
-            ),
-            PopupMenuItem(
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.print_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
+                  onTap: () {
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      ComposeModal.show(
+                        context,
+                        arguments: {
+                          'message': widget.message,
+                          'type': 'forward',
+                        },
+                      );
+                    });
+                  },
+                ),
+                PopupMenuItem(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.print_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Print'),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  const Text('Print'),
-                ],
-              ),
-              onTap: () {
-                // Print functionality would go here
-              },
-            ),
-            PopupMenuItem(
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.move_to_inbox_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                    size: 20,
+                  onTap: () {
+                    // Print functionality would go here
+                  },
+                ),
+                PopupMenuItem(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.move_to_inbox_rounded,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Move to'),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  const Text('Move to'),
-                ],
-              ),
-              onTap: () {
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  _showMoveToDialog();
-                });
-              },
-            ),
-            PopupMenuItem(
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.delete_outline_rounded,
-                    color: Theme.of(context).colorScheme.error,
-                    size: 20,
+                  onTap: () {
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      _showMoveToDialog();
+                    });
+                  },
+                ),
+                PopupMenuItem(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.delete_outline_rounded,
+                        color: Theme.of(context).colorScheme.error,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Delete',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Delete',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
-              ),
-              onTap: () {
-                Future.delayed(const Duration(milliseconds: 100), () {
-                  _showDeleteConfirmation();
-                });
-              },
-            ),
-          ],
+                  onTap: () {
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      _showDeleteConfirmation();
+                    });
+                  },
+                ),
+              ],
         ),
       ),
     );

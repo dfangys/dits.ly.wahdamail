@@ -14,7 +14,6 @@ import 'package:wahda_bank/views/view/showmessage/widgets/attachment_carousel.da
 import 'package:wahda_bank/views/view/showmessage/widgets/thread_viewer.dart';
 import 'package:wahda_bank/widgets/enterprise_message_viewer.dart';
 import 'package:wahda_bank/services/message_content_store.dart';
-import 'package:wahda_bank/services/mail_service.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import 'package:wahda_bank/services/sender_trust.dart';
 import 'package:wahda_bank/services/offline_http_server.dart';
@@ -101,17 +100,9 @@ class _ShowMessageState extends State<ShowMessage> {
 
   Future<void> _ensureSelectedMailbox() async {
     try {
-      final mailService = MailService.instance;
-      if (!mailService.client.isConnected) {
-        try {
-          await mailService.connect().timeout(const Duration(seconds: 10));
-        } catch (_) {}
-      }
-      try {
-        await mailService.client
-            .selectMailbox(mailbox)
-            .timeout(const Duration(seconds: 8));
-      } catch (_) {}
+      // Delegate to controller to ensure mailbox is selected and emails are available
+      final ctrl = Get.find<MailBoxController>();
+      await ctrl.loadEmailsForBox(mailbox).timeout(const Duration(seconds: 20));
     } catch (_) {}
   }
 
@@ -120,7 +111,8 @@ class _ShowMessageState extends State<ShowMessage> {
     _loadingContent = true;
     final int gen = ++_loadGen; // capture generation for this load
     try {
-      final accountEmail = MailService.instance.account.email;
+      final accountEmail =
+          Get.find<MailBoxController>().mailService.account.email;
       final mailboxPath =
           mailbox.encodedPath.isNotEmpty ? mailbox.encodedPath : (mailbox.path);
       final uidValidity = mailbox.uidValidity ?? 0;
@@ -231,57 +223,36 @@ class _ShowMessageState extends State<ShowMessage> {
         // Emit telemetry once content has been determined from cache/plain
         _sendOpenTelemetryOnce();
 
-        // On-demand fetch fallback: if still empty, fetch this message body immediately
+        // On-demand fetch fallback: if still empty, trigger controller prefetch and re-read cache
         if (html == null || html.trim().isEmpty) {
           try {
             await _ensureSelectedMailbox();
-            final mailService = MailService.instance;
-            final seq = MessageSequence.fromMessage(message);
-            List<MimeMessage> fetched = const <MimeMessage>[];
-            try {
-              fetched = await mailService.client
-                  .fetchMessageSequence(
-                    seq,
-                    fetchPreference: FetchPreference.fullWhenWithinSize,
-                  )
-                  .timeout(
-                    const Duration(seconds: 15),
-                    onTimeout: () => <MimeMessage>[],
+            final ctrl = Get.find<MailBoxController>();
+            await ctrl.prefetchMessageContent(mailbox, message, quiet: true);
+
+            final recached = await store.getContent(
+              accountEmail: accountEmail,
+              mailboxPath: mailboxPath,
+              uidValidity: uidValidity,
+              uid: uid,
+            );
+
+            if (recached != null) {
+              // Prefer sanitized HTML from cache; when remote allowed, we still prefer RAW for materialization later
+              html =
+                  recached.htmlSanitizedBlocked ??
+                  effectiveMsg.decodeTextHtmlPart();
+              if ((html == null || html.trim().isEmpty) &&
+                  (recached.plainText?.trim().isNotEmpty ?? false)) {
+                html = _wrapPlainAsHtml(recached.plainText!);
+                if (kDebugMode) {
+                  // ignore: avoid_print
+                  print(
+                    'VIEWER:plain_fallback uid=$uid -> using cached plain text after prefetch',
                   );
-            } catch (_) {
-              // Retry once after re-select
-              try {
-                await _ensureSelectedMailbox();
-              } catch (_) {}
-              try {
-                fetched = await mailService.client
-                    .fetchMessageSequence(
-                      seq,
-                      fetchPreference: FetchPreference.fullWhenWithinSize,
-                    )
-                    .timeout(
-                      const Duration(seconds: 12),
-                      onTimeout: () => <MimeMessage>[],
-                    );
-              } catch (_) {}
-            }
-            if (fetched.isNotEmpty) {
-              final full = fetched.first;
-              effectiveMsg = full; // prefer the freshly fetched full message
-              html = full.decodeTextHtmlPart();
-              if (html == null || html.trim().isEmpty) {
-                final plain = full.decodeTextPlainPart();
-                if (plain != null && plain.trim().isNotEmpty) {
-                  html = _wrapPlainAsHtml(plain);
-                  if (kDebugMode) {
-                    // ignore: avoid_print
-                    print(
-                      'VIEWER:plain_fallback uid=$uid -> using on-demand fetched plain text as HTML',
-                    );
-                  }
                 }
               }
-              // Emit telemetry after on-demand fetch resolves content
+              // Emit telemetry after prefetch resolves content
               _sendOpenTelemetryOnce();
             }
           } catch (_) {}
@@ -1210,7 +1181,7 @@ class _ShowMessageState extends State<ShowMessage> {
     try {
       if (_telemetryStart != null) {
         final ms = DateTime.now().difference(_telemetryStart!).inMilliseconds;
-        final acct = MailService.instance.account.email;
+        final acct = Get.find<MailBoxController>().mailService.account.email;
         Telemetry.event(
           'message_open_ms',
           props: {

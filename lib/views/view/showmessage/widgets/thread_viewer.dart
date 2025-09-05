@@ -5,7 +5,7 @@ import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
 import '../../../../services/mail_service.dart';
 import '../../../../services/message_content_store.dart';
-import '../../../compose/redesigned_compose_screen.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/compose/redesigned_compose_screen.dart';
 
 class ThreadViewer extends StatefulWidget {
   const ThreadViewer({super.key, required this.message, required this.mailbox});
