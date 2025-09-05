@@ -61,6 +61,7 @@ class _NoopBus implements SyncEventBus {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   test('BG fetch coalesces multiple ticks into a single repo call', () async {
     final repo = _FakeRepo();
     final cb = CircuitBreaker(failureThreshold: 2);

@@ -35,6 +35,7 @@ class _FakeGateway implements ImapGateway {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() {
     registerFallbackValue(const entities.Folder(id: 'INBOX', name: 'INBOX', isInbox: true));
   });
