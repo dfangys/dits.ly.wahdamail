@@ -15,4 +15,3 @@ class Attachment {
     this.contentId,
   });
 }
-

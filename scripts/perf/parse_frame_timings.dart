@@ -33,8 +33,11 @@ void main(List<String> args) async {
   for (final line in lines) {
     final m = _reTelemetry.firstMatch(line.trim());
     if (m == null) continue;
-    final body = m.group(1)!; // e.g. op: mailbox_list_scroll, dropped_pct: 3.2, ...
-    if (!(body.contains('op: mailbox_list_scroll') || body.contains('op: search_list_scroll'))) continue;
+    final body =
+        m.group(1)!; // e.g. op: mailbox_list_scroll, dropped_pct: 3.2, ...
+    if (!(body.contains('op: mailbox_list_scroll') ||
+        body.contains('op: search_list_scroll')))
+      continue;
 
     String op = 'unknown';
     double? dropped;
@@ -67,4 +70,3 @@ void main(List<String> args) async {
   stdout.writeln('  mailbox_list_scroll_dropped_pct_p50 <= 5%');
   stdout.writeln('  search_list_scroll_dropped_pct_p50 <= 5%');
 }
-

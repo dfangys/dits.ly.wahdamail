@@ -14,12 +14,12 @@ class AuthError extends AppError {
 
 class TransientNetworkError extends AppError {
   const TransientNetworkError(String message, [Object? cause])
-      : super(message, cause);
+    : super(message, cause);
 }
 
 class PermanentProtocolError extends AppError {
   const PermanentProtocolError(String message, [Object? cause])
-      : super(message, cause);
+    : super(message, cause);
 }
 
 class RateLimitError extends AppError {
@@ -28,7 +28,7 @@ class RateLimitError extends AppError {
 
 class StorageCorruptionError extends AppError {
   const StorageCorruptionError(String message, [Object? cause])
-      : super(message, cause);
+    : super(message, cause);
 }
 
 class RenderingError extends AppError {
@@ -41,13 +41,16 @@ class CryptoError extends AppError {
 }
 
 class DecryptionError extends CryptoError {
-  const DecryptionError(String message, [Object? cause]) : super(message, cause);
+  const DecryptionError(String message, [Object? cause])
+    : super(message, cause);
 }
 
 class SignatureInvalidError extends CryptoError {
-  const SignatureInvalidError(String message, [Object? cause]) : super(message, cause);
+  const SignatureInvalidError(String message, [Object? cause])
+    : super(message, cause);
 }
 
 class KeyNotFoundError extends CryptoError {
-  const KeyNotFoundError(String message, [Object? cause]) : super(message, cause);
+  const KeyNotFoundError(String message, [Object? cause])
+    : super(message, cause);
 }

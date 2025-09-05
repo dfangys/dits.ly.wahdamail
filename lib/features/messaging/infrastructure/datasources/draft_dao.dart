@@ -17,4 +17,3 @@ class InMemoryDraftDao implements DraftDao {
   @override
   Future<DraftRow?> getById(String id) async => _byId[id];
 }
-

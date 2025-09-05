@@ -26,4 +26,3 @@ void main() {
     expect(p95Fetch, greaterThanOrEqualTo(p50Fetch));
   });
 }
-

@@ -1,9 +1,14 @@
-import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as dom;
-import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as dom;
-import 'package:wahda_bank/features/messaging/domain/entities/attachment.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/folder.dart'
+    as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/message.dart'
+    as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/attachment.dart'
+    as dom;
 import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart';
-import 'package:wahda_bank/features/messaging/domain/entities/search_result.dart' as dom;
-import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/search_result.dart'
+    as dom;
+import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.dart'
+    as dom;
 import 'package:wahda_bank/features/messaging/infrastructure/datasources/local_store.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/imap_gateway.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/mappers/message_mapper.dart';
@@ -37,9 +42,16 @@ class ImapMessageRepository implements MessageRepository {
   }
 
   @override
-  Future<List<dom.Message>> fetchInbox({required dom.Folder folder, int limit = 50, int offset = 0}) async {
+  Future<List<dom.Message>> fetchInbox({
+    required dom.Folder folder,
+    int limit = 50,
+    int offset = 0,
+  }) async {
     // header-first
-    final span1 = Tracing.startSpan('FetchHeaders', attrs: {'folderId': folder.id});
+    final span1 = Tracing.startSpan(
+      'FetchHeaders',
+      attrs: {'folderId': folder.id},
+    );
     final headers = await Telemetry.timeAsync('fetch_headers', () async {
       return await gateway.fetchHeaders(
         accountId: accountId,
@@ -51,36 +63,52 @@ class ImapMessageRepository implements MessageRepository {
     Tracing.end(span1);
     final rows = headers.map(MessageMapper.fromHeaderDTO).toList();
     await store.upsertHeaders(rows);
-    final persisted = await store.getHeaders(folderId: folder.id, limit: limit, offset: offset);
+    final persisted = await store.getHeaders(
+      folderId: folder.id,
+      limit: limit,
+      offset: offset,
+    );
     return persisted.map(MessageMapper.toDomain).toList(growable: false);
   }
 
   @override
-  Future<dom.Message> fetchMessageBody({required dom.Folder folder, required String messageId}) async {
+  Future<dom.Message> fetchMessageBody({
+    required dom.Folder folder,
+    required String messageId,
+  }) async {
     // Cache-first body fetch
     final sw = Stopwatch()..start();
     BodyRow? body = await store.getBody(messageUid: messageId);
     if (body != null) {
       final size = (body.html?.length ?? 0) + (body.plainText?.length ?? 0);
-      Telemetry.event('cache_hit', props: {
-        'op': 'cache_hit',
-        'ok': true,
-        'cache': 'bodies',
-        'key_hash': Hashing.djb2(messageId).toString(),
-        'size_bytes': size,
-        'latency_ms': sw.elapsedMilliseconds,
-      });
+      Telemetry.event(
+        'cache_hit',
+        props: {
+          'op': 'cache_hit',
+          'ok': true,
+          'cache': 'bodies',
+          'key_hash': Hashing.djb2(messageId).toString(),
+          'size_bytes': size,
+          'latency_ms': sw.elapsedMilliseconds,
+        },
+      );
       _bodyCache.touch(messageId);
     }
     if (body == null) {
-      Telemetry.event('cache_miss', props: {
-        'op': 'cache_miss',
-        'ok': true,
-        'cache': 'bodies',
-        'key_hash': Hashing.djb2(messageId).toString(),
-        'latency_ms': sw.elapsedMilliseconds,
-      });
-      final span2 = Tracing.startSpan('FetchBody', attrs: {'folderId': folder.id});
+      Telemetry.event(
+        'cache_miss',
+        props: {
+          'op': 'cache_miss',
+          'ok': true,
+          'cache': 'bodies',
+          'key_hash': Hashing.djb2(messageId).toString(),
+          'latency_ms': sw.elapsedMilliseconds,
+        },
+      );
+      final span2 = Tracing.startSpan(
+        'FetchBody',
+        attrs: {'folderId': folder.id},
+      );
       final dto = await Telemetry.timeAsync('fetch_body', () async {
         return await gateway.fetchBody(
           accountId: accountId,
@@ -96,19 +124,28 @@ class ImapMessageRepository implements MessageRepository {
     }
 
     // Merge with existing header to return full domain Message
-    final persisted = await store.getHeaders(folderId: folder.id, limit: 10000, offset: 0);
+    final persisted = await store.getHeaders(
+      folderId: folder.id,
+      limit: 10000,
+      offset: 0,
+    );
     final row = persisted.firstWhere((r) => r.id == messageId);
     final base = MessageMapper.toDomain(row);
-    return base.copyWith(
-      plainBody: body.plainText,
-      htmlBody: body.html,
-    );
+    return base.copyWith(plainBody: body.plainText, htmlBody: body.html);
   }
 
   @override
-  Future<void> markRead({required dom.Folder folder, required String messageId, required bool read}) async {
+  Future<void> markRead({
+    required dom.Folder folder,
+    required String messageId,
+    required bool read,
+  }) async {
     // Update local metadata only for now.
-    final rows = await store.getHeaders(folderId: folder.id, limit: 10000, offset: 0);
+    final rows = await store.getHeaders(
+      folderId: folder.id,
+      limit: 10000,
+      offset: 0,
+    );
     final idx = rows.indexWhere((r) => r.id == messageId);
     if (idx >= 0) {
       final updated = MessageRow(
@@ -132,11 +169,17 @@ class ImapMessageRepository implements MessageRepository {
   }
 
   @override
-  Future<List<dom.Attachment>> listAttachments({required dom.Folder folder, required String messageId}) async {
+  Future<List<dom.Attachment>> listAttachments({
+    required dom.Folder folder,
+    required String messageId,
+  }) async {
     // Cache-miss → gateway list → store
     var rows = await store.listAttachments(messageUid: messageId);
     if (rows.isEmpty) {
-      final span3 = Tracing.startSpan('ListAttachments', attrs: {'folderId': folder.id});
+      final span3 = Tracing.startSpan(
+        'ListAttachments',
+        attrs: {'folderId': folder.id},
+      );
       final dtos = await Telemetry.timeAsync('list_attachments', () async {
         return await gateway.listAttachments(
           accountId: accountId,
@@ -148,36 +191,54 @@ class ImapMessageRepository implements MessageRepository {
       rows = dtos.map(MessageMapper.attachmentRowFromDTO).toList();
       await store.upsertAttachments(rows);
     }
-    return rows.map(MessageMapper.attachmentDomainFromRow).toList(growable: false);
+    return rows
+        .map(MessageMapper.attachmentDomainFromRow)
+        .toList(growable: false);
   }
 
   @override
-  Future<List<int>> downloadAttachment({required dom.Folder folder, required String messageId, required String partId}) async {
+  Future<List<int>> downloadAttachment({
+    required dom.Folder folder,
+    required String messageId,
+    required String partId,
+  }) async {
     // Idempotent download: serve from cache if present
     final sw = Stopwatch()..start();
-    final cached = await store.getAttachmentBlobRef(messageUid: messageId, partId: partId);
+    final cached = await store.getAttachmentBlobRef(
+      messageUid: messageId,
+      partId: partId,
+    );
     if (cached != null) {
       _attachmentCache.touch(messageId, partId);
-      Telemetry.event('cache_hit', props: {
-        'op': 'cache_hit',
-        'ok': true,
-        'cache': 'attachments',
-        'key_hash': Hashing.djb2('$messageId:$partId').toString(),
-        'size_bytes': cached.length,
-        'latency_ms': sw.elapsedMilliseconds,
-      });
+      Telemetry.event(
+        'cache_hit',
+        props: {
+          'op': 'cache_hit',
+          'ok': true,
+          'cache': 'attachments',
+          'key_hash': Hashing.djb2('$messageId:$partId').toString(),
+          'size_bytes': cached.length,
+          'latency_ms': sw.elapsedMilliseconds,
+        },
+      );
       return cached;
     }
 
-    Telemetry.event('cache_miss', props: {
-      'op': 'cache_miss',
-      'ok': true,
-      'cache': 'attachments',
-      'key_hash': Hashing.djb2('$messageId:$partId').toString(),
-      'latency_ms': sw.elapsedMilliseconds,
-    });
+    Telemetry.event(
+      'cache_miss',
+      props: {
+        'op': 'cache_miss',
+        'ok': true,
+        'cache': 'attachments',
+        'key_hash': Hashing.djb2('$messageId:$partId').toString(),
+        'latency_ms': sw.elapsedMilliseconds,
+      },
+    );
 
-    final span4 = Tracing.startSpan('DownloadAttachment', attrs: {'folderId': folder.id});
+    final span4 = Tracing.startSpan(
+      'DownloadAttachment',
+      attrs: {'folderId': folder.id},
+    );
     final bytes = await Telemetry.timeAsync('download_attachment', () async {
       return await gateway.downloadAttachment(
         accountId: accountId,
@@ -189,15 +250,26 @@ class ImapMessageRepository implements MessageRepository {
     Tracing.end(span4);
     // Store only if allowed by cache manager
     if (await _attachmentCache.canStore(messageId, partId, bytes)) {
-      await store.putAttachmentBlob(messageUid: messageId, partId: partId, bytes: bytes);
+      await store.putAttachmentBlob(
+        messageUid: messageId,
+        partId: partId,
+        bytes: bytes,
+      );
       _attachmentCache.touch(messageId, partId);
       await _attachmentCache.enforceCaps();
     }
     return bytes;
   }
+
   @override
-  Future<List<dom.SearchResult>> search({required String accountId, required dom.SearchQuery q}) async {
-    final span5 = Tracing.startSpan('Search', attrs: {'accountId_hash': Hashing.djb2(accountId).toString()});
+  Future<List<dom.SearchResult>> search({
+    required String accountId,
+    required dom.SearchQuery q,
+  }) async {
+    final span5 = Tracing.startSpan(
+      'Search',
+      attrs: {'accountId_hash': Hashing.djb2(accountId).toString()},
+    );
     // Local-first search using LocalStore
     final rows = await store.searchMetadata(
       text: q.text,
@@ -219,19 +291,22 @@ class ImapMessageRepository implements MessageRepository {
     if (remoteEnabled) {
       try {
         // If a specific folder filter exists, search that; else skip for now
-        final headers = await gateway.searchHeaders(accountId: accountId, folderId: 'INBOX', q: q);
-        final remote = headers.map(MessageMapper.searchResultFromHeader).toList();
+        final headers = await gateway.searchHeaders(
+          accountId: accountId,
+          folderId: 'INBOX',
+          q: q,
+        );
+        final remote =
+            headers.map(MessageMapper.searchResultFromHeader).toList();
         // Dedupe by (folderId,messageId)
         final set = <String>{};
-        merged = [
-          ...localResults,
-          ...remote,
-        ].where((r) {
-          final key = '${r.folderId}:${r.messageId}';
-          final ok = !set.contains(key);
-          set.add(key);
-          return ok;
-        }).toList();
+        merged =
+            [...localResults, ...remote].where((r) {
+              final key = '${r.folderId}:${r.messageId}';
+              final ok = !set.contains(key);
+              set.add(key);
+              return ok;
+            }).toList();
       } catch (e) {
         // Map errors to taxonomy via gateway mapping; ignore remote errors in P6
         final _ = e; // no-op
@@ -239,7 +314,11 @@ class ImapMessageRepository implements MessageRepository {
     }
 
     // Sort by date DESC and apply limit if necessary
-    merged.sort((a, b) => b.date.millisecondsSinceEpoch.compareTo(a.date.millisecondsSinceEpoch));
+    merged.sort(
+      (a, b) => b.date.millisecondsSinceEpoch.compareTo(
+        a.date.millisecondsSinceEpoch,
+      ),
+    );
     if (q.limit != null && merged.length > q.limit!) {
       merged = merged.sublist(0, q.limit!);
     }

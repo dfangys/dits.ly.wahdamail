@@ -29,22 +29,39 @@ Widget _messageDetailHarness(ThemeData theme, {double textScale = 1.0}) {
                         'Quarterly results and strategy — Q3 wrap-up meeting notes',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w700, height: 1.2),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 6,
                         runSpacing: -6,
                         children: const [
-                          Chip(visualDensity: VisualDensity.compact, label: Text('3 in thread')),
-                          Chip(visualDensity: VisualDensity.compact, label: Text('Attachments')),
-                          Chip(visualDensity: VisualDensity.compact, label: Text('Flagged')),
+                          Chip(
+                            visualDensity: VisualDensity.compact,
+                            label: Text('3 in thread'),
+                          ),
+                          Chip(
+                            visualDensity: VisualDensity.compact,
+                            label: Text('Attachments'),
+                          ),
+                          Chip(
+                            visualDensity: VisualDensity.compact,
+                            label: Text('Flagged'),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       Row(
                         children: const [
-                          CircleAvatar(child: Text('AL', style: TextStyle(fontWeight: FontWeight.bold))),
+                          CircleAvatar(
+                            child: Text(
+                              'AL',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
                           SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -57,7 +74,10 @@ Widget _messageDetailHarness(ThemeData theme, {double textScale = 1.0}) {
                                         'Alice Longname',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
                                       ),
                                     ),
                                     Text(
@@ -120,7 +140,6 @@ Widget _messageDetailHarness(ThemeData theme, {double textScale = 1.0}) {
   );
 }
 
-
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -154,7 +173,9 @@ void main() {
     tester.binding.window.devicePixelRatioTestValue = 1.0;
     tester.binding.window.physicalSizeTestValue = const Size(800, 1200);
 
-    await tester.pumpWidget(_messageDetailHarness(AppThemeDS.light, textScale: 1.3));
+    await tester.pumpWidget(
+      _messageDetailHarness(AppThemeDS.light, textScale: 1.3),
+    );
     await tester.pumpAndSettle();
 
     await expectLater(
@@ -163,4 +184,3 @@ void main() {
     );
   });
 }
-

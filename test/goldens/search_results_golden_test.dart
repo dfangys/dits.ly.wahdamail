@@ -11,12 +11,17 @@ Widget _searchResultsHarness(ThemeData theme) {
       appBar: AppBar(title: const Text('Search')),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
-        itemBuilder: (_, i) => MailboxListItem(
-          leading: const Icon(Icons.mail_outline),
-          title: Text('Result ${i + 1} · Subject with long text to ellipsize properly'),
-          subtitle: const Text('Short snippet of the result body for context...'),
-          trailing: const Icon(Icons.chevron_right),
-        ),
+        itemBuilder:
+            (_, i) => MailboxListItem(
+              leading: const Icon(Icons.mail_outline),
+              title: Text(
+                'Result ${i + 1} · Subject with long text to ellipsize properly',
+              ),
+              subtitle: const Text(
+                'Short snippet of the result body for context...',
+              ),
+              trailing: const Icon(Icons.chevron_right),
+            ),
         separatorBuilder: (_, __) => const Divider(),
         itemCount: 4,
       ),
@@ -71,4 +76,3 @@ void main() {
     );
   });
 }
-

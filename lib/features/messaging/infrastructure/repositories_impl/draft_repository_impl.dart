@@ -32,4 +32,3 @@ class DraftRepositoryImpl implements DraftRepository {
     await dao.upsert(row);
   }
 }
-

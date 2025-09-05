@@ -18,7 +18,8 @@ class AttachmentViewer extends StatefulWidget {
     required this.mimeType,
     required this.filePath,
     this.originalBytes,
-    this.skipPreprocess = false, // Test-only: skip preprocessing to avoid plugin init in headless CI
+    this.skipPreprocess =
+        false, // Test-only: skip preprocessing to avoid plugin init in headless CI
   });
   final String title;
   final String mimeType;
@@ -259,7 +260,10 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
                 button: true,
                 label: 'Retry',
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 88, minHeight: 44),
+                  constraints: const BoxConstraints(
+                    minWidth: 88,
+                    minHeight: 44,
+                  ),
                   child: ElevatedButton(
                     onPressed: () => _preprocessAttachment(),
                     child: const Text('Retry'),
@@ -296,10 +300,10 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
                 tooltip: 'Save',
                 icon: const Icon(Icons.download_rounded),
                 onPressed: () async {
-              try {
-                await _showSaveMenu();
-              } catch (_) {}
-            },
+                  try {
+                    await _showSaveMenu();
+                  } catch (_) {}
+                },
               ),
             ),
           ),
@@ -312,11 +316,11 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
                 tooltip: 'Share',
                 icon: const Icon(Icons.ios_share),
                 onPressed: () async {
-              try {
-                await Share.shareXFiles([
-                  XFile(widget.filePath),
-                ], text: widget.title);
-              } catch (_) {}
+                  try {
+                    await Share.shareXFiles([
+                      XFile(widget.filePath),
+                    ], text: widget.title);
+                  } catch (_) {}
                 },
               ),
             ),

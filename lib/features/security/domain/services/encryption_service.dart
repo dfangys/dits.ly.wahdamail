@@ -16,7 +16,10 @@ class EncryptionService {
   final KeyringRepository keyring;
   const EncryptionService({required this.engine, required this.keyring});
 
-  Future<DecryptResult> decrypt({required List<int> ciphertext, required EmailIdentity recipient}) async {
+  Future<DecryptResult> decrypt({
+    required List<int> ciphertext,
+    required EmailIdentity recipient,
+  }) async {
     final key = await keyring.findByEmail(recipient);
     if (key == null || !key.hasPrivate) {
       throw const KeyNotFoundError('Private key not found');
@@ -29,12 +32,23 @@ class EncryptionService {
     }
   }
 
-  Future<SignatureStatus> verify({required List<int> data, required List<int> signature, required EmailIdentity signer}) async {
-    final ok = await engine.verify(data: data, signature: signature, signer: signer);
+  Future<SignatureStatus> verify({
+    required List<int> data,
+    required List<int> signature,
+    required EmailIdentity signer,
+  }) async {
+    final ok = await engine.verify(
+      data: data,
+      signature: signature,
+      signer: signer,
+    );
     return ok ? SignatureStatus.valid : SignatureStatus.invalid;
   }
 
-  Future<List<int>> sign({required List<int> data, required EmailIdentity signer}) async {
+  Future<List<int>> sign({
+    required List<int> data,
+    required EmailIdentity signer,
+  }) async {
     final key = await keyring.findByEmail(signer);
     if (key == null || !key.hasPrivate) {
       throw const KeyNotFoundError('Private key not found');
@@ -42,7 +56,10 @@ class EncryptionService {
     return engine.sign(data: data, keyId: key.id);
   }
 
-  Future<List<int>> encrypt({required List<int> data, required List<EmailIdentity> recipients}) async {
+  Future<List<int>> encrypt({
+    required List<int> data,
+    required List<EmailIdentity> recipients,
+  }) async {
     return engine.encrypt(data: data, recipients: recipients);
   }
 }

@@ -8,9 +8,11 @@ class FetchMessageBody {
 
   const FetchMessageBody(this.repo);
 
-  Future<Message?> call({required Folder folder, required String messageId}) async {
+  Future<Message?> call({
+    required Folder folder,
+    required String messageId,
+  }) async {
     if (messageId.isEmpty) return null;
     return repo.fetchMessageBody(folder: folder, messageId: messageId);
   }
 }
-

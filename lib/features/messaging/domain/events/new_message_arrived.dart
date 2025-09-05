@@ -10,4 +10,3 @@ class NewMessageArrived {
     required this.occurredAt,
   });
 }
-

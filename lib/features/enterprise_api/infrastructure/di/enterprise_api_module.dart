@@ -16,37 +16,48 @@ abstract class EnterpriseApiModule {
   MailsysApiClient provideApiClient() => _NoopApiClient();
 
   @LazySingleton()
-  BackoffStrategy provideBackoff() => _JitterBackoffStrategy(JitterBackoff(
-        baseSchedule: const [
-          Duration(seconds: 1),
-          Duration(seconds: 2),
-          Duration(seconds: 4),
-          Duration(seconds: 8),
-          Duration(seconds: 16),
-          Duration(seconds: 30),
-          Duration(seconds: 60),
-        ],
-        maxBackoff: const Duration(seconds: 60),
-        jitter: 0.1,
-      ));
+  BackoffStrategy provideBackoff() => _JitterBackoffStrategy(
+    JitterBackoff(
+      baseSchedule: const [
+        Duration(seconds: 1),
+        Duration(seconds: 2),
+        Duration(seconds: 4),
+        Duration(seconds: 8),
+        Duration(seconds: 16),
+        Duration(seconds: 30),
+        Duration(seconds: 60),
+      ],
+      maxBackoff: const Duration(seconds: 60),
+      jitter: 0.1,
+    ),
+  );
 
   @LazySingleton()
-  RestGateway provideRestGateway(MailsysApiClient client, BackoffStrategy backoff) => RestGateway(client, backoff: backoff);
+  RestGateway provideRestGateway(
+    MailsysApiClient client,
+    BackoffStrategy backoff,
+  ) => RestGateway(client, backoff: backoff);
 
   @LazySingleton()
   TokenStore provideTokenStore() => InMemoryTokenStore();
 
   @LazySingleton()
-  AccountsRepository provideAccountsRepository(RestGateway gateway, TokenStore tokens) =>
-      AccountsRepositoryImpl(gateway: gateway, tokens: tokens);
+  AccountsRepository provideAccountsRepository(
+    RestGateway gateway,
+    TokenStore tokens,
+  ) => AccountsRepositoryImpl(gateway: gateway, tokens: tokens);
 
   @LazySingleton()
-  ContactsRepository provideContactsRepository(RestGateway gateway, TokenStore tokens) =>
-      ContactsRepositoryImpl(gateway: gateway, tokens: tokens);
+  ContactsRepository provideContactsRepository(
+    RestGateway gateway,
+    TokenStore tokens,
+  ) => ContactsRepositoryImpl(gateway: gateway, tokens: tokens);
 
   @LazySingleton()
-  SignaturesRepository provideSignaturesRepository(RestGateway gateway, TokenStore tokens) =>
-      SignaturesRepositoryImpl(gateway: gateway, tokens: tokens);
+  SignaturesRepository provideSignaturesRepository(
+    RestGateway gateway,
+    TokenStore tokens,
+  ) => SignaturesRepositoryImpl(gateway: gateway, tokens: tokens);
 }
 
 class _JitterBackoffStrategy implements BackoffStrategy {
@@ -58,11 +69,23 @@ class _JitterBackoffStrategy implements BackoffStrategy {
 
 class _NoopApiClient implements MailsysApiClient {
   @override
-  Future<Map<String, dynamic>> get(String path, {Map<String, String>? headers, Map<String, String>? query}) async => {};
+  Future<Map<String, dynamic>> get(
+    String path, {
+    Map<String, String>? headers,
+    Map<String, String>? query,
+  }) async => {};
 
   @override
-  Future<Map<String, dynamic>> post(String path, {Map<String, String>? headers, Object? body}) async => {};
+  Future<Map<String, dynamic>> post(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async => {};
 
   @override
-  Future<Map<String, dynamic>> put(String path, {Map<String, String>? headers, Object? body}) async => {};
+  Future<Map<String, dynamic>> put(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) async => {};
 }

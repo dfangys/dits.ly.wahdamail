@@ -18,6 +18,15 @@ abstract class RenderingModule {
   PreviewCache providePreviewCache() => PreviewCache();
 
   @LazySingleton()
-  MessageRenderingService provideMessageRenderingService(LocalStore store, HtmlSanitizer sanitizer, CidResolver resolver, PreviewCache cache) =>
-      MessageRenderingServiceImpl(store: store, sanitizer: sanitizer, resolver: resolver, cache: cache);
+  MessageRenderingService provideMessageRenderingService(
+    LocalStore store,
+    HtmlSanitizer sanitizer,
+    CidResolver resolver,
+    PreviewCache cache,
+  ) => MessageRenderingServiceImpl(
+    store: store,
+    sanitizer: sanitizer,
+    resolver: resolver,
+    cache: cache,
+  );
 }

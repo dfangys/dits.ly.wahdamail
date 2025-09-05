@@ -5,7 +5,8 @@ class AttachmentRow {
   final int? sizeBytes;
   final String mimeType;
   final String? contentId;
-  final String? cachePath; // optional filesystem cache path; for tests we use in-memory blob map
+  final String?
+  cachePath; // optional filesystem cache path; for tests we use in-memory blob map
 
   const AttachmentRow({
     required this.messageUid,
@@ -26,13 +27,12 @@ class AttachmentRow {
     String? contentId,
     String? cachePath,
   }) => AttachmentRow(
-        messageUid: messageUid ?? this.messageUid,
-        partId: partId ?? this.partId,
-        filename: filename ?? this.filename,
-        sizeBytes: sizeBytes ?? this.sizeBytes,
-        mimeType: mimeType ?? this.mimeType,
-        contentId: contentId ?? this.contentId,
-        cachePath: cachePath ?? this.cachePath,
-      );
+    messageUid: messageUid ?? this.messageUid,
+    partId: partId ?? this.partId,
+    filename: filename ?? this.filename,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    mimeType: mimeType ?? this.mimeType,
+    contentId: contentId ?? this.contentId,
+    cachePath: cachePath ?? this.cachePath,
+  );
 }
-

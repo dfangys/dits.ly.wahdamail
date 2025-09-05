@@ -96,20 +96,20 @@ class _ComposeModalState extends State<ComposeModal>
               icon: const Icon(Icons.close_rounded, size: 18),
               color: theme.colorScheme.onSurface,
               onPressed: () async {
-              if (controller.hasUnsavedChanges) {
-                // Prompt to save
-                final res = await _confirmClose();
-                if (res == 'save') {
-                  await controller.saveAsDraft();
-                  Get.back();
-                } else if (res == 'discard') {
+                if (controller.hasUnsavedChanges) {
+                  // Prompt to save
+                  final res = await _confirmClose();
+                  if (res == 'save') {
+                    await controller.saveAsDraft();
+                    Get.back();
+                  } else if (res == 'discard') {
+                    Get.back();
+                  }
+                } else {
                   Get.back();
                 }
-              } else {
-                Get.back();
-              }
-            },
-          ),
+              },
+            ),
           ),
           // Minimize toggle
           Semantics(
@@ -142,7 +142,9 @@ class _ComposeModalState extends State<ComposeModal>
             label: 'Save',
             child: TextButton.icon(
               onPressed:
-                  controller.isBusy.value ? null : () => controller.saveAsDraft(),
+                  controller.isBusy.value
+                      ? null
+                      : () => controller.saveAsDraft(),
               icon: const Icon(Icons.save_outlined, size: 18),
               label: Text('save_draft'.tr),
             ),
@@ -158,23 +160,23 @@ class _ComposeModalState extends State<ComposeModal>
                     controller.isSending.value
                         ? null
                         : () async {
-                        // Basic validations happen inside controller
-                        await controller.sendEmail();
-                        // controller will close view on success; this dialog will pop due to Get.back()
-                      },
-              icon:
-                  controller.isSending.value
-                      ? SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            theme.colorScheme.onPrimary,
+                          // Basic validations happen inside controller
+                          await controller.sendEmail();
+                          // controller will close view on success; this dialog will pop due to Get.back()
+                        },
+                icon:
+                    controller.isSending.value
+                        ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              theme.colorScheme.onPrimary,
+                            ),
                           ),
-                        ),
-                      )
-                      : const Icon(Icons.send_rounded, size: 18),
+                        )
+                        : const Icon(Icons.send_rounded, size: 18),
                 label: Text('send'.tr),
               ),
             ),

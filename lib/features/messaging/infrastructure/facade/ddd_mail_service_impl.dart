@@ -1,7 +1,9 @@
 import 'package:injectable/injectable.dart';
 import 'package:wahda_bank/features/messaging/application/facade/messaging_facade.dart';
-import 'package:wahda_bank/features/messaging/domain/entities/folder.dart' as dom;
-import 'package:wahda_bank/features/messaging/domain/entities/message.dart' as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/folder.dart'
+    as dom;
+import 'package:wahda_bank/features/messaging/domain/entities/message.dart'
+    as dom;
 import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart';
 
 /// DDD facade implementation that delegates to domain repository
@@ -20,4 +22,3 @@ class DddMailServiceImpl implements MessagingFacade {
     return _repo.fetchInbox(folder: folder, limit: limit, offset: offset);
   }
 }
-

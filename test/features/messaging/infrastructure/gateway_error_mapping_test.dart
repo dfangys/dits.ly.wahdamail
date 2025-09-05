@@ -16,7 +16,9 @@ void main() {
     });
 
     test('maps rate limit', () {
-      final ge = mapImapError(Exception('Maximum number of connections from user+IP exceeded'));
+      final ge = mapImapError(
+        Exception('Maximum number of connections from user+IP exceeded'),
+      );
       expect(ge, isA<RateLimitError>());
     });
 

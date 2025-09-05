@@ -9,7 +9,8 @@ class EmailIdentity {
   @override
   String toString() => name == null ? email : '$name <$email>';
   @override
-  bool operator ==(Object other) => other is EmailIdentity && other.email == email;
+  bool operator ==(Object other) =>
+      other is EmailIdentity && other.email == email;
   @override
   int get hashCode => email.hashCode;
 }

@@ -7,15 +7,31 @@ class AppListTile extends StatelessWidget {
   final Widget? subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
-  const AppListTile({super.key, this.leading, this.title, this.subtitle, this.trailing, this.onTap});
+  const AppListTile({
+    super.key,
+    this.leading,
+    this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return ListTile(
       leading: leading,
-      title: DefaultTextStyle.merge(style: theme.textTheme.titleMedium, child: title ?? const SizedBox.shrink()),
-      subtitle: subtitle == null ? null : DefaultTextStyle.merge(style: theme.textTheme.bodySmall, child: subtitle!),
+      title: DefaultTextStyle.merge(
+        style: theme.textTheme.titleMedium,
+        child: title ?? const SizedBox.shrink(),
+      ),
+      subtitle:
+          subtitle == null
+              ? null
+              : DefaultTextStyle.merge(
+                style: theme.textTheme.bodySmall,
+                child: subtitle!,
+              ),
       trailing: trailing,
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -23,4 +39,3 @@ class AppListTile extends StatelessWidget {
     );
   }
 }
-

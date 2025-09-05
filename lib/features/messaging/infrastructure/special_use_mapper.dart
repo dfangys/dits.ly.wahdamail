@@ -5,11 +5,18 @@ enum SpecialUse { inbox, sent, drafts, trash, junk, archive, other }
 /// Maps server special-use flags (RFC 6154) and allows tenant overrides.
 class SpecialUseMapper {
   final Map<String, SpecialUse> tenantOverrides; // key: folderId or server name
-  SpecialUseMapper({Map<String, SpecialUse>? tenantOverrides}) : tenantOverrides = tenantOverrides ?? const {};
+  SpecialUseMapper({Map<String, SpecialUse>? tenantOverrides})
+    : tenantOverrides = tenantOverrides ?? const {};
 
-  SpecialUse mapFor({required String folderId, List<String> serverFlags = const [], String? serverName}) {
+  SpecialUse mapFor({
+    required String folderId,
+    List<String> serverFlags = const [],
+    String? serverName,
+  }) {
     // Tenant override wins
-    final override = tenantOverrides[folderId] ?? (serverName != null ? tenantOverrides[serverName] : null);
+    final override =
+        tenantOverrides[folderId] ??
+        (serverName != null ? tenantOverrides[serverName] : null);
     if (override != null) {
       _emit(folderId, override);
       return override;
@@ -36,12 +43,10 @@ class SpecialUseMapper {
   void _emit(String folderId, SpecialUse use) {
     // Lightweight telemetry
     try {
-      Telemetry.event('operation', props: {
-        'op': 'SpecialUseMap',
-        'folder_id': folderId,
-        'lat_ms': 0,
-      });
+      Telemetry.event(
+        'operation',
+        props: {'op': 'SpecialUseMap', 'folder_id': folderId, 'lat_ms': 0},
+      );
     } catch (_) {}
   }
 }
-

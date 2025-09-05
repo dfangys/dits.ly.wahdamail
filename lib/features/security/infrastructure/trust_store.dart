@@ -6,7 +6,8 @@ class InMemoryTrustRepository implements TrustRepository {
   final Map<String, TrustLevel> _map = {};
 
   @override
-  Future<TrustLevel> getTrustFor(EmailIdentity identity) async => _map[identity.email] ?? TrustLevel.unknown;
+  Future<TrustLevel> getTrustFor(EmailIdentity identity) async =>
+      _map[identity.email] ?? TrustLevel.unknown;
 
   @override
   Future<void> setTrustFor(EmailIdentity identity, TrustLevel level) async {

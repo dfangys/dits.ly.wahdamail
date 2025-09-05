@@ -20,6 +20,8 @@ abstract class SecurityModule {
   CryptoEngine provideCryptoEngine() => StubCryptoEngine();
 
   @LazySingleton()
-  EncryptionService provideEncryptionService(CryptoEngine engine, KeyringRepository keyring) =>
-      EncryptionService(engine: engine, keyring: keyring);
+  EncryptionService provideEncryptionService(
+    CryptoEngine engine,
+    KeyringRepository keyring,
+  ) => EncryptionService(engine: engine, keyring: keyring);
 }

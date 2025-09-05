@@ -5,9 +5,24 @@ import 'package:wahda_bank/features/rendering/domain/services/message_rendering_
 void main() {
   test('PreviewCache stores/serves and evicts LRU', () {
     final c = PreviewCache(capacity: 2);
-    final a = RenderedContent(sanitizedHtml: 'A', plainText: null, hasRemoteAssets: false, inlineImages: const []);
-    final b = RenderedContent(sanitizedHtml: 'B', plainText: null, hasRemoteAssets: false, inlineImages: const []);
-    final d = RenderedContent(sanitizedHtml: 'D', plainText: null, hasRemoteAssets: false, inlineImages: const []);
+    final a = RenderedContent(
+      sanitizedHtml: 'A',
+      plainText: null,
+      hasRemoteAssets: false,
+      inlineImages: const [],
+    );
+    final b = RenderedContent(
+      sanitizedHtml: 'B',
+      plainText: null,
+      hasRemoteAssets: false,
+      inlineImages: const [],
+    );
+    final d = RenderedContent(
+      sanitizedHtml: 'D',
+      plainText: null,
+      hasRemoteAssets: false,
+      inlineImages: const [],
+    );
 
     c.put('a', a);
     c.put('b', b);

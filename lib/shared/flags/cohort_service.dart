@@ -15,4 +15,3 @@ class CohortService {
 
   bool inCohort(String email, int percent) => (djb2Hash(email) % 100) < percent;
 }
-

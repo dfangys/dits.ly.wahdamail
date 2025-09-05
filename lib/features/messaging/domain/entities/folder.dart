@@ -34,4 +34,3 @@ class Folder {
   int get hashCode =>
       Object.hash(id, name, isInbox, isSent, isDrafts, isTrash, isSpam);
 }
-

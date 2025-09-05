@@ -12,9 +12,13 @@ class Token {
   bool isExpiredAt(DateTime now) => !now.isBefore(expiresAt);
   bool get isExpired => isExpiredAt(DateTime.now());
 
-  Token copyWith({String? accessToken, String? refreshToken, DateTime? expiresAt}) => Token(
-        accessToken: accessToken ?? this.accessToken,
-        refreshToken: refreshToken ?? this.refreshToken,
-        expiresAt: expiresAt ?? this.expiresAt,
-      );
+  Token copyWith({
+    String? accessToken,
+    String? refreshToken,
+    DateTime? expiresAt,
+  }) => Token(
+    accessToken: accessToken ?? this.accessToken,
+    refreshToken: refreshToken ?? this.refreshToken,
+    expiresAt: expiresAt ?? this.expiresAt,
+  );
 }

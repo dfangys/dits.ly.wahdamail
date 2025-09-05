@@ -29,7 +29,10 @@ class ComposeToolbar extends StatelessWidget {
                 () => _buildToolbarButton(
                   context,
                   icon: controller.isHtml.isTrue ? Icons.code_off : Icons.code,
-                  label: controller.isHtml.isTrue ? 'plain_text'.tr : 'rich_text'.tr,
+                  label:
+                      controller.isHtml.isTrue
+                          ? 'plain_text'.tr
+                          : 'rich_text'.tr,
                   onTap: () => controller.togglePlainHtml(),
                   isActive: controller.isHtml.isTrue,
                 ),
@@ -53,37 +56,40 @@ class ComposeToolbar extends StatelessWidget {
               ),
               const ToolbarSpacer.md(),
               Obx(
-                () => controller.hasUnsavedChanges
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.secondary.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.edit_outlined,
-                              size: 12,
-                              color: theme.colorScheme.secondary,
+                () =>
+                    controller.hasUnsavedChanges
+                        ? Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondary.withValues(
+                              alpha: 0.2,
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'draft'.tr,
-                              style: theme.textTheme.bodySmall?.copyWith(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.edit_outlined,
+                                size: 12,
                                 color: theme.colorScheme.secondary,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
                               ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : const SizedBox(),
+                              const SizedBox(width: 4),
+                              Text(
+                                'draft'.tr,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.secondary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                        : const SizedBox(),
               ),
             ],
           ),
@@ -110,17 +116,24 @@ class ComposeToolbar extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: Tokens.space4, vertical: Tokens.space3),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Tokens.space4,
+              vertical: Tokens.space3,
+            ),
             decoration: BoxDecoration(
-              color: isActive
-                  ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                  : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              color:
+                  isActive
+                      ? theme.colorScheme.primary.withValues(alpha: 0.1)
+                      : theme.colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.5,
+                      ),
               borderRadius: BorderRadius.circular(Tokens.radiusSm),
-              border: isActive
-                  ? Border.all(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                    )
-                  : null,
+              border:
+                  isActive
+                      ? Border.all(
+                        color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                      )
+                      : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -128,17 +141,19 @@ class ComposeToolbar extends StatelessWidget {
                 Icon(
                   icon,
                   size: 16,
-                  color: isActive
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
+                  color:
+                      isActive
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   label,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: isActive
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant,
+                    color:
+                        isActive
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

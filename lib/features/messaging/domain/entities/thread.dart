@@ -2,7 +2,8 @@
 class Thread {
   final String id;
   final String subject;
-  final List<String> messageIds; // ordered by date asc or desc (unspecified here)
+  final List<String>
+  messageIds; // ordered by date asc or desc (unspecified here)
 
   const Thread({
     required this.id,
@@ -43,4 +44,3 @@ class Thread {
     return hash;
   }
 }
-

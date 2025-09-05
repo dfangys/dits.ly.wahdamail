@@ -31,7 +31,11 @@ void main() {
       expect(next?.id, 'q1');
 
       await repo.markSending('q1');
-      await repo.markFailed(id: 'q1', errorClass: 'TransientNetworkError', retryAt: DateTime.now().add(const Duration(minutes: 1)));
+      await repo.markFailed(
+        id: 'q1',
+        errorClass: 'TransientNetworkError',
+        retryAt: DateTime.now().add(const Duration(minutes: 1)),
+      );
       final failed = await repo.listByStatus(OutboxStatus.failed);
       expect(failed, isNotEmpty);
 
@@ -41,4 +45,3 @@ void main() {
     });
   });
 }
-

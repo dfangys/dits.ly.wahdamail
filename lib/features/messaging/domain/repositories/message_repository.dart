@@ -47,4 +47,3 @@ abstract class MessageRepository {
     required SearchQuery q,
   });
 }
-

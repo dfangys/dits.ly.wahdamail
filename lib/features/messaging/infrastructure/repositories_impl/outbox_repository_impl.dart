@@ -8,49 +8,57 @@ class OutboxRepositoryImpl implements OutboxRepository {
   OutboxRepositoryImpl(this.dao);
 
   static String _statusToStr(OutboxStatus s) => switch (s) {
-        OutboxStatus.queued => 'queued',
-        OutboxStatus.sending => 'sending',
-        OutboxStatus.sent => 'sent',
-        OutboxStatus.failed => 'failed',
-      };
+    OutboxStatus.queued => 'queued',
+    OutboxStatus.sending => 'sending',
+    OutboxStatus.sent => 'sent',
+    OutboxStatus.failed => 'failed',
+  };
 
   static OutboxStatus _strToStatus(String s) => switch (s) {
-        'queued' => OutboxStatus.queued,
-        'sending' => OutboxStatus.sending,
-        'sent' => OutboxStatus.sent,
-        _ => OutboxStatus.failed,
-      };
+    'queued' => OutboxStatus.queued,
+    'sending' => OutboxStatus.sending,
+    'sent' => OutboxStatus.sent,
+    _ => OutboxStatus.failed,
+  };
 
   static OutboxRow _toRow(OutboxItem i) => OutboxRow(
-        id: i.id,
-        accountId: i.accountId,
-        folderId: i.folderId,
-        messageId: i.messageId,
-        attemptCount: i.attemptCount,
-        status: _statusToStr(i.status),
-        lastErrorClass: i.lastErrorClass,
-        retryAtEpochMs: i.retryAt?.millisecondsSinceEpoch,
-        createdAtEpochMs: i.createdAt.millisecondsSinceEpoch,
-        updatedAtEpochMs: i.updatedAt.millisecondsSinceEpoch,
-      );
+    id: i.id,
+    accountId: i.accountId,
+    folderId: i.folderId,
+    messageId: i.messageId,
+    attemptCount: i.attemptCount,
+    status: _statusToStr(i.status),
+    lastErrorClass: i.lastErrorClass,
+    retryAtEpochMs: i.retryAt?.millisecondsSinceEpoch,
+    createdAtEpochMs: i.createdAt.millisecondsSinceEpoch,
+    updatedAtEpochMs: i.updatedAt.millisecondsSinceEpoch,
+  );
 
   static OutboxItem _toDomain(OutboxRow r) => OutboxItem(
-        id: r.id,
-        accountId: r.accountId,
-        folderId: r.folderId,
-        messageId: r.messageId,
-        attemptCount: r.attemptCount,
-        status: _strToStatus(r.status),
-        lastErrorClass: r.lastErrorClass,
-        retryAt: r.retryAtEpochMs == null ? null : DateTime.fromMillisecondsSinceEpoch(r.retryAtEpochMs!),
-        createdAt: DateTime.fromMillisecondsSinceEpoch(r.createdAtEpochMs),
-        updatedAt: DateTime.fromMillisecondsSinceEpoch(r.updatedAtEpochMs),
-      );
+    id: r.id,
+    accountId: r.accountId,
+    folderId: r.folderId,
+    messageId: r.messageId,
+    attemptCount: r.attemptCount,
+    status: _strToStatus(r.status),
+    lastErrorClass: r.lastErrorClass,
+    retryAt:
+        r.retryAtEpochMs == null
+            ? null
+            : DateTime.fromMillisecondsSinceEpoch(r.retryAtEpochMs!),
+    createdAt: DateTime.fromMillisecondsSinceEpoch(r.createdAtEpochMs),
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(r.updatedAtEpochMs),
+  );
 
   @override
   Future<OutboxItem> enqueue(OutboxItem item) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final row = _toRow(item.copyWith(createdAt: DateTime.fromMillisecondsSinceEpoch(now), updatedAt: DateTime.fromMillisecondsSinceEpoch(now)));
+    final row = _toRow(
+      item.copyWith(
+        createdAt: DateTime.fromMillisecondsSinceEpoch(now),
+        updatedAt: DateTime.fromMillisecondsSinceEpoch(now),
+      ),
+    );
     final stored = await dao.enqueue(row);
     return _toDomain(stored);
   }
@@ -62,7 +70,11 @@ class OutboxRepositoryImpl implements OutboxRepository {
   }
 
   @override
-  Future<void> markFailed({required String id, required String errorClass, required DateTime retryAt}) async {
+  Future<void> markFailed({
+    required String id,
+    required String errorClass,
+    required DateTime retryAt,
+  }) async {
     final row = await dao.getById(id);
     if (row == null) return;
     final updated = row.copyWith(
@@ -103,4 +115,3 @@ class OutboxRepositoryImpl implements OutboxRepository {
     return row == null ? null : _toDomain(row);
   }
 }
-

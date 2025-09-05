@@ -8,12 +8,16 @@ import 'package:wahda_bank/shared/flags/cohort_service.dart';
 import 'package:wahda_bank/shared/telemetry/tracing.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 
-const MethodChannel _pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+const MethodChannel _pathProviderChannel = MethodChannel(
+  'plugins.flutter.io/path_provider',
+);
 
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    _pathProviderChannel.setMockMethodCallHandler((MethodCall methodCall) async {
+    _pathProviderChannel.setMockMethodCallHandler((
+      MethodCall methodCall,
+    ) async {
       return '/tmp';
     });
     await GetStorage.init();
@@ -37,9 +41,7 @@ void main() {
     await box.write('ddd.search.enabled', false);
 
     // Remote override enables search
-    await box.write('remote.flags.payload', {
-      'ddd.search.enabled': true,
-    });
+    await box.write('remote.flags.payload', {'ddd.search.enabled': true});
     await GetIt.I<RemoteFlags>().load();
 
     // Without kill-switch, remote wins
@@ -58,30 +60,32 @@ void main() {
     expect(a, b);
   });
 
-  test('Tracing spans no-op by default; can be enabled in tests and propagate request_id', () async {
-    final events = <Map<String, Object?>>[];
-    Telemetry.onEvent = (name, props) {
-      if (name == 'span') events.add(props);
-    };
+  test(
+    'Tracing spans no-op by default; can be enabled in tests and propagate request_id',
+    () async {
+      final events = <Map<String, Object?>>[];
+      Telemetry.onEvent = (name, props) {
+        if (name == 'span') events.add(props);
+      };
 
-    // Default off
-    final s1 = Tracing.startSpan('TestSpan', attrs: {'request_id': 'req-1'});
-    Tracing.end(s1);
-    expect(events.isEmpty, isTrue);
+      // Default off
+      final s1 = Tracing.startSpan('TestSpan', attrs: {'request_id': 'req-1'});
+      Tracing.end(s1);
+      expect(events.isEmpty, isTrue);
 
-    // Enable for tests
-    Tracing.enableForTests(true);
-    final s2 = Tracing.startSpan('TestSpan', attrs: {'request_id': 'req-2'});
-    await Future<void>.delayed(const Duration(milliseconds: 1));
-    Tracing.end(s2);
+      // Enable for tests
+      Tracing.enableForTests(true);
+      final s2 = Tracing.startSpan('TestSpan', attrs: {'request_id': 'req-2'});
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      Tracing.end(s2);
 
-    expect(events.isNotEmpty, isTrue);
-    expect(events.last['span'], 'TestSpan');
-    expect(events.last['request_id'], 'req-2');
+      expect(events.isNotEmpty, isTrue);
+      expect(events.last['span'], 'TestSpan');
+      expect(events.last['request_id'], 'req-2');
 
-    // Reset
-    Tracing.enableForTests(false);
-    Telemetry.onEvent = null;
-  });
+      // Reset
+      Tracing.enableForTests(false);
+      Telemetry.onEvent = null;
+    },
+  );
 }
-

@@ -4,8 +4,7 @@ class EmailAddress {
   final String name; // display name; may be empty
   final String email; // normalized lowercase email
 
-  EmailAddress(this.name, String email)
-      : email = email.trim().toLowerCase() {
+  EmailAddress(this.name, String email) : email = email.trim().toLowerCase() {
     if (!_isValidEmail(this.email)) {
       throw ArgumentError('Invalid email address: $email');
     }
@@ -26,4 +25,3 @@ class EmailAddress {
   @override
   int get hashCode => Object.hash(name, email);
 }
-

@@ -689,7 +689,7 @@ class MailAttachments extends StatelessWidget {
                 );
               }
               // No cached content -> show error UI
-      return Center(
+              return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -713,7 +713,10 @@ class MailAttachments extends StatelessWidget {
                         label: 'Retry',
                         button: true,
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(minWidth: 88, minHeight: 44),
+                          constraints: const BoxConstraints(
+                            minWidth: 88,
+                            minHeight: 44,
+                          ),
                           child: ElevatedButton(
                             onPressed: () => Get.forceAppUpdate(),
                             child: const Text('Retry'),
@@ -860,12 +863,18 @@ class MailAttachments extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.primary.withValues(alpha: 0.05),
-        border: Border.all(color: theme.colorScheme.primary.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.2),
+        ),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
-          Icon(Icons.wifi_off_rounded, color: theme.colorScheme.primary, size: 20),
+          Icon(
+            Icons.wifi_off_rounded,
+            color: theme.colorScheme.primary,
+            size: 20,
+          ),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
@@ -983,7 +992,10 @@ class _AttachmentTileState extends State<AttachmentTile> {
                       label: 'Open/Preview',
                       button: true,
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
                         child: IconButton(
                           icon: const Icon(Icons.download_rounded),
                           onPressed: () => _handleAttachmentTap(context),
@@ -997,7 +1009,10 @@ class _AttachmentTileState extends State<AttachmentTile> {
                       label: 'Share',
                       button: true,
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
                         child: IconButton(
                           icon: const Icon(Icons.share_rounded),
                           onPressed: () => _handleShareAttachment(context),
@@ -1166,12 +1181,10 @@ class _AttachmentTileState extends State<AttachmentTile> {
         await OpenAppFile.open(cacheFile.path);
 
         // Show success message
-      if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Opening $fileName'),
-            ),
-          );
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Opening $fileName')));
         }
         return true;
       } catch (e) {
@@ -1207,9 +1220,7 @@ class _AttachmentTileState extends State<AttachmentTile> {
               // Show success message
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Opening $fileName from Downloads'),
-                  ),
+                  SnackBar(content: Text('Opening $fileName from Downloads')),
                 );
               }
               return true;
@@ -1222,10 +1233,7 @@ class _AttachmentTileState extends State<AttachmentTile> {
                   SnackBar(
                     content: Text('File saved to ${downloadFile.path}'),
                     duration: const Duration(seconds: 5),
-                    action: SnackBarAction(
-                      label: 'OK',
-                      onPressed: () {},
-                    ),
+                    action: SnackBarAction(label: 'OK', onPressed: () {}),
                   ),
                 );
               }

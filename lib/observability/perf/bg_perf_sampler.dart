@@ -7,7 +7,8 @@ import 'package:wahda_bank/shared/logging/telemetry.dart';
 /// and always measures wall-clock latency. Emits a single telemetry event on stop().
 /// Fields: op, latency_ms, jank_frames, total_frames, dropped_pct, request_id (optional)
 class BgPerfSampler {
-  final String opName; // e.g. "idle_loop", "fetch_headers_batch", "bg_fetch_ios_cycle", "reconnect_window"
+  final String
+  opName; // e.g. "idle_loop", "fetch_headers_batch", "bg_fetch_ios_cycle", "reconnect_window"
   final String? requestId;
 
   static const double _frameBudgetMs = 16.67; // 60Hz
@@ -45,7 +46,8 @@ class BgPerfSampler {
 
   Map<String, Object?> buildSummary() {
     final durMs = DateTime.now().difference(_startAt).inMilliseconds;
-    final totalFrames = _frames.isNotEmpty ? _frames.length : _syntheticFrameMs.length;
+    final totalFrames =
+        _frames.isNotEmpty ? _frames.length : _syntheticFrameMs.length;
     int jank = 0;
     if (_frames.isNotEmpty) {
       for (final f in _frames) {

@@ -11,13 +11,17 @@ import 'package:wahda_bank/widgets/search/controllers/mail_search_controller.dar
 import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 
-const MethodChannel _pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+const MethodChannel _pathProviderChannel = MethodChannel(
+  'plugins.flutter.io/path_provider',
+);
 
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     // Mock path_provider for GetStorage in tests
-    _pathProviderChannel.setMockMethodCallHandler((MethodCall methodCall) async {
+    _pathProviderChannel.setMockMethodCallHandler((
+      MethodCall methodCall,
+    ) async {
       switch (methodCall.method) {
         case 'getApplicationDocumentsDirectory':
         case 'getApplicationSupportDirectory':
@@ -87,7 +91,11 @@ void main() {
     final compose = ComposeController();
     final vm = getIt<ComposeViewModel>();
     final msg = MimeMessage();
-    final ok = await vm.send(controller: compose, builtMessage: msg, requestId: 'req');
+    final ok = await vm.send(
+      controller: compose,
+      builtMessage: msg,
+      requestId: 'req',
+    );
     expect(ok, isA<bool>());
   });
 
@@ -99,8 +107,11 @@ void main() {
     final compose = ComposeController();
     final vm = getIt<ComposeViewModel>();
     final msg = MimeMessage();
-    final ok = await vm.send(controller: compose, builtMessage: msg, requestId: 'req');
+    final ok = await vm.send(
+      controller: compose,
+      builtMessage: msg,
+      requestId: 'req',
+    );
     expect(ok, isA<bool>());
   });
 }
-

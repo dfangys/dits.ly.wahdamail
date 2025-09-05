@@ -21,12 +21,20 @@ class MessageFlagChanged {
   final String messageId;
   final String folderId;
   final bool seen;
-  const MessageFlagChanged({required this.messageId, required this.folderId, required this.seen});
+  const MessageFlagChanged({
+    required this.messageId,
+    required this.folderId,
+    required this.seen,
+  });
 }
 
 class SyncFailed {
   final String accountId;
   final String folderId;
   final String reason;
-  const SyncFailed({required this.accountId, required this.folderId, required this.reason});
+  const SyncFailed({
+    required this.accountId,
+    required this.folderId,
+    required this.reason,
+  });
 }

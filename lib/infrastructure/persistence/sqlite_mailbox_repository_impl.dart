@@ -14,7 +14,11 @@ class SqliteMailboxRepositoryImpl implements IMailboxRepository {
   }
 
   @override
-  Future<List<Email>> loadMailbox(MailboxId mailboxId, {int page = 1, int pageSize = 50}) async {
+  Future<List<Email>> loadMailbox(
+    MailboxId mailboxId, {
+    int page = 1,
+    int pageSize = 50,
+  }) async {
     return const <Email>[];
   }
 

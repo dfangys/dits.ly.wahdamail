@@ -23,7 +23,8 @@ class ListPerfSampler {
   final List<FrameTiming> _frames = <FrameTiming>[];
   final List<double> _velocities = <double>[]; // px/s
   final List<_Sample> _samples = <_Sample>[]; // for velocity derivation
-  final List<double> _syntheticFrameMs = <double>[]; // test-only frames when real timings unavailable
+  final List<double> _syntheticFrameMs =
+      <double>[]; // test-only frames when real timings unavailable
   VoidCallback? _scrollListener;
   TimingsCallback? _timingsCallback;
 
@@ -91,7 +92,8 @@ class ListPerfSampler {
   /// Build the telemetry map without emitting (useful for tests and scripts)
   Map<String, Object?> buildSummary() {
     final durMs = DateTime.now().difference(_startAt).inMilliseconds;
-    final totalFrames = _frames.isNotEmpty ? _frames.length : _syntheticFrameMs.length;
+    final totalFrames =
+        _frames.isNotEmpty ? _frames.length : _syntheticFrameMs.length;
     int jankFrames = 0;
     if (_frames.isNotEmpty) {
       for (final f in _frames) {
@@ -104,10 +106,12 @@ class ListPerfSampler {
         if (ms > _frameBudgetMs) jankFrames++;
       }
     }
-    final droppedPct = totalFrames == 0 ? 0.0 : (jankFrames / totalFrames) * 100.0;
+    final droppedPct =
+        totalFrames == 0 ? 0.0 : (jankFrames / totalFrames) * 100.0;
 
     // Use median velocity to reduce outliers impact
-    final medianVelocity = _velocities.isEmpty ? 0.0 : _percentile(_velocities, 50);
+    final medianVelocity =
+        _velocities.isEmpty ? 0.0 : _percentile(_velocities, 50);
 
     return <String, Object?>{
       'op': opName,
@@ -153,4 +157,3 @@ class _Sample {
   final double offset;
   _Sample({required this.timeMicros, required this.offset});
 }
-

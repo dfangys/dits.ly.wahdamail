@@ -20,7 +20,8 @@ class JitterBackoff {
   }) : _rng = rng ?? Random();
 
   Duration forAttempt(int attempt) {
-    final idx = attempt < baseSchedule.length ? attempt : baseSchedule.length - 1;
+    final idx =
+        attempt < baseSchedule.length ? attempt : baseSchedule.length - 1;
     var base = baseSchedule[idx];
     if (base > maxBackoff) base = maxBackoff;
     final jitterMillis = (base.inMilliseconds * jitter).round();
@@ -28,4 +29,3 @@ class JitterBackoff {
     return Duration(milliseconds: base.inMilliseconds + delta);
   }
 }
-

@@ -28,10 +28,17 @@ import 'package:wahda_bank/features/messaging/infrastructure/flags/flag_conflict
 @module
 abstract class MessagingModule {
   @LazySingleton()
-  MessageRepository provideMessageRepository(ImapGateway gateway, LocalStore store) {
+  MessageRepository provideMessageRepository(
+    ImapGateway gateway,
+    LocalStore store,
+  ) {
     final box = GetStorage();
     final accountId = (box.read('email') as String?) ?? 'default-account';
-    return wireMessageRepository(gateway: gateway, store: store, accountId: accountId);
+    return wireMessageRepository(
+      gateway: gateway,
+      store: store,
+      accountId: accountId,
+    );
   }
 
   @LazySingleton()
@@ -48,7 +55,8 @@ abstract class MessagingModule {
   MimeDecoder provideMimeDecoder() => MimeDecoder();
 
   @LazySingleton()
-  UidWindowSync provideUidWindowSync(ImapGateway gateway, LocalStore store) => UidWindowSync(gateway: gateway, store: store);
+  UidWindowSync provideUidWindowSync(ImapGateway gateway, LocalStore store) =>
+      UidWindowSync(gateway: gateway, store: store);
 
   @LazySingleton()
   FlagConflictResolver provideFlagConflictResolver() => FlagConflictResolver();
@@ -87,10 +95,12 @@ abstract class MessagingModule {
   DraftDao provideDraftDao() => InMemoryDraftDao();
 
   @LazySingleton()
-  OutboxRepository provideOutboxRepository(OutboxDao dao) => OutboxRepositoryImpl(dao);
+  OutboxRepository provideOutboxRepository(OutboxDao dao) =>
+      OutboxRepositoryImpl(dao);
 
   @LazySingleton()
-  DraftRepository provideDraftRepository(DraftDao dao) => DraftRepositoryImpl(dao);
+  DraftRepository provideDraftRepository(DraftDao dao) =>
+      DraftRepositoryImpl(dao);
 
   @LazySingleton()
   SmtpGateway provideSmtpGateway() => EnoughSmtpGateway();
@@ -100,23 +110,38 @@ abstract class MessagingModule {
 class LegacyMessageRepositoryFacade implements MessageRepository {
   const LegacyMessageRepositoryFacade();
   @override
-  Future<List<Attachment>> listAttachments({required Folder folder, required String messageId}) async =>
-      throw UnsupportedError('legacy facade');
+  Future<List<Attachment>> listAttachments({
+    required Folder folder,
+    required String messageId,
+  }) async => throw UnsupportedError('legacy facade');
   @override
-  Future<Message> fetchMessageBody({required Folder folder, required String messageId}) async =>
-      throw UnsupportedError('legacy facade');
+  Future<Message> fetchMessageBody({
+    required Folder folder,
+    required String messageId,
+  }) async => throw UnsupportedError('legacy facade');
   @override
-  Future<List<Message>> fetchInbox({required Folder folder, int limit = 50, int offset = 0}) async =>
-      throw UnsupportedError('legacy facade');
+  Future<List<Message>> fetchInbox({
+    required Folder folder,
+    int limit = 50,
+    int offset = 0,
+  }) async => throw UnsupportedError('legacy facade');
   @override
-  Future<void> markRead({required Folder folder, required String messageId, required bool read}) async =>
-      throw UnsupportedError('legacy facade');
+  Future<void> markRead({
+    required Folder folder,
+    required String messageId,
+    required bool read,
+  }) async => throw UnsupportedError('legacy facade');
   @override
-  Future<List<int>> downloadAttachment({required Folder folder, required String messageId, required String partId}) async =>
-      throw UnsupportedError('legacy facade');
+  Future<List<int>> downloadAttachment({
+    required Folder folder,
+    required String messageId,
+    required String partId,
+  }) async => throw UnsupportedError('legacy facade');
   @override
-  Future<List<SearchResult>> search({required String accountId, required SearchQuery q}) async =>
-      throw UnsupportedError('legacy facade');
+  Future<List<SearchResult>> search({
+    required String accountId,
+    required SearchQuery q,
+  }) async => throw UnsupportedError('legacy facade');
 }
 
 // Internal test override to avoid GetStorage in unit tests
@@ -125,7 +150,11 @@ void setKillSwitchOverrideForTests(bool? value) {
   _killSwitchOverrideForTests = value;
 }
 
-MessageRepository wireMessageRepository({required ImapGateway gateway, required LocalStore store, String? accountId}) {
+MessageRepository wireMessageRepository({
+  required ImapGateway gateway,
+  required LocalStore store,
+  String? accountId,
+}) {
   if (_killSwitchOverrideForTests == true) {
     return const LegacyMessageRepositoryFacade();
   }
@@ -136,6 +165,8 @@ MessageRepository wireMessageRepository({required ImapGateway gateway, required 
   } catch (_) {
     // If FeatureFlags storage is not available, default to normal binding
   }
-  final acc = accountId ?? ((GetStorage().read('email') as String?) ?? 'default-account');
+  final acc =
+      accountId ??
+      ((GetStorage().read('email') as String?) ?? 'default-account');
   return ImapMessageRepository(accountId: acc, gateway: gateway, store: store);
 }

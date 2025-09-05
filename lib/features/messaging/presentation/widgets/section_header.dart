@@ -22,10 +22,11 @@ class SectionHeader extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           softWrap: false,
-          style: theme.textTheme.titleSmall?.copyWith(color: theme.textTheme.bodySmall?.color),
+          style: theme.textTheme.titleSmall?.copyWith(
+            color: theme.textTheme.bodySmall?.color,
+          ),
         ),
       ),
     );
   }
 }
-

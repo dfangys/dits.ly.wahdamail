@@ -23,4 +23,3 @@ void main(List<String> args) {
   final cohort = inCohort(email, p);
   print('email=$email hash=$h cohortPercent=$p inCohort=$cohort');
 }
-

@@ -8,7 +8,14 @@ class MailboxListItem extends StatelessWidget {
   final Widget? subtitle;
   final Widget? trailing;
   final VoidCallback? onTap;
-  const MailboxListItem({super.key, required this.leading, required this.title, this.subtitle, this.trailing, this.onTap});
+  const MailboxListItem({
+    super.key,
+    required this.leading,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -25,11 +32,11 @@ class MailboxListItem extends StatelessWidget {
             subtitle == null
                 ? null
                 : DefaultTextStyle.merge(
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    softWrap: true,
-                    child: subtitle!,
-                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
+                  child: subtitle!,
+                ),
         trailing: trailing,
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(
@@ -41,4 +48,3 @@ class MailboxListItem extends StatelessWidget {
     );
   }
 }
-

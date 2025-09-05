@@ -5,7 +5,11 @@ class BudgetMetrics {
   final Map<String, List<int>> latenciesByOp;
   final int searchSuccess;
   final int searchFailure;
-  BudgetMetrics({required this.latenciesByOp, required this.searchSuccess, required this.searchFailure});
+  BudgetMetrics({
+    required this.latenciesByOp,
+    required this.searchSuccess,
+    required this.searchFailure,
+  });
 
   double percentile(String op, int p) {
     final xs = latenciesByOp[op] ?? const <int>[];
@@ -51,7 +55,8 @@ BudgetMetrics parseTelemetryLines(Iterable<String> lines) {
     }
 
     // latency: prefer latency_ms, then lat_ms, then ms
-    final latMatch = RegExp(r"latency_ms:\s*(\d+)").firstMatch(line) ??
+    final latMatch =
+        RegExp(r"latency_ms:\s*(\d+)").firstMatch(line) ??
         RegExp(r"lat_ms:\s*(\d+)").firstMatch(line) ??
         RegExp(r"ms:\s*(\d+)").firstMatch(line);
     if (latMatch != null) lat = int.tryParse(latMatch.group(1)!);
@@ -79,6 +84,9 @@ BudgetMetrics parseTelemetryLines(Iterable<String> lines) {
     }
   }
 
-  return BudgetMetrics(latenciesByOp: latencies, searchSuccess: searchSuccess, searchFailure: searchFailure);
+  return BudgetMetrics(
+    latenciesByOp: latencies,
+    searchSuccess: searchSuccess,
+    searchFailure: searchFailure,
+  );
 }
-

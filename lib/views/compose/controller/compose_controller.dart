@@ -1219,13 +1219,15 @@ class ComposeController extends GetxController {
   Future<void> sendEmail() async {
     if (isBusy.value || isSending.value) return;
 
-    final _req = 'req-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(0x7fffffff)}';
+    final _req =
+        'req-${DateTime.now().microsecondsSinceEpoch}-${math.Random().nextInt(0x7fffffff)}';
     final _sw = Stopwatch()..start();
     try {
       // Telemetry: send attempt
       try {
         final acct = MailService.instance.account.email;
-        final folderId = sourceMailbox?.encodedPath ?? sourceMailbox?.name ?? 'INBOX';
+        final folderId =
+            sourceMailbox?.encodedPath ?? sourceMailbox?.name ?? 'INBOX';
         Telemetry.event(
           'send_attempt',
           props: {
