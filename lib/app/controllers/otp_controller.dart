@@ -11,9 +11,9 @@ import 'package:otp_autofill/otp_autofill.dart';
 import 'package:otp_text_field/otp_text_field.dart';
 import 'package:telephony/telephony.dart';
 import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
-import 'package:wahda_bank/views/authantication/screens/login/login.dart';
-import 'package:wahda_bank/views/authantication/screens/otp/enter_otp/enter_otp.dart';
-import 'package:wahda_bank/views/view/screens/first_loading_view.dart';
+import 'package:wahda_bank/features/auth/presentation/screens/login/login.dart';
+import 'package:wahda_bank/features/auth/presentation/screens/otp/enter_otp/enter_otp.dart';
+import 'package:wahda_bank/features/app/presentation/screens/first_loading_view.dart';
 
 class OtpController extends GetxController {
   final MailsysApiClient api = Get.find<MailsysApiClient>();

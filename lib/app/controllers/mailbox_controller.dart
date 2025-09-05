@@ -29,11 +29,11 @@ import 'package:wahda_bank/features/messaging/presentation/screens/compose/redes
 import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/show_message.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/show_message_pager.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/mailbox/mailbox_view.dart';
-import 'package:wahda_bank/views/settings/data/swap_data.dart';
+import 'package:wahda_bank/features/settings/presentation/data/swap_data.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/app/constants/app_constants.dart';
-import '../../views/authantication/screens/login/login.dart';
+import 'package:wahda_bank/features/auth/presentation/screens/login/login.dart';
 import 'package:wahda_bank/services/imap_command_queue.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';

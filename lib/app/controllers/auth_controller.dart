@@ -3,7 +3,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:logger/logger.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:wahda_bank/services/mail_service.dart';
-import 'package:wahda_bank/views/authantication/screens/login/login.dart';
+import 'package:wahda_bank/features/auth/presentation/screens/login/login.dart';
 
 /// Controller responsible for authentication-related operations
 class AuthController extends GetxController {

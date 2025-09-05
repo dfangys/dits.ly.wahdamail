@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get/get.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
-import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
-import 'package:wahda_bank/views/compose/widgets/text_field.dart';
+import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/screens/compose/widgets/text_field.dart';
 import 'dart:ui';
 
 class WComposeView extends StatelessWidget {

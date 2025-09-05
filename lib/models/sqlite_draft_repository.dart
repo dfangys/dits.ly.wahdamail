@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
-import 'package:wahda_bank/views/compose/models/draft_model.dart';
+import 'package:wahda_bank/features/messaging/presentation/models/draft_model.dart';
 
 import 'sqlite_database_helper.dart';
 

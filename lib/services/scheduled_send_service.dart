@@ -7,7 +7,7 @@ import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/models/sqlite_draft_repository.dart';
-import 'package:wahda_bank/views/compose/models/draft_model.dart';
+import 'package:wahda_bank/features/messaging/presentation/models/draft_model.dart';
 
 /// Foreground scheduled-send service.
 ///

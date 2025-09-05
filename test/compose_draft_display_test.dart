@@ -4,9 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
-import 'package:wahda_bank/views/compose/models/draft_model.dart';
+import 'package:wahda_bank/features/messaging/presentation/models/draft_model.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/redesigned_compose_screen.dart';
-import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
 
 // ignore_for_file: must_call_super
 

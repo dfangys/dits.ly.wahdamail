@@ -8,7 +8,7 @@ import 'package:get/get.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/widgets/search/controllers/mail_search_controller.dart';
-import 'package:wahda_bank/views/compose/controller/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 
 const MethodChannel _pathProviderChannel = MethodChannel(
