@@ -17,6 +17,7 @@ import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:injectable/injectable.dart';
 import 'package:get_it/get_it.dart';
 import 'package:wahda_bank/features/auth/application/auth_usecase.dart';
+import 'package:wahda_bank/shared/config/app_config.dart';
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,15 +47,20 @@ Future main() async {
   await configureDependencies(env: Environment.dev);
   assert(GetIt.I.isRegistered<MailsysApiClient>(), 'MailsysApiClient not registered');
   assert(GetIt.I.isRegistered<AuthUseCase>(), 'AuthUseCase not registered');
+  final cfg = GetIt.I<AppConfig>();
+  debugPrint('[DI] apiBaseUrl=${cfg.apiBaseUrl}');
+  assert(Uri.tryParse(cfg.apiBaseUrl)?.hasAuthority == true, 'Bad API_BASE_URL');
   debugPrint('[DI] ready: MailsysApiClient=' + GetIt.I.isRegistered<MailsysApiClient>().toString() + ', AuthUseCase=' + GetIt.I.isRegistered<AuthUseCase>().toString());
 
   await NotificationService.instance.setup();
 
   // Configure MailSys API client early (pre-auth token & base URL)
   try {
-    final api = Get.put(MailsysApiClient(), permanent: true);
+    // Use DI-managed instance; optionally register into GetX for callers using Get.find
+    final api = GetIt.I<MailsysApiClient>();
+    try { Get.put<MailsysApiClient>(api, permanent: true); } catch (_) {}
     await api.configure(
-      baseUrl: ApiConfig.baseUrl,
+      baseUrl: cfg.apiBaseUrl,
       appToken: ApiConfig.appToken,
     );
   } catch (e) {

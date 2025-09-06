@@ -1,0 +1,70 @@
+{
+  "phase": "P31.6c",
+  "title": "DI registration for MailsysApiClient + startup diagnostics (no behavior change)",
+  "branch": "feat/p31-6c-di-register-client-and-diagnostics",
+  "goal": "Ensure MailsysApiClient is registered before AuthUseCase and verify via startup diagnostics on a cold boot.",
+  "checks": [
+    "Open lib/shared/di/injection.config.dart and confirm an entry like: gh.lazySingleton<MailsysApiClient>(() => MailsysApiClient());",
+    "If missing, create lib/shared/di/modules/api_module.dart with a @module that @lazySingleton provides MailsysApiClient, and include that module in InjectableInit.",
+    "Standardize to exactly one GetIt container: use `final getIt = GetIt.instance;` imported from injection.dart everywhere. No `GetIt.instance()` calls.",
+    "In main.dart, await configureDependencies(...) BEFORE runApp().",
+    "Add startup asserts: assert(GetIt.I.isRegistered<MailsysApiClient>()); assert(GetIt.I.isRegistered<AuthUseCase>());",
+    "Add a one-time debug print at startup enumerating key registrations (MailsysApiClient, AuthUseCase).",
+    "Search project for `GetIt.asNewInstance`, `GetIt.instance()` and replace with the single global from injection.dart.",
+    "Ensure no top-level initializers in presentation pull from GetIt before DI (move any such lookups into initState)."
+  ],
+  "changes": [
+    {
+      "file": "lib/shared/di/modules/api_module.dart",
+      "new": true,
+      "snippet": [
+        "import 'package:injectable/injectable.dart';",
+        "import 'package:wahda_bank/services/mailsys_api_client.dart';",
+        "@module",
+        "abstract class ApiModule {",
+        "  @lazySingleton",
+        "  MailsysApiClient mailsysApiClient() => MailsysApiClient();",
+        "}"
+      ]
+    },
+    {
+      "file": "lib/shared/di/injection.dart",
+      "note": "Keep `final getIt = GetIt.instance;` and call `await getIt.reset(dispose: true); await getIt.init(environment: env);`. Ensure the ApiModule is included by InjectableInit."
+    },
+    {
+      "file": "lib/main.dart",
+      "snippet": [
+        "void main() async {",
+        "  WidgetsFlutterBinding.ensureInitialized();",
+        "  await configureDependencies(Environment.dev);",
+        "  assert(GetIt.I.isRegistered<MailsysApiClient>(), 'MailsysApiClient not registered');",
+        "  assert(GetIt.I.isRegistered<AuthUseCase>(), 'AuthUseCase not registered');",
+        "  debugPrint('[DI] ready: MailsysApiClient=' + GetIt.I.isRegistered<MailsysApiClient>().toString() + ', AuthUseCase=' + GetIt.I.isRegistered<AuthUseCase>().toString());",
+        "  runApp(const MyApp());",
+        "}"
+      ]
+    }
+  ],
+  "project_wide_replacements": [
+    "Replace any `GetIt.instance()` with `GetIt.instance`.",
+    "Replace direct uses of `GetIt.instance` in app code with the shared `getIt` exported from injection.dart."
+  ],
+  "validation": [
+    "flutter pub get",
+    "dart run build_runner build --delete-conflicting-outputs",
+    "dart run tool/import_enforcer.dart → OK",
+    "dart analyze → 0 errors (warnings OK)",
+    "flutter test --no-pub test → PASS",
+    "Cold start manual run (no Hot Reload): app launches without DI errors; startup debugPrint shows both registrations true"
+  ],
+  "acceptance": [
+    "MailsysApiClient and AuthUseCase are both registered in the same container on a cold start",
+    "No stray GetIt containers/usages remain",
+    "No UI/behavior changes; pins unchanged"
+  ],
+  "notes": [
+    "Hot Reload will NOT re-run DI; always do a full stop + run for this check.",
+    "If EnterpriseApiModule registers the client conditionally by env, ensure Environment.dev/test/prod are consistent with main.dart."
+  ]
+}
+
