@@ -40,7 +40,7 @@ This document is the **authoritative replacement** for the legacy Architecture G
 We use **Domain‑Driven Design** with **Clean Architecture** in a **feature‑first** layout:
 
 * **Features**: `messaging`, `sync`, `search`, `rendering`, `enterprise_api`, `security`, `notifications`, `settings`.
-* **Layers by feature**: `domain`, `application`, `infrastructure`, `presentation` (UI lives outside features in existing GetX controllers; P12 adds *flag‑gated* routing).
+* **Layers by feature**: `domain`, `application`, `infrastructure`, `presentation` (UI + ViewModels live under `lib/features/**/presentation/**`; legacy controllers are thin, @Deprecated adapters only).
 * **Principles**: separation of concerns, dependency inversion, testability, and incremental migration (legacy path remains default until rollout).
 
 ## Directory Layout
@@ -66,8 +66,12 @@ lib/
 * **Domain**: *no* Flutter SDK, *no* platform/DB/SDK imports.
 * **Application**: orchestrates repositories/services; *no* IO or SDKs.
 * **Infrastructure**: the only layer that talks to SDKs (IMAP/SMTP, REST, storage).
-* **Presentation**: UI/controllers; call use cases/facades **via DI**.
-* **Import Enforcer**: run via `dart run tool/import_enforcer.dart` on every CI/commit.
+* **Presentation**: ViewModels + feature UIs under `lib/features/**/presentation/**`; call use cases/facades **via DI**.
+* **Import Enforcer** (CI required): `dart run tool/import_enforcer.dart`
+  - Hard‑fail: any files under `lib/views/**`
+  - Hard‑fail: `presentation → services/` or `presentation → infrastructure/`
+  - Hard‑fail: newly added `Colors.*` in presentation/views (DS/theme excluded)
+  - Soft‑warn: existing raw `Colors.*` until visual polish phase
 
 ## Dependency Injection & Feature Flags
 
@@ -213,11 +217,15 @@ sequenceDiagram
 
 ## Design System
 
-### P18.3 Hardening
-- DS tokens/components adopted across key presentation/views with 1:1 visuals; legacy AppTheme references removed where covered by DS.
-- Import enforcer now hard-fails on newly added raw Colors.* in presentation/views (DS/theme excluded). Existing raw colors remain for parity and will be addressed in P19 visual polish.
+### Presentation locations & rules
+- All presentation code lives under `lib/features/**/presentation/**`. There is no `lib/views/**` left.
+- Presentation imports must go through ViewModels/use‑cases via DI — never import `services/` or `infrastructure/` directly.
+- Use DS tokens/components. Avoid raw `Colors.*` — import enforcer hard‑fails new occurrences (DS/theme excluded).
+- See docs/design_system/README.md for DS tokens and components.
 
-The shared design system provides 1:1 parity with the current app visuals while introducing tokens and feature-scoped presentation primitives. See docs/design_system/README.md. No behavioral/UI changes in P18.0.
+### P18.3 Hardening
+- DS tokens/components adopted across key presentation with 1:1 visuals; legacy AppTheme references removed where covered by DS.
+- Import enforcer hard‑fails newly added raw `Colors.*` in presentation/views (DS/theme excluded). Existing raw colors remain for parity and will be addressed in P19 visual polish.
 
 ## Legacy → DDD Mapping
 
@@ -233,12 +241,8 @@ The shared design system provides 1:1 parity with the current app visuals while 
 
 > **Note:** Since **P12.3**, controllers are deprecated thin adapters that delegate to **feature/presentation ViewModels**; the `shared/ddd_ui_wiring.dart` shim has been **removed**.
 
-### P31 — View Migration (Stage 1)
+### P31 — Migration Complete
 
-- Screens moved under feature presentation:
-  - Mailbox screens: `lib/features/messaging/presentation/screens/mailbox/{mailbox_view.dart, enhanced_mailbox_view.dart}`
-  - Message detail screens: `lib/features/messaging/presentation/screens/message_detail/{show_message.dart, show_message_pager.dart}`
-- Deprecated shim files maintained at legacy paths:
-  - `lib/views/box/{mailbox_view.dart, enhanced_mailbox_view.dart}`
-  - `lib/views/view/showmessage/{show_message.dart, show_message_pager.dart}`
-- No UX/behavior changes; update imports over time to the new paths.
+- All legacy `lib/views/**` have been removed; all routes/imports retarget to `lib/features/**/presentation/**`.
+- Guardrails are active and enforced in CI (see Import Enforcer above).
+- No UX/behavior changes.
