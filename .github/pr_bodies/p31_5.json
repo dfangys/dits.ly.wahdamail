@@ -1,0 +1,38 @@
+{
+  "phase": "P31.5",
+  "title": "Migrate Auth screens to feature/presentation (no behavior change)",
+  "branch": "feat/ddd-p31-5-auth-migration",
+  "goal": "Move login/signup/OTP/reset-password flows from lib/views/** to lib/features/auth/presentation/** and retarget routes.",
+  "moves": [
+    { "from": "lib/views/authantication/login/", "to": "lib/features/auth/presentation/screens/login/" },
+    { "from": "lib/views/authantication/signup/", "to": "lib/features/auth/presentation/screens/signup/" },
+    { "from": "lib/views/authantication/otp/", "to": "lib/features/auth/presentation/screens/otp/" },
+    { "from": "lib/views/authantication/reset_password/", "to": "lib/features/auth/presentation/screens/reset_password/" }
+  ],
+  "routes": {
+    "file": "lib/app.dart",
+    "action": "retarget to feature/presentation paths"
+  },
+  "layering": {
+    "presentation_must_use": ["AuthUseCase via DI"],
+    "presentation_must_not_import": ["services/", "infrastructure/"],
+    "note": "Replace any direct MailsysApiClient/MailService calls with use-cases."
+  },
+  "guardrails": [
+    "No behavior/UI changes; visuals 1:1",
+    "Import enforcer: hard-fail new Colors.* in presentation/views (DS/theme excluded)",
+    "Import enforcer: presentation → services/ or infrastructure/ is forbidden",
+    "Flags OFF; kill-switch > flags"
+  ],
+  "tests": [
+    "Existing unit/widget tests PASS",
+    "Update any imports in tests to feature paths"
+  ],
+  "acceptance": [
+    "dart run tool/import_enforcer.dart passes",
+    "flutter analyze: 0 errors (warnings OK)",
+    "flutter test --no-pub test: PASS",
+    "App routes compile with new feature paths"
+  ]
+}
+
