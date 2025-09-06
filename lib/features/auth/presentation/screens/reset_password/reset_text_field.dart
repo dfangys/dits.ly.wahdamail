@@ -2,7 +2,8 @@ import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/widgets/custom_loading_button.dart';
-import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
+import 'package:wahda_bank/features/auth/application/auth_usecase.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/login/widgets/text_form_field.dart';
@@ -21,7 +22,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField>
   bool _isSubmitting = false;
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
   final TextEditingController emailController = TextEditingController();
-  final mailsys = Get.find<MailsysApiClient>();
+  final AuthUseCase _auth = getIt<AuthUseCase>();
   final btnController = CustomLoadingButtonController();
   bool isError = false;
   bool _isEmailValid = true;
@@ -109,7 +110,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField>
           child: Center(
             child: FadeTransition(
               opacity: _fadeAnimation,
-              child: Form(
+                    child: Form(
                 key: formKey,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -376,7 +377,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField>
         _isSubmitting = true;
         btnController.start();
         String email = emailController.text.trim() + WText.emailSuffix;
-        final res = await mailsys.requestPasswordReset(email);
+        final res = await _auth.requestPasswordReset(email);
         if (res.isNotEmpty) {
           if ((res['status'] == 'success') || (res['data'] is Map)) {
             btnController.success();
@@ -406,7 +407,7 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField>
             isError = true;
           });
         }
-      } on MailsysApiException catch (e) {
+      } on AuthUseCaseException catch (e) {
         btnController.error();
         setState(() {
           isError = true;
@@ -418,7 +419,6 @@ class _ResetPasswordTextFieldState extends State<ResetPasswordTextField>
             title: 'error'.tr,
             desc: e.message,
             btnOkOnPress: () {},
-            btnOkColor: Theme.of(context).primaryColor,
           ).show();
         }
       } finally {

@@ -85,7 +85,7 @@ class ComposeViewModel {
         Tracing.end(span);
         // Telemetry success
         try {
-          final acct = controller.account.email;
+          final acct = controller.email;
           Telemetry.event(
             'send_success',
             props: {
@@ -101,7 +101,7 @@ class ComposeViewModel {
         return true;
       } catch (e) {
         try {
-          final acct = controller.account.email;
+          final acct = controller.email;
           final folderId =
               controller.sourceMailbox?.encodedPath ??
               controller.sourceMailbox?.name ??
@@ -138,7 +138,7 @@ class ComposeViewModel {
 
     // Operation telemetry: success/failure for legacy path
     try {
-      final acct = controller.account.email;
+      final acct = controller.email;
       final folderId =
           controller.sourceMailbox?.encodedPath ??
           controller.sourceMailbox?.name ??

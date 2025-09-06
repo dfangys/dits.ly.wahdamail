@@ -7,7 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:pinput/pinput.dart';
-import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
+import 'package:wahda_bank/features/auth/application/auth_usecase.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
@@ -30,7 +31,7 @@ class ResetPasswordOtpScreen extends StatefulWidget {
 }
 
 class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
-  final mailsys = Get.find<MailsysApiClient>();
+  final AuthUseCase _auth = getIt<AuthUseCase>();
 
   String otpPin = '';
   bool _isResending = false;
@@ -70,7 +71,7 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
     if (_isResending || _resendSeconds > 0) return;
     try {
       setState(() => _isResending = true);
-      final res = await mailsys.requestPasswordReset(widget.email);
+      final res = await _auth.requestPasswordReset(widget.email);
       // Try to read masked phone from various possible shapes
       final data =
           (res['data'] is Map) ? res['data'] as Map : <String, dynamic>{};
@@ -97,7 +98,7 @@ class _ResetPasswordOtpScreenState extends State<ResetPasswordOtpScreen> {
         }
         _startCountdown(60);
       }
-    } on MailsysApiException catch (e) {
+    } on AuthUseCaseException catch (e) {
       if (mounted) {
         AwesomeDialog(
           context: context,

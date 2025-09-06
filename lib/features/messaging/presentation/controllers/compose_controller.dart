@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/features/messaging/presentation/models/draft_model.dart';
-import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/features/messaging/application/message_content_usecase.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -31,7 +32,6 @@ import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
 import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
-import 'package:wahda_bank/shared/di/injection.dart';
 
 extension EmailValidator on String {
   bool isValidEmail() {
@@ -94,9 +94,14 @@ class ComposeController extends GetxController {
     }
   }
 
-  // Email client and account
-  final MailAccount account = MailService.instance.account;
-  final MailClient client = MailService.instance.client;
+  // Email client and account via application adapter
+  MessageContentUseCase? _content;
+  MessageContentUseCase get _mc =>
+      _content ??= (getIt.isRegistered<MessageContentUseCase>()
+          ? getIt<MessageContentUseCase>()
+          : getIt<MessageContentUseCase>());
+  dynamic get client => _mc.client;
+  String get accountEmail => _mc.accountEmail;
   final Rx<SQLiteMailboxMimeStorage?> storage = Rx<SQLiteMailboxMimeStorage?>(
     null,
   );
@@ -455,7 +460,7 @@ class ComposeController extends GetxController {
   }
 
   // Getters for user info
-  String get email => account.email;
+  String get email => accountEmail;
   String get name {
     try {
       if (Get.isRegistered<SettingController>()) {
@@ -1224,7 +1229,10 @@ class ComposeController extends GetxController {
     try {
       // Telemetry: send attempt
       try {
-        final acct = MailService.instance.account.email;
+        _content ??= getIt.isRegistered<MessageContentUseCase>()
+            ? getIt<MessageContentUseCase>()
+            : null;
+        final acct = (_content ?? getIt<MessageContentUseCase>()).accountEmail;
         final folderId =
             sourceMailbox?.encodedPath ?? sourceMailbox?.name ?? 'INBOX';
         Telemetry.event(
@@ -1456,8 +1464,8 @@ class ComposeController extends GetxController {
       }
 
       await MessageContentStore.instance.upsertContent(
-        accountEmail: account.email,
-        mailboxPath:
+          accountEmail: accountEmail,
+          mailboxPath:
             mailboxHint.encodedPath.isNotEmpty
                 ? mailboxHint.encodedPath
                 : (mailboxHint.path),
@@ -2000,7 +2008,7 @@ class ComposeController extends GetxController {
             mbc.currentMailbox;
         if (mailboxHint != null && (message.uid != null)) {
           final cached = await MessageContentStore.instance.getContent(
-            accountEmail: account.email,
+            accountEmail: accountEmail,
             mailboxPath:
                 mailboxHint.encodedPath.isNotEmpty
                     ? mailboxHint.encodedPath
@@ -2225,7 +2233,7 @@ class ComposeController extends GetxController {
           if ((sanitizedHtml != null && sanitizedHtml.isNotEmpty) ||
               (plain != null && plain.isNotEmpty)) {
             await MessageContentStore.instance.upsertContent(
-              accountEmail: account.email,
+              accountEmail: accountEmail,
               mailboxPath:
                   mailboxHint.encodedPath.isNotEmpty
                       ? mailboxHint.encodedPath
@@ -3121,7 +3129,7 @@ class ComposeController extends GetxController {
             htmlSan = null;
           }
           await MessageContentStore.instance.upsertContent(
-            accountEmail: account.email,
+            accountEmail: accountEmail,
             mailboxPath:
                 draftsMailbox.encodedPath.isNotEmpty
                     ? draftsMailbox.encodedPath

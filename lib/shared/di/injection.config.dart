@@ -11,6 +11,8 @@
 import 'package:get_it/get_it.dart' as _i174;
 import 'package:injectable/injectable.dart' as _i526;
 
+import '../../features/app/application/first_run_usecase.dart' as _i977;
+import '../../features/auth/application/auth_usecase.dart' as _i366;
 import '../../features/enterprise_api/domain/repositories/accounts_repository.dart'
     as _i723;
 import '../../features/enterprise_api/domain/repositories/contacts_repository.dart'
@@ -22,6 +24,8 @@ import '../../features/enterprise_api/infrastructure/di/enterprise_api_module.da
 import '../../features/enterprise_api/infrastructure/gateways/rest_gateway.dart'
     as _i749;
 import '../../features/enterprise_api/infrastructure/token_store.dart' as _i660;
+import '../../features/messaging/application/message_content_usecase.dart'
+    as _i169;
 import '../../features/messaging/domain/repositories/draft_repository.dart'
     as _i443;
 import '../../features/messaging/domain/repositories/message_repository.dart'
@@ -153,6 +157,9 @@ _i174.GetIt init(
   gh.lazySingleton<_i944.RemoteFlags>(() => _i944.RemoteFlags());
   gh.lazySingleton<_i71.CohortService>(() => const _i71.CohortService());
   gh.lazySingleton<_i704.Tracing>(() => _i704.Tracing());
+  gh.lazySingleton<_i977.FirstRunUseCase>(() => _i977.FirstRunUseCase());
+  gh.lazySingleton<_i169.MessageContentUseCase>(
+      () => _i169.MessageContentUseCase());
   gh.lazySingleton<_i1018.OutboxRepository>(
       () => messagingModule.provideOutboxRepository(gh<_i543.OutboxDao>()));
   gh.lazySingleton<_i898.MessageRepository>(
@@ -175,6 +182,8 @@ _i174.GetIt init(
             gh<_i898.MessageRepository>(),
             gh<_i450.CircuitBreaker>(),
           ));
+  gh.lazySingleton<_i366.AuthUseCaseException>(
+      () => _i366.AuthUseCaseException(gh<String>()));
   gh.lazySingleton<_i1062.BgFetchIos>(() => syncModule.provideBgFetchIos(
         gh<_i898.MessageRepository>(),
         gh<_i450.CircuitBreaker>(),
