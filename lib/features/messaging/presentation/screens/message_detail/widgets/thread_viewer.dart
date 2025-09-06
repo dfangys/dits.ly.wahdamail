@@ -3,7 +3,8 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:get/get.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
-import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/features/messaging/application/message_content_usecase.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/services/message_content_store.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/redesigned_compose_screen.dart';
 
@@ -28,9 +29,14 @@ class _ThreadViewerState extends State<ThreadViewer> {
   final Set<String> _expanded = <String>{};
   final Map<String, ValueNotifier<int>> _meta = {};
 
+  MessageContentUseCase? _content;
+
   @override
   void initState() {
     super.initState();
+    _content = getIt.isRegistered<MessageContentUseCase>()
+        ? getIt<MessageContentUseCase>()
+        : null;
     _loadThread();
   }
 
@@ -69,14 +75,14 @@ class _ThreadViewerState extends State<ThreadViewer> {
 
   Future<void> _ensureSelectedMailbox() async {
     try {
-      final mail = MailService.instance;
-      if (!mail.client.isConnected) {
+      final content = _content ?? getIt<MessageContentUseCase>();
+      if (!content.client.isConnected) {
         try {
-          await mail.connect().timeout(const Duration(seconds: 8));
+          await content.connect().timeout(const Duration(seconds: 8));
         } catch (_) {}
       }
       try {
-        await mail.client
+        await content.client
             .selectMailbox(widget.mailbox)
             .timeout(const Duration(seconds: 8));
       } catch (_) {}
@@ -133,7 +139,7 @@ class _ThreadViewerState extends State<ThreadViewer> {
         if (convIds.isEmpty) {
           try {
             await _ensureSelectedMailbox();
-            var fetched = await MailService.instance.client
+            var fetched = await (_content ?? getIt<MessageContentUseCase>()).client
                 .fetchMessageContents(widget.message)
                 .timeout(const Duration(seconds: 12));
             convIds.addAll(_ids(fetched.getHeaderValue('message-id')));
@@ -203,7 +209,7 @@ class _ThreadViewerState extends State<ThreadViewer> {
             await _ensureSelectedMailbox();
             // Prefer the earliest ID (likely the root) to search headers
             final rootId = convIds.first;
-            final searchRes = await MailService.instance.client
+            final searchRes = await (_content ?? getIt<MessageContentUseCase>()).client
                 .searchMessages(
                   MailSearch(
                     rootId,
@@ -234,10 +240,10 @@ class _ThreadViewerState extends State<ThreadViewer> {
         return;
       }
 
-      final mail = MailService.instance;
+      final content = _content ?? getIt<MessageContentUseCase>();
       await _ensureSelectedMailbox();
 
-      final msgs = await mail.client
+      final msgs = await content.client
           .fetchMessageSequence(seq, fetchPreference: FetchPreference.envelope)
           .timeout(
             const Duration(seconds: 20),
@@ -447,7 +453,7 @@ class _ConversationItemState extends State<_ConversationItem> {
       final msg = widget.message;
       final uid = msg.uid ?? -1;
       final store = MessageContentStore.instance;
-      final accountEmail = MailService.instance.account.email;
+      final accountEmail = getIt<MessageContentUseCase>().accountEmail;
       final mailboxPath =
           widget.mailbox.encodedPath.isNotEmpty
               ? widget.mailbox.encodedPath

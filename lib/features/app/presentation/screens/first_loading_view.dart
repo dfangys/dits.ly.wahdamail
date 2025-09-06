@@ -7,7 +7,8 @@ import 'dart:io';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/features/home/presentation/models/box_model.dart';
 import 'package:wahda_bank/services/background_service.dart';
-import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/features/app/application/first_run_usecase.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 
 class LoadingFirstView extends StatefulWidget {
@@ -29,9 +30,14 @@ class _LoadingFirstViewState extends State<LoadingFirstView>
   bool _isLoading = true;
   double _progress = 0.0;
 
+  FirstRunUseCase? _firstRun;
+
   @override
   void initState() {
     super.initState();
+    _firstRun = getIt.isRegistered<FirstRunUseCase>()
+        ? getIt<FirstRunUseCase>()
+        : null;
 
     // Initialize animations
     _animationController = AnimationController(
@@ -98,9 +104,10 @@ class _LoadingFirstViewState extends State<LoadingFirstView>
     bool isReadyToRun = true;
     try {
       if (!storage.hasData('first_run')) {
-        await MailService.instance.init();
-        await MailService.instance.connect();
-        List<Mailbox> boxes = await MailService.instance.client.listMailboxes();
+        final uc = _firstRun ?? getIt<FirstRunUseCase>();
+        await uc.init();
+        await uc.connect();
+        List<Mailbox> boxes = (await uc.listMailboxes()).cast<Mailbox>();
         List<Map<String, dynamic>> v = [];
         for (var box in boxes) {
           v.add(BoxModel.toJson(box));

@@ -1,7 +1,8 @@
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
+import 'package:wahda_bank/features/auth/application/auth_usecase.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/login/login.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/login/widgets/text_form_field.dart';
@@ -28,7 +29,7 @@ class _ResetPasswordNewPasswordScreenState
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final CustomLoadingButtonController _btnController =
       CustomLoadingButtonController();
-  final mailsys = Get.find<MailsysApiClient>();
+  final AuthUseCase _auth = getIt<AuthUseCase>();
 
   bool _isSubmitting = false;
 
@@ -88,7 +89,7 @@ class _ResetPasswordNewPasswordScreenState
     try {
       setState(() => _isSubmitting = true);
       _btnController.start();
-      final res = await mailsys.confirmPasswordReset(
+      final res = await _auth.confirmPasswordReset(
         email: widget.email,
         otp: widget.otp,
         newPassword: _password.text,
@@ -118,7 +119,7 @@ class _ResetPasswordNewPasswordScreenState
           ).show();
         }
       }
-    } on MailsysApiException catch (e) {
+    } on AuthUseCaseException catch (e) {
       _btnController.error();
       if (mounted) {
         AwesomeDialog(

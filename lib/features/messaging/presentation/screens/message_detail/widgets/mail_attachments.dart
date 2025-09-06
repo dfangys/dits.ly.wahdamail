@@ -9,7 +9,8 @@ import 'package:open_app_file/open_app_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/features/messaging/application/message_content_usecase.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/services/email_cache_service.dart';
 import 'package:wahda_bank/services/message_content_store.dart';
 import 'package:wahda_bank/services/html_enhancer.dart';
@@ -47,11 +48,11 @@ class MailAttachments extends StatelessWidget {
       // Initialize cache services
       await EmailCacheService.instance.initialize();
 
-      // Get mail service instance
-      final mailService = MailService.instance;
+      // Use application-layer content adapter
+      final content = getIt<MessageContentUseCase>();
 
       // Prepare cache context and purge invalid UIDVALIDITY rows
-      final accountEmail = mailService.account.email;
+      final accountEmail = content.accountEmail;
       final mailboxPath = mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX';
       final uidValidity = mailbox?.uidValidity ?? 0;
       try {
@@ -171,9 +172,9 @@ class MailAttachments extends StatelessWidget {
             }
             // Ensure we're connected
             int connectionRetries = 3;
-            while (!mailService.client.isConnected && connectionRetries > 0) {
+            while (!content.client.isConnected && connectionRetries > 0) {
               try {
-                await mailService.connect().timeout(
+                await content.connect().timeout(
                   const Duration(seconds: 10),
                 );
                 break;
@@ -186,7 +187,7 @@ class MailAttachments extends StatelessWidget {
 
             // Ensure correct mailbox is selected
             if (mailbox != null) {
-              final currentMailbox = mailService.client.selectedMailbox;
+              final currentMailbox = content.client.selectedMailbox;
               if (currentMailbox == null ||
                   currentMailbox.path != mailbox!.path) {
                 if (kDebugMode) {
@@ -195,7 +196,7 @@ class MailAttachments extends StatelessWidget {
                   );
                 }
                 try {
-                  await mailService.client
+                  await content.client
                       .selectMailbox(mailbox!)
                       .timeout(const Duration(seconds: 8));
                 } catch (e) {
@@ -211,7 +212,7 @@ class MailAttachments extends StatelessWidget {
             int fetchRetries = 2;
             while (fetchRetries > 0) {
               try {
-                final refreshed = await mailService.client
+                final refreshed = await content.client
                     .fetchMessageContents(message)
                     .timeout(const Duration(seconds: 15));
 
@@ -224,7 +225,7 @@ class MailAttachments extends StatelessWidget {
 
                 // Persist offline body + small attachments to SQLite for reliable reuse
                 try {
-                  final accountEmail = mailService.account.email;
+                      final accountEmail = content.accountEmail;
                   final mailboxPath =
                       mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX';
                   final uidValidity = mailbox?.uidValidity ?? 0;
@@ -328,7 +329,7 @@ class MailAttachments extends StatelessWidget {
                 // Re-select mailbox defensively
                 if (mailbox != null) {
                   try {
-                    await mailService.client
+                    await content.client
                         .selectMailbox(mailbox!)
                         .timeout(const Duration(seconds: 8));
                   } catch (_) {}
@@ -366,9 +367,9 @@ class MailAttachments extends StatelessWidget {
 
       // Ensure we're connected with retry logic and explicit timeouts
       int connectionRetries = 3;
-      while (!mailService.client.isConnected && connectionRetries > 0) {
+      while (!content.client.isConnected && connectionRetries > 0) {
         try {
-          await mailService.connect().timeout(const Duration(seconds: 12));
+          await content.connect().timeout(const Duration(seconds: 12));
           break;
         } catch (e) {
           connectionRetries--;
@@ -379,14 +380,14 @@ class MailAttachments extends StatelessWidget {
 
       // CRITICAL FIX: Validate and ensure correct mailbox is selected
       if (mailbox != null) {
-        final currentMailbox = mailService.client.selectedMailbox;
+        final currentMailbox = content.client.selectedMailbox;
         if (currentMailbox == null || currentMailbox.path != mailbox!.path) {
           if (kDebugMode) {
             print(
               'Selecting mailbox: ${mailbox!.path} (current: ${currentMailbox?.path})',
             );
           }
-          await mailService.client
+          await content.client
               .selectMailbox(mailbox!)
               .timeout(const Duration(seconds: 8));
 
@@ -414,7 +415,7 @@ class MailAttachments extends StatelessWidget {
             );
           }
 
-          fetchedMessage = await mailService.client
+          fetchedMessage = await content.client
               .fetchMessageContents(message)
               .timeout(const Duration(seconds: 20));
 
@@ -448,7 +449,7 @@ class MailAttachments extends StatelessWidget {
           // Re-select mailbox before retry to ensure proper context
           if (mailbox != null) {
             try {
-              await mailService.client
+              await content.client
                   .selectMailbox(mailbox!)
                   .timeout(const Duration(seconds: 8));
               await Future.delayed(const Duration(milliseconds: 100));
@@ -590,11 +591,11 @@ class MailAttachments extends StatelessWidget {
           );
         } else if (snapshot.hasError) {
           // Fall back to offline cached content if available
-          return FutureBuilder<CachedMessageContent?>(
+                      return FutureBuilder<CachedMessageContent?>(
             future:
                 (message.uid != null)
                     ? MessageContentStore.instance.getContent(
-                      accountEmail: MailService.instance.account.email,
+                      accountEmail: getIt<MessageContentUseCase>().accountEmail,
                       mailboxPath:
                           mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX',
                       uidValidity: mailbox?.uidValidity ?? 0,
@@ -735,7 +736,7 @@ class MailAttachments extends StatelessWidget {
             future:
                 (message.uid != null)
                     ? MessageContentStore.instance.getContent(
-                      accountEmail: MailService.instance.account.email,
+                      accountEmail: getIt<MessageContentUseCase>().accountEmail,
                       mailboxPath:
                           mailbox?.encodedPath ?? mailbox?.path ?? 'INBOX',
                       uidValidity: mailbox?.uidValidity ?? 0,

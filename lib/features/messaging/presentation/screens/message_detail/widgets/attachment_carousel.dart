@@ -7,7 +7,8 @@ import 'package:open_app_file/open_app_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/attachment_viewer.dart';
-import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/features/messaging/application/message_content_usecase.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/services/message_content_store.dart';
 import 'package:wahda_bank/services/thumbnail_service.dart';
 import 'package:wahda_bank/services/attachment_fetcher.dart';
@@ -46,9 +47,14 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
   final int _thumbPreviewMaxBytes = 1024 * 1024; // 1 MB small previews
   final Set<String> _thumbFetching = <String>{};
 
+  MessageContentUseCase? _content;
+
   @override
   void initState() {
     super.initState();
+    _content = getIt.isRegistered<MessageContentUseCase>()
+        ? getIt<MessageContentUseCase>()
+        : null;
     try {
       final ctrl = Get.find<MailBoxController>();
       _metaNotifier = ctrl.getMessageMetaNotifier(
@@ -140,24 +146,25 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
                   ? InternetService.instance.connected
                   : true;
           if (online) {
-            final mailService = MailService.instance;
-            if (!mailService.client.isConnected) {
+          final content = _content ?? getIt<MessageContentUseCase>();
+          if (!content.client.isConnected) {
               try {
-                await mailService.connect().timeout(
+                await content.connect().timeout(
                   const Duration(seconds: 12),
                 );
               } catch (_) {}
             }
-            if (mailService.client.selectedMailbox?.encodedPath !=
+            if (content.client.selectedMailbox?.encodedPath !=
                 widget.mailbox.encodedPath) {
               try {
-                await mailService.client
+                await content.client
                     .selectMailbox(widget.mailbox)
                     .timeout(const Duration(seconds: 10));
               } catch (_) {}
             }
             final seq = MessageSequence.fromMessage(widget.message);
-            final fetched = await mailService.client
+            final fetched = await (_content ?? getIt<MessageContentUseCase>())
+                .client
                 .fetchMessageSequence(
                   seq,
                   fetchPreference: FetchPreference.fullWhenWithinSize,
@@ -201,7 +208,7 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
         if (widget.message.uid != null) {
           CachedMessageContent? cached = await MessageContentStore.instance
               .getContent(
-                accountEmail: MailService.instance.account.email,
+                accountEmail: (_content ?? getIt<MessageContentUseCase>()).accountEmail,
                 mailboxPath:
                     widget.mailbox.encodedPath.isNotEmpty
                         ? widget.mailbox.encodedPath
@@ -214,7 +221,7 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
             try {
               cached = await MessageContentStore.instance
                   .getContentAnyUidValidity(
-                    accountEmail: MailService.instance.account.email,
+                    accountEmail: (_content ?? getIt<MessageContentUseCase>()).accountEmail,
                     mailboxPath:
                         widget.mailbox.encodedPath.isNotEmpty
                             ? widget.mailbox.encodedPath
@@ -438,10 +445,10 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
               timeout: const Duration(seconds: 20),
             );
             if (data != null && data.isNotEmpty) {
-              final mailService = MailService.instance;
+              final content = _content ?? getIt<MessageContentUseCase>();
               final newPath = await MessageContentStore.instance
                   .saveAttachmentBytes(
-                    accountEmail: mailService.account.email,
+                    accountEmail: content.accountEmail,
                     mailboxPath:
                         widget.mailbox.encodedPath.isNotEmpty
                             ? widget.mailbox.encodedPath
@@ -645,7 +652,7 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
         return null;
       }
 
-      final mailService = MailService.instance;
+      final content = _content ?? getIt<MessageContentUseCase>();
       // Mark fetching
       final idxStart = _items.indexOf(it);
       if (idxStart != -1) {
@@ -654,15 +661,15 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
       }
 
       // Ensure connection and mailbox
-      if (!mailService.client.isConnected) {
+      if (!content.client.isConnected) {
         try {
-          await mailService.connect().timeout(const Duration(seconds: 12));
+          await content.connect().timeout(const Duration(seconds: 12));
         } catch (_) {}
       }
       try {
-        if (mailService.client.selectedMailbox?.encodedPath !=
+        if (content.client.selectedMailbox?.encodedPath !=
             widget.mailbox.encodedPath) {
-          await mailService.client
+          await content.client
               .selectMailbox(widget.mailbox)
               .timeout(const Duration(seconds: 10));
         }
@@ -679,7 +686,7 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
 
       // Persist to offline store for reuse (collision-safe)
       final path = await MessageContentStore.instance.saveAttachmentBytes(
-        accountEmail: mailService.account.email,
+        accountEmail: content.accountEmail,
         mailboxPath:
             widget.mailbox.encodedPath.isNotEmpty
                 ? widget.mailbox.encodedPath
@@ -698,7 +705,8 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
       try {
         final store = MessageContentStore.instance;
         final cached = await store.getContent(
-          accountEmail: mailService.account.email,
+          accountEmail:
+              (_content ?? getIt<MessageContentUseCase>()).accountEmail,
           mailboxPath:
               widget.mailbox.encodedPath.isNotEmpty
                   ? widget.mailbox.encodedPath
@@ -739,7 +747,8 @@ class _AttachmentCarouselState extends State<AttachmentCarousel> {
           );
         }
         await store.upsertContent(
-          accountEmail: mailService.account.email,
+          accountEmail:
+              (_content ?? getIt<MessageContentUseCase>()).accountEmail,
           mailboxPath:
               widget.mailbox.encodedPath.isNotEmpty
                   ? widget.mailbox.encodedPath

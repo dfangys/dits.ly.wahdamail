@@ -11,7 +11,8 @@ import 'package:wahda_bank/widgets/custom_loading_button.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 
-import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
+import 'package:wahda_bank/features/auth/application/auth_usecase.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/login/login.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/login/widgets/rounded_button.dart';
@@ -43,7 +44,7 @@ class _VerifyResetPasswordOtpScreenState
     super.dispose();
   }
 
-  final mailsys = Get.find<MailsysApiClient>();
+final AuthUseCase _auth = getIt<AuthUseCase>();
 
   Future verifyOtp() async {
     if (_isSubmitting) return;
@@ -51,7 +52,7 @@ class _VerifyResetPasswordOtpScreenState
       try {
         _isSubmitting = true;
         controller.start();
-        final data = await mailsys.confirmPasswordReset(
+        final data = await _auth.confirmPasswordReset(
           email: widget.email,
           otp: otpPin,
           newPassword: passwordController.text,
@@ -93,7 +94,7 @@ class _VerifyResetPasswordOtpScreenState
             },
           ).show();
         }
-      } on MailsysApiException catch (e) {
+      } on AuthUseCaseException catch (e) {
         controller.error();
         if (mounted) {
           AwesomeDialog(
@@ -152,7 +153,7 @@ class _VerifyResetPasswordOtpScreenState
       setState(() => _isResending = true);
       String email = widget.email;
       final messenger = ScaffoldMessenger.of(context);
-      final res = await mailsys.requestPasswordReset(email);
+      final res = await _auth.requestPasswordReset(email);
       if (res.isNotEmpty) {
         if (res['status'] == 'success') {
           messenger.showSnackBar(
@@ -169,7 +170,7 @@ class _VerifyResetPasswordOtpScreenState
           _startCountdown(60);
         }
       }
-    } on MailsysApiException catch (e) {
+    } on AuthUseCaseException catch (e) {
       if (mounted) {
         AwesomeDialog(
           context: context,

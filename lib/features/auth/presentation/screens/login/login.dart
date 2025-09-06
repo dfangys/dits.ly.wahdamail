@@ -6,13 +6,13 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/widgets/custom_loading_button.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/reset_password/reset_password_screen.dart';
-import 'package:wahda_bank/services/mail_service.dart';
+import 'package:wahda_bank/features/auth/application/auth_usecase.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/utills/constants/text_strings.dart';
 import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/utills/constants/sizes.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/login/widgets/rounded_button.dart';
 import 'package:wahda_bank/app/controllers/otp_controller.dart';
-import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/otp/enter_otp/enter_otp.dart';
 import 'package:wahda_bank/features/app/presentation/screens/first_loading_view.dart';
 
@@ -46,9 +46,12 @@ class _LoginScreenState extends State<LoginScreen>
   final FocusNode _emailFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
 
+  AuthUseCase? _auth;
+
   @override
   void initState() {
     super.initState();
+    _auth = getIt.isRegistered<AuthUseCase>() ? getIt<AuthUseCase>() : null;
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -332,13 +335,13 @@ class _LoginScreenState extends State<LoginScreen>
                                   final fullEmail =
                                       '${emailCtrl.text.trim()}${WText.emailSuffix}';
                                   // Persist credentials for IMAP usage later
-                                  await MailService.instance.setAccount(
+                                  final auth = _auth ?? getIt<AuthUseCase>();
+                                  await auth.setCredentials(
                                     fullEmail,
                                     passwordCtrl.text,
                                   );
 
-                                  final api = Get.find<MailsysApiClient>();
-                                  final res = await api.login(
+                                  final res = await auth.login(
                                     fullEmail,
                                     passwordCtrl.text,
                                   );
@@ -380,7 +383,7 @@ class _LoginScreenState extends State<LoginScreen>
                                           'msg_some_thing_went_wrong'.tr,
                                     ).show();
                                   }
-                                } on MailsysApiException catch (e) {
+                                } on AuthUseCaseException catch (e) {
                                   AwesomeDialog(
                                     context: Get.context!,
                                     dialogType: DialogType.error,
