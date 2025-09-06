@@ -2,10 +2,6 @@
 
 A modern, feature-rich Flutter email client application with advanced email management capabilities, real-time updates, and comprehensive security features.
 
-![Flutter](https://img.shields.io/badge/Flutter-3.24.3-blue.svg)
-![Dart](https://img.shields.io/badge/Dart-3.5.3-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
-![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20Android%20%7C%20Web-lightgrey.svg)
 
 ## 🌟 Features
 
@@ -108,19 +104,19 @@ flutter build web --release
 ### Project Structure
 ```
 lib/
-├── app/
-│   ├── bindings/          # Dependency injection bindings
-│   ├── controllers/       # GetX controllers for state management
-│   └── routes/           # Application routing configuration
-├── models/               # Data models and database schemas
-├── services/             # Business logic and API services
-├── views/                # UI screens and widgets
-│   ├── compose/          # Email composition screens
-│   ├── settings/         # Settings and configuration
-│   └── view/            # Email viewing and management
-├── widgets/              # Reusable UI components
-├── utils/                # Utility functions and helpers
-└── main.dart            # Application entry point
+├── features/
+│   └── <feature>/
+│       ├── domain/            # Entities, value objects, repositories (interfaces)
+│       ├── application/       # Use cases (orchestration only)
+│       ├── infrastructure/    # Gateways/DAOs/mappers/repo impls
+│       └── presentation/      # ViewModels + feature UI
+├── shared/
+│   ├── di/                    # get_it + injectable bootstrap
+│   ├── logging/               # Telemetry helper (PII-safe)
+│   ├── error/                 # Sealed error taxonomy
+│   ├── config/                # DddConfig caps & constants
+│   └── utils/, types/, testing/
+└── main.dart                  # Application entry point
 ```
 
 ### Key Technologies

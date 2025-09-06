@@ -8,6 +8,7 @@ Summary
   - Hard-fail: any files under lib/views/**
   - Hard-fail: presentation → services/ or infrastructure/
   - Hard-fail: newly added Colors.* in presentation/views (DS/theme excluded)
+- P31.8: Retired README shields/badges and removed leftover backups (no behavior change).
 - No behavior/UI changes as part of P31.
 
 Quality checks
