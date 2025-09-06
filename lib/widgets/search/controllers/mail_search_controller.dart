@@ -69,7 +69,7 @@ class MailSearchController extends GetxController with StateMixin {
 
     // Delegate orchestration to presentation ViewModel (handles DDD/legacy + operation telemetry)
     final vm = getIt<SearchViewModel>();
-    await vm.runSearch(this, requestId: _req);
+    await vm.runSearchText(searchController.text, requestId: _req);
     return;
   }
 

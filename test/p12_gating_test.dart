@@ -5,7 +5,6 @@ import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
 import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/features/search/presentation/api/mail_search_controller_api.dart';
 import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 
@@ -48,11 +47,8 @@ void main() {
     await box.write('ddd.kill_switch.enabled', true);
     await box.write('ddd.search.enabled', true);
 
-    final ctrl = MailSearchController();
-    ctrl.searchController.text = 'query';
-
     final vm = getIt<SearchViewModel>();
-    await vm.runSearch(ctrl, requestId: 'req');
+    await vm.runSearchText('query', requestId: 'req');
     // No throw; UI state updated via VM
     expect(true, true);
   });
@@ -62,10 +58,8 @@ void main() {
     await box.write('ddd.kill_switch.enabled', false);
     await box.write('ddd.search.enabled', true);
 
-    final ctrl = MailSearchController();
-    ctrl.searchController.text = 'test';
     final vm = getIt<SearchViewModel>();
-    await vm.runSearch(ctrl, requestId: 'req');
+    await vm.runSearchText('test', requestId: 'req');
     expect(true, true);
   });
 
@@ -74,10 +68,8 @@ void main() {
     await box.write('ddd.kill_switch.enabled', false);
     await box.write('ddd.search.enabled', false);
 
-    final ctrl = MailSearchController();
-    ctrl.searchController.text = 'test';
     final vm = getIt<SearchViewModel>();
-    await vm.runSearch(ctrl, requestId: 'req');
+    await vm.runSearchText('test', requestId: 'req');
     expect(true, true);
   });
 

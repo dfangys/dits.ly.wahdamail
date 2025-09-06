@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/show_message.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/show_message_pager.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
-import 'package:wahda_bank/features/search/presentation/api/mail_search_controller_api.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
 import 'package:wahda_bank/design_system/components/app_scaffold.dart';
@@ -23,22 +21,22 @@ class SearchView extends StatefulWidget {
 }
 
 class _SearchViewState extends State<SearchView> {
-  late final MailSearchController controller;
-  late final MailBoxController mailboxController;
+  late final TextEditingController searchController;
+  late final ScrollController scrollController;
   late final SearchViewModel vm;
   ListPerfSampler? _perf;
 
   @override
   void initState() {
     super.initState();
-    controller = Get.put(MailSearchController());
-    mailboxController = Get.find<MailBoxController>();
+    searchController = TextEditingController();
+    scrollController = ScrollController();
     vm = Get.put<SearchViewModel>(getIt<SearchViewModel>());
     // Start perf sampler after first frame to ensure controller wired
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _perf = ListPerfSampler(
         opName: 'search_list_scroll',
-        scrollController: controller.scrollController,
+        scrollController: scrollController,
       )..start();
     });
   }
@@ -63,7 +61,7 @@ class _SearchViewState extends State<SearchView> {
             textField: true,
             label: 'Search field',
             child: TextFormField(
-              controller: controller.searchController,
+              controller: searchController,
               onChanged: (String txt) {
                 // UI-only: rebuild to reflect query chip row; no behavior/logics changed
                 setState(() {});
@@ -102,7 +100,7 @@ class _SearchViewState extends State<SearchView> {
                           tooltip: 'Clear',
                           icon: const Icon(Icons.clear),
                           onPressed: () {
-                            controller.searchController.clear();
+                            searchController.clear();
                           },
                         ),
                       ),
@@ -127,8 +125,8 @@ class _SearchViewState extends State<SearchView> {
                           tooltip: 'Search',
                           icon: const Icon(Icons.search, size: 20),
                           onPressed: () {
-                            vm.runSearch(
-                              controller,
+                            vm.runSearchText(
+                              searchController.text,
                               requestId:
                                   'search_${DateTime.now().millisecondsSinceEpoch}',
                             );
@@ -146,7 +144,7 @@ class _SearchViewState extends State<SearchView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Query chip row (static UI only)
-            if (controller.searchController.text.trim().isNotEmpty)
+            if (searchController.text.trim().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(
                   Tokens.space5,
@@ -158,7 +156,7 @@ class _SearchViewState extends State<SearchView> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      QueryChip(label: controller.searchController.text.trim()),
+                      QueryChip(label: searchController.text.trim()),
                     ],
                   ),
                 ),
@@ -166,7 +164,7 @@ class _SearchViewState extends State<SearchView> {
             Expanded(
               child: vm.obx(
                 (state) => ListView.separated(
-                  controller: controller.scrollController,
+                  controller: scrollController,
                   cacheExtent: 360.0, // ~3 rows
                   padding: const EdgeInsets.symmetric(
                     horizontal: Tokens.space5,
@@ -174,40 +172,27 @@ class _SearchViewState extends State<SearchView> {
                   itemBuilder: (context, index) {
                     return MailTile(
                       onTap: () {
-                        try {
-                          final MimeMessage message = vm.searchMessages[index];
-                          final listRef =
-                              mailboxController.emails[mailboxController
-                                  .mailBoxInbox] ??
-                              const <MimeMessage>[];
-                          int initial = 0;
-                          if (listRef.isNotEmpty) {
-                            initial = listRef.indexWhere(
-                              (m) =>
-                                  (message.uid != null &&
-                                      m.uid == message.uid) ||
-                                  (message.sequenceId != null &&
-                                      m.sequenceId == message.sequenceId),
-                            );
-                            if (initial < 0) initial = 0;
-                          }
-                          Get.to(
-                            () => ShowMessagePager(
-                              mailbox: mailboxController.mailBoxInbox,
-                              initialMessage: message,
-                            ),
-                          );
-                        } catch (_) {
-                          Get.to(
-                            () => ShowMessage(
-                              message: vm.searchMessages[index],
-                              mailbox: mailboxController.mailBoxInbox,
-                            ),
-                          );
-                        }
+                        final MimeMessage message = vm.searchMessages[index];
+                        // Open message view. Pager context will derive from current inbox.
+                        Get.to(
+                          () => ShowMessage(
+                            message: message,
+                            mailbox: Mailbox(
+                              encodedName: 'INBOX',
+                              encodedPath: 'INBOX',
+                              flags: const [],
+                              pathSeparator: '/',
+                            )..name = 'INBOX',
+                          ),
+                        );
                       },
                       message: vm.searchMessages[index],
-                      mailBox: mailboxController.mailBoxInbox,
+                      mailBox: Mailbox(
+                        encodedName: 'INBOX',
+                        encodedPath: 'INBOX',
+                        flags: const [],
+                        pathSeparator: '/',
+                      )..name = 'INBOX',
                     );
                   },
                   separatorBuilder: (context, index) {

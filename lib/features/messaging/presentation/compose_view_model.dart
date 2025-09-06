@@ -3,7 +3,6 @@ import 'package:injectable/injectable.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
-import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 // P12.3: inline DDD routing (remove shim)
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/features/messaging/domain/repositories/draft_repository.dart';
@@ -122,53 +121,7 @@ class ComposeViewModel {
       }
     }
 
-    // Legacy fallback
-    bool ok = false;
-    try {
-      final boxController = Get.find<MailBoxController>();
-      ok = await boxController.sendMailOptimistic(
-        message: builtMessage,
-        draftMessage: controller.msg,
-        draftMailbox: controller.sourceMailbox,
-      );
-    } catch (_) {
-      // In tests or headless contexts, MailBoxController may not be registered.
-      ok = false;
-    }
-
-    // Operation telemetry: success/failure for legacy path
-    try {
-      final acct = controller.email;
-      final folderId =
-          controller.sourceMailbox?.encodedPath ??
-          controller.sourceMailbox?.name ??
-          'INBOX';
-      if (ok) {
-        Telemetry.event(
-          'send_success',
-          props: {
-            'request_id': requestId,
-            'op': 'send_email',
-            'folder_id': folderId,
-            'lat_ms': sw.elapsedMilliseconds,
-            'account_id_hash': Hashing.djb2(acct).toString(),
-          },
-        );
-      } else {
-        Telemetry.event(
-          'send_failure',
-          props: {
-            'request_id': requestId,
-            'op': 'send_email',
-            'folder_id': folderId,
-            'lat_ms': sw.elapsedMilliseconds,
-            'error_class': 'LegacySendFailed',
-            'account_id_hash': Hashing.djb2(acct).toString(),
-          },
-        );
-      }
-    } catch (_) {}
-
-    return ok;
+    // No legacy fallback in P12.4 — rely on use-case only.
+    return false;
   }
 }
