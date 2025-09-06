@@ -1,0 +1,37 @@
+{
+  "phase": "P31.6d",
+  "title": "API base URL wiring — set base per env & safe URL join (no behavior change)",
+  "branch": "feat/p31-6d-api-base-url-wiring",
+  "goal": "Ensure all API calls (e.g., /api/login) resolve against a configured base URL so no requests use a host-less URI.",
+  "changes": [
+    "Add AppConfig/Env module to DI that exposes apiBaseUrl taken from --dart-define or a per-env constant",
+    "Update ApiModule to set the base URL on the concrete MailsysApiClient (GetConnect) at construction",
+    "Guarantee path resolution uses Uri.resolve or a helper join so '/api/...'' is never called without a host",
+    "Add startup diagnostics that print the effective apiBaseUrl once on cold boot"
+  ],
+  "implementation_notes": [
+    "Create lib/shared/config/app_config.dart with fields {String apiBaseUrl}",
+    "Create lib/shared/di/modules/config_module.dart with @module and @lazySingleton AppConfig reading const String.fromEnvironment('API_BASE_URL', defaultValue: '<PUT-STAGING-URL-HERE>')",
+    "In lib/shared/di/modules/api_module.dart, inject AppConfig and set httpClient.baseUrl = config.apiBaseUrl on the MailsysApiClient (GetConnect)",
+    "In AuthUseCase/RestGateway, ensure URL building uses Uri.parse(base).resolve(path).toString() or a tiny helper",
+    "Add assert at boot: assert(Uri.tryParse(config.apiBaseUrl)?.hasAuthority == true)"
+  ],
+  "project_wide_replacements": [
+    "Replace any manual string concatenation of base + path with a helper: String resolveUrl(String base, String path) => Uri.parse(base).resolve(path).toString();"
+  ],
+  "validation": [
+    "flutter pub get",
+    "dart run build_runner build --delete-conflicting-outputs",
+    "dart run tool/import_enforcer.dart -> OK",
+    "dart analyze -> 0 errors (warnings OK)",
+    "flutter test --no-pub test -> PASS",
+    "Cold start run with --dart-define=API_BASE_URL=https://<your-host> then hit login: no 'No host specified' error; startup logs include '[DI] apiBaseUrl=https://<your-host>'"
+  ],
+  "acceptance": [
+    "MailsysApiClient has httpClient.baseUrl set on cold start",
+    "All gateways/use-cases construct absolute URLs via resolve()",
+    "No host-less URI errors in login or other calls",
+    "No UI/behavior changes; pins unchanged"
+  ]
+}
+
