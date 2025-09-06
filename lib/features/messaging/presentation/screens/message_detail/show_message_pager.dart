@@ -1,7 +1,7 @@
 import 'package:enough_mail/enough_mail.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/show_message.dart';
 import 'package:wahda_bank/design_system/components/app_scaffold.dart';
 

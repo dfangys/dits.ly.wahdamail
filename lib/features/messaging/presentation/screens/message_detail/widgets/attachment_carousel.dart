@@ -13,7 +13,7 @@ import 'package:wahda_bank/services/message_content_store.dart';
 import 'package:wahda_bank/services/thumbnail_service.dart';
 import 'package:wahda_bank/services/attachment_fetcher.dart';
 import 'package:wahda_bank/utills/theme/app_theme.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 import 'package:wahda_bank/services/internet_service.dart';
 
 class AttachmentCarousel extends StatefulWidget {

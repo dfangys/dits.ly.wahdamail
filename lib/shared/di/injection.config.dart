@@ -91,6 +91,7 @@ import '../../features/sync/infrastructure/connectivity_monitor.dart' as _i731;
 import '../../features/sync/infrastructure/di/sync_module.dart' as _i958;
 import '../../features/sync/infrastructure/sync_scheduler.dart' as _i505;
 import '../../features/sync/infrastructure/sync_service.dart' as _i706;
+import '../../infrastructure/api/mailsys_api_client.dart' as _i605;
 import '../flags/cohort_service.dart' as _i71;
 import '../flags/remote_flags.dart' as _i944;
 import '../telemetry/tracing.dart' as _i704;
@@ -160,6 +161,8 @@ _i174.GetIt init(
   gh.lazySingleton<_i977.FirstRunUseCase>(() => _i977.FirstRunUseCase());
   gh.lazySingleton<_i169.MessageContentUseCase>(
       () => _i169.MessageContentUseCase());
+  gh.lazySingleton<_i366.AuthUseCase>(
+      () => _i366.AuthUseCase(gh<_i605.MailsysApiClient>()));
   gh.lazySingleton<_i1018.OutboxRepository>(
       () => messagingModule.provideOutboxRepository(gh<_i543.OutboxDao>()));
   gh.lazySingleton<_i898.MessageRepository>(

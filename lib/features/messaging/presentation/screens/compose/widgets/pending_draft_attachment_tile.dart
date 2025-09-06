@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
 
 class PendingDraftAttachmentTile extends StatelessWidget {
   final DraftAttachmentMeta meta;

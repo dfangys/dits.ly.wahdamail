@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:injectable/injectable.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/widgets/search/controllers/mail_search_controller.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 // P12.3: inline DDD search (remove shim)
 import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart';
@@ -11,7 +10,6 @@ import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.
     as dom;
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/shared/telemetry/tracing.dart';
@@ -24,12 +22,8 @@ class SearchViewModel extends GetxController
     with StateMixin<List<MimeMessage>> {
   // State owned by the ViewModel in P12.2
   final List<MimeMessage> searchMessages = <MimeMessage>[];
-  MailSearchResult? searchResults;
-  late final MailClient client =
-      Get.find<MailBoxController>().mailService.client;
-
-  Future<void> runSearch(
-    MailSearchController controller, {
+  Future<void> runSearchText(
+    String query, {
     required String requestId,
   }) async {
     final sw = Stopwatch()..start();
@@ -44,10 +38,10 @@ class SearchViewModel extends GetxController
         );
         final repo = getIt<MessageRepository>();
         final search = uc.SearchMessages(repo);
-        final q = dom.SearchQuery(
-          text: controller.searchController.text,
-          limit: 50,
-        );
+          final q = dom.SearchQuery(
+            text: query,
+            limit: 50,
+          );
         final accountId =
             (GetStorage().read('email') as String?) ?? 'default-account';
         final results = await search(accountId: accountId, query: q);
@@ -100,50 +94,6 @@ class SearchViewModel extends GetxController
       }
     }
 
-    // Legacy fallback handled directly by VM
-    try {
-      final span2 = Tracing.startSpan(
-        'Search',
-        attrs: {'request_id': requestId},
-      );
-      final results = await client.searchMessages(
-        MailSearch(
-          controller.searchController.text,
-          SearchQueryType.allTextHeaders,
-          messageType: SearchMessageType.all,
-        ),
-      );
-      searchResults = results;
-      searchMessages
-        ..clear()
-        ..addAll(results.messages);
-      if (searchMessages.isEmpty) {
-        change(null, status: RxStatus.empty());
-      } else {
-        change(searchMessages, status: RxStatus.success());
-      }
-      Tracing.end(span2);
-      Telemetry.event(
-        'search_success',
-        props: {
-          'request_id': requestId,
-          'op': 'search',
-          'lat_ms': sw.elapsedMilliseconds,
-        },
-      );
-    } catch (e) {
-      try {
-        Telemetry.event(
-          'search_failure',
-          props: {
-            'request_id': requestId,
-            'op': 'search',
-            'lat_ms': sw.elapsedMilliseconds,
-            'error_class': e.runtimeType.toString(),
-          },
-        );
-      } catch (_) {}
-      change(null, status: RxStatus.error(e.toString()));
-    }
+    // No legacy fallback in P12.4; rely on repository.
   }
 }

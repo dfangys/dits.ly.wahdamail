@@ -9,6 +9,7 @@ final domainBans = [
 final applicationBans = ['package:enough_mail', 'package:enough_mail_flutter'];
 final infraPath = RegExp(r'lib/features/.+/infrastructure/');
 final presentationPath = RegExp(r'lib/features/.+/presentation/');
+final controllersPath = RegExp(r'lib/(app/)?controllers/|lib/.+/presentation/controllers/');
 final viewsPath = RegExp(r'lib/views/');
 final domainPath = RegExp(r'lib/features/.+/domain/');
 final applicationPath = RegExp(r'lib/features/.+/application/');
@@ -141,6 +142,21 @@ void main() {
             content.contains('/infrastructure/')) {
           violations.add(
             'Presentation->Infrastructure import violation: ${entity.path}',
+          );
+        }
+        // Hard-fail (scoped): presentation may not import these three deprecated controllers (P12.4)
+        final bannedImports = <String>{
+          "import 'package:wahda_bank/app/controllers/mailbox_controller.dart'",
+          'import "package:wahda_bank/app/controllers/mailbox_controller.dart"',
+          "import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart'",
+          'import "package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart"',
+          "import 'package:wahda_bank/widgets/search/controllers/mail_search_controller.dart'",
+          'import "package:wahda_bank/widgets/search/controllers/mail_search_controller.dart"',
+        };
+        final hasBanned = bannedImports.any((s) => content.contains(s));
+        if (hasBanned) {
+          violations.add(
+            'Presentation->Controllers (scoped) import violation: ${entity.path}',
           );
         }
         final mailSvcImportSingle =

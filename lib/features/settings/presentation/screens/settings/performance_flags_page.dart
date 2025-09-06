@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/memory_budget.dart';
 import 'package:wahda_bank/services/feature_flags.dart';

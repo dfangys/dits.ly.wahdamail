@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/redesigned_compose_view.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
-import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 
 /// Floating compose modal for desktop/tablet; falls back to full-screen on mobile via launcher helper.
 class ComposeModal extends StatefulWidget {
@@ -42,15 +41,13 @@ class ComposeModal extends StatefulWidget {
 
 class _ComposeModalState extends State<ComposeModal>
     with TickerProviderStateMixin {
-  late ComposeController controller;
+late ComposeViewModel controller;
   bool minimized = false;
 
   @override
   void initState() {
     super.initState();
-    controller = Get.put(ComposeController());
-    // P12.2: Ensure ComposeViewModel available via DI for orchestration
-    Get.put<ComposeViewModel>(getIt<ComposeViewModel>());
+controller = Get.put<ComposeViewModel>(getIt<ComposeViewModel>());
   }
 
   @override

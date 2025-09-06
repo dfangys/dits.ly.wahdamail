@@ -13,7 +13,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:awesome_dialog/awesome_dialog.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/models/sqlite_draft_repository.dart';

@@ -11,7 +11,7 @@ import 'package:wahda_bank/services/feature_flags.dart';
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:wahda_bank/shared/utils/hashing.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 import 'package:wahda_bank/services/attachment_fetcher.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 

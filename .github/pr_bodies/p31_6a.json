@@ -1,0 +1,36 @@
+{
+  "phase": "P31.6a",
+  "title": "DI hotfix — register AuthUseCase (no behavior change)",
+  "branch": "feat/p31-6a-di-authusecase-registration",
+  "goal": "Wire AuthUseCase (and its repo deps) into GetIt so app boot no longer fails with 'AuthUseCase is not registered'. Keep visuals/behavior unchanged.",
+  "scope": [
+    "Add DI registration for AuthUseCase (+ MailsysApiClient dependency)",
+    "Ensure DI bootstrap runs before runApp() in main().",
+    "Using injectable: annotated AuthUseCase with @lazySingleton and regenerated config",
+    "Add test DI bootstrap for widget/unit tests touching auth flows"
+  ],
+  "changes": [
+    "lib/features/auth/application/auth_usecase.dart: annotate AuthUseCase with @lazySingleton for DI",
+    "lib/shared/di/injection.config.dart: regenerated — now registers AuthUseCase",
+    "lib/main.dart: DI bootstrap already awaited before runApp()",
+    "test/_support/test_di.dart: add configureDependenciesForTests()"
+  ],
+  "validation": [
+    "flutter pub get",
+    "dart run build_runner build --delete-conflicting-outputs",
+    "dart run tool/import_enforcer.dart → OK (only soft warnings)",
+    "dart analyze → 0 errors (warnings OK)",
+    "flutter test --no-pub test → PASS"
+  ],
+  "guardrails": [
+    "No behavior/UI changes",
+    "Pins unchanged",
+    "Import enforcer rules unchanged"
+  ],
+  "acceptance": [
+    "App boots with DI initialized; no 'AuthUseCase not registered' exceptions",
+    "AuthUseCase resolved via GetIt in both app and tests",
+    "All validations pass"
+  ]
+}
+

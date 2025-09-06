@@ -6,7 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'package:wahda_bank/features/messaging/presentation/models/draft_model.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/redesigned_compose_screen.dart';
-import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 
 // ignore_for_file: must_call_super
 
@@ -17,12 +17,6 @@ class TestSettingController extends SettingController {
   }
 }
 
-class FakeComposeController extends ComposeController {
-  @override
-  void onInit() {
-    // Skip heavy initialization (no settings/drafts hydration)
-  }
-}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -51,8 +45,8 @@ void main() {
         updatedAt: DateTime.now(),
       );
 
-      // Inject a lightweight controller for the screen to reuse
-      Get.put<ComposeController>(FakeComposeController());
+// Inject a lightweight VM for the screen to reuse
+      Get.put<ComposeViewModel>(ComposeViewModel());
 
       // Pump the screen
       await tester.pumpWidget(
@@ -72,7 +66,7 @@ void main() {
       expect(find.text('report.pdf'), findsOneWidget);
 
       // Verify subject and body values via controller backing the UI
-      final controller = Get.find<ComposeController>();
+final controller = Get.find<ComposeViewModel>();
       expect(controller.subjectController.text, equals('My Subject'));
       expect(controller.isHtml.value, isFalse);
       expect(

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 import 'package:wahda_bank/design_system/components/toolbar_spacer.dart';
 import 'package:wahda_bank/design_system/theme/tokens.dart';
 
@@ -8,7 +8,7 @@ import 'package:wahda_bank/design_system/theme/tokens.dart';
 class ComposeToolbar extends StatelessWidget {
   ComposeToolbar({super.key});
 
-  final controller = Get.find<ComposeController>();
+final controller = Get.find<ComposeViewModel>();
 
   @override
   Widget build(BuildContext context) {
