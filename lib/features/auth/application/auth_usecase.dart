@@ -11,6 +11,7 @@ class AuthUseCaseException implements Exception {
   String toString() => message;
 }
 
+@lazySingleton
 class AuthUseCase {
   final MailsysApiClient _api;
   AuthUseCase(this._api);

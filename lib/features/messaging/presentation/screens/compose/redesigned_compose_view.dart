@@ -4,7 +4,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get/get.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
+import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/widgets/enhanced_text_field.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/widgets/attachment_section.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/compose_toolbar.dart';
@@ -14,7 +14,7 @@ import 'package:wahda_bank/features/messaging/presentation/screens/compose/widge
 class RedesignedComposeView extends StatelessWidget {
   RedesignedComposeView({super.key});
 
-  final controller = Get.find<ComposeController>();
+final controller = Get.find<ComposeViewModel>();
 
   @override
   Widget build(BuildContext context) {
@@ -327,9 +327,9 @@ class RedesignedComposeView extends StatelessWidget {
             () => AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,
-              height: controller.isCcAndBccVisible() ? null : 0,
+height: controller.isCcAndBccVisibleValue() ? null : 0,
               child:
-                  controller.isCcAndBccVisible()
+                  controller.isCcAndBccVisibleValue()
                       ? Column(
                         children: [
                           const Divider(height: 1),
@@ -378,8 +378,8 @@ class RedesignedComposeView extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color:
-                controller.isCcAndBccVisible()
+color:
+                controller.isCcAndBccVisibleValue()
                     ? theme.colorScheme.primary.withValues(alpha: 0.1)
                     : theme.colorScheme.surfaceContainerHighest.withValues(
                       alpha: 0.5,
@@ -390,21 +390,21 @@ class RedesignedComposeView extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                controller.isCcAndBccVisible()
+controller.isCcAndBccVisibleValue()
                     ? Icons.expand_less
                     : Icons.expand_more,
                 size: 16,
                 color:
-                    controller.isCcAndBccVisible()
+controller.isCcAndBccVisibleValue()
                         ? theme.colorScheme.primary
                         : theme.colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 4),
               Text(
-                controller.isCcAndBccVisible() ? 'hide_cc_bcc'.tr : 'cc_bcc'.tr,
+controller.isCcAndBccVisibleValue() ? 'hide_cc_bcc'.tr : 'cc_bcc'.tr,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color:
-                      controller.isCcAndBccVisible()
+controller.isCcAndBccVisibleValue()
                           ? theme.colorScheme.primary
                           : theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,

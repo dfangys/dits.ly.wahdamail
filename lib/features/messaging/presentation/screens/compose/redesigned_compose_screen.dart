@@ -3,13 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
+import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/redesigned_compose_view.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/modern_draft_options_sheet.dart';
 import 'package:wahda_bank/features/messaging/presentation/models/draft_model.dart';
 import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
-import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 import 'package:wahda_bank/design_system/components/app_scaffold.dart';
 import 'package:wahda_bank/observability/perf/compose_perf_sampler.dart';
 
@@ -34,7 +33,7 @@ class RedesignedComposeScreen extends StatefulWidget {
 class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
     with TickerProviderStateMixin {
   final composeFormKey = GlobalKey<FormState>();
-  late ComposeController controller;
+late ComposeViewModel controller;
   late AnimationController _fabAnimationController;
   late Animation<double> _fabScaleAnimation;
   late AnimationController _slideAnimationController;
@@ -49,13 +48,11 @@ class _RedesignedComposeScreenState extends State<RedesignedComposeScreen>
     super.initState();
 
     // Initialize controller (use existing if already registered to allow test injection)
-    if (Get.isRegistered<ComposeController>()) {
-      controller = Get.find<ComposeController>();
+if (Get.isRegistered<ComposeViewModel>()) {
+      controller = Get.find<ComposeViewModel>();
     } else {
-      controller = Get.put(ComposeController());
+      controller = Get.put<ComposeViewModel>(getIt<ComposeViewModel>());
     }
-    // P12.2: Ensure ComposeViewModel is available via DI; ComposeController delegates send orchestration to it.
-    Get.put<ComposeViewModel>(getIt<ComposeViewModel>());
 
     // Initialize animations
     _fabAnimationController = AnimationController(

@@ -7,7 +7,6 @@ import 'package:wahda_bank/features/messaging/domain/repositories/outbox_reposit
 import 'package:wahda_bank/features/messaging/domain/value_objects/retry_policy.dart';
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/smtp_gateway.dart';
 import 'package:wahda_bank/features/messaging/domain/entities/draft.dart';
-import 'package:wahda_bank/features/messaging/domain/entities/outbox_item.dart';
 
 class _MockDrafts extends Mock implements DraftRepository {}
 

@@ -1,127 +1,141 @@
-import 'dart:async';
-import 'package:injectable/injectable.dart';
+import 'dart:io';
+import 'dart:convert' as convert;
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:injectable/injectable.dart';
 import 'package:enough_mail/enough_mail.dart';
+import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
-// P12.3: inline DDD routing (remove shim)
-import 'package:get_storage/get_storage.dart';
-import 'package:wahda_bank/features/messaging/domain/repositories/draft_repository.dart';
-import 'package:wahda_bank/features/messaging/domain/repositories/outbox_repository.dart';
-import 'package:wahda_bank/features/messaging/application/usecases/send_email.dart'
-    as uc;
-import 'package:wahda_bank/services/feature_flags.dart';
-import 'package:wahda_bank/shared/logging/telemetry.dart';
-import 'package:wahda_bank/shared/utils/hashing.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
-import 'package:wahda_bank/shared/telemetry/tracing.dart';
+import 'package:wahda_bank/features/messaging/application/usecases/send_email.dart' as app;
+import 'package:wahda_bank/features/messaging/domain/entities/outbox_item.dart' as dom;
 
-/// Presentation adapter for compose/send orchestration.
-/// - Respects P12 routing and kill-switch precedence
-/// - Delegates to DDD via DddUiWiring when enabled
-/// - Falls back to legacy optimistic send when DDD path is disabled
+/// ComposeViewModel (P12.4) — temporary adapter exposing the surface the UI needs,
+/// forwarding to the legacy ComposeController under the hood. This keeps the app
+/// buildable while we complete the migration and then delete the controller.
 @lazySingleton
-class ComposeViewModel {
+class ComposeViewModel extends GetxController {
+  ComposeController get _c =>
+      Get.isRegistered<ComposeController>() ? Get.find<ComposeController>() : Get.put(ComposeController());
+
+  // Controllers
+  TextEditingController get subjectController => _c.subjectController;
+  TextEditingController get plainTextController => _c.plainTextController;
+  // Body convenience alias used by some UIs
+  TextEditingController get bodyController => _c.plainTextController;
+
+  // HTML editor
+  HtmlEditorController get htmlController => _c.htmlController;
+  String get bodyPart => _c.bodyPart;
+  set bodyPart(String v) => _c.bodyPart = v;
+
+  // Recipients
+  RxList<MailAddress> get toList => _c.toList;
+  RxList<MailAddress> get cclist => _c.cclist;
+  RxList<MailAddress> get bcclist => _c.bcclist;
+  List<MailAddress> get mailAddresses => _c.mailAddresses;
+
+  // User info
+  String get name => _c.name;
+  String get email => _c.email;
+
+  // Flags/state
+  RxBool get isHtml => _c.isHtml;
+  RxBool get isBusy => _c.isBusy;
+  RxBool get isSending => _c.isSending;
+  bool get hasUnsavedChanges => _c.hasUnsavedChanges;
+  set hasUnsavedChanges(bool v) => _c.hasUnsavedChanges = v;
+  String get lastSavedTime => _c.lastSavedTime;
+
+  // Draft state and status
+  int? get currentDraftId => _c.currentDraftId;
+  set currentDraftId(int? v) => _c.currentDraftId = v;
+  String get draftStatus => _c.draftStatus;
+  String get signature => _c.signature;
+
+  // Attachments
+  RxList<File> get attachments => _c.attachments;
+  RxList<DraftAttachmentMeta> get pendingDraftAttachments => _c.pendingDraftAttachments;
+
+  // Misc UI flags
+  RxBool get isCcAndBccVisible => _c.isCcAndBccVisible;
+  // Helper to read as bool without ".value"
+  bool isCcAndBccVisibleValue() => _c.isCcAndBccVisible.value;
+  RxInt get priority => _c.priority;
+
+  // Actions (forwarders)
+  Future<void> togglePlainHtml() async => _c.togglePlainHtml();
+  void addTo(MailAddress a) => _c.addTo(a);
+  void addToCC(dynamic a) => _c.addToCC(a);
+  void addToBcc(dynamic a) => _c.addToBcc(a);
+  void removeFromToList(dynamic x) => _c.removeFromToList(x);
+  void removeFromCcList(dynamic x) => _c.removeFromCcList(x);
+  void removeFromBccList(dynamic x) => _c.removeFromBccList(x);
+
+  Future<void> saveAsDraft() => _c.saveAsDraft();
+  Future<void> discardCurrentDraft() => _c.discardCurrentDraft();
+  Future<void> sendEmail() => _c.sendEmail();
+  Future<void> scheduleDraft(DateTime when) async => _c.scheduleDraft(when);
+  Future<void> categorizeDraft(String category) async => _c.categorizeDraft(category);
+
+  // Pending draft attachments actions
+  void reattachAllPendingAttachments() => _c.reattachAllPendingAttachments();
+  void reattachPendingAttachment(DraftAttachmentMeta m) => _c.reattachPendingAttachment(m);
+  void viewPendingAttachment(DraftAttachmentMeta m) => _c.viewPendingAttachment(m);
+
+  // HTML editor helpers
+  void markHtmlEditorReady() => _c.markHtmlEditorReady();
+  void onContentChanged() => _c.onContentChanged();
+
+  // Compose context helpers
+  void setEditingDraftContext({int? uid, Mailbox? mailbox}) => _c.setEditingDraftContext(uid: uid, mailbox: mailbox);
+
+  // File pickers
+  Future<void> pickFiles() => _c.pickFiles();
+  Future<void> pickImage() => _c.pickImage();
+
+  // Navigation helpers
+  bool canPop() => _c.canPop();
+
+  // DDD send orchestration invoked by legacy controller
   Future<bool> send({
     required ComposeController controller,
     required MimeMessage builtMessage,
     required String requestId,
   }) async {
-    final sw = Stopwatch()..start();
-
-    // Try DDD path first when eligible (inline use-case)
-    if (!FeatureFlags.instance.dddKillSwitchEnabled &&
-        FeatureFlags.instance.dddSendEnabled) {
+    try {
+      final accountId = controller.accountEmail;
+      final folderId = controller.sourceMailbox?.encodedPath ??
+          controller.sourceMailbox?.name ??
+          'INBOX';
+      final messageId = builtMessage.getHeaderValue('Message-Id') ??
+          'mid-${DateTime.now().microsecondsSinceEpoch}';
+      // Try to render bytes; fall back to empty if not available in current stack
+      List<int> rawBytes = <int>[];
       try {
-        final span = Tracing.startSpan(
-          'SendSmtp',
-          attrs: {'request_id': requestId},
-        );
-        // Prepare SendEmail use-case
-        final drafts = getIt<DraftRepository>();
-        final outbox = getIt<OutboxRepository>();
-        // Retrieve SMTP gateway without importing infra types; keep as Object to satisfy GetIt bounds.
-        final smtp = getIt<Object>();
-        final send = uc.SendEmail(
-          drafts: drafts,
-          outbox: outbox,
-          smtp: smtp as dynamic,
-        );
+        final dynamic rendered = (builtMessage as dynamic).renderMessage();
+        if (rendered is String) {
+          rawBytes = convert.utf8.encode(rendered);
+        } else if (rendered is List<int>) {
+          rawBytes = rendered;
+        }
+      } catch (_) {}
 
-        // Gather inputs
-        final accountId =
-            (GetStorage().read('email') as String?) ?? 'default-account';
-        final folderId =
-            (controller.sourceMailbox != null &&
-                    controller.sourceMailbox!.encodedPath.isNotEmpty)
-                ? controller.sourceMailbox!.encodedPath
-                : (controller.sourceMailbox?.name ?? 'INBOX');
-
-        // Render raw RFC822 bytes
-        List<int> rawBytes = const <int>[];
-        String messageId = controller.composeSessionId;
-        try {
-          final any = (builtMessage as dynamic).renderMessage();
-          if (any is List<int>) {
-            rawBytes = any;
-          } else if (any is String) {
-            rawBytes = any.codeUnits;
-          }
-          final mid =
-              builtMessage.getHeaderValue('message-id') ??
-              builtMessage.getHeaderValue('Message-Id');
-          if (mid != null && mid.trim().isNotEmpty) messageId = mid.trim();
-        } catch (_) {}
-
-        // Invoke use-case
-        await send(
-          accountId: accountId,
-          folderId: folderId,
-          draftId: controller.composeSessionId,
-          messageId: messageId,
-          rawBytes: rawBytes,
-        );
-
-        Tracing.end(span);
-        // Telemetry success
-        try {
-          final acct = controller.email;
-          Telemetry.event(
-            'send_success',
-            props: {
-              'request_id': requestId,
-              'op': 'send_email',
-              'folder_id': folderId,
-              'lat_ms': sw.elapsedMilliseconds,
-              'account_id_hash': Hashing.djb2(acct).toString(),
-            },
-          );
-        } catch (_) {}
-
-        return true;
-      } catch (e) {
-        try {
-          final acct = controller.email;
-          final folderId =
-              controller.sourceMailbox?.encodedPath ??
-              controller.sourceMailbox?.name ??
-              'INBOX';
-          Telemetry.event(
-            'send_failure',
-            props: {
-              'request_id': requestId,
-              'op': 'send_email',
-              'folder_id': folderId,
-              'lat_ms': sw.elapsedMilliseconds,
-              'error_class': e.runtimeType.toString(),
-              'account_id_hash': Hashing.djb2(acct).toString(),
-            },
-          );
-        } catch (_) {}
-        // fall through to legacy
-      }
+      final uc = app.SendEmail(
+        drafts: getIt(),
+        outbox: getIt(),
+        smtp: getIt(),
+      );
+      final res = await uc(
+        accountId: accountId,
+        folderId: folderId,
+        draftId: controller.composeSessionId,
+        messageId: messageId,
+        rawBytes: rawBytes,
+      );
+      return res.status != dom.OutboxStatus.failed;
+    } catch (_) {
+      return false;
     }
-
-    // No legacy fallback in P12.4 — rely on use-case only.
-    return false;
   }
 }

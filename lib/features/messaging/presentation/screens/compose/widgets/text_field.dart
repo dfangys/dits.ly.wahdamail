@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
+import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 
 class ToEmailsChipsField extends StatefulWidget {
   final Function(MailAddress) onInsert;
@@ -30,7 +30,7 @@ class ToEmailsChipsField extends StatefulWidget {
 class _ToEmailsChipsFieldState extends State<ToEmailsChipsField> {
   final TextEditingController controller = TextEditingController();
   final FocusNode focusNode = FocusNode();
-  final composeController = Get.find<ComposeController>();
+final composeController = Get.find<ComposeViewModel>();
 
   @override
   Widget build(BuildContext context) {

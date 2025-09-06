@@ -12,6 +12,13 @@ const MethodChannel _pathProviderChannel = MethodChannel(
   'plugins.flutter.io/path_provider',
 );
 
+class _StubComposeController extends ComposeController {
+  @override
+  void onInit() {
+    // no-op to avoid heavy initialization in unit tests
+  }
+}
+
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -78,14 +85,10 @@ void main() {
     await box.write('ddd.kill_switch.enabled', false);
     await box.write('ddd.send.enabled', true);
 
-    final compose = ComposeController();
-    final vm = getIt<ComposeViewModel>();
+final vm = getIt<ComposeViewModel>();
+    final ctrl = _StubComposeController();
     final msg = MimeMessage();
-    final ok = await vm.send(
-      controller: compose,
-      builtMessage: msg,
-      requestId: 'req',
-    );
+    final ok = await vm.send(controller: ctrl, builtMessage: msg, requestId: 'req');
     expect(ok, isA<bool>());
   });
 

@@ -10,7 +10,6 @@ import 'package:wahda_bank/features/messaging/domain/repositories/draft_reposito
 import 'package:wahda_bank/features/messaging/infrastructure/gateways/smtp_gateway.dart';
 import 'package:wahda_bank/features/messaging/application/usecases/mark_read.dart';
 import 'package:wahda_bank/features/messaging/domain/entities/draft.dart';
-import 'package:wahda_bank/features/messaging/domain/entities/outbox_item.dart';
 
 import 'package:wahda_bank/features/messaging/domain/entities/folder.dart';
 import 'package:wahda_bank/features/messaging/domain/entities/message.dart'

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
+import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 
 /// Enhanced email chips field with improved UX and modern design
 class EnhancedEmailChipsField extends StatefulWidget {
@@ -34,7 +34,7 @@ class _EnhancedEmailChipsFieldState extends State<EnhancedEmailChipsField>
     with SingleTickerProviderStateMixin {
   final TextEditingController controller = TextEditingController();
   final FocusNode focusNode = FocusNode();
-  final composeController = Get.find<ComposeController>();
+final composeController = Get.find<ComposeViewModel>();
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
 
