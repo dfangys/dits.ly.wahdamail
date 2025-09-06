@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
 
 /// Enhanced email chips field with improved UX and modern design
 class EnhancedEmailChipsField extends StatefulWidget {

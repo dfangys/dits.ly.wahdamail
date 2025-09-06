@@ -4,7 +4,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:get/get.dart';
 import 'package:html_editor_enhanced/html_editor.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/widgets/enhanced_text_field.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/widgets/attachment_section.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/compose_toolbar.dart';

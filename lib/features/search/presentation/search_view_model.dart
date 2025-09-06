@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:injectable/injectable.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/widgets/search/controllers/mail_search_controller.dart';
+import 'package:wahda_bank/features/search/presentation/api/mail_search_controller_api.dart';
 import 'package:wahda_bank/services/feature_flags.dart';
 // P12.3: inline DDD search (remove shim)
 import 'package:wahda_bank/features/messaging/domain/repositories/message_repository.dart';
@@ -11,7 +11,7 @@ import 'package:wahda_bank/features/messaging/domain/value_objects/search_query.
     as dom;
 import 'package:wahda_bank/shared/logging/telemetry.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/shared/telemetry/tracing.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
 import 'package:wahda_bank/design_system/components/toolbar_spacer.dart';
 import 'package:wahda_bank/design_system/theme/tokens.dart';
 

@@ -40,7 +40,7 @@ This document is the **authoritative replacement** for the legacy Architecture G
 We use **Domain‑Driven Design** with **Clean Architecture** in a **feature‑first** layout:
 
 * **Features**: `messaging`, `sync`, `search`, `rendering`, `enterprise_api`, `security`, `notifications`, `settings`.
-* **Layers by feature**: `domain`, `application`, `infrastructure`, `presentation` (UI + ViewModels live under `lib/features/**/presentation/**`; legacy controllers are thin, @Deprecated adapters only).
+* **Layers by feature**: `domain`, `application`, `infrastructure`, `presentation` (UI + ViewModels live under `lib/features/**/presentation/**`; controllers were deprecated in P12.2–P12.3 and fully removed in P12.4; presentation owns orchestration).
 * **Principles**: separation of concerns, dependency inversion, testability, and incremental migration (legacy path remains default until rollout).
 
 ## Directory Layout

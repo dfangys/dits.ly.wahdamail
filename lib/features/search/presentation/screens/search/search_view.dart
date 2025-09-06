@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/show_message.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/show_message_pager.dart';
 import 'package:wahda_bank/widgets/mail_tile.dart';
-import 'package:wahda_bank/widgets/search/controllers/mail_search_controller.dart';
+import 'package:wahda_bank/features/search/presentation/api/mail_search_controller_api.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
 import 'package:wahda_bank/design_system/components/app_scaffold.dart';

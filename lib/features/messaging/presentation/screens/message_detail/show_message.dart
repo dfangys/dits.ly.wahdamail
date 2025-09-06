@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
+import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/widgets/inbox_app_bar.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/widgets/inbox_bottom_navbar.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/message_detail/widgets/mail_meta_tile.dart';

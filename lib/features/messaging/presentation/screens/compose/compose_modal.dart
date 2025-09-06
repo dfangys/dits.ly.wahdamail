@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:wahda_bank/features/messaging/presentation/controllers/compose_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/api/compose_controller_api.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/redesigned_compose_view.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
