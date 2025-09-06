@@ -13,8 +13,17 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - run: flutter pub get
-      - run: dart run build_runner build --delete-conflicting-outputs
-      - run: dart run tool/import_enforcer.dart
-      - run: flutter analyze
-      - run: flutter test --no-pub test
+      - name: Flutter pub get
+        run: flutter pub get
+      - name: Build runner
+        run: dart run build_runner build --delete-conflicting-outputs
+      - name: Import enforcer
+        run: dart run tool/import_enforcer.dart
+      - name: Guardrail grep checks
+        run: |
+          bash scripts/quality/grep_no_views.sh
+          bash scripts/quality/grep_no_services_in_presentation.sh
+      - name: Flutter analyze
+        run: flutter analyze
+      - name: Flutter tests
+        run: flutter test --no-pub test
