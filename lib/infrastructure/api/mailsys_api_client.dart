@@ -42,13 +42,9 @@ class MailsysApiClient extends GetConnect {
       request.headers['Accept'] = 'application/json';
       request.headers['Content-Type'] = 'application/json';
       final userToken = _storage.read<String>(_storageKeyToken);
-      // Prefer user token when present; otherwise fall back to app token for pre-auth endpoints
-      final authToken =
-          (userToken != null && userToken.isNotEmpty)
-              ? userToken
-              : (_appToken ?? '');
-      if (authToken.isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer $authToken';
+      // Inject Authorization only when a user token exists. Do NOT fall back to app token here.
+      if (userToken != null && userToken.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $userToken';
       }
       return request;
     });
@@ -123,6 +119,19 @@ class MailsysApiClient extends GetConnect {
 
   /// GET /api/user
   Future<Map<String, dynamic>> getUserProfile() async {
+    // Guard: do not fire when token is absent (pre-login)
+    final hasToken = _storage.read<String>(_storageKeyToken)?.isNotEmpty == true;
+    if (kDebugMode) {
+      // ignore: avoid_print
+      print('[Auth] calling /api/user (tokenPresent=$hasToken)');
+    }
+    if (!hasToken) {
+      if (kDebugMode) {
+        // ignore: avoid_print
+        print('[Auth] Skipping /api/user (tokenPresent=false)');
+      }
+      return <String, dynamic>{'data': <String, dynamic>{}};
+    }
     final res = await get('/api/user');
     return _parse(res);
   }

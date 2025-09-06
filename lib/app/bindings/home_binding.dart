@@ -10,7 +10,6 @@ import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.da
 import 'package:wahda_bank/features/messaging/presentation/compose_view_model.dart';
 import 'package:wahda_bank/features/search/presentation/search_view_model.dart';
 
-import '../controllers/mail_count_controller.dart';
 import '../controllers/mailbox_controller.dart';
 import '../controllers/selection_controller.dart';
 
@@ -46,7 +45,7 @@ class HomeBinding extends Bindings {
 
     Get.lazyPut<MailBoxController>(() => MailBoxController(), fenix: true);
     Get.lazyPut<SelectionController>(() => SelectionController());
-    Get.lazyPut<MailCountController>(() => MailCountController());
+    // P12.4c: MailCountController removed; counts served via MailboxViewModel/UseCase
     Get.lazyPut<AuthController>(() => AuthController(), fenix: true);
     // Get.put<AuthController>(AuthController(), permanent: true);
 

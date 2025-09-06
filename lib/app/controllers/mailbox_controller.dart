@@ -8,8 +8,9 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:logger/logger.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
-import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
 import 'package:wahda_bank/models/sqlite_mime_storage.dart';
+import 'package:wahda_bank/features/home/application/mail_count_usecase.dart';
+import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/utils/indexed_cache.dart';
 import 'package:wahda_bank/services/cache_manager.dart';
 import 'package:wahda_bank/services/mail_service.dart';
@@ -35,7 +36,6 @@ import 'package:wahda_bank/widgets/progress_indicator_widget.dart';
 import 'package:wahda_bank/app/constants/app_constants.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/login/login.dart';
 import 'package:wahda_bank/services/imap_command_queue.dart';
-import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
 
 class _LocalDbLoadResult {
@@ -1452,12 +1452,11 @@ class MailBoxController extends GetxController {
         }
       }
 
-      if (Get.isRegistered<MailCountController>()) {
-        final countControll = Get.find<MailCountController>();
-        String key = "${mailbox.name.toLowerCase()}_count";
-        countControll.counts[key] =
-            emails[mailbox]!.where((e) => !e.isSeen).length;
-      }
+      try {
+        final countUc = getIt<MailCountUseCase>();
+        final unread = emails[mailbox]!.where((e) => !e.isSeen).length;
+        countUc.updateCount(mailbox.name, unread);
+      } catch (_) {}
 
       storeContactMails(emails[mailbox]!);
     } catch (e) {
@@ -4812,11 +4811,10 @@ class MailBoxController extends GetxController {
       }
 
       // Update counts
-      if (Get.isRegistered<MailCountController>()) {
-        final countController = Get.find<MailCountController>();
-        String key = "${mailbox.name.toLowerCase()}_count";
-        countController.counts[key] = list.length;
-      }
+      try {
+        final countUc = getIt<MailCountUseCase>();
+        countUc.updateCount(mailbox.name, list.length);
+      } catch (_) {}
     } catch (e) {
       logger.w('Replacing local drafts with fetched set failed: $e');
     }

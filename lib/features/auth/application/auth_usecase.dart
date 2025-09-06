@@ -1,4 +1,5 @@
 import 'package:injectable/injectable.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
 import 'package:wahda_bank/services/mail_service.dart';
 
@@ -15,6 +16,20 @@ class AuthUseCaseException implements Exception {
 class AuthUseCase {
   final MailsysApiClient _api;
   AuthUseCase(this._api);
+
+  static const _storageKeyToken = 'mailsys_token';
+  final GetStorage _storage = GetStorage();
+
+  /// Returns true if a non-empty user token exists locally.
+  bool hasValidToken() {
+    final t = _storage.read<String>(_storageKeyToken);
+    return t != null && t.isNotEmpty;
+  }
+
+  /// Ensures authentication is present. For now returns hasValidToken().
+  Future<bool> ensureAuthenticated() async {
+    return hasValidToken();
+  }
 
   /// Persist IMAP credentials for legacy messaging usage later.
   Future<void> setCredentials(String email, String password) async {

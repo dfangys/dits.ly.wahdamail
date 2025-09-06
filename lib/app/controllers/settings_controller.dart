@@ -4,6 +4,8 @@ import 'package:get_storage/get_storage.dart';
 import 'package:wahda_bank/features/settings/presentation/data/swap_data.dart';
 import '../../services/security_service.dart';
 import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
+import 'package:get_it/get_it.dart';
+import 'package:wahda_bank/features/auth/application/auth_usecase.dart';
 
 class SettingController extends GetxController {
   final language = 'en'.obs;
@@ -155,8 +157,17 @@ class SettingController extends GetxController {
   }
 
   // Remote profile
-  Future<void> fetchUserProfile() async {
+Future<void> fetchUserProfile() async {
     try {
+      // Gate unauthenticated calls (no behavior change): skip until token exists
+      final hasToken = GetIt.I<AuthUseCase>().hasValidToken();
+      if (Get.isLogEnable) {
+        // Avoid secrets; only log presence
+        // ignore: avoid_print
+        print('[Auth] fetchUserProfile gate: tokenPresent=$hasToken');
+      }
+      if (!hasToken) return;
+
       final api = Get.find<MailsysApiClient>();
       final res = await api.getUserProfile();
       final data = res['data'] as Map? ?? {};

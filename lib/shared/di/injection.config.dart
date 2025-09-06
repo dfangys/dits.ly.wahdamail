@@ -24,6 +24,7 @@ import '../../features/enterprise_api/infrastructure/di/enterprise_api_module.da
 import '../../features/enterprise_api/infrastructure/gateways/rest_gateway.dart'
     as _i749;
 import '../../features/enterprise_api/infrastructure/token_store.dart' as _i660;
+import '../../features/home/application/mail_count_usecase.dart' as _i161;
 import '../../features/messaging/application/message_content_usecase.dart'
     as _i169;
 import '../../features/messaging/domain/repositories/draft_repository.dart'
@@ -158,7 +159,6 @@ _i174.GetIt init(
   gh.lazySingleton<_i992.PreviewCache>(
       () => renderingModule.providePreviewCache());
   gh.lazySingleton<_i961.SearchViewModel>(() => _i961.SearchViewModel());
-  gh.lazySingleton<_i77.MailboxViewModel>(() => _i77.MailboxViewModel());
   gh.lazySingleton<_i390.ComposeViewModel>(() => _i390.ComposeViewModel());
   gh.lazySingleton<_i944.RemoteFlags>(() => _i944.RemoteFlags());
   gh.lazySingleton<_i71.CohortService>(() => const _i71.CohortService());
@@ -167,6 +167,9 @@ _i174.GetIt init(
   gh.lazySingleton<_i169.MessageContentUseCase>(
       () => _i169.MessageContentUseCase());
   gh.lazySingleton<_i650.AppConfig>(() => configModule.appConfig());
+  gh.lazySingleton<_i161.MailCountUseCase>(() => _i161.MailCountUseCase());
+  gh.lazySingleton<_i77.MailboxViewModel>(
+      () => _i77.MailboxViewModel(gh<_i161.MailCountUseCase>()));
   gh.lazySingleton<_i1018.OutboxRepository>(
       () => messagingModule.provideOutboxRepository(gh<_i543.OutboxDao>()));
   gh.lazySingleton<_i898.MessageRepository>(

@@ -1,0 +1,25 @@
+{
+  "phase": "P12.4-hotfix",
+  "title": "Register MailCountController (temporary shim; no behavior change)",
+  "branch": "feat/p12-4-hotfix-mailcount-shim",
+  "goal": "Unblock runtime by registering MailCountController until its call sites are migrated to ViewModels/use-cases.",
+  "changes": [
+    "Add AppBindings (or extend existing) to lazily register MailCountController at startup",
+    "Wire initialBinding in GetMaterialApp to AppBindings",
+    "Add TODO to remove this shim in P12.4c"
+  ],
+  "validation": [
+    "flutter pub get",
+    "dart run build_runner build --delete-conflicting-outputs",
+    "dart run tool/import_enforcer.dart -> OK",
+    "dart analyze -> 0 errors (warnings OK)",
+    "flutter test --no-pub test -> PASS",
+    "Cold start boots without 'MailCountController not found'"
+  ],
+  "acceptance": [
+    "App runs; badge/count features work",
+    "No UI changes",
+    "Shim is isolated and clearly marked for removal in P12.4c"
+  ]
+}
+

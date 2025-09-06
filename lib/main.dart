@@ -51,6 +51,9 @@ Future main() async {
   debugPrint('[DI] apiBaseUrl=${cfg.apiBaseUrl}');
   assert(Uri.tryParse(cfg.apiBaseUrl)?.hasAuthority == true, 'Bad API_BASE_URL');
   debugPrint('[DI] ready: MailsysApiClient=' + GetIt.I.isRegistered<MailsysApiClient>().toString() + ', AuthUseCase=' + GetIt.I.isRegistered<AuthUseCase>().toString());
+  // Boot diagnostics: token presence
+  final tokenPresentBoot = GetStorage().read('mailsys_token')?.toString().isNotEmpty == true;
+  debugPrint('[Auth] tokenPresent=' + tokenPresentBoot.toString());
 
   await NotificationService.instance.setup();
 

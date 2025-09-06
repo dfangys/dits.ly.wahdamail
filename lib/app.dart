@@ -12,7 +12,6 @@ import 'package:wahda_bank/middleware/auth_middleware.dart';
 import 'package:wahda_bank/services/security_service.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
 import 'app/bindings/home_binding.dart';
-import 'app/bindings/app_bindings.dart';
 import 'services/internet_service.dart';
 import 'package:wahda_bank/services/scheduled_send_service.dart';
 import 'utills/constants/language.dart';
@@ -63,7 +62,6 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      initialBinding: AppBindings(),
       debugShowCheckedModeBanner: false,
       navigatorKey: InternetService.instance.navigatorKey,
       title: 'Wahda Mail',

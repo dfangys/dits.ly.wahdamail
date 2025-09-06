@@ -1,0 +1,22 @@
+{
+  "phase": "P31.6d",
+  "title": "Gate unauthenticated network calls on app start (no behavior change)",
+  "branch": "feat/p31-6d-gate-unauthenticated-requests",
+  "goal": "Prevent /api/user and other auth-required endpoints from firing before login/token is present.",
+  "changes": [
+    "Guard all profile/me calls with hasValidToken()",
+    "Defer eager profile fetches from service onInit to post-login",
+    "Client interceptor injects Authorization only when token exists; skips guarded endpoints otherwise",
+    "Add debug diagnostics around token presence and profile calls"
+  ],
+  "validation": [
+    "Cold start: no 401 logs before login",
+    "Post-login: profile call succeeds (or expected server response)",
+    "Import enforcer passes; analyze 0 errors; tests PASS"
+  ],
+  "acceptance": [
+    "0 calls to /api/user before login",
+    "No UI/behavior change for authenticated flows"
+  ]
+}
+

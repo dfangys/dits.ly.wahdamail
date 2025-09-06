@@ -14,6 +14,7 @@ import 'package:enough_mail/enough_mail.dart';
 import 'package:wahda_bank/app/api/mailbox_controller_api.dart';
 import 'package:wahda_bank/services/attachment_fetcher.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
+import 'package:wahda_bank/features/home/application/mail_count_usecase.dart';
 
 /// Presentation adapter for the mailbox feature.
 ///
@@ -22,6 +23,9 @@ import 'package:wahda_bank/shared/di/injection.dart';
 /// - Non-blocking prefetch via DDD when enabled (no UI change)
 @lazySingleton
 class MailboxViewModel {
+  MailCountUseCase _mailCount;
+  MailboxViewModel(this._mailCount);
+
   Future<void> prefetchOnMailboxOpen({
     required String folderId,
     String? requestId,
@@ -106,5 +110,14 @@ class MailboxViewModel {
       content: content,
       mailbox: mailbox,
     );
+  }
+
+  // P12.4c: unread count streams for UI badges
+  Stream<int> unreadCountStreamFor(Mailbox box) {
+    return _mailCount.unreadCountForMailbox(box.name);
+  }
+
+  int initialUnreadCountForName(String mailboxName) {
+    return _mailCount.initialUnreadForMailbox(mailboxName);
   }
 }

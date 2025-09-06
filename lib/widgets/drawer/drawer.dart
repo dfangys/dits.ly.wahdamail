@@ -4,7 +4,6 @@ import 'package:get/get.dart';
 import 'package:enough_mail/enough_mail.dart';
 import 'package:iconsax/iconsax.dart';
 import 'package:wahda_bank/app/controllers/mailbox_controller.dart';
-import 'package:wahda_bank/app/controllers/mail_count_controller.dart';
 import 'package:wahda_bank/features/home/presentation/screens/drawer/terms_and_conditions.dart';
 import 'package:wahda_bank/features/home/presentation/screens/drawer/Contact_us/Contact_us.dart';
 import 'package:wahda_bank/features/messaging/presentation/screens/compose/compose_modal.dart';
@@ -13,6 +12,7 @@ import 'package:wahda_bank/utills/constants/image_strings.dart';
 import 'package:wahda_bank/widgets/drawer/drawer_tile.dart';
 import 'package:wahda_bank/features/settings/presentation/screens/settings/performance_flags_page.dart';
 import 'package:wahda_bank/app/controllers/settings_controller.dart';
+import 'package:wahda_bank/features/messaging/presentation/mailbox_view_model.dart';
 
 class Drawer1 extends StatelessWidget {
   const Drawer1({super.key});
@@ -20,7 +20,7 @@ class Drawer1 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<MailBoxController>();
-    final countController = Get.find<MailCountController>();
+    final mailboxVm = Get.find<MailboxViewModel>();
     final settingController =
         Get.isRegistered<SettingController>()
             ? Get.find<SettingController>()
@@ -109,20 +109,24 @@ class Drawer1 extends StatelessWidget {
                       for (Mailbox box in _getSortedMailboxes(
                         controller.mailboxes,
                       ))
-                        WDrawerTile(
-                          icon: boxIcon(box.name),
-                          text: box.encodedName.toLowerCase().tr,
-                          onTap: () {
-                            Get.back();
-                            if (!box.isInbox) {
-                              controller.navigatToMailBox(box);
-                            }
+                        StreamBuilder<int>(
+                          stream: mailboxVm.unreadCountStreamFor(box),
+                          initialData: mailboxVm.initialUnreadCountForName(box.name),
+                          builder: (context, snapshot) {
+                            final count = snapshot.data ?? 0;
+                            return WDrawerTile(
+                              icon: boxIcon(box.name),
+                              text: box.encodedName.toLowerCase().tr,
+                              onTap: () {
+                                Get.back();
+                                if (!box.isInbox) {
+                                  controller.navigatToMailBox(box);
+                                }
+                              },
+                              count: count,
+                              isActive: box.isInbox,
+                            );
                           },
-                          count:
-                              countController
-                                  .counts["${box.name.toLowerCase()}_count"] ??
-                              0,
-                          isActive: box.isInbox,
                         ),
 
                       const SizedBox(height: 24),
