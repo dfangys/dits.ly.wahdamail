@@ -1,0 +1,31 @@
+{
+  "phase": "P31.4",
+  "title": "Migrate Settings & Home to feature/presentation (no behavior change)",
+  "branch": "feat/ddd-p31-4-settings-home-migration",
+  "goal": "Move Settings screens and Home shell from lib/views/** to lib/features/**/presentation/** and retarget routes.",
+  "moves": [
+    { "from": "lib/views/settings/", "to": "lib/features/settings/presentation/screens/" },
+    { "from": "lib/views/view/screens/home/", "to": "lib/features/home/presentation/screens/" },
+    { "from": "lib/views/view/screens/drawer/", "to": "lib/features/home/presentation/widgets/" }
+  ],
+  "routes": {
+    "file": "lib/app.dart",
+    "action": "retarget to feature/presentation paths"
+  },
+  "guardrails": [
+    "No business logic changes; ViewModels/use-cases own orchestration",
+    "Presentation must not import services/ or infrastructure/",
+    "Import enforcer: new Colors.* in presentation/views hard-fail (DS/theme excluded)",
+    "Flags OFF; kill-switch > flags"
+  ],
+  "tests": [
+    "Existing widget/golden tests pass"
+  ],
+  "acceptance": [
+    "Import enforcer passes",
+    "Analyze: 0 errors (warnings OK)",
+    "flutter test --no-pub test: PASS",
+    "App routes compile and run; visuals 1:1"
+  ]
+}
+
