@@ -1,0 +1,88 @@
+{
+  "phase": "P31.6b",
+  "title": "DI fix — single GetIt instance + early init + dep module (no behavior change)",
+  "branch": "feat/p31-6b-di-singleton-and-early-init",
+  "goal": "Ensure AuthUseCase resolves at app start by using one GetIt instance, awaiting DI before runApp, and registering MailsysApiClient in the same container/env.",
+  "checks": [
+    "grep project for 'GetIt.instance()' and replace with 'GetIt.instance' (no parentheses).",
+    "Standardize the DI handle: use a single global 'getIt' (or 'sl') from injection.dart everywhere.",
+    "Verify main.dart awaits configureDependencies(...) before runApp().",
+    "Add an assert after DI: assert(GetIt.I.isRegistered<AuthUseCase>()).",
+    "Ensure injection.config.dart is imported from injection.dart and rebuilt.",
+    "Register MailsysApiClient (or its adapter) in the same container via @module/@lazySingleton."
+  ],
+  "changes": [
+    {
+      "file": "lib/shared/di/injection.dart",
+      "diff": [
+        "final getIt = GetIt.instance; // not GetIt.instance()",
+        "@InjectableInit(externalPackageModulesAfter: [ExternalModule(\"ApiModule\")])",
+        "Future<void> configureDependencies([String? env]) async {",
+        "  await getIt.reset(dispose: true);",
+        "  await getIt.init(environment: env);",
+        "}"
+      ]
+    },
+    {
+      "file": "lib/main.dart",
+      "diff": [
+        "void main() async {",
+        "  WidgetsFlutterBinding.ensureInitialized();",
+        "  await configureDependencies(Environment.dev);",
+        "  assert(GetIt.I.isRegistered<AuthUseCase>());",
+        "  runApp(const MyApp());",
+        "}"
+      ]
+    },
+    {
+      "file": "lib/shared/di/modules/api_module.dart",
+      "new": true,
+      "snippet": [
+        "import 'package:injectable/injectable.dart';",
+        "import 'package:wahda_bank/services/mailsys_api_client.dart';",
+        "",
+        "@module",
+        "abstract class ApiModule {",
+        "  @lazySingleton",
+        "  MailsysApiClient mailsysApiClient() => MailsysApiClient();",
+        "}"
+      ]
+    },
+    {
+      "file": "lib/features/auth/application/auth_usecase.dart",
+      "note": "Keep @lazySingleton; ensure constructor only depends on types registered above (e.g., MailsysApiClient)."
+    },
+    {
+      "file": "test/_support/test_di.dart",
+      "snippet": [
+        "Future<void> configureDependenciesForTests() async {",
+        "  await GetStorage.init();",
+        "  await configureDependencies(Environment.test);",
+        "  assert(GetIt.I.isRegistered<AuthUseCase>());",
+        "}"
+      ]
+    }
+  ],
+  "project_wide_replacements": [
+    "Replace any 'final sl = GetIt.instance();' with 'final sl = GetIt.instance;'",
+    "Replace all direct 'GetIt.instance' usages in app code with the shared 'getIt' from injection.dart."
+  ],
+  "validation": [
+    "flutter pub get",
+    "dart run build_runner build --delete-conflicting-outputs",
+    "dart run tool/import_enforcer.dart → OK",
+    "dart analyze → 0 errors (warnings OK)",
+    "flutter test --no-pub test → PASS",
+    "Manual boot: app launches without 'AuthUseCase not registered' error"
+  ],
+  "acceptance": [
+    "AuthUseCase resolves in app and tests",
+    "Single GetIt container used throughout (no stray GetIt.instance() copies)",
+    "No UI/behavior changes; pins unchanged"
+  ],
+  "notes": [
+    "If any other new use-cases were introduced recently (MessageContentUseCase, FirstRunUseCase), confirm they’re annotated/registered and resolve after configureDependencies().",
+    "Do a full restart after these changes (hot reload won’t re-run DI bootstrap)."
+  ]
+}
+

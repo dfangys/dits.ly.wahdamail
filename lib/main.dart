@@ -15,6 +15,8 @@ import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
 import 'package:wahda_bank/config/api_config.dart';
 import 'package:wahda_bank/shared/di/injection.dart';
 import 'package:injectable/injectable.dart';
+import 'package:get_it/get_it.dart';
+import 'package:wahda_bank/features/auth/application/auth_usecase.dart';
 
 Future main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +44,7 @@ Future main() async {
   await GetStorage.init();
   // Initialize DI container early (get_it + injectable)
   await configureDependencies(env: Environment.dev);
+  assert(GetIt.I.isRegistered<AuthUseCase>(), 'AuthUseCase not registered after DI init');
 
   await NotificationService.instance.setup();
 
