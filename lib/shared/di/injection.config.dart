@@ -95,6 +95,7 @@ import '../../infrastructure/api/mailsys_api_client.dart' as _i605;
 import '../flags/cohort_service.dart' as _i71;
 import '../flags/remote_flags.dart' as _i944;
 import '../telemetry/tracing.dart' as _i704;
+import 'modules/api_module.dart' as _i145;
 
 // initializes the registration of main-scope dependencies inside of GetIt
 _i174.GetIt init(
@@ -113,6 +114,7 @@ _i174.GetIt init(
   final securityModule = _$SecurityModule();
   final notificationsModule = _$NotificationsModule();
   final renderingModule = _$RenderingModule();
+  final apiModule = _$ApiModule();
   gh.lazySingleton<_i52.SyncEventBus>(() => syncModule.provideSyncEventBus());
   gh.lazySingleton<_i450.CircuitBreaker>(
       () => syncModule.provideCircuitBreaker());
@@ -161,6 +163,7 @@ _i174.GetIt init(
   gh.lazySingleton<_i977.FirstRunUseCase>(() => _i977.FirstRunUseCase());
   gh.lazySingleton<_i169.MessageContentUseCase>(
       () => _i169.MessageContentUseCase());
+  gh.lazySingleton<_i605.MailsysApiClient>(() => apiModule.mailsysApiClient());
   gh.lazySingleton<_i366.AuthUseCase>(
       () => _i366.AuthUseCase(gh<_i605.MailsysApiClient>()));
   gh.lazySingleton<_i1018.OutboxRepository>(
@@ -247,3 +250,5 @@ class _$SecurityModule extends _i246.SecurityModule {}
 class _$NotificationsModule extends _i887.NotificationsModule {}
 
 class _$RenderingModule extends _i479.RenderingModule {}
+
+class _$ApiModule extends _i145.ApiModule {}

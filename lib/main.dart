@@ -44,7 +44,9 @@ Future main() async {
   await GetStorage.init();
   // Initialize DI container early (get_it + injectable)
   await configureDependencies(env: Environment.dev);
-  assert(GetIt.I.isRegistered<AuthUseCase>(), 'AuthUseCase not registered after DI init');
+  assert(GetIt.I.isRegistered<MailsysApiClient>(), 'MailsysApiClient not registered');
+  assert(GetIt.I.isRegistered<AuthUseCase>(), 'AuthUseCase not registered');
+  debugPrint('[DI] ready: MailsysApiClient=' + GetIt.I.isRegistered<MailsysApiClient>().toString() + ', AuthUseCase=' + GetIt.I.isRegistered<AuthUseCase>().toString());
 
   await NotificationService.instance.setup();
 
