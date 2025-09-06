@@ -1,0 +1,34 @@
+{
+  "phase": "P31.6e",
+  "title": "Auth token wiring — single TokenStore, post-login save+recheck (no behavior change)",
+  "branch": "feat/p31-6e-auth-token-store-and-recheck",
+  "goal": "After a successful login, persist the token in one canonical store, update in-memory cache, and re-trigger the gated profile fetch. Ensure all readers use the same store.",
+  "changes": [
+    "Add SecureTokenStore @lazySingleton with read()/write()/clear(), memory cache, and a stream.",
+    "AuthUseCase.login(): await tokenStore.write(token); tokenStore.setMemory(token); emit AuthState.authenticated; then trigger profile fetch.",
+    "AuthUseCase.hasValidToken(): check memory cache; if null, read from store and cache it.",
+    "App start bootstrap: await tokenStore.primeFromDisk(); log tokenPresent=true/false once.",
+    "MailsysApiClient interceptor: read token from SecureTokenStore (memory), append Authorization only if present.",
+    "Profile fetch gate: subscribe to AuthState stream; when it transitions to authenticated and tokenPresent=true, call fetchUserProfile exactly once.",
+    "Remove any legacy token writes/reads from GetStorage/SharedPref under old keys or ensure they delegate to SecureTokenStore."
+  ],
+  "diagnostics": [
+    "Log after login: \"[Auth] login: token len=<n>\" (don’t log token value).",
+    "Log on boot: \"[Auth] primeFromDisk: tokenPresent=<bool>\".",
+    "Log before profile: \"[Auth] fetchUserProfile gate: tokenPresent=<bool>\"."
+  ],
+  "validation": [
+    "Cold start: goes to Welcome/Auth with no 401s.",
+    "Login: logs token len > 0, then profile fetch runs (no gate block).",
+    "Re-launch: tokenPresent=true at boot, profile may fetch on entering home.",
+    "dart run tool/import_enforcer.dart → OK",
+    "dart analyze → 0 errors (warnings OK)",
+    "flutter test --no-pub test → PASS"
+  ],
+  "acceptance": [
+    "Single TokenStore used across AuthUseCase and MailsysApiClient.",
+    "After login, tokenPresent=true and /api/user is called once.",
+    "No UI/behavior change beyond fixing the gate."
+  ]
+}
+

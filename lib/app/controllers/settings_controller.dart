@@ -1,11 +1,12 @@
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'dart:async';
 
 import 'package:wahda_bank/features/settings/presentation/data/swap_data.dart';
 import '../../services/security_service.dart';
 import 'package:wahda_bank/infrastructure/api/mailsys_api_client.dart';
 import 'package:get_it/get_it.dart';
-import 'package:wahda_bank/features/auth/application/auth_usecase.dart';
+import 'package:wahda_bank/shared/auth/secure_token_store.dart';
 
 class SettingController extends GetxController {
   final language = 'en'.obs;
@@ -80,11 +81,25 @@ class SettingController extends GetxController {
     super.onInit();
   }
 
+  StreamSubscription<String?>? _tokenSub;
+  bool _profileFetchedOnce = false;
+
   @override
   void onReady() {
     super.onReady();
     // Fetch profile from API (ignoring errors silently here)
     fetchUserProfile();
+    // Re-trigger exactly once after token appears
+    try {
+      final store = GetIt.I<SecureTokenStore>();
+      _tokenSub = store.stream.listen((tok) {
+        final present = tok != null && tok.isNotEmpty;
+        if (present && !_profileFetchedOnce) {
+          _profileFetchedOnce = true;
+          fetchUserProfile();
+        }
+      });
+    } catch (_) {}
   }
 
   // Flutter Storage for local settings
@@ -160,7 +175,8 @@ class SettingController extends GetxController {
 Future<void> fetchUserProfile() async {
     try {
       // Gate unauthenticated calls (no behavior change): skip until token exists
-      final hasToken = GetIt.I<AuthUseCase>().hasValidToken();
+      final store = GetIt.I<SecureTokenStore>();
+      final hasToken = store.current != null && store.current!.isNotEmpty;
       if (Get.isLogEnable) {
         // Avoid secrets; only log presence
         // ignore: avoid_print
@@ -228,5 +244,10 @@ Future<void> fetchUserProfile() async {
     } finally {
       twoFactorUpdating.value = false;
     }
+  }
+  @override
+  void onClose() {
+    try { _tokenSub?.cancel(); } catch (_) {}
+    super.onClose();
   }
 }

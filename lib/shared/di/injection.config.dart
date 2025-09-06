@@ -93,6 +93,7 @@ import '../../features/sync/infrastructure/di/sync_module.dart' as _i958;
 import '../../features/sync/infrastructure/sync_scheduler.dart' as _i505;
 import '../../features/sync/infrastructure/sync_service.dart' as _i706;
 import '../../infrastructure/api/mailsys_api_client.dart' as _i605;
+import '../auth/secure_token_store.dart' as _i268;
 import '../config/app_config.dart' as _i650;
 import '../flags/cohort_service.dart' as _i71;
 import '../flags/remote_flags.dart' as _i944;
@@ -168,6 +169,7 @@ _i174.GetIt init(
       () => _i169.MessageContentUseCase());
   gh.lazySingleton<_i650.AppConfig>(() => configModule.appConfig());
   gh.lazySingleton<_i161.MailCountUseCase>(() => _i161.MailCountUseCase());
+  gh.lazySingleton<_i268.SecureTokenStore>(() => _i268.SecureTokenStore());
   gh.lazySingleton<_i77.MailboxViewModel>(
       () => _i77.MailboxViewModel(gh<_i161.MailCountUseCase>()));
   gh.lazySingleton<_i1018.OutboxRepository>(
@@ -240,10 +242,12 @@ _i174.GetIt init(
         gh<_i569.ImapGateway>(),
         gh<_i898.MessageRepository>(),
       ));
-  gh.lazySingleton<_i366.AuthUseCase>(
-      () => _i366.AuthUseCase(gh<_i605.MailsysApiClient>()));
   gh.lazySingleton<_i505.SyncScheduler>(
       () => syncModule.provideSyncScheduler(gh<_i706.SyncService>()));
+  gh.lazySingleton<_i366.AuthUseCase>(() => _i366.AuthUseCase(
+        gh<_i605.MailsysApiClient>(),
+        gh<_i268.SecureTokenStore>(),
+      ));
   return getIt;
 }
 

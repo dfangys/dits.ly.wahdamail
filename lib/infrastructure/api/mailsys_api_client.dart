@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:get_it/get_it.dart';
+import 'package:wahda_bank/shared/auth/secure_token_store.dart';
 
 /// MailSys Enterprise API client
 ///
@@ -29,23 +31,19 @@ class MailsysApiClient extends GetConnect {
         (savedBaseUrl?.isNotEmpty == true) ? savedBaseUrl! : ApiConfig.baseUrl;
     httpClient.timeout = const Duration(seconds: 60);
 
-    // Load app token from storage or from dart-define for pre-auth usage
-    _appToken = _storage.read<String>(_storageKeyAppToken);
-    if (_appToken == null || _appToken!.isEmpty) {
-      if (ApiConfig.appToken.isNotEmpty) {
-        _appToken = ApiConfig.appToken;
-        _storage.write(_storageKeyAppToken, _appToken);
-      }
-    }
+    // App token is available for pre-auth endpoints; not used for Authorization header
+    _appToken = _storage.read<String>(_storageKeyAppToken) ?? ApiConfig.appToken;
 
     httpClient.addRequestModifier<Object?>((request) {
       request.headers['Accept'] = 'application/json';
       request.headers['Content-Type'] = 'application/json';
-      final userToken = _storage.read<String>(_storageKeyToken);
-      // Inject Authorization only when a user token exists. Do NOT fall back to app token here.
-      if (userToken != null && userToken.isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer $userToken';
-      }
+      // Attach Authorization only when a user token exists in SecureTokenStore
+      try {
+        final tok = GetIt.I<SecureTokenStore>().current;
+        if (tok != null && tok.isNotEmpty) {
+          request.headers['Authorization'] = 'Bearer $tok';
+        }
+      } catch (_) {}
       return request;
     });
     super.onInit();
@@ -70,7 +68,11 @@ class MailsysApiClient extends GetConnect {
 
   /// Clear stored token (used on logout or session expiry)
   Future<void> clearToken() async {
-    await _storage.remove(_storageKeyToken);
+    try {
+      await GetIt.I<SecureTokenStore>().clear();
+    } catch (_) {
+      await _storage.remove(_storageKeyToken);
+    }
   }
 
   // -------------------------------
@@ -85,11 +87,17 @@ class MailsysApiClient extends GetConnect {
       'password': password,
     });
     final body = _parse(res);
-    // If token present, store it
-    final token = body['data']?['token'] as String?;
-    if (token != null && token.isNotEmpty) {
-      await _storage.write(_storageKeyToken, token);
-    }
+    // If token present, store it in SecureTokenStore
+    try {
+      final token = body['data']?['token'] as String?;
+      if (token != null && token.isNotEmpty) {
+        await GetIt.I<SecureTokenStore>().write(token);
+        if (kDebugMode) {
+          // ignore: avoid_print
+          print('[Auth] login: token len=${token.length}');
+        }
+      }
+    } catch (_) {}
     return body as Map<String, dynamic>;
   }
 
@@ -98,10 +106,16 @@ class MailsysApiClient extends GetConnect {
   Future<Map<String, dynamic>> verifyOtp(String email, String otp) async {
     final res = await post('/api/verify-otp', {'email': email, 'otp': otp});
     final body = _parse(res);
-    final token = body['data']?['token'] as String?;
-    if (token != null && token.isNotEmpty) {
-      await _storage.write(_storageKeyToken, token);
-    }
+    try {
+      final token = body['data']?['token'] as String?;
+      if (token != null && token.isNotEmpty) {
+        await GetIt.I<SecureTokenStore>().write(token);
+        if (kDebugMode) {
+          // ignore: avoid_print
+          print('[Auth] login: token len=${token.length}');
+        }
+      }
+    } catch (_) {}
     return body as Map<String, dynamic>;
   }
 
@@ -120,7 +134,8 @@ class MailsysApiClient extends GetConnect {
   /// GET /api/user
   Future<Map<String, dynamic>> getUserProfile() async {
     // Guard: do not fire when token is absent (pre-login)
-    final hasToken = _storage.read<String>(_storageKeyToken)?.isNotEmpty == true;
+    bool hasToken = false;
+    try { hasToken = GetIt.I<SecureTokenStore>().current?.isNotEmpty == true; } catch (_) {}
     if (kDebugMode) {
       // ignore: avoid_print
       print('[Auth] calling /api/user (tokenPresent=$hasToken)');

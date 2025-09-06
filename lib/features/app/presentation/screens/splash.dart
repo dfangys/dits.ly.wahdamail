@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:get_it/get_it.dart';
+import 'package:wahda_bank/shared/auth/secure_token_store.dart';
 import 'package:wahda_bank/features/auth/presentation/screens/login/login.dart';
 import 'package:wahda_bank/features/app/presentation/screens/first_loading_view.dart';
 import 'package:wahda_bank/features/app/presentation/screens/welcome/welcome.dart';
@@ -58,15 +60,15 @@ class _SplashScreenState extends State<SplashScreen>
       final hasEmail = storage.read('email') != null;
       final hasPassword = storage.read('password') != null;
       final hasOtpGate = storage.read('otp') != null;
-      final hasUserToken = storage.read('mailsys_token') != null;
+      final tokenStorePresent = (GetIt.I<SecureTokenStore>().current != null);
 
       // If a new MailSys token exists, maintain legacy gate for navigation during migration
-      if (hasUserToken && !hasOtpGate) {
+      if (tokenStorePresent && !hasOtpGate) {
         await storage.write('otp', true);
       }
 
       if (hasEmail && hasPassword) {
-        if (storage.read('otp') != null || hasUserToken) {
+        if (storage.read('otp') != null || tokenStorePresent) {
           Get.offAll(() => const LoadingFirstView());
         } else {
           Get.offAll(() => const LoginScreen());
